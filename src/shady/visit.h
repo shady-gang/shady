@@ -8,8 +8,8 @@ typedef void (*VisitNodeFn)(Visitor*, const Node*);
 typedef void (*VisitOpFn)(Visitor*, NodeClass, String, const Node*);
 
 struct Visitor_ {
-   VisitNodeFn visit_node_fn;
-   VisitOpFn visit_op_fn;
+    VisitNodeFn visit_node_fn;
+    VisitOpFn visit_op_fn;
 };
 
 void visit_node_operands(Visitor*, NodeClass exclude, const Node*);

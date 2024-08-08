@@ -52,15 +52,6 @@ Rewriter create_importer(Module* src, Module* dst) {
     return create_node_rewriter(src, dst, recreate_node_identity);
 }
 
-Module* rebuild_module(Module* src) {
-    IrArena* a = get_module_arena(src);
-    Module* dst = new_module(a, get_module_name(src));
-    Rewriter r = create_importer(src, dst);
-    rewrite_module(&r);
-    destroy_rewriter(&r);
-    return dst;
-}
-
 Rewriter create_children_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
     r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
@@ -225,10 +216,6 @@ void register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
     assert(old.count == new.count);
     for (size_t i = 0; i < old.count; i++)
         register_processed(rewriter, old.nodes[i], new.nodes[i]);
-}
-
-void clear_processed_non_decls(Rewriter* rewriter) {
-    clear_dict(rewriter->map);
 }
 
 KeyHash hash_node(Node**);

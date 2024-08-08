@@ -84,6 +84,7 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
 }
 
 static const Node* get_node_address(Context* ctx, const Node* node);
+
 static const Node* get_node_address_safe(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -127,8 +128,7 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
 
 static const Node* get_node_address(Context* ctx, const Node* node) {
     const Node* got = get_node_address_safe(ctx, node);
-    if (!got)
-        error("This doesn't really look like a place expression...")
+    if (!got) error("This doesn't really look like a place expression...")
     return got;
 }
 
@@ -149,7 +149,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, const Node* node) {
             const Node* alloca = stack_alloc(a, (StackAlloc) { .type = rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
             const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
             set_value_name(ptr, names.strings[i]);
-            bind_instruction_outputs_count(bb, store(a, (Store) {ptr, results.nodes[0]}), 0);
+            bind_instruction_outputs_count(bb, store(a, (Store) { ptr, results.nodes[0] }), 0);
 
             add_binding(ctx, true, name, ptr);
             log_string(DEBUGV, "Bound mutable variable '%s'\n", name);

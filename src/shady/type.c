@@ -172,10 +172,8 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
         case AsInput:
         case AsOutput:
         case AsFunction:
-        case AsPrivate:
-            return !arena->config.is_simt;
-        default:
-            return true;
+        case AsPrivate: return !arena->config.is_simt;
+        default: return true;
     }
 }
 
@@ -193,25 +191,22 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_MaskType_TAG: return "mask_t";
         case Type_JoinPointType_TAG: return "join_type_t";
         case Type_NoRet_TAG: return "no_ret";
-        case Type_Int_TAG:
+        case Type_Int_TAG: {
             if (t->payload.int_type.is_signed)
-                return format_string_arena(arena->arena, "i%s", ((String[]) {"8", "16", "32", "64" })[t->payload.int_type.width]);
+                return format_string_arena(arena->arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
             else
-                return format_string_arena(arena->arena, "u%s", ((String[]) {"8", "16", "32", "64" })[t->payload.int_type.width]);
-        case Type_Float_TAG:
-            return format_string_arena(arena->arena, "f%s", ((String[]) {"16", "32", "64" })[t->payload.float_type.width]);
+                return format_string_arena(arena->arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+        }
+        case Type_Float_TAG: return format_string_arena(arena->arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        default:
-            break;
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
+        default: break;
     }
     return unique_name(arena, node_tags[t->tag]);
 }
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type* type) {
-    //if (type->tag == RecordType_TAG && type->payload.record_type.special == MultipleReturn)
-    //    return true;
     if (type->tag != QualifiedType_TAG)
         return false;
     return is_data_type(get_unqualified_type(type));
@@ -967,7 +962,6 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
         assert(if_instr.if_false);
 
     check_arguments_types_against_parameters_helper(get_param_types(arena, get_abstraction_params(if_instr.tail)), add_qualifiers(arena, if_instr.yield_types, false));
-    //return wrap_multiple_yield_types(arena, add_qualifiers(arena, if_instr.yield_types, false));
     return noret_type(arena);
 }
 

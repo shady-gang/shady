@@ -46,8 +46,6 @@ Rewriter create_rewriter_base(Module* src, Module* dst);
 Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter create_importer(Module* src, Module* dst);
-Module* rebuild_module(Module*);
-Rewriter create_substituter(Module* arena);
 
 Rewriter create_children_rewriter(Rewriter* parent);
 void destroy_rewriter(Rewriter*);
@@ -74,7 +72,6 @@ const Node* search_processed(const Rewriter*, const Node*);
 const Node* find_processed(const Rewriter*, const Node*);
 void register_processed(Rewriter*, const Node*, const Node*);
 void register_processed_list(Rewriter*, Nodes, Nodes);
-void clear_processed_non_decls(Rewriter*);
 
 void dump_rewriter_map(Rewriter*);
 

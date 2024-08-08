@@ -13,7 +13,7 @@ void visit_node(Visitor* visitor, const Node* node) {
 
 void visit_nodes(Visitor* visitor, Nodes nodes) {
     for (size_t i = 0; i < nodes.count; i++) {
-         visit_node(visitor, nodes.nodes[i]);
+        visit_node(visitor, nodes.nodes[i]);
     }
 }
 

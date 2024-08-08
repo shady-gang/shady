@@ -88,7 +88,7 @@ Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
     return nodes;
 }
 
-Strings strings(IrArena* arena, size_t count, const char* in_strs[])  {
+Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
     Strings tmp = {
         .count = count,
         .strings = in_strs,
@@ -207,7 +207,10 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
 
 void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
 
-typedef struct { IrArena* a; const char** result; } InternInArenaPayload;
+typedef struct {
+    IrArena* a;
+    const char** result;
+} InternInArenaPayload;
 
 static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
     const char* interned = string_impl(uptr->a, len, tmp);
@@ -219,7 +222,7 @@ String format_string_interned(IrArena* arena, const char* str, ...) {
     InternInArenaPayload p = { .a = arena, .result = &result };
     va_list args;
     va_start(args, str);
-    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) intern_in_arena);
+    format_string_internal(str, args, &p, (void (*)(void*, size_t, char*)) intern_in_arena);
     va_end(args);
     return result;
 }

@@ -18,7 +18,7 @@ typedef struct {
 static size_t count_calls(const UsesMap* map, const Node* bb) {
     size_t count = 0;
     const Use* use = get_first_use(map, bb);
-    for (;use; use = use->next_use) {
+    for (; use; use = use->next_use) {
         if (use->user->tag == Jump_TAG) {
             const Use* jump_use = get_first_use(map, use->user);
             for (; jump_use; jump_use = jump_use->next_use) {
@@ -90,7 +90,7 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     *m = new_module(a, get_module_name(*m));
     bool todo = false;
     Context ctx = { .todo = &todo };
-    ctx.rewriter = create_node_rewriter(src, *m, (RewriteNodeFn) process),
+    ctx.rewriter = create_node_rewriter(src, *m, (RewriteNodeFn) process);
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     return todo;

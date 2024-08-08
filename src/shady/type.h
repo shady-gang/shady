@@ -69,7 +69,6 @@ size_t deconstruct_maybe_packed_type(const Type**);
 
 // Pointer type helpers
 const Type* get_pointer_type_element(const Type*);
-AddressSpace get_pointer_type_address_space(const Type*);
 AddressSpace deconstruct_pointer_type(const Type**);
 
 // Nominal type helpers

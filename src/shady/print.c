@@ -1139,7 +1139,7 @@ static void print_mem(PrinterCtx* ctx, const Node* mem) {
         case Mem_MemAndValue_TAG: return print_mem(ctx, mem->payload.mem_and_value.mem);
         default: {
             assert(is_instruction(mem));
-            visit_node_operands(&pv, 0, mem);
+            visit_node_operands((Visitor*) &pv, 0, mem);
             return;
         }
     }
@@ -1165,8 +1165,6 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op) 
 void print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
     print_operand_name_helper(ctx, name);
     print_operand_helper(ctx, op_class, op);
-    // print(p, " '%s': ", name);
-    // print_node(p, op, config);
 }
 
 void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {
@@ -1178,24 +1176,6 @@ void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeCl
             print(ctx->printer, ", ");
     }
     print(ctx->printer, "]");
-}
-
-void print_node_operand_const_Node_(PrinterCtx* ctx, const Node* n, String name, const Node* op) {
-    print_operand_name_helper(ctx, name);
-    print_operand_helper(ctx, 0, op);
-}
-
-void print_node_operand_Nodes_(PrinterCtx* ctx, const Node* n, String name, Nodes* op) {
-    if (op) {
-        print_node_operand_list(ctx, n, name, 0, *op);
-    } else {
-        print_operand_name_helper(ctx, name);
-        print(ctx->printer, "null");
-    }
-}
-
-void print_node_operand_Nodes(PrinterCtx* ctx, const Node* n, String name, Nodes op) {
-    print_node_operand_list(ctx, n, name, 0, op);
 }
 
 void print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
@@ -1265,11 +1245,6 @@ void print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, bool b
         print(ctx->printer, "true");
     else
         print(ctx->printer, "false");
-}
-
-void print_node_operand_unsigned(PrinterCtx* ctx, const Node* n, String name, unsigned u) {
-    print_operand_name_helper(ctx, name);
-    print(ctx->printer, "%u", u);
 }
 
 #include "print_generated.c"

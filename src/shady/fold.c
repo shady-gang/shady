@@ -100,11 +100,11 @@ break;
                     if (all_int_literals) {
                         uint64_t old_value = get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);
                         uint64_t value = old_value & bitmask;
-                        return quote_single(arena, int_literal(arena, (IntLiteral) {.is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value}));
+                        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
                     } else if (all_float_literals) {
                         double old_value = get_float_literal_value(*float_literals[0]);
                         int64_t value = old_value;
-                        return quote_single(arena, int_literal(arena, (IntLiteral) {.is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value}));
+                        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
                     }
                 } else if (dst_t->tag == Float_TAG) {
                     if (all_int_literals) {
@@ -142,7 +142,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
                 return quote_single(arena, payload.operands.nodes[0]);
             // if first operand is zero, invert the second one
             if (is_zero(payload.operands.nodes[0]))
-                return prim_op(arena, (PrimOp) {.op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena)});
+                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = singleton(payload.operands.nodes[1]), .type_arguments = empty(arena) });
             break;
         }
         case mul_op: {

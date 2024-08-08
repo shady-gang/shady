@@ -5,11 +5,6 @@
 
 #include <assert.h>
 
-bool is_arrow_type(const Node* node) {
-    NodeTag tag = node->tag;
-    return tag == FnType_TAG || tag == BBType_TAG || tag == LamType_TAG;
-}
-
 const Type* get_pointee_type(IrArena* arena, const Type* type) {
     bool qualified = false, uniform = false;
     if (is_value_type(type)) {
@@ -20,8 +15,6 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
     assert(type->tag == PtrType_TAG);
     uniform &= is_addr_space_uniform(arena, type->payload.ptr_type.address_space);
     type = type->payload.ptr_type.pointed_type;
-    // while (type->tag == ArrType_TAG && !type->payload.arr_type.size)
-    //     type = type->payload.arr_type.element_type;
 
     if (qualified)
         type = qualified_type(arena, (QualifiedType) {
@@ -196,11 +189,6 @@ const Type* get_pointer_type_element(const Type* type) {
     return t;
 }
 
-AddressSpace get_pointer_type_address_space(const Type* type) {
-    const Type* t = type;
-    return deconstruct_pointer_type(&t);
-}
-
 AddressSpace deconstruct_pointer_type(const Type** type) {
     const Type* t = *type;
     assert(t->tag == PtrType_TAG);
@@ -263,7 +251,7 @@ Nodes get_composite_type_element_types(const Type* type) {
 
 const Node* get_fill_type_element_type(const Type* composite_t) {
     switch (composite_t->tag) {
-        case ArrType_TAG:  return composite_t->payload.arr_type.element_type;
+        case ArrType_TAG: return composite_t->payload.arr_type.element_type;
         case PackType_TAG: return composite_t->payload.pack_type.element_type;
         default: error("fill values need to be either array or pack types")
     }
@@ -271,7 +259,7 @@ const Node* get_fill_type_element_type(const Type* composite_t) {
 
 const Node* get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
-        case ArrType_TAG:  return composite_t->payload.arr_type.size;
+        case ArrType_TAG: return composite_t->payload.arr_type.size;
         case PackType_TAG: return int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
         default: error("fill values need to be either array or pack types")
     }
