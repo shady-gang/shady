@@ -202,6 +202,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Load_TAG: {
             Load payload = old->payload.load;
+            rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
                 const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
@@ -219,6 +220,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Store_TAG: {
             Store payload = old->payload.store;
+            rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
                 const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
