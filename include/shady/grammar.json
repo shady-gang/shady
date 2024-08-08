@@ -477,9 +477,9 @@
       "name": "Jump",
       "class": ["terminator", "jump"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "target", "class": "basic_block" },
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -700,16 +700,6 @@
         { "name": "set", "class": "string" },
         { "name": "opcode", "type": "uint32_t" },
         { "name": "operands", "type": "Nodes" }
-      ]
-    },
-    {
-      "name": "UnboundBBs",
-      "description": "A node together with unbound basic blocks it dominates, obtained by parsing a file",
-      "type": false,
-      "front-end-only": true,
-      "ops": [
-        { "name": "body", "class": "terminator" },
-        { "name": "children_blocks", "class": "basic_block", "list": true }
       ]
     }
   ]

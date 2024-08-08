@@ -238,40 +238,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(!entry.is_var);
             return entry.node;
         }
-        case UnboundBBs_TAG: {
-            Nodes unbound_blocks = node->payload.unbound_bbs.children_blocks;
-            LARRAY(Node*, new_bbs, unbound_blocks.count);
-
-            // First create stubs
-            for (size_t i = 0; i < unbound_blocks.count; i++) {
-                const Node* old_bb = unbound_blocks.nodes[i];
-                assert(is_basic_block(old_bb));
-                Nodes new_bb_params = recreate_params(&ctx->rewriter, old_bb->payload.basic_block.params);
-                Node* new_bb = basic_block(a, new_bb_params, old_bb->payload.basic_block.name);
-                new_bbs[i] = new_bb;
-                add_binding(ctx, false, old_bb->payload.basic_block.name, new_bb);
-                register_processed(&ctx->rewriter, old_bb, new_bb);
-                debugv_print("Bound (stub) basic block %s\n", old_bb->payload.basic_block.name);
-            }
-
-            const Node* bound_body = rewrite_node(&ctx->rewriter, node->payload.unbound_bbs.body);
-
-            // Rebuild the basic blocks now
-            for (size_t i = 0; i < unbound_blocks.count; i++) {
-                const Node* old_bb = unbound_blocks.nodes[i];
-                Node* new_bb = new_bbs[i];
-
-                Context bb_ctx = *ctx;
-                Nodes new_bb_params = get_abstraction_params(new_bb);
-                for (size_t j = 0; j < new_bb_params.count; j++)
-                    add_binding(&bb_ctx, false, new_bb->payload.basic_block.params.nodes[j]->payload.param.name, new_bb_params.nodes[j]);
-
-                set_abstraction_body(new_bb, rewrite_node(&bb_ctx.rewriter, old_bb->payload.basic_block.body));
-                debugv_print("Bound basic block %s\n", new_bb->payload.basic_block.name);
-            }
-
-            return bound_body;
-        }
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);

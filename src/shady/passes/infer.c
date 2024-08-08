@@ -290,7 +290,8 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
 }
 
 static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg_type) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     assert(inferred_arg_type.count == node->payload.basic_block.params.count || node->payload.basic_block.params.count == 0);
 
     Context body_context = *ctx;
@@ -314,6 +315,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
     }
 
     Node* new_case = basic_block(a, nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
+    register_processed(r, node, new_case);
     set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
 }
@@ -461,7 +463,8 @@ static const Node* infer_if(Context* ctx, const Node* node) {
         .if_true = true_body,
         .if_false = false_body,
         //.tail = infer_case(ctx, node->payload.if_instr.tail, expected_join_types)
-        .tail = infer(ctx, node->payload.if_instr.tail, NULL)
+        .tail = infer(ctx, node->payload.if_instr.tail, NULL),
+        .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
 }
 

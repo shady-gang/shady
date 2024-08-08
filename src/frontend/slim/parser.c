@@ -738,8 +738,17 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names);
-Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names);
+const Node* bind_identifiers(IrArena* arena, const Node* instruction, const Node* mem, bool mut, Strings names, Nodes types);
+
+void parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, true, output_names, provided_types);
+    bind_instruction_outputs_count(bb, let_mut_instr, 0);
+}
+
+void parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
+    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, false, output_names, empty(bb->arena));
+    bind_instruction_outputs_count(bb, let_mut_instr, 0);
+}
 
 static bool accept_statement(ctxparams, BodyBuilder* bb) {
     Strings ids;
@@ -767,7 +776,7 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     expect(target);
     Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
     return jump(arena, (Jump) {
-        .target = unbound(arena, (Unbound) { .name = target }),
+        .target = unbound(arena, (Unbound) { .name = target, .mem = bb_mem(bb) }),
         .args = args,
         .mem = bb_mem(bb)
     });
@@ -890,7 +899,8 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
 
 static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*)) {
     expect(accept_token(ctx, lbracket_tok));
-    BodyBuilder* bb = begin_body_with_mem(arena, mem);
+    Node* c = case_(arena, empty(arena));
+    BodyBuilder* bb = begin_body_with_mem(arena, get_abstraction_mem(c));
 
     while (true) {
         if (!accept_statement(ctx, bb))
@@ -909,8 +919,11 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             error("expected terminator: return, jump, branch ...");
     }
 
+    set_abstraction_body(c, finish_body(bb, terminator));
+
+    BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, mem);
+
     if (curr_token(tokenizer).tag == cont_tok) {
-        struct List* conts = new_list(Node*);
         while (true) {
             if (!accept_token(ctx, cont_tok))
                 break;
@@ -920,16 +933,13 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             expect_parameters(ctx, &parameters, NULL, bb);
             Node* continuation = basic_block(arena, parameters, name);
             set_abstraction_body(continuation, expect_body(ctx, get_abstraction_mem(continuation), NULL));
-            append_list(Node*, conts, continuation);
+            bind_instruction_single(cont_wrapper_bb, bind_identifiers(arena, continuation, bb_mem(cont_wrapper_bb), false, strings(arena, 1, &name), empty(arena)));
         }
-
-        terminator = unbound_bbs(arena, (UnboundBBs) { .body = terminator, .children_blocks = nodes(arena, entries_count_list(conts), read_list(const Node*, conts)) });
-        destroy_list(conts);
     }
 
     expect(accept_token(ctx, rbracket_tok));
 
-    return finish_body(bb, terminator);
+    return finish_body(cont_wrapper_bb, jump_helper(arena, c, empty(arena), bb_mem(cont_wrapper_bb)));
 }
 
 static Nodes accept_annotations(ctxparams) {

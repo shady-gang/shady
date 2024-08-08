@@ -70,6 +70,7 @@ const Node* process(Context* ctx, const Node* old) {
                 // it's been inlined away! just steal the body
                 Nodes nargs = rewrite_nodes(r, old->payload.jump.args);
                 register_processed_list(r, get_abstraction_params(otarget), nargs);
+                register_processed(r, get_abstraction_mem(otarget), rewrite_node(r, old->payload.jump.mem));
                 return rewrite_node(r, get_abstraction_body(otarget));
             }
             break;

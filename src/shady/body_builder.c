@@ -81,18 +81,6 @@ Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String co
     return bind_internal(bb, instruction, singleton(instruction->type).count);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, const Node* mem, bool mut, Strings names, Nodes types);
-
-Nodes parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, true, output_names, provided_types);
-    return bind_internal(bb, let_mut_instr, 0);
-}
-
-Nodes parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, false, output_names, empty(bb->arena));
-    return bind_internal(bb, let_mut_instr, 0);
-}
-
 Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     return bind_internal(bb, instruction, outputs_count);
 }
@@ -102,37 +90,27 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
     size_t stack_size = entries_count_list(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
         StackEntry entry = read_list(StackEntry, bb->stack)[i];
+        const Node* t2 = terminator;
         switch (entry.structured.tag) {
             case NotAStructured_construct: error("")
             case Structured_construct_If_TAG: {
-                Node* tail = basic_block(bb->arena, entry.vars, NULL);
-                set_abstraction_body(tail, terminator);
-                entry.structured.payload.if_instr.tail = tail;
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
             }
             case Structured_construct_Match_TAG: {
-                Node* tail = basic_block(bb->arena, entry.vars, NULL);
-                set_abstraction_body(tail, terminator);
-                entry.structured.payload.match_instr.tail = tail;
                 terminator = match_instr(a, entry.structured.payload.match_instr);
                 break;
             }
             case Structured_construct_Loop_TAG: {
-                Node* tail = basic_block(bb->arena, entry.vars, NULL);
-                set_abstraction_body(tail, terminator);
-                entry.structured.payload.loop_instr.tail = tail;
                 terminator = loop_instr(a, entry.structured.payload.loop_instr);
                 break;
             }
             case Structured_construct_Control_TAG: {
-                Node* tail = basic_block(bb->arena, entry.vars, NULL);
-                set_abstraction_body(tail, terminator);
-                entry.structured.payload.control.tail = tail;
                 terminator = control(a, entry.structured.payload.control);
                 break;
             }
         }
+        set_abstraction_body((Node*) get_structured_construct_tail(terminator), t2);
     }
     return terminator;
 }
@@ -197,6 +175,7 @@ static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
 }
 
 Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
+    Node* tail = basic_block(bb->arena, params, NULL);
     StackEntry entry = {
         .structured = {
             .tag = tag,
@@ -204,6 +183,30 @@ Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constru
         },
         .vars = params,
     };
+    switch (entry.structured.tag) {
+        case NotAStructured_construct: error("")
+        case Structured_construct_If_TAG: {
+            entry.structured.payload.if_instr.tail = tail;
+            entry.structured.payload.if_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Match_TAG: {
+            entry.structured.payload.match_instr.tail = tail;
+            entry.structured.payload.match_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Loop_TAG: {
+            entry.structured.payload.loop_instr.tail = tail;
+            entry.structured.payload.loop_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Control_TAG: {
+            entry.structured.payload.control.tail = tail;
+            entry.structured.payload.control.mem = bb_mem(bb);
+            break;
+        }
+    }
+    bb->mem = get_abstraction_mem(tail);
     append_list(StackEntry , bb->stack, entry);
     return entry.vars;
 }

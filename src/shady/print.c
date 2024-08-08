@@ -269,8 +269,8 @@ static void print_dominated_bbs(PrinterCtx* ctx, const CFNode* dominator) {
     for (size_t i = 0; i < dominator->dominates->elements_count; i++) {
         const CFNode* cfnode = read_list(const CFNode*, dominator->dominates)[i];
         // ignore cases that make up basic structural dominance
-        if (find_key_dict(const Node*, dominator->structurally_dominates, cfnode->node))
-            continue;
+        //if (find_key_dict(const Node*, dominator->structurally_dominates, cfnode->node))
+        //    continue;
         assert(is_basic_block(cfnode->node));
         PrinterCtx bb_ctx = *ctx;
         bb_ctx.printer = bb_ctx.bb_printers[cfnode->rpo_index];
@@ -303,7 +303,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
 
     PrinterCtx sub_ctx = *ctx;
-    if (true || node->arena->config.check_op_classes) {
+    if (node->arena->config.name_bound) {
         CFG* cfg = build_fn_cfg(node);
         sub_ctx.cfg = cfg;
         sub_ctx.scheduler = new_scheduler(cfg);
@@ -1090,10 +1090,6 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf(YELLOW);
         printf("`%s`", node->payload.unbound.name);
         printf(RESET);
-    } else if (node->tag == UnboundBBs_TAG) {
-        print_node(node->payload.unbound_bbs.body);
-        for (size_t i = 0; i < node->payload.unbound_bbs.children_blocks.count; i++)
-            print_basic_block(ctx, node->payload.unbound_bbs.children_blocks.nodes[i]);
     } else if (is_annotation(node)) {
         print_annotation(ctx, node);
         return true;

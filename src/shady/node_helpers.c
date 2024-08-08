@@ -64,8 +64,10 @@ const Node* get_parent_mem(const Node* mem) {
 const Node* get_original_mem(const Node* mem) {
     while (true) {
         const Node* nmem = get_parent_mem(mem);
-        if (nmem != mem)
-            return mem;
+        if (nmem != mem) {
+            mem = nmem;
+            continue;
+        }
         return nmem;
     }
 }
