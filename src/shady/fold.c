@@ -437,3 +437,15 @@ const Node* fold_node(IrArena* arena, const Node* node) {
 
     return node;
 }
+
+const Node* fold_node_operand(NodeTag tag, NodeClass nc, String opname, const Node* op) {
+    if (!op)
+        return NULL;
+    if (op->tag == MemAndValue_TAG) {
+        MemAndValue payload = op->payload.mem_and_value;
+        if (nc == NcMem)
+            return payload.mem;
+        return payload.value;
+    }
+    return op;
+}

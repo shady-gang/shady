@@ -15,6 +15,8 @@ bool compare_nodes(Nodes* a, Nodes* b);
 
 static void pre_construction_validation(IrArena* arena, Node* node);
 
+const Node* fold_node_operand(NodeTag tag, NodeClass, String, const Node* op);
+
 const Type* check_type_generated(IrArena* a, const Node* node);
 
 static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
