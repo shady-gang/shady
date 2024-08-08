@@ -199,7 +199,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             case Unreachable_TAG:
                 return;
             case NotATerminator:
-                if (terminator->arena->config.check_types) {error("Grammar problem"); }
+                error("Grammar problem");
                 return;
         }
         SHADY_UNREACHABLE;
