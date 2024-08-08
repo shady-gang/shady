@@ -32,15 +32,13 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
     return count;
 }
 
-static bool has_side_effects(const Node* instr) {
-    bool side_effects = true;
-    if (instr->tag == PrimOp_TAG)
-        side_effects = has_primop_got_side_effects(instr->payload.prim_op.op);
-    switch (instr->tag) {
-        case Load_TAG: return false;
-        default: break;
+static bool is_used_as_value(const UsesMap* map, const Node* instr) {
+    const Use* use = get_first_use(map, instr);
+    for (; use; use = use->next_use) {
+        if (use->operand_class == NcValue)
+            return true;
     }
-    return side_effects;
+    return false;
 }
 
 const Node* process(Context* ctx, const Node* old) {
@@ -73,6 +71,11 @@ const Node* process(Context* ctx, const Node* old) {
                 register_processed(r, get_abstraction_mem(otarget), rewrite_node(r, old->payload.jump.mem));
                 return rewrite_node(r, get_abstraction_body(otarget));
             }
+            break;
+        }
+        case Load_TAG: {
+            if (!is_used_as_value(ctx->map, old))
+                return rewrite_node(r, old->payload.load.mem);
             break;
         }
         default: break;
