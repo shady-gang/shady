@@ -8,6 +8,7 @@
 #include "dict.h"
 
 #include <assert.h>
+#include <string.h>
 
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);

@@ -433,7 +433,8 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
 
     return call(a, (Call) {
         .callee = new_callee,
-        .args = nodes(a, node->payload.call.args.count, new_args)
+        .args = nodes(a, node->payload.call.args.count, new_args),
+        .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
 }
 
@@ -490,7 +491,8 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
         .initial_args = nodes(a, old_params.count, new_initial_args),
         .body = nbody,
         //.tail = infer_case(ctx, node->payload.loop_instr.tail, qual_yield_types)
-        .tail = infer(ctx, node->payload.loop_instr.tail, NULL)
+        .tail = infer(ctx, node->payload.loop_instr.tail, NULL),
+        .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
 }
 
@@ -517,21 +519,14 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     return control(a, (Control) {
         .yield_types = yield_types,
         .inside = new_case,
-        .tail = infer(ctx, get_structured_construct_tail(node), NULL /*add_qualifiers(a, yield_types, false)*/)
+        .tail = infer(ctx, get_structured_construct_tail(node), NULL /*add_qualifiers(a, yield_types, false)*/),
+        .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
 }
 
 static const Node* infer_instruction(Context* ctx, const Node* node, const Type* expected_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (is_instruction(node)) {
-        case Instruction_PushStack_TAG: {
-            return push_stack(a, (PushStack) { infer(ctx, node->payload.push_stack.value, NULL) });
-        }
-        case Instruction_PopStack_TAG: {
-            const Type* element_type = node->payload.pop_stack.type;
-            assert(is_data_type(element_type));
-            return pop_stack(a, (PopStack) { element_type });
-        }
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_type);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_type);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);

@@ -65,7 +65,7 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
     }
 
     const Node* new = recreate_node_identity(&ctx->rewriter, node);
-    if (class == NcInstruction)
+    if (is_instruction(new))
         register_processed(r, node, new);
     return new;
 }

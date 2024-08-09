@@ -250,7 +250,8 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
                 SpvId local_id;
                 const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
                 // TODO: very hacky indeed
-                emit_instruction(emitter, fn_builder, bb_builder, load(emitter->arena, (Load) { b }), 1, &local_id);
+                // emit_instruction(emitter, fn_builder, bb_builder, load(emitter->arena, (Load) { b }), 1, &local_id);
+                error("reimplement")
                 result = spvb_group_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
             } else {

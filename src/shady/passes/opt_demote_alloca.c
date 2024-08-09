@@ -150,6 +150,8 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
 
+    const Node* nmem = rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem);
+
     AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
     *k = (AllocaInfo) { .type = rewrite_node(r, old_type) };
     assert(ctx->uses);
@@ -233,15 +235,6 @@ static const Node* process(Context* ctx, const Node* old) {
                     gen_store(bb, k.src_alloca->new, data);
                     return yield_values_and_wrap_in_block(bb, empty(a));
                 }
-            }
-            break;
-        }
-        case PrimOp_TAG: {
-            PrimOp payload = old->payload.prim_op;
-            switch (payload.op) {
-
-                default:
-                    break;
             }
             break;
         }
