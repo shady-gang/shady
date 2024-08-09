@@ -108,8 +108,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { ptr, rewrite_node(r, payload.value) }));
-            return store(a, (Store) { .ptr = ptr, .value = rewrite_node(r, payload.value), .mem = rewrite_node(r, payload.mem) });
+            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { ptr, rewrite_node(r, payload.value), .mem = rewrite_node(r, payload.mem) }));
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;

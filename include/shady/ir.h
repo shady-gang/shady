@@ -119,6 +119,12 @@ typedef enum {
     DecorateBlock
 } RecordSpecialFlag;
 
+#ifdef GCC
+#define SHADY_DESIGNATED_INIT __attribute__((designated_init))
+#else
+#define SHADY_DESIGNATED_INIT
+#endif
+
 // see primops.json
 #include "primops_generated.h"
 
