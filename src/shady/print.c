@@ -303,7 +303,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
 
     PrinterCtx sub_ctx = *ctx;
-    if (node->arena->config.name_bound) {
+    if (true || node->arena->config.name_bound) {
         CFG* cfg = build_fn_cfg(node);
         sub_ctx.cfg = cfg;
         sub_ctx.scheduler = new_scheduler(cfg);

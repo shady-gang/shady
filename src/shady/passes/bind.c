@@ -232,10 +232,15 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case Param_TAG: error("the binders should be handled such that this node is never reached");
         case Unbound_TAG: {
+            const Node* mem = NULL;
             if (node->payload.unbound.mem)
-                rewrite_node(r, node->payload.unbound.mem);
+                mem = rewrite_node(r, node->payload.unbound.mem);
             Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
-            assert(!entry.is_var);
+            if (entry.is_var) {
+                return load(a, (Load) { .ptr = entry.node, .mem = mem });
+            } else if (mem) {
+                return mem_and_value(a, (MemAndValue) { .value = entry.node, .mem = mem });
+            }
             return entry.node;
         }
         case BasicBlock_TAG: {

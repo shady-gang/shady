@@ -775,8 +775,10 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
     expect(target);
     Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
+    const Node* tgt = unbound(arena, (Unbound) { .name = target, .mem = bb_mem(bb) });
+    bind_instruction_single(bb, tgt);
     return jump(arena, (Jump) {
-        .target = unbound(arena, (Unbound) { .name = target, .mem = bb_mem(bb) }),
+        .target = tgt,
         .args = args,
         .mem = bb_mem(bb)
     });

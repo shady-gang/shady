@@ -131,7 +131,8 @@ static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, 
 static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) {
     assert(j->tag == Jump_TAG);
     const Node* target = j->payload.jump.target;
-    add_edge(ctx, src, target, JumpEdge);
+    if (target->tag == BasicBlock_TAG)
+        add_edge(ctx, src, target, JumpEdge);
 }
 
 #pragma GCC diagnostic error "-Wswitch"
