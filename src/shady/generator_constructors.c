@@ -35,9 +35,11 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     growy_append_formatted(g, "\t\t{\n");
                     String extra = "";
                     if (list) {
-                        growy_append_formatted(g, "\t\t\tNodes ops = node->payload.%s.%s;\n", snake_name, op_name);
-                        growy_append_formatted(g, "\t\t\tfor (size_t i = 0; i < ops.count; i++) {\n");
-                        growy_append_formatted(g, "\t\t\tconst Node** pop = &ops.nodes[i];\n");
+                        growy_append_formatted(g, "\t\t\tsize_t ops_count = node->payload.%s.%s.count;\n", snake_name, op_name);
+                        growy_append_formatted(g, "\t\t\tLARRAY(const Node*, ops, ops_count);\n");
+                        growy_append_formatted(g, "\t\t\tmemcpy(ops, node->payload.%s.%s.nodes, sizeof(const Node*) * ops_count);\n", snake_name, op_name);
+                        growy_append_formatted(g, "\t\t\tfor (size_t i = 0; i < ops_count; i++) {\n");
+                        growy_append_formatted(g, "\t\t\tconst Node** pop = &ops[i];\n");
                         extra = "\t";
                     }
                     if (!list)
@@ -55,8 +57,10 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     growy_append_formatted(g, "%s\t\t\t\terror_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
                     growy_append_formatted(g, "%s\t\t\t\terror_die();\n", extra);
                     growy_append_formatted(g, "%s\t\t\t}\n", extra);
-                    if (list)
+                    if (list) {
                         growy_append_formatted(g, "\t\t\t}\n");
+                        growy_append_formatted(g, "\t\t\tnode->payload.%s.%s = nodes(arena, ops_count, ops);\n", snake_name, op_name);
+                    }
                     free((void*) cap);
                     growy_append_formatted(g, "\t\t}\n");
                 }
