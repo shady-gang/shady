@@ -84,7 +84,7 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 
 static const Node* make_unreachable_case(IrArena* a) {
     Node* c = case_(a, empty(a));
-    set_abstraction_body(c, unreachable(a, (Unreachable) { get_abstraction_mem(c) }));
+    set_abstraction_body(c, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(c) }));
     return c;
 }
 

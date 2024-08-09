@@ -890,7 +890,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok));
             expect(accept_token(ctx, rpar_tok));
-            return unreachable(arena, (Unreachable) { bb_mem(bb) });
+            return unreachable(arena, (Unreachable) { .mem = bb_mem(bb) });
         }
         default: break;
     }

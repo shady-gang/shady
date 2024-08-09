@@ -119,7 +119,7 @@ typedef enum {
     DecorateBlock
 } RecordSpecialFlag;
 
-#ifdef GCC
+#ifdef __GNUC__
 #define SHADY_DESIGNATED_INIT __attribute__((designated_init))
 #else
 #define SHADY_DESIGNATED_INIT

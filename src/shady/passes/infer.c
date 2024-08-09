@@ -545,10 +545,10 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             const Type* base_datatype = src_ptr;
             assert(base_datatype->tag == PtrType_TAG);
 
-            return lea(a, (Lea) { ptr, offset, indices });
+            return lea(a, (Lea) { .ptr = ptr, .offset = offset, .indices = indices });
         }
         case Instruction_Load_TAG: {
-            return load(a, (Load) { infer(ctx, node->payload.load.ptr, NULL), .mem = infer(ctx, node->payload.load.mem, NULL) });
+            return load(a, (Load) { .ptr = infer(ctx, node->payload.load.ptr, NULL), .mem = infer(ctx, node->payload.load.mem, NULL) });
         }
         case Instruction_Store_TAG: {
             Store payload = node->payload.store;
@@ -558,7 +558,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
             assert(element_t);
             const Node* value = infer(ctx, payload.value, qualified_type_helper(element_t, false));
-            return store(a, (Store) { ptr, value, .mem = infer(ctx, node->payload.store.mem, NULL) });
+            return store(a, (Store) { .ptr = ptr, .value = value, .mem = infer(ctx, node->payload.store.mem, NULL) });
         }
         case Instruction_StackAlloc_TAG: {
             const Type* element_type = node->payload.stack_alloc.type;
@@ -566,10 +566,10 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             assert(is_data_type(element_type));
             return stack_alloc(a, (StackAlloc) { .type = infer_type(ctx, element_type), .mem = infer(ctx, node->payload.stack_alloc.mem, NULL) });
         }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default: break;
         case NotAnInstruction: error("not an instruction");
     }
-    SHADY_UNREACHABLE;
+    return recreate_node_identity(&ctx->rewriter, node);
 }
 
 static const Node* infer_terminator(Context* ctx, const Node* node) {

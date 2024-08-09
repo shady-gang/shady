@@ -161,13 +161,13 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     if (!k->leaks) {
         if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
             ctx->todo |= true;
-            const Node* new = undef(a, (Undef) {.type = get_unqualified_type(rewrite_node(r, old->type))});
+            const Node* new = undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(r, old->type)) });
             k->new = new;
             return new;
         }
         if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
             ctx->todo |= true;
-            const Node* new = local_alloc(a, (LocalAlloc) { rewrite_node(r, old_type), .mem = rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem) });
+            const Node* new = local_alloc(a, (LocalAlloc) { .type = rewrite_node(r, old_type), .mem = nmem });
             k->new = new;
             return new;
         }

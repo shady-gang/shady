@@ -271,7 +271,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
 }
 
 const Node* get_abstraction_mem(const Node* abs) {
-    return abs_mem(abs->arena, (AbsMem) { abs });
+    return abs_mem(abs->arena, (AbsMem) { .abs = abs });
 }
 
 String get_abstraction_name(const Node* abs) {

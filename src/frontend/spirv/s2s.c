@@ -742,13 +742,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { contents_t }), 1));
+                const Node* ptr = first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = bb_mem(parser->current_block.builder) }), 1));
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { ptr, get_def_ssa_value(parser, instruction[4]) }), 1);
+                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = bb_mem(parser->current_block.builder) }), 1);
             } else {
                 Nodes annotations = empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
@@ -786,7 +786,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             if (entry_point_type) {
                 annotations = append_nodes(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
                     .name = "EntryPoint",
-                    .value = string_lit(parser->arena, (StringLiteral) { entry_point_type->payload.str })
+                    .value = string_lit(parser->arena, (StringLiteral) { .string = entry_point_type->payload.str })
                 }));
 
                 SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
@@ -1071,13 +1071,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { src }), 1));
+            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { .ptr = src, .mem = bb_mem(parser->current_block.builder) }), 1));
             break;
         }
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { ptr, value }), 0);
+            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = bb_mem(parser->current_block.builder) }), 0);
             break;
         }
         case SpvOpCopyMemory:

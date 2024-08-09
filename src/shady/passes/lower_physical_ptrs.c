@@ -439,8 +439,9 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         assert(old_decl->tag == GlobalVariable_TAG);
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
-            const Node* old_store = store(oa, (Store) { ref_decl_helper(oa, old_decl), old_init });
-            bind_instruction(bb, rewrite_node(&ctx->rewriter, old_store));
+            error("TODO: reimplement")
+            // const Node* old_store = store(oa, (Store) { .ptr = ref_decl_helper(oa, old_decl), .value = old_init, bb_mem(bb) });
+            // bind_instruction(bb, rewrite_node(&ctx->rewriter, old_store));
         }
     }
 }

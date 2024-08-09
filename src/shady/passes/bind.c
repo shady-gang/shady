@@ -109,7 +109,7 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
                     const Node* index = rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = rewrite_node(r, payload.mem),
-                        .value = lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), singleton(index) }),
+                        .value = lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), .indices = singleton(index) }),
                     });
                 } else if (payload.opcode == SlimOpDereference) {
                     assert(payload.operands.count == 1);
@@ -149,7 +149,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, const Node* node) {
             const Node* alloca = stack_alloc(a, (StackAlloc) { .type = rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
             const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
             set_value_name(ptr, names.strings[i]);
-            bind_instruction_outputs_count(bb, store(a, (Store) { ptr, results.nodes[0] }), 0);
+            bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
 
             add_binding(ctx, true, name, ptr);
             log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
@@ -271,7 +271,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                         const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
                         assert(target_ptr);
                         const Node* value = rewrite_node(r, payload.operands.nodes[1]);
-                        return store(a, (Store) { target_ptr, value, .mem = rewrite_node(r, payload.mem) });
+                        return store(a, (Store) { .ptr = target_ptr, .value = value, .mem = rewrite_node(r, payload.mem) });
                     }
                     case SlimOpAddrOf: {
                         const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);

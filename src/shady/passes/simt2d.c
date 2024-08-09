@@ -41,7 +41,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* type = rewrite_node(&ctx->rewriter, node->payload.local_alloc.type);
             LARRAY(const Node*, allocated, ctx->width);
             for (size_t i = 0; i < ctx->width; i++) {
-                allocated[i] = first(bind_instruction_named(bb, local_alloc(a, (LocalAlloc) { type }), (String[]) {"allocated"}));
+                allocated[i] = first(bind_instruction_named(bb, local_alloc(a, (LocalAlloc) { .type = type, .mem = bb_mem(bb) }), (String[]) {"allocated"}));
             }
             //return yield_values_and_wrap_in_control(bb, singleton(widen(ctx, allocated)));
             const Node* result_type = maybe_packed_type_helper(ptr_type(a, (PtrType) { .address_space = AsFunction, .pointed_type = type }), ctx->width);

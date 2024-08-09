@@ -60,7 +60,7 @@ const Node* gen_get_stack_base_addr(BodyBuilder* bb) {
 }
 
 const Node* gen_get_stack_size(BodyBuilder* bb) {
-    return first(bind_instruction(bb, get_stack_size(bb->arena, (GetStackSize) { bb_mem(bb) })));
+    return first(bind_instruction(bb, get_stack_size(bb->arena, (GetStackSize) { .mem = bb_mem(bb) })));
 }
 
 void gen_set_stack_size(BodyBuilder* bb, const Node* new_size) {
@@ -115,7 +115,7 @@ void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
-    return first(bind_instruction(bb, lea(bb->arena, (Lea) { base, offset, selectors })));
+    return first(bind_instruction(bb, lea(bb->arena, (Lea) { .ptr = base, .offset = offset, .indices = selectors })));
 }
 
 const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {

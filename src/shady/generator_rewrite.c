@@ -38,7 +38,8 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
             growy_append_formatted(g, "\t\t\t%s old_payload = node->payload.%s;\n", name, snake_name);
-            growy_append_formatted(g, "\t\t\t%s payload = { 0 };\n", name, snake_name);
+            growy_append_formatted(g, "\t\t\t%s payload;\n", name);
+            growy_append_formatted(g, "\t\t\tmemset(&payload, 0, sizeof(payload));\n");
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));

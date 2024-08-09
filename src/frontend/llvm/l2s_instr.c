@@ -259,7 +259,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
-            r = first(bind_instruction_outputs_count(b, stack_alloc(a, (StackAlloc) { allocated_t }), 1));
+            r = first(bind_instruction_outputs_count(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = bb_mem(b) }), 1));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
                 r = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), singleton(r)), 1));
@@ -277,7 +277,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), 1));
             }
-            r = load(a, (Load) { ptr });
+            r = load(a, (Load) { .ptr = ptr, .mem = bb_mem(b) });
             break;
         }
         case LLVMStore: {
@@ -291,7 +291,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), 1));
             }
-            r = store(a, (Store) { ptr, ops.nodes[0] });
+            r = store(a, (Store) { .ptr = ptr, .value = ops.nodes[0], .mem = bb_mem(b) });
             break;
         }
         case LLVMGetElementPtr: {
@@ -304,7 +304,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                 ptr = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), 1));
             }
             ops = change_node_at_index(a, ops, 0, ptr);
-            r = lea(a, (Lea) { ops.nodes[0], ops.nodes[1], nodes(a, ops.count - 2, &ops.nodes[2])});
+            r = lea(a, (Lea) { .ptr = ops.nodes[0], .offset = ops.nodes[1], .indices = nodes(a, ops.count - 2, &ops.nodes[2])});
             if (UNTYPED_POINTERS) {
                 const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
@@ -598,7 +598,7 @@ EmittedInstr convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
                         LARRAY(const Node*, processed_ops, ops.count);
                         for (i = 0; i < num_args; i++) {
                             if (decoded[i].is_byval)
-                                processed_ops[i] = first(bind_instruction_outputs_count(b, load(a, (Load) { ops.nodes[i] }), 1));
+                                processed_ops[i] = first(bind_instruction_outputs_count(b, load(a, (Load) { .ptr = ops.nodes[i], .mem = bb_mem(b) }), 1));
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }
