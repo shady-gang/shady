@@ -115,6 +115,8 @@ ExecutionModel execution_model_from_string(const char*);
 
 typedef enum {
     NotSpecial,
+    /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
+    MultipleReturn,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
     DecorateBlock
 } RecordSpecialFlag;
@@ -216,6 +218,8 @@ const Type* noret_type(IrArena*);
 /// Unit type, carries no information (equivalent to C's void)
 /// There is exactly one possible value of this type: ()
 const Node* unit_type(IrArena*);
+/// For typing instructions that return nothing (equivalent to C's void f())
+const Node* empty_multiple_return_type(IrArena*);
 
 const Type* int_type_helper(IrArena*, bool, IntSizes);
 

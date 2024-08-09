@@ -5,6 +5,31 @@
 
 #include <assert.h>
 
+const Type* maybe_multiple_return(IrArena* arena, Nodes types) {
+    switch (types.count) {
+        case 0: return empty_multiple_return_type(arena);
+        case 1: return types.nodes[0];
+        default: return record_type(arena, (RecordType) {
+                .members = types,
+                .names = strings(arena, 0, NULL),
+                .special = MultipleReturn,
+            });
+    }
+    SHADY_UNREACHABLE;
+}
+
+Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
+    switch (type->tag) {
+        case RecordType_TAG:
+            if (type->payload.record_type.special == MultipleReturn)
+                return type->payload.record_type.members;
+            // fallthrough
+        default:
+            assert(is_value_type(type));
+            return singleton(type);
+    }
+}
+
 const Type* get_pointee_type(IrArena* arena, const Type* type) {
     bool qualified = false, uniform = false;
     if (is_value_type(type)) {
