@@ -379,9 +379,9 @@
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
       ]
     },
     {
@@ -389,8 +389,8 @@
       "class": ["value", "mem"],
       "description": "Associate a value with a mem object, this allows adding side effects to a value",
       "ops": [
-        { "name": "value", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -398,12 +398,12 @@
       "snake_name": "if_instr",
       "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
         { "name": "if_true", "class": "basic_block" },
         { "name": "if_false", "class": "basic_block", "nullable": true },
-        { "name": "tail", "class": "basic_block" },
-        { "name": "mem", "class": "mem" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
@@ -411,13 +411,13 @@
       "snake_name": "match_instr",
       "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
         { "name": "cases", "class": "basic_block", "list": true },
         { "name": "default_case", "class": "basic_block" },
-        { "name": "tail", "class": "basic_block" },
-        { "name": "mem", "class": "mem" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
@@ -425,29 +425,29 @@
       "snake_name": "loop_instr",
       "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "body", "class": "basic_block" },
         { "name": "initial_args", "class": "value", "list": true },
-        { "name": "tail", "class": "basic_block" },
-        { "name": "mem", "class": "mem" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Control",
       "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inside", "class": "basic_block" },
-        { "name": "tail", "class": "basic_block" },
-        { "name": "mem", "class": "mem" }
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Comment",
       "class": ["instruction", "mem"],
       "ops": [
-        { "name": "string", "class": "string" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "string", "class": "string" }
       ]
     },
     {
@@ -457,20 +457,20 @@
       "front-end-only": true,
       "type": false,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "value", "class": "value" },
         { "name": "mutable", "type": "bool" },
         { "name": "names", "class": "string", "list": true },
-        { "name": "types", "class": "type", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "types", "class": "type", "list": true }
       ]
     },
     {
       "name": "TailCall",
       "class": "terminator",
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "target", "class": "value" },
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -490,10 +490,10 @@
         "Branch alternatives are made out of Jump terminators"
       ],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "condition", "class": "value" },
         { "name": "true_jump", "class": "jump" },
-        { "name": "false_jump", "class": "jump" },
-        { "name": "mem", "class": "mem" }
+        { "name": "false_jump", "class": "jump" }
       ]
     },
     {
@@ -502,11 +502,11 @@
       "class": "terminator",
       "description": "N-way variant of Branch. See Branch.",
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "switch_value", "class": "value" },
         { "name": "case_values", "class": "value", "list": true },
         { "name": "case_jumps", "class": "jump", "list": true },
-        { "name": "default_jump", "class": "jump" },
-        { "name": "mem", "class": "mem" }
+        { "name": "default_jump", "class": "jump" }
       ]
     },
     {
@@ -518,9 +518,9 @@
         "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
       ],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "join_point", "class": "value" },
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -528,8 +528,8 @@
       "class": "terminator",
       "nominal": true,
       "ops": [
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -537,8 +537,8 @@
       "class": "terminator",
       "nominal": true,
       "ops": [
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -546,8 +546,8 @@
       "class": "terminator",
       "nominal": true,
       "ops": [
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -556,8 +556,8 @@
       "class": "terminator",
       "nominal": true,
       "ops": [
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
@@ -685,9 +685,10 @@
       "description": "Unbound identifier, obtained by parsing a file",
       "type": false,
       "front-end-only": true,
+      "class": ["value", "mem"],
       "ops": [
-        { "name": "name", "type": "String" },
-        { "name": "mem", "class": "mem", "nullable": true }
+        { "name": "mem", "class": "mem", "nullable": true },
+        { "name": "name", "type": "String" }
       ]
     },
     {

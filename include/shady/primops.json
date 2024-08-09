@@ -272,8 +272,8 @@
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
       ]
     },
     {
@@ -281,8 +281,8 @@
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
       ]
     },
     {
@@ -290,8 +290,8 @@
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "ptr", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "ptr", "class": "value" }
       ]
     },
     {
@@ -299,9 +299,9 @@
       "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "ptr", "class": "value" },
-        { "name": "value", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -318,10 +318,10 @@
       "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
-        { "name": "count", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "count", "class": "value" }
       ]
     },
     {
@@ -329,10 +329,10 @@
       "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "dst", "class": "value" },
         { "name": "src", "class": "value" },
-        { "name": "count", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "count", "class": "value" }
       ]
     },
     {
@@ -340,8 +340,8 @@
       "class": ["instruction", "mem", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "value", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -349,8 +349,8 @@
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "type", "class": "type" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
       ]
     },
     {
@@ -366,8 +366,8 @@
       "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
-        { "name": "value", "class": "value" },
-        { "name": "mem", "class": "mem" }
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
@@ -383,9 +383,9 @@
       "class": ["instruction", "mem"],
       "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "string", "class": "string" },
-        { "name": "args", "class": "value", "list": true },
-        { "name": "mem", "class": "mem" }
+        { "name": "args", "class": "value", "list": true }
       ]
     }
   ]
