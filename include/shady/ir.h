@@ -306,6 +306,9 @@ Nodes bind_instruction_outputs_count(BodyBuilder*, const Node* initial_value, si
 const Node* finish_body(BodyBuilder*, const Node* terminator);
 const Node* finish_body_with_return(BodyBuilder*, Nodes args);
 const Node* finish_body_with_unreachable(BodyBuilder*);
+const Node* finish_body_with_selection_merge(BodyBuilder*, Nodes args);
+const Node* finish_body_with_loop_continue(BodyBuilder*, Nodes args);
+const Node* finish_body_with_loop_break(BodyBuilder*, Nodes args);
 
 void cancel_body(BodyBuilder*);
 

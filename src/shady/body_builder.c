@@ -123,6 +123,40 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     return terminator;
 }
 
+const Node* finish_body_with_return(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, fn_ret(bb->arena, (Return) {
+        .args = args,
+        .mem = bb_mem(bb)
+    }));
+}
+
+const Node* finish_body_with_unreachable(BodyBuilder* bb) {
+    return finish_body(bb, unreachable(bb->arena, (Unreachable) {
+        .mem = bb_mem(bb)
+    }));
+}
+
+const Node* finish_body_with_selection_merge(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, merge_selection(bb->arena, (MergeSelection) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_loop_continue(BodyBuilder* bb, Nodes args)  {
+    return finish_body(bb, merge_continue(bb->arena, (MergeContinue) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_loop_break(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, merge_break(bb->arena, (MergeBreak) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
 const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
     if (entries_count_list(bb->stack) == 0) {
