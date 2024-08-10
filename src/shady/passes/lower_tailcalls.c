@@ -64,8 +64,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_entry_pt));
 
-    bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, ctx->init_fn), .args = empty(a) }));
-    bind_instruction(bb, call(a, (Call) { .callee = access_decl(&ctx->rewriter, "builtin_init_scheduler"), .args = empty(a) }));
+    gen_call(bb, fn_addr_helper(a, ctx->init_fn), empty(a));
+    gen_call(bb, access_decl(&ctx->rewriter, "builtin_init_scheduler"), empty(a));
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
@@ -76,16 +76,13 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
     const Node* fn_addr = lower_fn_addr(ctx, old);
     fn_addr = gen_conversion(bb, uint32_type(a), fn_addr);
-    bind_instruction(bb, call(a, (Call) { .callee = jump_fn, .args = singleton(fn_addr) }));
+    gen_call(bb, jump_fn, singleton(fn_addr));
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" }), annotation(a, (Annotation) { .name = "Structured" })), nodes(a, 0, NULL));
     }
 
-    bind_instruction(bb, call(a, (Call) {
-        .callee = fn_addr_helper(a, *ctx->top_dispatcher_fn),
-        .args = nodes(a, 0, NULL)
-    }));
+    gen_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), empty(a));
 
     set_abstraction_body(new_entry_pt, finish_body(bb, fn_ret(a, (Return) {
         .args = nodes(a, 0, NULL),
@@ -161,11 +158,12 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case Call_TAG: {
-            const Node* ocallee = old->payload.call.callee;
-            assert(ocallee->tag == FnAddr_TAG);
+            Call payload = old->payload.call;
+            assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
             return call(a, (Call) {
-                .callee = fn_addr_helper(a, rewrite_node(&ctx->rewriter, ocallee->payload.fn_addr.fn)),
-                .args = rewrite_nodes(&ctx->rewriter, old->payload.call.args),
+                .callee = fn_addr_helper(a, rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn)),
+                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .mem = rewrite_node(r, payload.mem)
             });
         }
         case JoinPointType_TAG: return type_decl_ref(a, (TypeDeclRef) {
@@ -207,11 +205,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = rewrite_node(&ctx->rewriter, payload.target);
             target = gen_conversion(bb, uint32_type(a), target);
 
-            const Node* fork_call = call(a, (Call) {
-                .callee = access_decl(&ctx->rewriter, "builtin_fork"),
-                .args = nodes(a, 1, (const Node*[]) { target })
-            });
-            bind_instruction(bb, fork_call);
+            gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), singleton(target));
             return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
         }
         case Join_TAG: {
@@ -232,11 +226,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dst = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 1)));
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
 
-            const Node* join_call = call(a, (Call) {
-                .callee = access_decl(&ctx->rewriter, "builtin_join"),
-                .args = mk_nodes(a, dst, tree_node)
-            });
-            bind_instruction(bb, join_call);
+            gen_call(bb, access_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
         }
         case PtrType_TAG: {
@@ -250,8 +240,8 @@ static const Node* process(Context* ctx, const Node* old) {
         case Control_TAG: {
             Control payload = old->payload.control;
             if (is_control_static(ctx->uses, old)) {
-                const Node* old_inside = old->payload.control.inside;
-                const Node* old_jp = first(get_abstraction_params(old_inside));
+                // const Node* old_inside = old->payload.control.inside;
+                const Node* old_jp = first(get_abstraction_params(payload.inside));
                 assert(old_jp->tag == Param_TAG);
                 const Node* old_jp_type = old_jp->type;
                 deconstruct_qualified_type(&old_jp_type);
@@ -262,7 +252,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = case_(a, singleton(new_jp));
-                set_abstraction_body(new_control_case, rewrite_node(&ctx->rewriter, get_abstraction_body(old_inside)));
+                register_processed(r, payload.inside, new_control_case);
+                set_abstraction_body(new_control_case, rewrite_node(&ctx->rewriter, get_abstraction_body(payload.inside)));
                 // BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                 Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
                 return control(a, (Control) {
@@ -298,7 +289,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
-    const Node* next_mask = first(bind_instruction(loop_body_builder, call(a, (Call) { .callee = get_active_branch_fn, .args = empty(a) })));
+    const Node* next_mask = first(gen_call(loop_body_builder, get_active_branch_fn, empty(a)));
     const Node* local_id = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, empty(a), mk_nodes(a, next_mask, local_id));
 
@@ -365,10 +356,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
                 gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %ul with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
-            bind_instruction(if_builder, call(a, (Call) {
-                .callee = fn_addr_helper(a, find_processed(&ctx->rewriter, decl)),
-                .args = nodes(a, 0, NULL)
-            }));
+            gen_call(if_builder, fn_addr_helper(a, find_processed(&ctx->rewriter, decl)), empty(a));
             set_abstraction_body(if_true_lam, finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
 
             Node* case_lam = case_(a, nodes(a, 0, NULL));
