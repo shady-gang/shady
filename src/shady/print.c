@@ -537,19 +537,13 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case Value_Param_TAG:
-            if (ctx->uses) {
-                // if ((*find_value_dict(const Node*, Uses*, ctx->uses->map, node))->escapes_defining_block)
-                //     printf(MANGENTA);
-                // else
-                    printf(YELLOW);
-            } else
-                printf(YELLOW);
+            printf(YELLOW);
             String name = get_value_name_unsafe(node);
             if (name && strlen(name) > 0)
                 printf("%s_", name);
             printf("%%%d", node->id);
             printf(RESET);
-            break;
+            return true;
         case UntypedNumber_TAG:
             printf(BBLUE);
             printf("%s", node->payload.untyped_number.plaintext);
@@ -1038,17 +1032,24 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     if (found)
         return *found;
 
+    bool print_def = true;
     String r;
-    if (is_declaration(node))
+    if (is_declaration(node)) {
         r = get_declaration_name(node);
-    else
+        print_def = false;
+    } else if (is_param(node) || is_basic_block(node) || node->tag == RefDecl_TAG || node->tag == FnAddr_TAG) {
+        print_def = false;
         r = format_string_interned(node->arena, "%%%d", node->id);
+    } else {
+        r = format_string_interned(node->arena, "%%%d", node->id);
+    }
     insert_dict(const Node*, String, ctx->emitted, node, r);
 
     Growy* g = new_growy();
     PrinterCtx ctx2 = *ctx;
     ctx2.printer = open_growy_as_printer(g);
     bool print_inline = print_node_impl(&ctx2, node);
+
     String s = printer_growy_unwrap(ctx2.printer);
     Printer* p = ctx->root_printer;
     if (ctx->scheduler) {
@@ -1056,7 +1057,9 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         if (dst)
             p = ctx2.bb_printers[dst->rpo_index];
     }
-    print(p, "%%%d = %s\n", node->id, s);
+
+    if (print_def)
+        print(p, "%%%d = %s\n", node->id, s);
 
     if (print_inline) {
         String is = string(node->arena, s);
