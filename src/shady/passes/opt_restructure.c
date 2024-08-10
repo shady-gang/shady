@@ -88,17 +88,23 @@ static const Node* make_unreachable_case(IrArena* a) {
     return c;
 }
 
+static const Node* make_selection_merge_case(IrArena* a) {
+    Node* c = case_(a, empty(a));
+    set_abstraction_body(c, merge_selection(a, (MergeSelection) { .args = empty(a), .mem = get_abstraction_mem(c) }));
+    return c;
+}
+
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit);
 
-static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* exit) {
+static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, const Node* exit) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    const Node* dst = jump.target;
+    const Node* old_target = jump.target;
     Nodes oargs = jump.args;
 
     size_t path_len;
-    DFSStackEntry* prior_encounter = encountered_before(ctx, dst, &path_len);
+    DFSStackEntry* prior_encounter = encountered_before(ctx, old_target, &path_len);
     if (prior_encounter) {
         // Create path
         LARRAY(const Node*, path, path_len);
@@ -116,19 +122,19 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* exit)
         prior_encounter->loop_header = true;
         return merge_continue(a, (MergeContinue) {
             .args = rewrite_nodes(r, oargs),
-            .mem = rewrite_node(r, jump.mem),
+            .mem = mem,
         });
     } else {
-        Nodes oparams = get_abstraction_params(dst);
+        Nodes oparams = get_abstraction_params(old_target);
         assert(oparams.count == oargs.count);
         LARRAY(const Node*, nparams, oargs.count);
         Context ctx2 = *ctx;
-        
+
         // Record each step of the depth-first search on a stack so we can identify loops
-        DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = dst, .containing_control = ctx->control_stack };
+        DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = old_target, .containing_control = ctx->control_stack };
         ctx2.dfs_stack = &dfs_entry;
 
-        BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, jump.mem));
+        BodyBuilder* bb = begin_body_with_mem(a, mem);
         TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
         append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
@@ -141,29 +147,32 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* exit)
         }
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
-        // opt_simplify_cf will later inline this
         Node* inner_exit_ladder_bb = basic_block(a, empty(a), unique_name(a, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
-        const Node* structured = structure(&ctx2, get_abstraction_body(dst), inner_exit_ladder_bb);
+        Node* structured_target = case_(a, nodes(a, oargs.count, nparams));
+        register_processed(&ctx2.rewriter, get_abstraction_mem(old_target), get_abstraction_mem(structured_target));
+        const Node* structured = structure(&ctx2, get_abstraction_body(old_target), inner_exit_ladder_bb);
         assert(is_terminator(structured));
+        set_abstraction_body(structured_target, structured);
+
         // forget we rewrote all that
         destroy_dict(tmp_processed);
         pop_list_impl(ctx->cleanup_stack);
         pop_list_impl(ctx->cleanup_stack);
 
         if (dfs_entry.loop_header) {
-            Node* loop_case = case_(a, nodes(a, oargs.count, nparams));
-            set_abstraction_body(loop_case, structured);
-            gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), loop_case);
-            // we decide 'late' what the exit ladder should be
+            // Use the structured target as the body of a loop
+            gen_loop(bb, empty(a), rewrite_nodes(&ctx->rewriter, oargs), structured_target);
+            // The exit ladder must exit that new loop
             set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) }));
+            // After that we jump to the parent exit
             return finish_body(bb, jump_helper(a, exit, empty(a), bb_mem(bb)));
         } else {
-            Node* bb2 = basic_block(a, nodes(a, oargs.count, nparams), NULL);
-            set_abstraction_body(bb2, structured);
+            // Simply jmp to the exit once done
             set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, exit, empty(a), get_abstraction_mem(inner_exit_ladder_bb)));
-            return finish_body(bb, jump_helper(a, bb2, rewrite_nodes(&ctx->rewriter, oargs), bb_mem(bb)));
+            // Jump into the new structured target
+            return finish_body(bb, jump_helper(a, structured_target, rewrite_nodes(&ctx->rewriter, oargs), bb_mem(bb)));
         }
     }
 }
@@ -187,7 +196,8 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
     switch (is_terminator(body)) {
         case NotATerminator:
         case Jump_TAG: {
-            return handle_bb_callsite(ctx, body->payload.jump, exit);
+            Jump payload = body->payload.jump;
+            return handle_bb_callsite(ctx, payload, rewrite_node(r, payload.mem), exit);
         }
         // br(cond, true_bb, false_bb, args)
         // becomes
@@ -197,10 +207,10 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             const Node* condition = rewrite_node(&ctx->rewriter, payload.condition);
 
             Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
+            set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, get_abstraction_mem(true_case), make_selection_merge_case(a)));
 
             Node* false_case = case_(a, empty(a));
-            set_abstraction_body(false_case, handle_bb_callsite(ctx, payload.false_jump->payload.jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
+            set_abstraction_body(false_case, handle_bb_callsite(ctx, payload.false_jump->payload.jump, get_abstraction_mem(false_case), make_selection_merge_case(a)));
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_if(bb, empty(a), condition, true_case, false_case);
@@ -211,12 +221,12 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             const Node* switch_value = rewrite_node(r, payload.switch_value);
 
             Node* default_case = case_(a, empty(a));
-            set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, merge_selection(a, (MergeSelection) { .args = empty(a) })));
+            set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, get_abstraction_mem(default_case), make_selection_merge_case(a)));
 
             LARRAY(Node*, cases, body->payload.br_switch.case_jumps.count);
             for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
                 cases[i] = case_(a, empty(a));
-                set_abstraction_body(cases[i], handle_bb_callsite(ctx, payload.case_jumps.nodes[i]->payload.jump, merge_selection(a, (MergeSelection) {.args = empty(a)})));
+                set_abstraction_body(cases[i], handle_bb_callsite(ctx, payload.case_jumps.nodes[i]->payload.jump, get_abstraction_mem(cases[i]), make_selection_merge_case(a)));
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
@@ -268,10 +278,11 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
             const Node* guard = first(bind_instruction(bb_tail, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
             Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), merge_selection(a, (MergeSelection) { .args = empty(a) })));
+            register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
+            set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));
             gen_if(bb_tail, empty(a), guard, true_case, NULL);
-
             set_abstraction_body(tail, finish_body(bb_tail, jump_helper(a, exit, empty(a), bb_mem(bb_tail))));
+
             register_processed(r, get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
             return finish_body(bb_prelude, structure(&control_ctx, get_abstraction_body(old_control_case), tail));
         }
@@ -289,7 +300,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
                 gen_store(bb, control->phis[i], args.nodes[i]);
             }
 
-            return finish_body(bb, exit);
+            return finish_body(bb, jump_helper(a, exit, empty(a), bb_mem(bb)));
         }
 
         case Return_TAG:
@@ -356,7 +367,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
             append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
-            register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new, finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
@@ -399,6 +410,7 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(false); // actually that should not come up.
             longjmp(ctx->bail, 1);
         }
+        case BasicBlock_TAG: error("All basic blocks should be processed explicitly")
         default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);
