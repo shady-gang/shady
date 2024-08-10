@@ -375,9 +375,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
         case subgroup_elect_first_op:
             input_types = nodes(a, 0, NULL);
             break;
-        case subgroup_broadcast_first_op:
-            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            goto rebuild;
         case subgroup_ballot_op:
             input_types = singleton(qualified_type_helper(bool_type(a), false));
             break;

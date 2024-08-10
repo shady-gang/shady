@@ -230,7 +230,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            gen_match(bb, empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), nodes(a, body->payload.br_switch.case_jumps.count, cases), default_case);
+            gen_match(bb, empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), nodes(a, body->payload.br_switch.case_jumps.count, (const Node**) cases), default_case);
             return finish_body(bb, jump_helper(a, exit, empty(a), bb_mem(bb)));
         }
         // let(control(body), tail)

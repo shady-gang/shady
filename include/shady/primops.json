@@ -194,10 +194,6 @@
       "class": "subgroup_intrinsic"
     },
     {
-      "name": "subgroup_broadcast_first",
-      "class": "subgroup_intrinsic"
-    },
-    {
       "name": "subgroup_assume_uniform",
       "class": "subgroup_intrinsic"
     },

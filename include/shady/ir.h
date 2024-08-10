@@ -288,6 +288,7 @@ BodyBuilder* begin_block_with_side_effects(IrArena*);
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
 Nodes bind_instruction(BodyBuilder*, const Node* instruction);
+const Node* bind_instruction_single(BodyBuilder*, const Node* instruction);
 Nodes bind_instruction_named(BodyBuilder*, const Node* instruction, String const output_names[]);
 
 Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count);

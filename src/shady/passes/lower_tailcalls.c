@@ -147,7 +147,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     set_value_name((Node*) popped, old_param->payload.param.name);
                 // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
-                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .type_arguments = empty(a), .operands = singleton(popped) }), &old_param->payload.param.name));
+                    popped = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = empty(a), .operands = singleton(popped) }), &old_param->payload.param.name));
                 register_processed(&ctx->rewriter, old_param, popped);
             }
             register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));

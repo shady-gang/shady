@@ -8,6 +8,7 @@
 #include "../shady/transform/ir_gen_helpers.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 #include "spirv/unified1/GLSL.std.450.h"
@@ -242,27 +243,6 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
             spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
             return;
         }
-        case subgroup_broadcast_first_op: {
-            SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-            SpvId result;
-
-            if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
-                SpvId local_id;
-                const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
-                // TODO: very hacky indeed
-                // emit_instruction(emitter, fn_builder, bb_builder, load(emitter->arena, (Load) { b }), 1, &local_id);
-                error("reimplement")
-                result = spvb_group_shuffle(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), scope_subgroup, emit_value(emitter, bb_builder, first(args)), local_id);
-                spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
-            } else {
-                result = spvb_group_broadcast_first(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), emit_value(emitter, bb_builder, first(args)), scope_subgroup);
-            }
-
-            assert(results_count == 1);
-            results[0] = result;
-            spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
-            return;
-        }
         case subgroup_reduce_sum_op: {
             SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
             assert(results_count == 1);
@@ -345,6 +325,35 @@ static void emit_primop(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_bui
     error("unreachable");
 }
 
+static SpvId emit_ext_instr(Emitter* emitter, BBBuilder bb_builder, ExtInstr instr) {
+    if (strcmp("spirv.core", instr.set) == 0) {
+        switch (instr.opcode) {
+            case SpvOpGroupNonUniformBroadcastFirst: {
+                SpvId scope_subgroup = emit_value(emitter, bb_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
+                SpvId result;
+
+                if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
+                    SpvId local_id;
+                    const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
+                    // TODO: very hacky indeed
+                    // emit_instruction(emitter, fn_builder, bb_builder, load(emitter->arena, (Load) { b }), 1, &local_id);
+                    error("reimplement")
+                    result = spvb_group_shuffle(bb_builder, emit_type(emitter, instr.result_t), scope_subgroup, emit_value(emitter, bb_builder, first(instr.operands)), local_id);
+                    spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
+                } else {
+                    result = spvb_group_broadcast_first(bb_builder, emit_type(emitter, instr.result_t), emit_value(emitter, bb_builder, first(instr.operands)), scope_subgroup);
+                }
+
+                spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
+                return result;
+            }
+            default: break;
+        }
+        error("TODO: emit arbitrary spv instr here");
+    }
+    error("TODO: emit arbitrary ext spv instr here");
+}
+
 static void emit_leaf_call(Emitter* emitter, SHADY_UNUSED FnBuilder fn_builder, BBBuilder bb_builder, Call call, size_t results_count, SpvId results[]) {
     const Node* fn = call.callee;
     assert(fn->tag == FnAddr_TAG);
@@ -391,7 +400,7 @@ void emit_instruction(Emitter* emitter, FnBuilder fn_builder, BBBuilder bb_build
         case Instruction_FillBytes_TAG:
         case Instruction_BindIdentifiers_TAG:
         case Instruction_StackAlloc_TAG: error("Should be lowered elsewhere")
-        case Instruction_ExtInstr_TAG: error("Extended instructions are not supported yet");
+        case Instruction_ExtInstr_TAG: emit_ext_instr(emitter, bb_builder, instruction->payload.ext_instr);
         case Instruction_Call_TAG: emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call, results_count, results);                 break;
         case PrimOp_TAG:              emit_primop(emitter, fn_builder, bb_builder, instruction, results_count, results);                                    break;
         case Comment_TAG: break;

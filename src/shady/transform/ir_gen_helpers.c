@@ -39,6 +39,16 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
     return first(result);
 }
 
+const Node* gen_ext_instruction(BodyBuilder* bb, String set, int opcode, const Type* return_t, Nodes operands) {
+    return bind_instruction_single(bb, ext_instr(bb->arena, (ExtInstr) {
+        .mem = bb_mem(bb),
+        .set = set,
+        .opcode = opcode,
+        .result_t = return_t,
+        .operands = operands,
+    }));
+}
+
 void gen_push_value_stack(BodyBuilder* bb, const Node* value) {
     bind_instruction(bb, push_stack(bb->arena, (PushStack) { .value = value, .mem = bb_mem(bb) }));
 }

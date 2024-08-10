@@ -86,10 +86,7 @@ static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_expr(ctxparams, BodyBuilder*, int);
 static Nodes expect_operands(ctxparams, BodyBuilder*);
 static const Node* expect_operand(ctxparams, BodyBuilder*);
-
-static const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
-    return first(bind_instruction_outputs_count(bb, instr, 1));
-}
+static const Type* accept_qualified_type(ctxparams);
 
 static const Type* accept_numerical_type(ctxparams) {
     if (accept_token(ctx, i8_tok)) {
@@ -202,6 +199,25 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                     .op = op,
                     .type_arguments = accept_type_arguments(ctx),
                     .operands = expect_operands(ctx, bb)
+                }));
+            } else if (strcmp(id, "ext_instr") == 0) {
+                expect(accept_token(ctx, lsbracket_tok));
+                const Node* set = accept_value(ctx, NULL);
+                assert(set->tag == StringLiteral_TAG);
+                expect(accept_token(ctx, comma_tok));
+                const Node* opcode = accept_value(ctx, NULL);
+                assert(opcode->tag == UntypedNumber_TAG);
+                expect(accept_token(ctx, comma_tok));
+                const Type* type = accept_qualified_type(ctx);
+                expect(type);
+                expect(accept_token(ctx, rsbracket_tok));
+                Nodes ops = expect_operands(ctx, bb);
+                return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                    .result_t = type,
+                    .set = set->payload.string_lit.string,
+                    .opcode = strtoll(opcode->payload.untyped_number.plaintext, NULL, 10),
+                    .mem = bb_mem(bb),
+                    .operands = ops,
                 }));
             } else if (strcmp(id, "alloca") == 0) {
                 const Node* type = first(accept_type_arguments(ctx));

@@ -8,8 +8,11 @@
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
 
+#include <spirv/unified1/spirv.h>
+
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -522,16 +525,6 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
                 return emit_value(emitter, p, prim_op->operands.nodes[0]);
             }
         }
-        case subgroup_broadcast_first_op: {
-            CValue value = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            switch (emitter->config.dialect) {
-                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
-                case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
-                case CDialect_C11:
-                case CDialect_GLSL: error("TODO")
-            }
-            break;
-        }
         case empty_mask_op:
         case mask_is_thread_active_op: error("lower_me");
         default: break;
@@ -542,6 +535,26 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
         emit_using_entry(&term, emitter, p, isel_entry, prim_op->operands);
 
     return term;
+}
+
+static CTerm emit_ext_instruction(Emitter* emitter, Printer* p, ExtInstr instr) {
+    if (strcmp(instr.set, "spirv.core") == 0) {
+        switch (instr.opcode) {
+            case SpvOpGroupNonUniformBroadcastFirst: {
+                CValue value = to_cvalue(emitter, emit_value(emitter, p, first(instr.operands)));
+                switch (emitter->config.dialect) {
+                    case CDialect_CUDA: return term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
+                    case CDialect_ISPC: return term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
+                    case CDialect_C11:
+                    case CDialect_GLSL: error("TODO")
+                }
+                break;
+            }
+            default: error("Unsupported core spir-v instruction: %d", instr.opcode);
+        }
+    } else {
+        error("Unsupported extended instruction set: %s", instr.set);
+    }
 }
 
 static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
@@ -682,7 +695,7 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_BindIdentifiers_TAG:  error("front-end only!");
-        case Instruction_ExtInstr_TAG: error("Extended instructions are not supported in C");
+        case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return emit_primop(emitter, p, instruction);
         case Instruction_Call_TAG: return emit_call(emitter, p, instruction);
         /*case Instruction_CompoundInstruction_TAG: {

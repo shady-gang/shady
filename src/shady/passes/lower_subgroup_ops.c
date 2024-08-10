@@ -8,6 +8,10 @@
 #include "log.h"
 #include "dict.h"
 
+#include <spirv/unified1/spirv.h>
+
+#include <string.h>
+
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
@@ -101,9 +105,9 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type*
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    const Node* t =  get_unqualified_type(src->type);
+    const Node* t = get_unqualified_type(src->type);
     if (is_supported_natively(ctx, t))
-        return gen_primop_e(bb, subgroup_broadcast_first_op, empty(a), singleton(src));
+        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, qualified_type_helper(t, true), singleton(src));
 
     Node* fn = NULL;
     Node** found = find_value_dict(const Node*, Node*, ctx->fns, t);
@@ -128,16 +132,12 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
-        case PrimOp_TAG: {
-            PrimOp payload = node->payload.prim_op;
-            switch (payload.op) {
-                case subgroup_broadcast_first_op: {
-                    error("TODO")
-                    /*BodyBuilder* bb = begin_body(a);
-                    return yield_values_and_wrap_in_block(bb, singleton(
-                            build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));*/
-                }
-                default: break;
+        case ExtInstr_TAG: {
+            ExtInstr payload = node->payload.ext_instr;
+            if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
+                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+                return yield_values_and_wrap_in_block(bb, singleton(
+                        build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));
             }
         }
         default: break;

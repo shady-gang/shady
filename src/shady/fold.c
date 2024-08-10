@@ -301,8 +301,8 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
 
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
-        case subgroup_assume_uniform_op:
-        case subgroup_broadcast_first_op: {
+        // TODO: case subgroup_broadcast_first_op:
+        case subgroup_assume_uniform_op: {
             const Node* value = first(payload.operands);
             if (is_qualified_type_uniform(value->type))
                 return quote_single(arena, value);

@@ -124,7 +124,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
 
             Node* default_case = case_(a, empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
-            const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case));
+            const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, (const Node**) cases), default_case));
             set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .mem = bb_mem(bb) })));
             break;
         }
@@ -154,7 +154,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
 
             Node* default_case = case_(a, empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(new_fn) }));
-            gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, cases), default_case);
+            gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, (const Node**) cases), default_case);
             set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) })));
             break;
         }

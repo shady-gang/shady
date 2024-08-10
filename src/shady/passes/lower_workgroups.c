@@ -152,7 +152,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ptr == get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
                 BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                 const Node* loaded = first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
-                const Node* uniformized = first(gen_primop(bb, subgroup_broadcast_first_op, empty(a), singleton(loaded)));
+                const Node* uniformized = first(gen_primop(bb, subgroup_assume_uniform_op, empty(a), singleton(loaded)));
                 return yield_values_and_wrap_in_block(bb, singleton(uniformized));
             }
         }

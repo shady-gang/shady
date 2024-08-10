@@ -44,7 +44,7 @@ fn builtin_entry_join_point uniform JoinPoint() {
 @Internal @Leaf
 fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, varying u32 payload) {
     val curr_mask = subgroup_active_mask();
-    val depth = subgroup_broadcast_first(scheduler_vector#(subgroup_local_id)#1);
+    val depth = ext_instr["spirv.core", 338, uniform u32](scheduler_vector#(subgroup_local_id)#1);
     val tree_node = composite TreeNode(curr_mask, depth);
     val jp = composite JoinPoint(tree_node, join_destination, payload);
 
@@ -56,7 +56,7 @@ fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, 
 
 @Internal @Leaf
 fn builtin_fork(varying u32 branch_destination) {
-    val first_branch = subgroup_broadcast_first(branch_destination);
+    val first_branch = ext_instr["spirv.core", 338, uniform u32](branch_destination);
 
     // if there is disagreement on the destination, then increase the depth of every branch
     val uniform_branch = subgroup_active_mask() == subgroup_ballot(first_branch == branch_destination);
@@ -68,7 +68,7 @@ fn builtin_fork(varying u32 branch_destination) {
 
     // Partition the set of branch destinations and adapt the masks in turn
     loop() {
-        val elected = subgroup_broadcast_first(branch_destination);
+        val elected = ext_instr["spirv.core", 338, uniform u32](branch_destination);
         resume_at#(subgroup_local_id) = elected;
         scheduler_vector#(subgroup_local_id)#0 = subgroup_ballot(elected == branch_destination);
         if (elected == branch_destination) {
@@ -79,8 +79,8 @@ fn builtin_fork(varying u32 branch_destination) {
     // We must pick one branch as our 'favourite child' to schedule for immediate execution
     // we could do fancy intrinsics, but for now we'll just pick the first one
     if (subgroup_elect_first()) {
-        next_fn = subgroup_broadcast_first(branch_destination);
-        active_branch = subgroup_broadcast_first(scheduler_vector#(subgroup_local_id));
+        next_fn = ext_instr["spirv.core", 338, uniform u32](branch_destination);
+        active_branch = ext_instr["spirv.core", 338, uniform TreeNode](scheduler_vector#(subgroup_local_id));
 
         // tag those variables as not in use#
         // resume_at#(subgroup_local_id) = -1;
@@ -155,8 +155,8 @@ fn builtin_find_schedulable_leaf() {
         continue(i + u32 1);
     }
 
-    next_fn = subgroup_broadcast_first(resume_at#reduced);
-    active_branch = subgroup_broadcast_first(scheduler_vector#reduced);
+    next_fn = ext_instr["spirv.core", 338, uniform u32](resume_at#reduced);
+    active_branch = ext_instr["spirv.core", 338, uniform TreeNode](scheduler_vector#reduced);
     return ();
 }
 

@@ -84,7 +84,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             const Node* return_jp = ctx->return_jp;
             if (return_jp) {
                 BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, old->payload.fn_ret.mem));
-                return_jp = gen_primop_ce(bb, subgroup_broadcast_first_op, 1, (const Node* []) {return_jp});
+                return_jp = gen_primop_ce(bb, subgroup_assume_uniform_op, 1, (const Node* []) { return_jp });
                 // Join up at the return address instead of returning
                 return finish_body(bb, join(a, (Join) {
                     .join_point = return_jp,

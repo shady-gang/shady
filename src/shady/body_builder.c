@@ -75,6 +75,10 @@ Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
     return bind_internal(bb, instruction, singleton(instruction->type).count);
 }
 
+const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
+    return first(bind_instruction_outputs_count(bb, instr, 1));
+}
+
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
     assert(output_names);
