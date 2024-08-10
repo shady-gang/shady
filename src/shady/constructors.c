@@ -281,10 +281,7 @@ const Node* unit_type(IrArena* arena) {
 }
 
 const Node* empty_multiple_return_type(IrArena* arena) {
-    return record_type(arena, (RecordType) {
-        .members = empty(arena),
-        .special = MultipleReturn,
-    });
+    return qualified_type_helper(unit_type(arena), true);
 }
 
 const Node* annotation_value_helper(IrArena* a, String n, const Node* v) {

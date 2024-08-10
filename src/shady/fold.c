@@ -324,12 +324,12 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case Load_TAG: {
             if (node->payload.load.ptr->tag == Undef_TAG)
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                return mem_and_value(arena, (MemAndValue) { .value = undef(arena, (Undef) { .type = get_unqualified_type(node->type) }), .mem = node->payload.load.mem });
             break;
         }
         case Store_TAG: {
             if (node->payload.store.ptr->tag == Undef_TAG)
-                return tuple_helper(arena, empty(arena));
+                return mem_and_value(arena, (MemAndValue) { .value = tuple_helper(arena, empty(arena)), .mem = node->payload.store.mem });
             break;
         }
         case Lea_TAG: {

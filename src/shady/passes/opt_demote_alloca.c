@@ -164,6 +164,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
         if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
             ctx->todo |= true;
             const Node* new = undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(r, old->type)) });
+            new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
         }
