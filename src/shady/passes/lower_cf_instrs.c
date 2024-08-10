@@ -16,21 +16,9 @@ typedef struct Context_ {
 
     struct Dict* structured_join_tokens;
     CFG* cfg;
-    const Node* abs;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
-
-static const Node* process_instruction(Context* ctx, const Node* old_instruction) {
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    switch (old_instruction->tag) {
-        default:
-            break;
-    }
-
-    return recreate_node_identity(&ctx->rewriter, old_instruction);
-}
 
 static const Node* process_node(Context* ctx, const Node* node) {
     const Node* already_done = search_processed(&ctx->rewriter, node);
@@ -46,31 +34,22 @@ static const Node* process_node(Context* ctx, const Node* node) {
         sub_ctx.disable_lowering = lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
-        sub_ctx.abs = node;
         set_abstraction_body(fun, rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
         destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
         sub_ctx.cfg = NULL;
-        sub_ctx.abs = NULL;
         sub_ctx.current_fn = NULL;
-        ctx = &sub_ctx;
-    }
-
-    if (is_abstraction(node)) {
-        sub_ctx.abs = node;
         ctx = &sub_ctx;
     }
 
     if (ctx->disable_lowering)
         return recreate_node_identity(&ctx->rewriter, node);
 
-    CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, ctx->abs) : NULL;
-    if (is_instruction(node))
-        return process_instruction(ctx, node);
     switch (node->tag) {
         case If_TAG: {
-            bool has_false_branch = node->payload.if_instr.if_false;
+            If payload = node->payload.if_instr;
+            bool has_false_branch = payload.if_false;
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
             const Node* nmem = rewrite_node(r, node->payload.if_instr.mem);
 
@@ -79,48 +58,40 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .is_uniform = false,
             });
             const Node* jp = param(a, jp_type, "if_join");
-            Context join_context = *ctx;
             Nodes jps = singleton(jp);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            Node* true_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_true"));
-            join_context.abs = node->payload.if_instr.if_true;
-            set_abstraction_body(true_block, rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_true)));
+            const Node* true_block = rewrite_node(r, payload.if_true);
 
-            Node* flse_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
+            const Node* false_block;
             if (has_false_branch) {
-                join_context.abs = node->payload.if_instr.if_false;
-                set_abstraction_body(flse_block, rewrite_node(&join_context.rewriter, get_abstraction_body(node->payload.if_instr.if_false)));
+                false_block = rewrite_node(r, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
-                set_abstraction_body(flse_block, join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL) }));
+                false_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
+                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL), .mem = get_abstraction_mem(false_block) }));
             }
 
-            BodyBuilder* bb = begin_body_with_mem(a, nmem);
             Node* control_case = basic_block(a, singleton(jp), NULL);
             const Node* control_body = branch(a, (Branch) {
                 .condition = rewrite_node(r, node->payload.if_instr.condition),
                 .true_jump = jump_helper(a, true_block, empty(a), get_abstraction_mem(control_case)),
-                .false_jump = jump_helper(a, flse_block, empty(a), get_abstraction_mem(control_case)),
+                .false_jump = jump_helper(a, false_block, empty(a), get_abstraction_mem(control_case)),
                 .mem = get_abstraction_mem(control_case),
             });
             set_abstraction_body(control_case, control_body);
-            Nodes results = gen_control(bb, yield_types, control_case);
 
-            const Node* otail = node->payload.if_instr.tail;
-            Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
-            register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
-            set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
-            return finish_body(bb, jump_helper(a, join, results, bb_mem(bb)));
-            // return control(a)
-            //return yield_values_and_wrap_in_block(bb, );
+            BodyBuilder* bb = begin_body_with_mem(a, nmem);
+            Nodes results = gen_control(bb, yield_types, control_case);
+            return finish_body(bb, jump_helper(a, rewrite_node(r, payload.tail), results, bb_mem(bb)));
         }
         // TODO: match
         case Loop_TAG: {
-            const Node* old_loop_body = node->payload.loop_instr.body;
+            Loop payload = node->payload.loop_instr;
+            const Node* old_loop_block = payload.body;
 
             Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_body)));
+            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_block)));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -133,44 +104,36 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             const Node* break_point = param(a, break_jp_type, "loop_break_point");
             const Node* continue_point = param(a, continue_jp_type, "loop_continue_point");
-            Context join_context = *ctx;
             Nodes jps = mk_nodes(a, break_point, continue_point);
             insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            Nodes new_params = recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_body));
-            Node* loop_body = basic_block(a, new_params, unique_name(a, "loop_body"));
-            register_processed_list(&join_context.rewriter, get_abstraction_params(old_loop_body), loop_body->payload.basic_block.params);
+            Nodes new_params = recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
+            Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
 
-            join_context.abs = old_loop_body;
-            const Node* inner_control_body = rewrite_node(&join_context.rewriter, get_abstraction_body(old_loop_body));
+            BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, singleton(continue_point));
-            set_abstraction_body(inner_control_case, inner_control_body);
-
-            BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(inner_control_case));
+            set_abstraction_body(inner_control_case, jump_helper(a, rewrite_node(r, old_loop_block), new_params, get_abstraction_mem(inner_control_case)));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
-            // TODO let_in_block or use a Jump !
-            set_abstraction_body(loop_body, finish_body(inner_bb, jump(a, (Jump) { .target = loop_body, .args = args })));
-
-            const Node* initial_jump = jump(a, (Jump) {
-                .target = loop_body,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.initial_args),
-            });
+            set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
 
             Node* outer_control_case = case_(a, singleton(break_point));
-            BodyBuilder* outer_bb = begin_body_with_mem(a, get_abstraction_mem(outer_control_case));
-            Nodes results = gen_control(outer_bb, yield_types, outer_control_case);
-            set_abstraction_body(outer_control_case, initial_jump);
+            const Node* first_iteration_jump = jump(a, (Jump) {
+                .target = loop_header_block,
+                .args = rewrite_nodes(r, payload.initial_args),
+                .mem = get_abstraction_mem(outer_control_case),
+            });
+            set_abstraction_body(outer_control_case, first_iteration_jump);
 
-            const Node* otail = get_structured_construct_tail(node);
-            Node* join = basic_block(a, recreate_params(r, get_abstraction_params(otail)), NULL);
-            register_processed_list(r, get_abstraction_params(otail), get_abstraction_params(join));
-            set_abstraction_body(join, rewrite_node(r, get_abstraction_body(otail)));
-            return finish_body(outer_bb, jump_helper(a, join, results, bb_mem(outer_bb)));
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            Nodes results = gen_control(bb, yield_types, outer_control_case);
+            return finish_body(bb, jump_helper(a, rewrite_node(r, payload.tail), results, bb_mem(bb)));
         }
         case MergeSelection_TAG: {
-            if (!cfnode)
-                break;
+            MergeSelection payload = node->payload.merge_selection;
+            const Node* root_mem = get_original_mem(payload.mem);
+            assert(root_mem->tag == AbsMem_TAG);
+            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
@@ -193,70 +156,79 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(jps && jps->count == 1);
             const Node* jp = first(*jps);
             assert(jp);
+            const Node* nmem = rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_selection.args),
-                .mem = rewrite_node(r, node->payload.merge_selection.mem)
+                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .mem = nmem
             });
         }
         case MergeContinue_TAG: {
-            assert(cfnode);
+            MergeContinue payload = node->payload.merge_continue;
+            const Node* root_mem = get_original_mem(payload.mem);
+            assert(root_mem->tag == AbsMem_TAG);
+            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
-            const Node* selection_instr = NULL;
+            const Node* loop_start = NULL;
             while (dom) {
                 const Node* body = get_abstraction_body(dom->node);
                 if (body->tag == Loop_TAG) {
-                    selection_instr = body;
+                    loop_start = body;
                     break;
                 }
                 dom = dom->idom;
             }
 
-            if (!selection_instr) {
-                error_print("Scoping error: Failed to find a dominating selection construct for ");
+            if (!loop_start) {
+                error_print("Scoping error: Failed to find a dominating loop construct for ");
                 log_node(ERROR, node);
                 error_print(".\n");
                 error_die();
             }
 
-            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
             assert(jps && jps->count == 2);
             const Node* jp = jps->nodes[1];
             assert(jp);
+            const Node* nmem = rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_continue.args),
-                .mem = rewrite_node(r, node->payload.merge_continue.mem)
+                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .mem = nmem,
             });
         }
         case MergeBreak_TAG: {
-            assert(cfnode);
+            MergeBreak payload = node->payload.merge_break;
+            const Node* root_mem = get_original_mem(payload.mem);
+            assert(root_mem->tag == AbsMem_TAG);
+            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
-            const Node* selection_instr = NULL;
+            const Node* loop_start = NULL;
             while (dom) {
                 const Node* body = get_abstraction_body(dom->node);
                 if (body->tag == Loop_TAG) {
-                    selection_instr = body;
+                    loop_start = body;
                     break;
                 }
                 dom = dom->idom;
             }
 
-            if (!selection_instr) {
-                error_print("Scoping error: Failed to find a dominating selection construct for ");
+            if (!loop_start) {
+                error_print("Scoping error: Failed to find a dominating loop construct for ");
                 log_node(ERROR, node);
                 error_print(".\n");
                 error_die();
             }
 
-            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
             assert(jps && jps->count == 2);
             const Node* jp = first(*jps);
             assert(jp);
+            const Node* nmem = rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, node->payload.merge_break.args),
-                .mem = rewrite_node(r, node->payload.merge_break.mem)
+                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .mem = nmem,
             });
         }
         default: break;
