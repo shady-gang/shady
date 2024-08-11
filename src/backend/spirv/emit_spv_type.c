@@ -72,7 +72,7 @@ SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
     }
 }
 
-void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
+void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
     switch (type->tag) {
         case RecordType_TAG: {
             Nodes member_types = type->payload.record_type.members;
@@ -99,7 +99,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
     type = normalize_type(emitter, type);
 
-    SpvId* existing = find_value_dict(struct Node*, SpvId, emitter->node_ids, type);
+    SpvId* existing = spv_search_emitted(emitter, type);
     if (existing)
         return *existing;
 
@@ -144,7 +144,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             const Type* pointed_type = type->payload.ptr_type.pointed_type;
             if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
-                insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
+                register_result(emitter, true, type, new);
                 SpvId pointee = emit_type(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
@@ -179,7 +179,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         case ArrType_TAG: {
             SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
             if (type->payload.arr_type.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, emit_value(emitter, NULL, type->payload.arr_type.size));
+                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, type->payload.arr_type.size));
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
@@ -199,8 +199,8 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
-            insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
-            emit_nominal_type_body(emitter, type, new);
+            register_result(emitter, true, type, new);
+            spv_emit_nominal_type_body(emitter, type, new);
             return new;
         }
         case Type_TypeDeclRef_TAG: {
@@ -225,6 +225,6 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         }
     }
 
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, type, new);
+    register_result(emitter, true, type, new);
     return new;
 }

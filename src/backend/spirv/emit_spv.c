@@ -17,23 +17,31 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+#include <analysis/scheduler.h>
 
 extern SpvBuiltIn spv_builtins[];
 
 #pragma GCC diagnostic error "-Wswitch"
 
-void register_result(Emitter* emitter, const Node* node, SpvId id) {
+void register_result(Emitter* emitter, bool global, const Node* node, SpvId id) {
     if (is_value(node)) {
         String name = get_value_name_unsafe(node);
         if (name)
             spvb_name(emitter->file_builder, id, name);
     }
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, id);
+    struct Dict* map = global ? emitter->global_node_ids : emitter->current_fn_node_ids;
+    insert_dict_and_get_result(struct Node*, SpvId, map, node, id);
+}
+
+SpvId* spv_search_emitted(Emitter* emitter, const Node* node) {
+    SpvId* found = find_value_dict(const Node*, SpvId, emitter->current_fn_node_ids, node);
+    if (!found)
+        found = find_value_dict(const Node*, SpvId, emitter->global_node_ids, node);
+    return found;
 }
 
 SpvId spv_find_reserved_id(Emitter* emitter, const Node* node) {
-    SpvId* found = find_value_dict(const Node*, SpvId, emitter->node_ids, node);
-    assert(found);
+    SpvId* found = spv_search_emitted(emitter, node);
     return *found;
 }
 
@@ -52,27 +60,25 @@ static void emit_basic_block(Emitter* emitter, FnBuilder fn_builder, const CFG* 
     if (name)
         spvb_name(emitter->file_builder, bb_id, name);
 
-    MergeTargets merge_targets = {
-        .continue_target = 0,
-        .break_target = 0,
-        .join_target = 0
-    };
-
-    emit_terminator(emitter, fn_builder, bb_builder, merge_targets, body);
+    spv_emit_terminator(emitter, fn_builder, bb_builder, bb_node, body);
 }
 
 static void emit_function(Emitter* emitter, const Node* node) {
     assert(node->tag == Function_TAG);
 
+    emitter->cfg = build_fn_cfg(node);
+    emitter->scheduler = new_scheduler(emitter->cfg);
+
     const Type* fn_type = node->type;
-    SpvId fn_id = find_reserved_id(emitter, node);
+    SpvId fn_id = spv_find_reserved_id(emitter, node);
     FnBuilder fn_builder = spvb_begin_fn(emitter->file_builder, fn_id, emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fun.return_types));
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
-        const Type* param_type = params.nodes[i]->payload.param.type;
+        const Node* param = params.nodes[i];
+        const Type* param_type = param->payload.param.type;
         SpvId param_id = spvb_parameter(fn_builder, emit_type(emitter, param_type));
-        insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, params.nodes[i], param_id);
+        register_result(emitter, false, param, param_id);
         deconstruct_qualified_type(&param_type);
         if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobal) {
             spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
@@ -86,12 +92,12 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = read_list(CFNode*, cfg->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
-            if (is_cfnode_structural_target(cfnode))
-                continue;
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
             BBBuilder basic_block_builder = spvb_begin_bb(fn_builder, bb_id);
             insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
+            // if (is_cfnode_structural_target(cfnode))
+            //     continue;
             // add phis for every non-entry basic block
             if (i > 0) {
                 assert(is_basic_block(bb) && bb != node);
@@ -101,7 +107,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
                     spvb_add_phi(basic_block_builder, emit_type(emitter, bb_param->type), spvb_fresh_id(emitter->file_builder));
                 }
                 // also make sure to register the label for basic blocks
-                register_result(emitter, bb, bb_id);
+                register_result(emitter, false, bb, bb_id);
             }
         }
         // emit the blocks using the dominator tree
@@ -109,8 +115,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
             CFNode* cfnode = cfg->rpo[i];
             if (i == 0)
                 assert(cfnode == cfg->entry);
-            if (is_cfnode_structural_target(cfnode))
-                continue;
+            // if (is_cfnode_structural_target(cfnode))
+            //     continue;
             emit_basic_block(emitter, fn_builder, cfg, cfnode);
         }
 
@@ -125,10 +131,15 @@ static void emit_function(Emitter* emitter, const Node* node) {
         destroy_growy(g);
         spvb_declare_function(emitter->file_builder, fn_builder);
     }
+
+    clear_dict(emitter->current_fn_node_ids);
+    destroy_scheduler(emitter->scheduler);
+    emitter->scheduler = NULL;
+    destroy_cfg(emitter->cfg);
 }
 
 SpvId emit_decl(Emitter* emitter, const Node* decl) {
-    SpvId* existing = find_value_dict(const Node*, SpvId, emitter->node_ids, decl);
+    SpvId* existing = find_value_dict(const Node*, SpvId, emitter->global_node_ids, decl);
     if (existing)
         return *existing;
 
@@ -136,11 +147,11 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
-            register_result(emitter, decl, given_id);
+            register_result(emitter, true, decl, given_id);
             spvb_name(emitter->file_builder, given_id, gvar->name);
             SpvId init = 0;
             if (gvar->init)
-                init = emit_value(emitter, NULL, gvar->init);
+                init = spv_emit_value(emitter, gvar->init);
             SpvStorageClass storage_class = emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
 
@@ -191,7 +202,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             return given_id;
         } case Function_TAG: {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
-            register_result(emitter, decl, given_id);
+            register_result(emitter, true, decl, given_id);
             spvb_name(emitter->file_builder, given_id, decl->payload.fun.name);
             emit_function(emitter, decl);
             return given_id;
@@ -204,9 +215,9 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             return 0;
         } case NominalType_TAG: {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
-            register_result(emitter, decl, given_id);
+            register_result(emitter, true, decl, given_id);
             spvb_name(emitter->file_builder, given_id, decl->payload.nom_type.name);
-            emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
+            spv_emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
         case NotADeclaration: error("");
@@ -241,13 +252,13 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
                 default: continue;
             }
         }
-        interface_arr[interface_size++] = find_reserved_id(emitter, node);
+        interface_arr[interface_size++] = spv_find_reserved_id(emitter, node);
     }
 
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* decl = declarations.nodes[i];
         if (decl->tag != Function_TAG) continue;
-        SpvId fn_id = find_reserved_id(emitter, decl);
+        SpvId fn_id = spv_find_reserved_id(emitter, decl);
 
         const Node* entry_point = lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
@@ -327,7 +338,8 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
         .arena = arena,
         .configuration = config,
         .file_builder = file_builder,
-        .node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .global_node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .current_fn_node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
         .bb_builders = new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
         .num_entry_pts = 0,
     };
@@ -350,7 +362,8 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
     *output_size = spvb_finish(file_builder, output);
 
     // cleanup the emitter
-    destroy_dict(emitter.node_ids);
+    destroy_dict(emitter.global_node_ids);
+    destroy_dict(emitter.current_fn_node_ids);
     destroy_dict(emitter.bb_builders);
     destroy_dict(emitter.extended_instruction_sets);
 

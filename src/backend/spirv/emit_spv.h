@@ -10,14 +10,22 @@ typedef SpvbFileBuilder* FileBuilder;
 typedef SpvbFnBuilder* FnBuilder;
 typedef SpvbBasicBlockBuilder* BBBuilder;
 
+typedef struct CFG_ CFG;
+typedef struct Scheduler_ Scheduler;
+
 typedef struct Emitter_ {
     Module* module;
     IrArena* arena;
     const CompilerConfig* configuration;
     FileBuilder file_builder;
     SpvId void_t;
-    struct Dict* node_ids;
+    struct Dict* global_node_ids;
+
+    struct Dict* current_fn_node_ids;
     struct Dict* bb_builders;
+    CFG* cfg;
+    Scheduler* scheduler;
+
     size_t num_entry_pts;
 
     struct Dict* extended_instruction_sets;
@@ -25,27 +33,18 @@ typedef struct Emitter_ {
 
 typedef SpvbPhi** Phis;
 
-typedef struct {
-    SpvId continue_target, break_target, join_target;
-    Phis continue_phis, break_phis, join_phis;
-} MergeTargets;
-
 #define emit_decl spv_emit_decl
 #define emit_type spv_emit_type
-#define emit_value spv_emit_value
-#define emit_instruction spv_emit_instruction
-#define emit_terminator spv_emit_terminator
-#define find_reserved_id spv_find_reserved_id
-#define emit_nominal_type_body spv_emit_nominal_type_body
 
 SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
-SpvId emit_value(Emitter*, BBBuilder, const Node*);
-SpvId emit_instruction(Emitter*, BBBuilder, const Node* instruction);
-void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* terminator);
+SpvId spv_emit_value(Emitter*, const Node*);
+void spv_emit_terminator(Emitter*, FnBuilder, BBBuilder, const Node* abs, const Node* terminator);
 
-SpvId find_reserved_id(Emitter* emitter, const Node* node);
-void register_result(Emitter*, const Node*, SpvId id);
+void register_result(Emitter*, bool, const Node*, SpvId id);
+SpvId* spv_search_emitted(Emitter* emitter, const Node* node);
+SpvId spv_find_reserved_id(Emitter* emitter, const Node* node);
+
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb);
 
 SpvId get_extended_instruction_set(Emitter*, const char*);
@@ -54,6 +53,6 @@ SpvStorageClass emit_addr_space(Emitter*, AddressSpace address_space);
 // SPIR-V doesn't have multiple return types, this bridges the gap...
 SpvId nodes_to_codom(Emitter* emitter, Nodes return_types);
 const Type* normalize_type(Emitter* emitter, const Type* type);
-void emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id);
+void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id);
 
 #endif
