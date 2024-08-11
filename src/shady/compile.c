@@ -85,7 +85,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     if (config->lower.emulate_physical_memory) {
         RUN_PASS(lower_alloca)
     }
-    //RUN_PASS(lower_stack)
+    RUN_PASS(lower_stack)
     RUN_PASS(lower_lea)
     RUN_PASS(lower_generic_globals)
     if (config->lower.emulate_generic_ptrs) {

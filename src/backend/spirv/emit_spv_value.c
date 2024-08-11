@@ -276,6 +276,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
 }
 
 static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, ExtInstr instr) {
+    spv_emit_mem(emitter, fn_builder, instr.mem);
     if (strcmp("spirv.core", instr.set) == 0) {
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
@@ -337,6 +338,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
 }
 
 static SpvId emit_leaf_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Call call) {
+    spv_emit_mem(emitter, fn_builder, call.mem);
     const Node* fn = call.callee;
     assert(fn->tag == FnAddr_TAG);
     fn = fn->payload.fn_addr.fn;
@@ -371,6 +373,8 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case PrimOp_TAG: return emit_primop(emitter, fn_builder, bb_builder, instruction);
         case Comment_TAG: break;
         case Instruction_LocalAlloc_TAG: {
+            LocalAlloc payload = instruction->payload.local_alloc;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
             assert(bb_builder);
             return spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsFunction,
@@ -379,6 +383,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         }
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
             const Type* ptr_type = payload.ptr->type;
             deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
@@ -399,6 +404,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
             const Type* ptr_type = payload.ptr->type;
             deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
@@ -437,6 +443,8 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             }
         }
         case Instruction_DebugPrintf_TAG: {
+            DebugPrintf payload = instruction->payload.debug_printf;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
             SpvId set_id = spv_get_extended_instruction_set(emitter, "NonSemantic.DebugPrintf");
             LARRAY(SpvId, args, instruction->payload.debug_printf.args.count + 1);
             args[0] = spv_emit_value(emitter, fn_builder, string_lit_helper(emitter->arena, instruction->payload.debug_printf.string));
@@ -571,4 +579,13 @@ SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) 
         spv_register_emitted(emitter, NULL, node, emitted);
         return emitted;
     }
+}
+
+SpvId spv_emit_mem(Emitter* e, FnBuilder* b, const Node* mem) {
+    assert(is_mem(mem));
+    if (mem->tag == AbsMem_TAG)
+        return 0;
+    if (is_instruction(mem))
+        return spv_emit_value(e, b, mem);
+    error("What sort of mem is this ?");
 }

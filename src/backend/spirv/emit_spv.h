@@ -39,6 +39,7 @@ typedef SpvbPhi** Phis;
 SpvId spv_emit_decl(Emitter*, const Node*);
 SpvId spv_emit_type(Emitter*, const Type*);
 SpvId spv_emit_value(Emitter*, FnBuilder*, const Node*);
+SpvId spv_emit_mem(Emitter*, FnBuilder*, const Node*);
 void spv_emit_terminator(Emitter*, FnBuilder*, BBBuilder, const Node* abs, const Node* terminator);
 
 void spv_register_emitted(Emitter*, FnBuilder*, const Node*, SpvId id);
