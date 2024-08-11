@@ -100,7 +100,7 @@ SpvId spvb_group_elect(SpvbBasicBlockBuilder*, SpvId result_type, SpvId scope);
 SpvId spvb_group_ballot(SpvbBasicBlockBuilder*, SpvId result_t, SpvId predicate, SpvId scope);
 SpvId spvb_group_shuffle(SpvbBasicBlockBuilder*, SpvId result_type, SpvId scope, SpvId value, SpvId id);
 SpvId spvb_group_broadcast_first(SpvbBasicBlockBuilder*, SpvId result_t, SpvId value, SpvId scope);
-SpvId spvb_group_non_uniform_iadd(SpvbBasicBlockBuilder*, SpvId result_t, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size);
+SpvId spvb_group_non_uniform_group_op(SpvbBasicBlockBuilder*, SpvId result_t, SpvOp op, SpvId scope, SpvGroupOperation group_op, SpvId value, SpvId* cluster_size);
 
 // Terminators
 void  spvb_branch(SpvbBasicBlockBuilder*, SpvId target);

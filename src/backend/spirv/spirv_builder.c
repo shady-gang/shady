@@ -849,8 +849,8 @@ SpvId spvb_group_shuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, S
     return rid;
 }
 
-SpvId spvb_group_non_uniform_iadd(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId value, SpvId scope, SpvGroupOperation group_op, SpvId* cluster_size) {
-    op(SpvOpGroupNonUniformIAdd, cluster_size ? 7 : 6);
+SpvId spvb_group_non_uniform_group_op(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvOp op, SpvId scope, SpvGroupOperation group_op, SpvId value, SpvId* cluster_size) {
+    op(op, cluster_size ? 7 : 6);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
     ref_id(id);

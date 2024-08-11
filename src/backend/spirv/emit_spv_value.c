@@ -311,9 +311,9 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             }
             case SpvOpGroupNonUniformIAdd: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
-                break;
-                // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-                // return spvb_group_non_uniform_iadd(bb_builder, spv_emit_type(emitter, get_unqualified_type(first(args)->type)), spv_emit_value(emitter, fn_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
+                SpvId scope = spv_emit_value(emitter, fn_builder, first(instr.operands));
+                SpvGroupOperation group_op = get_int_literal_value(*resolve_to_int_literal(instr.operands.nodes[2]), false);
+                return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), NULL);
             }
             case SpvOpGroupNonUniformElect: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
