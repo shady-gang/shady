@@ -10,7 +10,6 @@
 #include <assert.h>
 
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb) {
-    // assert(is_basic_block(bb));
     BBBuilder* found = find_value_dict(const Node*, BBBuilder, emitter->bb_builders, bb);
     assert(found);
     return *found;
@@ -236,17 +235,6 @@ void emit_terminator(Emitter* emitter, FnBuilder fn_builder, BBBuilder basic_blo
                 }
             }
         }
-        /*case Let_TAG: {
-            const Node* instruction = terminator->payload.let.instruction;
-            Nodes types = unwrap_multiple_yield_types(emitter->arena, instruction->type);
-            LARRAY(SpvId, results, types.count);
-            emit_instruction(emitter, fn_builder, basic_block_builder, instruction, types.count, results);
-
-            for (size_t i = 0; i < types.count; i++)
-                register_result(emitter, extract_multiple_ret_types_helper(instruction, i), results[i]);
-            emit_terminator(emitter, fn_builder, basic_block_builder, merge_targets, terminator->payload.let.in);
-            return;
-        }*/
         case Unreachable_TAG: {
             spvb_unreachable(basic_block_builder);
             return;

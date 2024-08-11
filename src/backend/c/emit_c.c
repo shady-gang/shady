@@ -37,7 +37,7 @@ CAddr deref_term(Emitter* e, CTerm term) {
 }
 
 // TODO: utf8
-static bool is_legal_c_identifier_char(char c) {
+static bool c_is_legal_identifier_char(char c) {
     if (c >= '0' && c <= '9')
         return true;
     if (c >= 'a' && c <= 'z')
@@ -49,7 +49,7 @@ static bool is_legal_c_identifier_char(char c) {
     return false;
 }
 
-String legalize_c_identifier(Emitter* e, String src) {
+String c_legalize_identifier(Emitter* e, String src) {
     if (!src)
         return "unnamed";
     size_t len = strlen(src);
@@ -57,7 +57,7 @@ String legalize_c_identifier(Emitter* e, String src) {
     size_t i;
     for (i = 0; i < len; i++) {
         char c = src[i];
-        if (is_legal_c_identifier_char(c))
+        if (c_is_legal_identifier_char(c))
             dst[i] = c;
         else
             dst[i] = '_';
@@ -103,6 +103,58 @@ void emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
         print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
     }
+}
+
+void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
+    assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
+
+    String prefix = "";
+    String center = variable_name;
+
+    // add extra qualifiers if immutable
+    if (!mut) switch (emitter->config.dialect) {
+        case CDialect_ISPC:
+            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            break;
+        case CDialect_C11:
+        case CDialect_CUDA:
+            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            break;
+        case CDialect_GLSL:
+            if (emitter->config.glsl_version >= 130)
+                prefix = "const ";
+            break;
+    }
+
+    String decl = c_emit_type(emitter, t, center);
+    if (initializer)
+        print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
+    else
+        print(block_printer, "\n%s%s;", prefix, decl);
+}
+
+static void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
+    assert(is_terminator(body));
+    //print(p, "{");
+    indent(p);
+
+    c_emit_terminator(emitter, p, body);
+
+    if (bbs && bbs->count > 0) {
+        assert(emitter->config.dialect != CDialect_GLSL);
+        error("TODO");
+    }
+
+    deindent(p);
+    print(p, "\n");
+}
+
+String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
+    Growy* g = new_growy();
+    Printer* p = open_growy_as_printer(g);
+    emit_lambda_body_at(emitter, p, body, bbs);
+    growy_append_bytes(g, 1, (char[]) { 0 });
+    return printer_growy_unwrap(p);
 }
 
 static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
@@ -190,58 +242,6 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
     //print(emitter->fn_decls, "\n%s;", declaration);
 }
 
-void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
-    assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
-
-    String prefix = "";
-    String center = variable_name;
-
-    // add extra qualifiers if immutable
-    if (!mut) switch (emitter->config.dialect) {
-        case CDialect_ISPC:
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
-            break;
-        case CDialect_C11:
-        case CDialect_CUDA:
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
-            break;
-        case CDialect_GLSL:
-            if (emitter->config.glsl_version >= 130)
-                prefix = "const ";
-            break;
-    }
-
-    String decl = c_emit_type(emitter, t, center);
-    if (initializer)
-        print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
-    else
-        print(block_printer, "\n%s%s;", prefix, decl);
-}
-
-static void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
-    assert(is_terminator(body));
-    //print(p, "{");
-    indent(p);
-
-    c_emit_terminator(emitter, p, body);
-
-    if (bbs && bbs->count > 0) {
-        assert(emitter->config.dialect != CDialect_GLSL);
-        error("TODO");
-    }
-
-    deindent(p);
-    print(p, "\n");
-}
-
-String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
-    Growy* g = new_growy();
-    Printer* p = open_growy_as_printer(g);
-    emit_lambda_body_at(emitter, p, body, bbs);
-    growy_append_bytes(g, 1, (char[]) { 0 });
-    return printer_growy_unwrap(p);
-}
-
 void emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
@@ -251,7 +251,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
     CType* found2 = lookup_existing_type(emitter, decl);
     if (found2) return;
 
-    const char* name = legalize_c_identifier(emitter, get_declaration_name(decl));
+    const char* name = c_legalize_identifier(emitter, get_declaration_name(decl));
     const Type* decl_type = decl->type;
     const char* decl_center = name;
     CTerm emit_as;
@@ -309,7 +309,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
-                    param_name = format_string_interned(emitter->arena, "%s_%d", legalize_c_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
+                    param_name = format_string_interned(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 

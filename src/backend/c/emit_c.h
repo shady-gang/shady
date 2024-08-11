@@ -75,7 +75,7 @@ void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const T
 CTerm emit_value(Emitter* emitter, Printer*, const Node* value);
 CTerm emit_c_builtin(Emitter*, Builtin);
 
-String legalize_c_identifier(Emitter*, String);
+String c_legalize_identifier(Emitter*, String);
 String get_record_field_name(const Type* t, size_t i);
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
 

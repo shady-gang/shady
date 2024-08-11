@@ -205,7 +205,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
             break;
         }
         case Value_FnAddr_TAG: {
-            emitted = legalize_c_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
+            emitted = c_legalize_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
             emitted = format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
         }

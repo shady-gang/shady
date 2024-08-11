@@ -12,9 +12,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
-
 SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
     switch(address_space) {
         case AsShared:                       return SpvStorageClassWorkgroup;
