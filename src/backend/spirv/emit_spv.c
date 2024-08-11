@@ -1,3 +1,5 @@
+#include "emit_spv.h"
+
 #include "shady/builtins.h"
 
 #include "../shady/ir_private.h"
@@ -11,8 +13,6 @@
 #include "portability.h"
 #include "growy.h"
 #include "util.h"
-
-#include "emit_spv.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -29,115 +29,6 @@ void register_result(Emitter* emitter, const Node* node, SpvId id) {
             spvb_name(emitter->file_builder, id, name);
     }
     insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, id);
-}
-
-SpvId emit_value(Emitter* emitter, BBBuilder bb_builder, const Node* node) {
-    SpvId* existing = find_value_dict(const Node*, SpvId, emitter->node_ids, node);
-    if (existing)
-        return *existing;
-
-    SpvId new;
-    switch (is_value(node)) {
-        case NotAValue: error("");
-        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
-        case Value_ConstrainedValue_TAG:
-        case Value_UntypedNumber_TAG:
-        case Value_FnAddr_TAG: error("Should be lowered away earlier!");
-        default: {
-            assert(!is_instruction(node));
-            error("Unhandled value for code generation: %s", node_tags[node->tag]);
-        }
-        case IntLiteral_TAG: {
-            new = spvb_fresh_id(emitter->file_builder);
-            SpvId ty = emit_type(emitter, node->type);
-            // 64-bit constants take two spirv words, anything else fits in one
-            if (node->payload.int_literal.width == IntTy64) {
-                uint32_t arr[] = { node->payload.int_literal.value & 0xFFFFFFFF, node->payload.int_literal.value >> 32 };
-                spvb_constant(emitter->file_builder, new, ty, 2, arr);
-            } else {
-                uint32_t arr[] = { node->payload.int_literal.value };
-                spvb_constant(emitter->file_builder, new, ty, 1, arr);
-            }
-            break;
-        }
-        case FloatLiteral_TAG: {
-            new = spvb_fresh_id(emitter->file_builder);
-            SpvId ty = emit_type(emitter, node->type);
-            switch (node->payload.float_literal.width) {
-                case FloatTy16: {
-                    uint32_t arr[] = { node->payload.float_literal.value & 0xFFFF };
-                    spvb_constant(emitter->file_builder, new, ty, 1, arr);
-                    break;
-                }
-                case FloatTy32: {
-                    uint32_t arr[] = { node->payload.float_literal.value };
-                    spvb_constant(emitter->file_builder, new, ty, 1, arr);
-                    break;
-                }
-                case FloatTy64: {
-                    uint32_t arr[] = { node->payload.float_literal.value & 0xFFFFFFFF, node->payload.float_literal.value >> 32 };
-                    spvb_constant(emitter->file_builder, new, ty, 2, arr);
-                    break;
-                }
-            }
-            break;
-        }
-        case True_TAG: {
-            new = spvb_fresh_id(emitter->file_builder);
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
-            break;
-        }
-        case False_TAG: {
-            new = spvb_fresh_id(emitter->file_builder);
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
-            break;
-        }
-        case Value_StringLiteral_TAG: {
-            new = spvb_debug_string(emitter->file_builder, node->payload.string_lit.string);
-            break;
-        }
-        case Value_NullPtr_TAG: {
-            new = spvb_constant_null(emitter->file_builder, emit_type(emitter, node->payload.null_ptr.ptr_type));
-            break;
-        }
-        case Composite_TAG: {
-            Nodes contents = node->payload.composite.contents;
-            LARRAY(SpvId, ids, contents.count);
-            for (size_t i = 0; i < contents.count; i++) {
-                ids[i] = emit_value(emitter, bb_builder, contents.nodes[i]);
-            }
-            if (bb_builder) {
-                new = spvb_composite(bb_builder, emit_type(emitter, node->type), contents.count, ids);
-                return new;
-            } else {
-                new = spvb_constant_composite(emitter->file_builder, emit_type(emitter, node->type), contents.count, ids);
-                break;
-            }
-        }
-        case Value_Undef_TAG: {
-            new = spvb_undef(emitter->file_builder, emit_type(emitter, node->payload.undef.type));
-            break;
-        }
-        case Value_Fill_TAG: error("lower me")
-        case RefDecl_TAG: {
-            const Node* decl = node->payload.ref_decl.decl;
-            switch (decl->tag) {
-                case GlobalVariable_TAG: {
-                    new = emit_decl(emitter, decl);
-                    break;
-                }
-                case Constant_TAG: {
-                    new = emit_value(emitter, NULL, decl->payload.constant.value);
-                    break;
-                }
-                default: error("RefDecl must reference a constant or global");
-            }
-            break;
-        }
-    }
-
-    insert_dict_and_get_result(struct Node*, SpvId, emitter->node_ids, node, new);
-    return new;
 }
 
 SpvId spv_find_reserved_id(Emitter* emitter, const Node* node) {

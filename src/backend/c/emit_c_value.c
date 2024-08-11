@@ -7,44 +7,225 @@
 
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include <spirv/unified1/spirv.h>
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <inttypes.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
-void emit_pack_code(Printer* p, Strings src, String dst) {
-    for (size_t i = 0; i < src.count; i++) {
-        print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
+static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e, Printer* block_printer, Printer* p, Growy* g, const Node* t, Nodes c) {
+    if (t->tag == Int_TAG && t->payload.int_type.width == 8) {
+        uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
+        bool ends_zero = false;
+        for (size_t i = 0; i < c.count; i++) {
+            tmp[i] = get_int_literal_value(*resolve_to_int_literal(c.nodes[i]), false);
+            if (tmp[i] == 0) {
+                if (i == c.count - 1)
+                    ends_zero = true;
+            }
+        }
+        bool is_stringy = ends_zero;
+        for (size_t i = 0; i < c.count; i++) {
+            // ignore the last char in a string
+            if (is_stringy && i == c.count - 1)
+                break;
+            if (isprint(tmp[i]))
+                print(p, "%c", tmp[i]);
+            else
+                print(p, "\\x%02x", tmp[i]);
+        }
+        free(tmp);
+        return is_stringy ? StringLit : CharsLit;
+    } else {
+        for (size_t i = 0; i < c.count; i++) {
+            print(p, to_cvalue(e, emit_value(e, block_printer, c.nodes[i])));
+            if (i + 1 < c.count)
+                print(p, ", ");
+        }
+        growy_append_bytes(g, 1, "\0");
+        return ObjectsList;
     }
 }
 
-void emit_unpack_code(Printer* p, String src, Strings dst) {
-    for (size_t i = 0; i < dst.count; i++) {
-        print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
-    }
-}
+CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
+    CTerm* found = lookup_existing_term(emitter, value);
+    if (found) return *found;
 
-static Strings emit_variable_declarations(Emitter* emitter, Printer* p, String given_name, Strings* given_names, Nodes types, bool mut, const Nodes* init_values) {
-    if (given_names)
-        assert(given_names->count == types.count);
-    if (init_values)
-        assert(init_values->count == types.count);
-    LARRAY(String, names, types.count);
-    for (size_t i = 0; i < types.count; i++) {
-        String name = given_names ? given_names->strings[i] : given_name;
-        assert(name);
-        names[i] = unique_name(emitter->arena, name);
-        if (init_values) {
-            CTerm initializer = emit_value(emitter, p, init_values->nodes[i]);
-            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
-        } else
-            emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, NULL);
+    String emitted = NULL;
+
+    switch (is_value(value)) {
+        case NotAValue: assert(false);
+        case Value_ConstrainedValue_TAG:
+        case Value_UntypedNumber_TAG: error("lower me");
+        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        default: {
+            assert(!is_instruction(value));
+            error("Unhandled value for code generation: %s", node_tags[value->tag]);
+        }
+        case Value_IntLiteral_TAG: {
+            if (value->payload.int_literal.is_signed)
+                emitted = format_string_arena(emitter->arena->arena, "%" PRIi64, value->payload.int_literal.value);
+            else
+                emitted = format_string_arena(emitter->arena->arena, "%" PRIu64, value->payload.int_literal.value);
+
+            bool is_long = value->payload.int_literal.width == IntTy64;
+            bool is_signed = value->payload.int_literal.is_signed;
+            if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version >= 130) {
+                if (!is_signed)
+                    emitted = format_string_arena(emitter->arena->arena, "%sU", emitted);
+                if (is_long)
+                    emitted = format_string_arena(emitter->arena->arena, "%sL", emitted);
+            }
+
+            break;
+        }
+        case Value_FloatLiteral_TAG: {
+            uint64_t v = value->payload.float_literal.value;
+            switch (value->payload.float_literal.width) {
+                case FloatTy16:
+                    assert(false);
+                case FloatTy32: {
+                    float f;
+                    memcpy(&f, &v, sizeof(uint32_t));
+                    double d = (double) f;
+                    emitted = format_string_arena(emitter->arena->arena, "%#.9gf", d); break;
+                }
+                case FloatTy64: {
+                    double d;
+                    memcpy(&d, &v, sizeof(uint64_t));
+                    emitted = format_string_arena(emitter->arena->arena, "%.17g", d); break;
+                }
+            }
+            break;
+        }
+        case Value_True_TAG: return term_from_cvalue("true");
+        case Value_False_TAG: return term_from_cvalue("false");
+        case Value_Undef_TAG: {
+            if (emitter->config.dialect == CDialect_GLSL)
+                return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
+            String name = unique_name(emitter->arena, "undef");
+            emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
+            // emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
+            emitted = name;
+            break;
+        }
+        case Value_NullPtr_TAG: return term_from_cvalue("NULL");
+        case Value_Composite_TAG: {
+            const Type* type = value->payload.composite.type;
+            Nodes elements = value->payload.composite.contents;
+
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+
+            if (type->tag == ArrType_TAG) {
+                switch (array_insides_helper(emitter, block_printer, p, g, type, elements)) {
+                    case ObjectsList:
+                        emitted = growy_data(g);
+                        break;
+                    case StringLit:
+                        emitted = format_string_arena(emitter->arena->arena, "\"%s\"", growy_data(g));
+                        break;
+                    case CharsLit:
+                        emitted = format_string_arena(emitter->arena->arena, "'%s'", growy_data(g));
+                        break;
+                }
+            } else {
+                for (size_t i = 0; i < elements.count; i++) {
+                    print(p, "%s", to_cvalue(emitter, emit_value(emitter, block_printer, elements.nodes[i])));
+                    if (i + 1 < elements.count)
+                        print(p, ", ");
+                }
+                emitted = growy_data(g);
+            }
+            growy_append_bytes(g, 1, "\0");
+
+            switch (emitter->config.dialect) {
+                no_compound_literals:
+                case CDialect_ISPC: {
+                    // arrays need double the brackets
+                    if (type->tag == ArrType_TAG)
+                        emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
+
+                    if (block_printer) {
+                        String tmp = unique_name(emitter->arena, "composite");
+                        print(block_printer, "\n%s = { %s };", emit_type(emitter, value->type, tmp), emitted);
+                        emitted = tmp;
+                    } else {
+                        // this requires us to end up in the initialisation side of a declaration
+                        emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
+                    }
+                    break;
+                }
+                case CDialect_CUDA:
+                case CDialect_C11:
+                    // If we're C89 (ew)
+                    if (!emitter->config.allow_compound_literals)
+                        goto no_compound_literals;
+                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
+                    break;
+                case CDialect_GLSL:
+                    if (type->tag != PackType_TAG)
+                        goto no_compound_literals;
+                    // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
+                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", emit_type(emitter, value->type, NULL), emitted);
+                    break;
+            }
+
+            destroy_growy(g);
+            destroy_printer(p);
+            break;
+        }
+        case Value_Fill_TAG: error("lower me")
+        case Value_StringLiteral_TAG: {
+            Growy* g = new_growy();
+            Printer* p = open_growy_as_printer(g);
+
+            String str = value->payload.string_lit.string;
+            size_t len = strlen(str);
+            for (size_t i = 0; i < len; i++) {
+                char c = str[i];
+                switch (c) {
+                    case '\n': print(p, "\\n");
+                        break;
+                    default:
+                        growy_append_bytes(g, 1, &c);
+                }
+            }
+            growy_append_bytes(g, 1, "\0");
+
+            emitted = format_string_arena(emitter->arena->arena, "\"%s\"", growy_data(g));
+            destroy_growy(g);
+            destroy_printer(p);
+            break;
+        }
+        case Value_FnAddr_TAG: {
+            emitted = legalize_c_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
+            emitted = format_string_arena(emitter->arena->arena, "(&%s)", emitted);
+            break;
+        }
+        case Value_RefDecl_TAG: {
+            const Node* decl = value->payload.ref_decl.decl;
+            emit_decl(emitter, decl);
+
+            if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
+                    assert(block_printer && "ISPC backend cannot statically refer to a varying variable");
+                    return ispc_varying_ptr_helper(emitter, block_printer, decl->type, *lookup_existing_term(emitter, decl));
+                }
+            }
+
+            return *lookup_existing_term(emitter, decl);
+        }
     }
-    return strings(emitter->arena, types.count, names);
+
+    assert(emitted);
+    return term_from_cvalue(emitted);
 }
 
 static const Type* get_first_op_scalar_type(Nodes ops) {
