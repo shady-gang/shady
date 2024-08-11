@@ -6,7 +6,6 @@
 
 #include "spirv_builder.h"
 
-
 typedef struct CFG_ CFG;
 typedef struct Scheduler_ Scheduler;
 
@@ -37,11 +36,8 @@ typedef struct Emitter_ {
 
 typedef SpvbPhi** Phis;
 
-#define emit_decl spv_emit_decl
-#define emit_type spv_emit_type
-
-SpvId emit_decl(Emitter*, const Node*);
-SpvId emit_type(Emitter*, const Type*);
+SpvId spv_emit_decl(Emitter*, const Node*);
+SpvId spv_emit_type(Emitter*, const Type*);
 SpvId spv_emit_value(Emitter*, FnBuilder*, const Node*);
 void spv_emit_terminator(Emitter*, FnBuilder*, BBBuilder, const Node* abs, const Node* terminator);
 

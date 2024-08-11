@@ -77,7 +77,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     const Type* fn_type = node->type;
     SpvId fn_id = spv_find_reserved_id(emitter, NULL, node);
     FnBuilder fn_builder = {
-        .base = spvb_begin_fn(emitter->file_builder, fn_id, emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fun.return_types)),
+        .base = spvb_begin_fn(emitter->file_builder, fn_id, spv_emit_type(emitter, fn_type), nodes_to_codom(emitter, node->payload.fun.return_types)),
         .emitted = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
         .cfg = build_fn_cfg(node),
     };
@@ -87,7 +87,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     for (size_t i = 0; i < params.count; i++) {
         const Node* param = params.nodes[i];
         const Type* param_type = param->payload.param.type;
-        SpvId param_id = spvb_parameter(fn_builder.base, emit_type(emitter, param_type));
+        SpvId param_id = spvb_parameter(fn_builder.base, spv_emit_type(emitter, param_type));
         register_result(emitter, false, param, param_id);
         deconstruct_qualified_type(&param_type);
         if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobal) {
@@ -115,7 +115,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
                 for (size_t j = 0; j < bb_params.count; j++) {
                     const Node* bb_param = bb_params.nodes[j];
                     SpvId phi_id = spvb_fresh_id(emitter->file_builder);
-                    spvb_add_phi(basic_block_builder, emit_type(emitter, bb_param->type), phi_id);
+                    spvb_add_phi(basic_block_builder, spv_emit_type(emitter, bb_param->type), phi_id);
                     register_result(emitter, false, bb_param, phi_id);
                 }
                 // also make sure to register the label for basic blocks
@@ -149,7 +149,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     destroy_dict(fn_builder.emitted);
 }
 
-SpvId emit_decl(Emitter* emitter, const Node* decl) {
+SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
     SpvId* existing = find_value_dict(const Node*, SpvId, emitter->global_node_ids, decl);
     if (existing)
         return *existing;
@@ -164,7 +164,7 @@ SpvId emit_decl(Emitter* emitter, const Node* decl) {
             if (gvar->init)
                 init = spv_emit_value(emitter, NULL, gvar->init);
             SpvStorageClass storage_class = emit_addr_space(emitter, gvar->address_space);
-            spvb_global_variable(emitter->file_builder, given_id, emit_type(emitter, decl->type), storage_class, false, init);
+            spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, decl->type), storage_class, false, init);
 
             Builtin b = BuiltinsCount;
             for (size_t i = 0; i < gvar->annotations.count; i++) {
@@ -302,7 +302,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 static void emit_decls(Emitter* emitter, Nodes declarations) {
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* decl = declarations.nodes[i];
-        emit_decl(emitter, decl);
+        spv_emit_decl(emitter, decl);
     }
 }
 

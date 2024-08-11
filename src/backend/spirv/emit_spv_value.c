@@ -195,7 +195,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 if (opcode == SpvOpMax)
                     goto custom;
 
-                SpvId result_t = instr->type == empty_multiple_return_type(emitter->arena) ? emit_type(emitter, instr->type) : emitter->void_t;
+                SpvId result_t = instr->type == empty_multiple_return_type(emitter->arena) ? spv_emit_type(emitter, instr->type) : emitter->void_t;
                 if (entry.extended_set) {
                     SpvId set_id = get_extended_instruction_set(emitter, entry.extended_set);
                     return spvb_ext_instruction(bb_builder, result_t, set_id, opcode, args.count, emitted_args);
@@ -215,7 +215,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
             const Type* src = get_unqualified_type(first(the_op.operands)->type);
             assert(dst->tag == PtrType_TAG && src->tag == PtrType_TAG);
             assert(src != dst);
-            return spvb_op(bb_builder, SpvOpBitcast, emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, first(the_op.operands)) });
+            return spvb_op(bb_builder, SpvOpBitcast, spv_emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, first(the_op.operands)) });
         }
         case insert_op:
         case extract_dynamic_op:
@@ -236,7 +236,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                     indices[i] = spv_emit_value(emitter, fn_builder, args.nodes[i + indices_start]);
                 }
                 assert(indices_count == 1);
-                return spvb_vector_extract_dynamic(bb_builder, emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices[0]);
+                return spvb_vector_extract_dynamic(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices[0]);
             }
             LARRAY(uint32_t, indices, indices_count);
             for (size_t i = 0; i < indices_count; i++) {
@@ -245,9 +245,9 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
             }
 
             if (insert)
-                return spvb_insert(bb_builder, emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, args.nodes[1]), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
+                return spvb_insert(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, args.nodes[1]), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
             else
-                return spvb_extract(bb_builder, emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
+                return spvb_extract(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
         }
         case shuffle_op: {
             const Type* result_t = instr->type;
@@ -261,14 +261,14 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 else
                     indices[i] = indice;
             }
-            return spvb_vecshuffle(bb_builder, emit_type(emitter, result_t), a, b, args.count - 2, indices);
+            return spvb_vecshuffle(bb_builder, spv_emit_type(emitter, result_t), a, b, args.count - 2, indices);
         }
         case select_op: {
             SpvId cond = spv_emit_value(emitter, fn_builder, first(args));
             SpvId truv = spv_emit_value(emitter, fn_builder, args.nodes[1]);
             SpvId flsv = spv_emit_value(emitter, fn_builder, args.nodes[2]);
 
-            return spvb_select(bb_builder, emit_type(emitter, args.nodes[1]->type), cond, truv, flsv);
+            return spvb_select(bb_builder, spv_emit_type(emitter, args.nodes[1]->type), cond, truv, flsv);
         }
         default: error("TODO: unhandled op");
     }
@@ -284,8 +284,8 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
-                    SpvId local_id = spvb_op(bb_builder, SpvOpLoad, emit_type(emitter, uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
-                    return spvb_group_shuffle(bb_builder, emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, first(instr.operands)), local_id);
+                    SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
+                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, first(instr.operands)), local_id);
                 }
                 break;
             }
@@ -296,14 +296,14 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 // ad-hoc extension for my sanity
                 if (get_unqualified_type(instr.result_t) == get_actual_mask_type(emitter->arena)) {
                     const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = uint32_type(emitter->arena) });
-                    SpvId raw_result = spvb_group_ballot(bb_builder, emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, first(instr.operands)));
+                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, first(instr.operands)));
                     // TODO: why are we doing this in SPIR-V and not the IR ?
-                    SpvId low32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
-                    SpvId hi32 = spvb_extract(bb_builder, emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
-                    SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), 1, &low32);
-                    SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, emit_type(emitter, uint64_type(emitter->arena)), 1, &hi32);
-                    hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, int64_literal(emitter->arena, 32)) });
-                    SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
+                    SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
+                    SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+                    SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, uint64_type(emitter->arena)), 1, &low32);
+                    SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, uint64_type(emitter->arena)), 1, &hi32);
+                    hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, spv_emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, int64_literal(emitter->arena, 32)) });
+                    SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, spv_emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
                     return final_result;
                 }
                 break;
@@ -312,13 +312,13 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
                 break;
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-                // return spvb_group_non_uniform_iadd(bb_builder, emit_type(emitter, get_unqualified_type(first(args)->type)), spv_emit_value(emitter, fn_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
+                // return spvb_group_non_uniform_iadd(bb_builder, spv_emit_type(emitter, get_unqualified_type(first(args)->type)), spv_emit_value(emitter, fn_builder, first(args)), scope_subgroup, SpvGroupOperationReduce, NULL);
             }
             case SpvOpGroupNonUniformElect: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
                 assert(instr.operands.count == 1);
                 break;
-                // SpvId result_t = emit_type(emitter, bool_type(emitter->arena));
+                // SpvId result_t = spv_emit_type(emitter, bool_type(emitter->arena));
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // return spvb_group_elect(bb_builder, result_t, scope_subgroup);
             }
@@ -327,20 +327,20 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
         LARRAY(SpvId, ops, instr.operands.count);
         for (size_t i = 0; i < instr.operands.count; i++)
             ops[i] = spv_emit_value(emitter, fn_builder, instr.operands.nodes[i]);
-        return spvb_op(bb_builder, instr.opcode, emit_type(emitter, instr.result_t), instr.operands.count, ops);
+        return spvb_op(bb_builder, instr.opcode, spv_emit_type(emitter, instr.result_t), instr.operands.count, ops);
     }
     LARRAY(SpvId, ops, instr.operands.count);
     for (size_t i = 0; i < instr.operands.count; i++)
         ops[i] = spv_emit_value(emitter, fn_builder, instr.operands.nodes[i]);
     SpvId set_id = get_extended_instruction_set(emitter, instr.set);
-    return spvb_ext_instruction(bb_builder, emit_type(emitter, instr.result_t), set_id, instr.opcode, instr.operands.count, ops);
+    return spvb_ext_instruction(bb_builder, spv_emit_type(emitter, instr.result_t), set_id, instr.opcode, instr.operands.count, ops);
 }
 
 static SpvId emit_leaf_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Call call) {
     const Node* fn = call.callee;
     assert(fn->tag == FnAddr_TAG);
     fn = fn->payload.fn_addr.fn;
-    SpvId callee = emit_decl(emitter, fn);
+    SpvId callee = spv_emit_decl(emitter, fn);
 
     const Type* callee_type = fn->type;
     assert(callee_type->tag == FnType_TAG);
@@ -372,7 +372,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Comment_TAG: break;
         case Instruction_LocalAlloc_TAG: {
             assert(bb_builder);
-            return spvb_local_variable(spvb_get_fn_builder(bb_builder), emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
+            return spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
                 .address_space = AsFunction,
                 .pointed_type = instruction->payload.local_alloc.type
             })), SpvStorageClassFunction);
@@ -395,7 +395,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             }
 
             SpvId eptr = spv_emit_value(emitter, fn_builder, payload.ptr);
-            return spvb_load(bb_builder, emit_type(emitter, elem_type), eptr, operands_count, operands);
+            return spvb_load(bb_builder, spv_emit_type(emitter, elem_type), eptr, operands_count, operands);
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
@@ -430,10 +430,10 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             const IntLiteral* known_offset = resolve_to_int_literal(payload.offset);
             if (known_offset && known_offset->value == 0) {
                 const Type* target_type = instruction->type;
-                return spvb_access_chain(bb_builder, emit_type(emitter, target_type), base, payload.indices.count, indices);
+                return spvb_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, payload.indices.count, indices);
             } else {
                 const Type* target_type = instruction->type;
-                return spvb_ptr_access_chain(bb_builder, emit_type(emitter, target_type), base, spv_emit_value(emitter, fn_builder, payload.offset), payload.indices.count, indices);
+                return spvb_ptr_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, spv_emit_value(emitter, fn_builder, payload.offset), payload.indices.count, indices);
             }
         }
         case Instruction_DebugPrintf_TAG: {
@@ -442,7 +442,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             args[0] = spv_emit_value(emitter, fn_builder, string_lit_helper(emitter->arena, instruction->payload.debug_printf.string));
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++)
                 args[i + 1] = spv_emit_value(emitter, fn_builder, instruction->payload.debug_printf.args.nodes[i]);
-            spvb_ext_instruction(bb_builder, emit_type(emitter, instruction->type), set_id, (SpvOp) NonSemanticDebugPrintfDebugPrintf, instruction->payload.debug_printf.args.count + 1, args);
+            spvb_ext_instruction(bb_builder, spv_emit_type(emitter, instruction->type), set_id, (SpvOp) NonSemanticDebugPrintfDebugPrintf, instruction->payload.debug_printf.args.count + 1, args);
             return 0;
         }
     }
@@ -461,7 +461,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         case Value_FnAddr_TAG: error("Should be lowered away earlier!");
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
-            SpvId ty = emit_type(emitter, node->type);
+            SpvId ty = spv_emit_type(emitter, node->type);
             // 64-bit constants take two spirv words, anything else fits in one
             if (node->payload.int_literal.width == IntTy64) {
                 uint32_t arr[] = { node->payload.int_literal.value & 0xFFFFFFFF, node->payload.int_literal.value >> 32 };
@@ -474,7 +474,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         }
         case FloatLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
-            SpvId ty = emit_type(emitter, node->type);
+            SpvId ty = spv_emit_type(emitter, node->type);
             switch (node->payload.float_literal.width) {
                 case FloatTy16: {
                     uint32_t arr[] = { node->payload.float_literal.value & 0xFFFF };
@@ -496,12 +496,12 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         }
         case True_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), true);
+            spvb_bool_constant(emitter->file_builder, new, spv_emit_type(emitter, bool_type(emitter->arena)), true);
             break;
         }
         case False_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
-            spvb_bool_constant(emitter->file_builder, new, emit_type(emitter, bool_type(emitter->arena)), false);
+            spvb_bool_constant(emitter->file_builder, new, spv_emit_type(emitter, bool_type(emitter->arena)), false);
             break;
         }
         case Value_StringLiteral_TAG: {
@@ -509,7 +509,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             break;
         }
         case Value_NullPtr_TAG: {
-            new = spvb_constant_null(emitter->file_builder, emit_type(emitter, node->payload.null_ptr.ptr_type));
+            new = spvb_constant_null(emitter->file_builder, spv_emit_type(emitter, node->payload.null_ptr.ptr_type));
             break;
         }
         case Composite_TAG: {
@@ -519,15 +519,15 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
                 ids[i] = spv_emit_value(emitter, fn_builder, contents.nodes[i]);
             }
             if (bb_builder) {
-                new = spvb_composite(bb_builder, emit_type(emitter, node->type), contents.count, ids);
+                new = spvb_composite(bb_builder, spv_emit_type(emitter, node->type), contents.count, ids);
                 return new;
             } else {
-                new = spvb_constant_composite(emitter->file_builder, emit_type(emitter, node->type), contents.count, ids);
+                new = spvb_constant_composite(emitter->file_builder, spv_emit_type(emitter, node->type), contents.count, ids);
                 break;
             }
         }
         case Value_Undef_TAG: {
-            new = spvb_undef(emitter->file_builder, emit_type(emitter, node->payload.undef.type));
+            new = spvb_undef(emitter->file_builder, spv_emit_type(emitter, node->payload.undef.type));
             break;
         }
         case Value_Fill_TAG: error("lower me")
@@ -535,7 +535,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             const Node* decl = node->payload.ref_decl.decl;
             switch (decl->tag) {
                 case GlobalVariable_TAG: {
-                    new = emit_decl(emitter, decl);
+                    new = spv_emit_decl(emitter, decl);
                     break;
                 }
                 case Constant_TAG: {

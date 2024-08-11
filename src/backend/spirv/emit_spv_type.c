@@ -64,10 +64,10 @@ const Type* normalize_type(Emitter* emitter, const Type* type) {
 SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
     switch (return_types.count) {
         case 0: return emitter->void_t;
-        case 1: return emit_type(emitter, return_types.nodes[0]);
+        case 1: return spv_emit_type(emitter, return_types.nodes[0]);
         default: {
             const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = return_types, .special = 0 });
-            return emit_type(emitter, codom_ret_type);
+            return spv_emit_type(emitter, codom_ret_type);
         }
     }
 }
@@ -78,7 +78,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
             Nodes member_types = type->payload.record_type.members;
             LARRAY(SpvId, members, member_types.count);
             for (size_t i = 0; i < member_types.count; i++)
-                members[i] = emit_type(emitter, member_types.nodes[i]);
+                members[i] = spv_emit_type(emitter, member_types.nodes[i]);
             spvb_struct_type(emitter->file_builder, id, member_types.count, members);
             if (type->payload.record_type.special == DecorateBlock) {
                 spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
@@ -94,7 +94,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
     }
 }
 
-SpvId emit_type(Emitter* emitter, const Type* type) {
+SpvId spv_emit_type(Emitter* emitter, const Type* type) {
     // Some types in shady lower to the same spir-v type, but spir-v is unhappy with having duplicates of the same types
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
     type = normalize_type(emitter, type);
@@ -145,12 +145,12 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
                 register_result(emitter, NULL, type, new);
-                SpvId pointee = emit_type(emitter, pointed_type);
+                SpvId pointee = spv_emit_type(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
             }
 
-            SpvId pointee = emit_type(emitter, pointed_type);
+            SpvId pointee = spv_emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
 
             //if (is_physical_as(type->payload.ptr_type.address_space) && type->payload.ptr_type.pointed_type->tag == ArrType_TAG) {
@@ -166,18 +166,18 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             const FnType* fnt = &type->payload.fn_type;
             LARRAY(SpvId, params, fnt->param_types.count);
             for (size_t i = 0; i < fnt->param_types.count; i++)
-                params[i] = emit_type(emitter, fnt->param_types.nodes[i]);
+                params[i] = spv_emit_type(emitter, fnt->param_types.nodes[i]);
 
             new = spvb_fn_type(emitter->file_builder, fnt->param_types.count, params, nodes_to_codom(emitter, fnt->return_types));
             break;
         }
         case QualifiedType_TAG: {
             // SPIR-V does not care about our type qualifiers.
-            new = emit_type(emitter, type->payload.qualified_type.type);
+            new = spv_emit_type(emitter, type->payload.qualified_type.type);
             break;
         }
         case ArrType_TAG: {
-            SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
+            SpvId element_type = spv_emit_type(emitter, type->payload.arr_type.element_type);
             if (type->payload.arr_type.size) {
                 new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, type->payload.arr_type.size));
             } else {
@@ -189,7 +189,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         }
         case PackType_TAG: {
             assert(type->payload.pack_type.width >= 2);
-            SpvId element_type = emit_type(emitter, type->payload.pack_type.element_type);
+            SpvId element_type = spv_emit_type(emitter, type->payload.pack_type.element_type);
             new = spvb_vector_type(emitter->file_builder, element_type, type->payload.pack_type.width);
             break;
         }
@@ -204,14 +204,14 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             return new;
         }
         case Type_TypeDeclRef_TAG: {
-            new = emit_decl(emitter, type->payload.type_decl_ref.decl);
+            new = spv_emit_decl(emitter, type->payload.type_decl_ref.decl);
             break;
         }
-        case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
+        case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
         case Type_SamplerType_TAG: new = spvb_sampler_type(emitter->file_builder); break;
         case Type_ImageType_TAG: {
             ImageType p = type->payload.image_type;
-            new = spvb_image_type(emitter->file_builder, emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
+            new = spvb_image_type(emitter->file_builder, spv_emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
             break;
         }
         case Type_MaskType_TAG:
