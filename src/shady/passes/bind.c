@@ -285,7 +285,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     case SlimOpSubscript: {
                         return mem_and_value(a, (MemAndValue) {
                             .value = prim_op(a, (PrimOp) {
-                                .op = extract_dynamic_op,
+                                .op = extract_op,
                                 .operands = mk_nodes(a, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))
                             }),
                             .mem = rewrite_node(r, payload.mem) }

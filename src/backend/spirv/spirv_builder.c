@@ -564,7 +564,8 @@ void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_buil
 
 struct SpvbBasicBlockBuilder_ {
     SpvbFnBuilder* fn_builder;
-    SpvbSectionBuilder section_data;
+    SpvbSectionBuilder instructions_section;
+    SpvbSectionBuilder terminator_section;
 
     struct List* phis;
     SpvId label;
@@ -621,10 +622,12 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
             free(phi);
         }
 
-        copy_section(bb->section_data);
+        copy_section(bb->instructions_section);
+        copy_section(bb->terminator_section);
 
         destroy_list(bb->phis);
-        destroy_growy(bb->section_data);
+        destroy_growy(bb->instructions_section);
+        destroy_growy(bb->terminator_section);
         free(bb);
     }
 
@@ -640,10 +643,11 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
 SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
     SpvbBasicBlockBuilder* bbb = (SpvbBasicBlockBuilder*) malloc(sizeof(SpvbBasicBlockBuilder));
     *bbb = (SpvbBasicBlockBuilder) {
-            .fn_builder = fn_builder,
-            .label = label,
-            .phis = new_list(SpvbPhi*),
-            .section_data = new_growy()
+        .fn_builder = fn_builder,
+        .label = label,
+        .phis = new_list(SpvbPhi*),
+        .instructions_section = new_growy(),
+        .terminator_section = new_growy(),
     };
     return bbb;
 }
@@ -679,7 +683,7 @@ struct List* spbv_get_phis(SpvbBasicBlockBuilder* bb_builder) {
 
 // It is tiresome to pass the context over and over again. Let's not !
 // We use this macro to save us some typing
-#define target_data bb_builder->section_data
+#define target_data bb_builder->instructions_section
 SpvId spvb_composite(SpvbBasicBlockBuilder* bb_builder, SpvId aggregate_t, size_t elements_count, SpvId elements[]) {
     op(SpvOpCompositeConstruct, 3u + elements_count);
     ref_id(aggregate_t);
@@ -779,7 +783,7 @@ SpvId spvb_load(SpvbBasicBlockBuilder* bb_builder, SpvId target_type, SpvId poin
     return id;
 }
 
-SpvId  spvb_vecshuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId a, SpvId b, size_t operands_count, uint32_t operands[]) {
+SpvId spvb_vecshuffle(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId a, SpvId b, size_t operands_count, uint32_t operands[]) {
     op(SpvOpVectorShuffle, 5 + operands_count);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
     ref_id(result_type);
@@ -862,6 +866,32 @@ SpvId spvb_group_non_uniform_group_op(SpvbBasicBlockBuilder* bb_builder, SpvId r
     return id;
 }
 
+SpvId spvb_call(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]) {
+    op(SpvOpFunctionCall, 4u + arguments_count);
+    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
+    ref_id(return_type);
+    ref_id(id);
+    ref_id(callee);
+    for (size_t i = 0; i < arguments_count; i++)
+        ref_id(arguments[i]);
+    return id;
+}
+
+SpvId spvb_ext_instruction(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId set, uint32_t instruction, size_t arguments_count, SpvId arguments[]) {
+    op(SpvOpExtInst, 5 + arguments_count);
+    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
+    ref_id(return_type);
+    ref_id(id);
+    ref_id(set);
+    literal_int(instruction);
+    for (size_t i = 0; i < arguments_count; i++)
+        ref_id(arguments[i]);
+    return id;
+}
+
+#undef target_data
+#define target_data bb_builder->terminator_section
+
 void spvb_branch(SpvbBasicBlockBuilder* bb_builder, SpvId target) {
     op(SpvOpBranch, 2);
     ref_id(target);
@@ -899,29 +929,6 @@ void spvb_loop_merge(SpvbBasicBlockBuilder* bb_builder, SpvId merge_bb, SpvId co
         literal_int(loop_control_ops[i]);
 }
 
-SpvId spvb_call(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId callee, size_t arguments_count, SpvId arguments[]) {
-    op(SpvOpFunctionCall, 4u + arguments_count);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(return_type);
-    ref_id(id);
-    ref_id(callee);
-    for (size_t i = 0; i < arguments_count; i++)
-        ref_id(arguments[i]);
-    return id;
-}
-
-SpvId spvb_ext_instruction(SpvbBasicBlockBuilder* bb_builder, SpvId return_type, SpvId set, uint32_t instruction, size_t arguments_count, SpvId arguments[]) {
-    op(SpvOpExtInst, 5 + arguments_count);
-    SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);
-    ref_id(return_type);
-    ref_id(id);
-    ref_id(set);
-    literal_int(instruction);
-    for (size_t i = 0; i < arguments_count; i++)
-        ref_id(arguments[i]);
-    return id;
-}
-
 void spvb_return_void(SpvbBasicBlockBuilder* bb_builder) {
     op(SpvOpReturn, 1);
 }
@@ -934,4 +941,5 @@ void spvb_return_value(SpvbBasicBlockBuilder* bb_builder, SpvId value) {
 void spvb_unreachable(SpvbBasicBlockBuilder* bb_builder) {
     op(SpvOpUnreachable, 1);
 }
+
 #undef target_data

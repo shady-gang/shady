@@ -195,7 +195,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 if (opcode == SpvOpMax)
                     goto custom;
 
-                SpvId result_t = instr->type == empty_multiple_return_type(emitter->arena) ? spv_emit_type(emitter, instr->type) : emitter->void_t;
+                SpvId result_t = instr->type == empty_multiple_return_type(emitter->arena) ? emitter->void_t : spv_emit_type(emitter, instr->type);
                 if (entry.extended_set) {
                     SpvId set_id = spv_get_extended_instruction_set(emitter, entry.extended_set);
                     return spvb_ext_instruction(bb_builder, result_t, set_id, opcode, args.count, emitted_args);
@@ -290,7 +290,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 }
                 break;
             }
-            case SpvCapabilityGroupNonUniformBallot: {
+            case SpvOpGroupNonUniformBallot: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
                 assert(instr.operands.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
