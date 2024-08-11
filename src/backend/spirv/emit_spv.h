@@ -46,6 +46,7 @@ void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* t
 
 SpvId find_reserved_id(Emitter* emitter, const Node* node);
 void register_result(Emitter*, const Node*, SpvId id);
+BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb);
 
 SpvId get_extended_instruction_set(Emitter*, const char*);
 

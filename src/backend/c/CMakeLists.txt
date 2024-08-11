@@ -3,6 +3,7 @@ add_library(shady_c STATIC
     emit_c_value.c
     emit_c_type.c
     emit_c_builtin.c
+    emit_c_control_flow.c
 )
 set_property(TARGET shady_c PROPERTY POSITION_INDEPENDENT_CODE ON)
 

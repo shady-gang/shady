@@ -82,8 +82,8 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
 CTerm bind_intermediary_result(Emitter*, Printer* p, const Type* t, CTerm term);
 
 CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction);
+void c_emit_terminator(Emitter* emitter, Printer* p, const Node* terminator);
 String emit_lambda_body   (Emitter*,           const Node*, const Nodes* nested_basic_blocks);
-void   emit_lambda_body_at(Emitter*, Printer*, const Node*, const Nodes* nested_basic_blocks);
 
 void emit_pack_code(Printer*, Strings, String dst);
 void emit_unpack_code(Printer*, String src, Strings dst);
