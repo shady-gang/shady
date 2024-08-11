@@ -198,7 +198,7 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    assert(!bb->mem0 && !bb->stack);
+    assert(!bb->mem0 && entries_count_list(bb->stack) == 0);
     return maybe_tuple_helper(arena, values);
 }
 

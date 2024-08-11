@@ -99,7 +99,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
     type = normalize_type(emitter, type);
 
-    SpvId* existing = spv_search_emitted(emitter, type);
+    SpvId* existing = spv_search_emitted(emitter, NULL, type);
     if (existing)
         return *existing;
 
@@ -144,7 +144,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
             const Type* pointed_type = type->payload.ptr_type.pointed_type;
             if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
-                register_result(emitter, true, type, new);
+                register_result(emitter, NULL, type, new);
                 SpvId pointee = emit_type(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
@@ -179,7 +179,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         case ArrType_TAG: {
             SpvId element_type = emit_type(emitter, type->payload.arr_type.element_type);
             if (type->payload.arr_type.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, type->payload.arr_type.size));
+                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, type->payload.arr_type.size));
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
@@ -199,7 +199,7 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
-            register_result(emitter, true, type, new);
+            register_result(emitter, NULL, type, new);
             spv_emit_nominal_type_body(emitter, type, new);
             return new;
         }
@@ -225,6 +225,6 @@ SpvId emit_type(Emitter* emitter, const Type* type) {
         }
     }
 
-    register_result(emitter, true, type, new);
+    register_result(emitter, NULL, type, new);
     return new;
 }

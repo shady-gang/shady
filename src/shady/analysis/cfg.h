@@ -86,13 +86,13 @@ CFG* build_cfg(const Node* fn, const Node* entry, LoopTree* lt, bool flipped);
 /** Construct the CFG starting in node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
-#define build_fn_cfg(node) build_cfg(node, node, NULL, false);
+#define build_fn_cfg(node) build_cfg(node, node, NULL, false)
 
 /** Construct the CFG stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  * This CFG will contain post dominance information instead of regular dominance!
  */
-#define build_fn_cfg_flipped(node) build_cfg(node, node, NULL, true);
+#define build_fn_cfg_flipped(node) build_cfg(node, node, NULL, true)
 
 CFNode* cfg_lookup(CFG* cfg, const Node* abs);
 void compute_rpo(CFG*);

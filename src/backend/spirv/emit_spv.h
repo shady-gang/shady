@@ -6,12 +6,19 @@
 
 #include "spirv_builder.h"
 
-typedef SpvbFileBuilder* FileBuilder;
-typedef SpvbFnBuilder* FnBuilder;
-typedef SpvbBasicBlockBuilder* BBBuilder;
 
 typedef struct CFG_ CFG;
 typedef struct Scheduler_ Scheduler;
+
+typedef struct {
+    SpvbFnBuilder* base;
+    CFG* cfg;
+    Scheduler* scheduler;
+    struct Dict* emitted;
+} FnBuilder;
+
+typedef SpvbFileBuilder* FileBuilder;
+typedef SpvbBasicBlockBuilder* BBBuilder;
 
 typedef struct Emitter_ {
     Module* module;
@@ -21,10 +28,7 @@ typedef struct Emitter_ {
     SpvId void_t;
     struct Dict* global_node_ids;
 
-    struct Dict* current_fn_node_ids;
     struct Dict* bb_builders;
-    CFG* cfg;
-    Scheduler* scheduler;
 
     size_t num_entry_pts;
 
@@ -38,12 +42,12 @@ typedef SpvbPhi** Phis;
 
 SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
-SpvId spv_emit_value(Emitter*, const Node*);
-void spv_emit_terminator(Emitter*, FnBuilder, BBBuilder, const Node* abs, const Node* terminator);
+SpvId spv_emit_value(Emitter*, FnBuilder*, const Node*);
+void spv_emit_terminator(Emitter*, FnBuilder*, BBBuilder, const Node* abs, const Node* terminator);
 
-void register_result(Emitter*, bool, const Node*, SpvId id);
-SpvId* spv_search_emitted(Emitter* emitter, const Node* node);
-SpvId spv_find_reserved_id(Emitter* emitter, const Node* node);
+void register_result(Emitter*, FnBuilder*, const Node*, SpvId id);
+SpvId* spv_search_emitted(Emitter* emitter, FnBuilder*, const Node* node);
+SpvId spv_find_reserved_id(Emitter* emitter, FnBuilder*, const Node* node);
 
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb);
 
