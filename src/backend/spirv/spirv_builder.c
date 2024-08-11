@@ -648,6 +648,10 @@ SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
     return bbb;
 }
 
+SpvbFnBuilder* spvb_get_fn_builder(SpvbBasicBlockBuilder* bb_builder) {
+    return bb_builder->fn_builder;
+}
+
 void spvb_add_bb(SpvbFnBuilder* fn_builder, SpvbBasicBlockBuilder* bb_builder) {
     append_list(SpvbBasicBlockBuilder*, fn_builder->bbs, bb_builder);
 }

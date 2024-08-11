@@ -41,7 +41,7 @@ typedef struct {
 SpvId emit_decl(Emitter*, const Node*);
 SpvId emit_type(Emitter*, const Type*);
 SpvId emit_value(Emitter*, BBBuilder, const Node*);
-void emit_instruction(Emitter*, FnBuilder, BBBuilder, const Node* instruction, size_t results_count, SpvId results[]);
+SpvId emit_instruction(Emitter*, BBBuilder, const Node* instruction);
 void emit_terminator(Emitter*, FnBuilder, BBBuilder, MergeTargets, const Node* terminator);
 
 SpvId find_reserved_id(Emitter* emitter, const Node* node);

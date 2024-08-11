@@ -73,6 +73,7 @@ void spvb_declare_function(SpvbFileBuilder*, SpvbFnBuilder* fn_builder);
 void spvb_define_function(SpvbFileBuilder*, SpvbFnBuilder* fn_builder);
 
 SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder*, SpvId label);
+SpvbFnBuilder* spvb_get_fn_builder(SpvbBasicBlockBuilder*);
 /// Actually adds the basic block to the function
 /// This is a separate action from begin_bb because the ordering in which the basic blocks are written matters...
 void spvb_add_bb(SpvbFnBuilder*, SpvbBasicBlockBuilder*);
