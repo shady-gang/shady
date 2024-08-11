@@ -35,10 +35,10 @@ static void add_branch_phis_from_jump(Emitter* emitter, FnBuilder* fn_builder, B
 }
 
 static void emit_if(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, If if_instr) {
-    SpvId join_bb_id = spv_find_reserved_id(emitter, fn_builder, if_instr.tail);
+    SpvId join_bb_id = spv_find_emitted(emitter, fn_builder, if_instr.tail);
 
-    SpvId true_id = spv_find_reserved_id(emitter, fn_builder, if_instr.if_true);
-    SpvId false_id = if_instr.if_false ? spv_find_reserved_id(emitter, fn_builder, if_instr.if_false) : join_bb_id;
+    SpvId true_id = spv_find_emitted(emitter, fn_builder, if_instr.if_true);
+    SpvId false_id = if_instr.if_false ? spv_find_emitted(emitter, fn_builder, if_instr.if_false) : join_bb_id;
 
     spvb_selection_merge(bb_builder, join_bb_id, 0);
     SpvId condition = spv_emit_value(emitter, fn_builder, if_instr.condition);
@@ -46,12 +46,12 @@ static void emit_if(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builde
 }
 
 static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Match match) {
-    SpvId join_bb_id = spv_find_reserved_id(emitter, fn_builder, match.tail);
+    SpvId join_bb_id = spv_find_emitted(emitter, fn_builder, match.tail);
 
     assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
     SpvId inspectee = spv_emit_value(emitter, fn_builder, match.inspect);
 
-    SpvId default_id = spv_find_reserved_id(emitter, fn_builder, match.default_case);
+    SpvId default_id = spv_find_emitted(emitter, fn_builder, match.default_case);
 
     const Type* inspectee_t = match.inspect->type;
     deconstruct_qualified_type(&inspectee_t);
@@ -67,7 +67,7 @@ static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_bui
         } else {
             literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) value;
         }
-        literals_and_cases[i * literal_case_entry_size + literal_width] = spv_find_reserved_id(emitter, fn_builder, match.cases.nodes[i]);
+        literals_and_cases[i * literal_case_entry_size + literal_width] = spv_find_emitted(emitter, fn_builder, match.cases.nodes[i]);
     }
 
     spvb_selection_merge(bb_builder, join_bb_id, 0);
@@ -75,13 +75,13 @@ static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_bui
 }
 
 static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Loop loop_instr) {
-    SpvId body_id = spv_find_reserved_id(emitter, fn_builder, loop_instr.body);
+    SpvId body_id = spv_find_emitted(emitter, fn_builder, loop_instr.body);
 
     SpvId continue_id = spvb_fresh_id(emitter->file_builder);
     BBBuilder continue_builder = spvb_begin_bb(fn_builder->base, continue_id);
     spvb_name(emitter->file_builder, continue_id, "loop_continue");
 
-    SpvId next_id = spv_find_reserved_id(emitter, fn_builder, loop_instr.tail);
+    SpvId next_id = spv_find_emitted(emitter, fn_builder, loop_instr.tail);
 
     // the header block receives the loop merge annotation
     spvb_loop_merge(bb_builder, next_id, continue_id, 0, 0, NULL);
@@ -128,14 +128,14 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         }
         case Jump_TAG: {
             add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.jump);
-            spvb_branch(basic_block_builder, spv_find_reserved_id(emitter, fn_builder, terminator->payload.jump.target));
+            spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, terminator->payload.jump.target));
             return;
         }
         case Branch_TAG: {
             SpvId condition = spv_emit_value(emitter, fn_builder, terminator->payload.branch.condition);
             add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.branch.true_jump->payload.jump);
             add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.branch.false_jump->payload.jump);
-            spvb_branch_conditional(basic_block_builder, condition, spv_find_reserved_id(emitter, fn_builder, terminator->payload.branch.true_jump->payload.jump.target), spv_find_reserved_id(emitter, fn_builder, terminator->payload.branch.false_jump->payload.jump.target));
+            spvb_branch_conditional(basic_block_builder, condition, spv_find_emitted(emitter, fn_builder, terminator->payload.branch.true_jump->payload.jump.target), spv_find_emitted(emitter, fn_builder, terminator->payload.branch.false_jump->payload.jump.target));
             return;
         }
         case Switch_TAG: {
@@ -146,7 +146,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
                 error("TODO finish")
             }
             add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.br_switch.default_jump->payload.jump);
-            SpvId default_tgt = spv_find_reserved_id(emitter, fn_builder, terminator->payload.br_switch.default_jump->payload.jump.target);
+            SpvId default_tgt = spv_find_emitted(emitter, fn_builder, terminator->payload.br_switch.default_jump->payload.jump.target);
 
             spvb_switch(basic_block_builder, inspectee, default_tgt, terminator->payload.br_switch.case_jumps.count, targets);
             return;
@@ -162,7 +162,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             Nodes args = terminator->payload.merge_selection.args;
             for (size_t i = 0; i < args.count; i++)
             add_branch_phis(emitter, fn_builder, basic_block_builder, tail, args);
-            spvb_branch(basic_block_builder, spv_find_reserved_id(emitter, fn_builder, tail));
+            spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, tail));
             return;
         }
         case MergeContinue_TAG: {
@@ -170,7 +170,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             Loop payload = construct->payload.loop_instr;
             Nodes args = terminator->payload.merge_continue.args;
             add_branch_phis(emitter, fn_builder, basic_block_builder, payload.body, args);
-            spvb_branch(basic_block_builder, spv_find_reserved_id(emitter, fn_builder, payload.body));
+            spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, payload.body));
             return;
         }
         case MergeBreak_TAG: {
@@ -178,7 +178,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             Loop payload = construct->payload.loop_instr;
             Nodes args = terminator->payload.merge_break.args;
             add_branch_phis(emitter, fn_builder, basic_block_builder, payload.tail, args);
-            spvb_branch(basic_block_builder, spv_find_reserved_id(emitter, fn_builder, payload.tail));
+            spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, payload.tail));
             return;
         }
         case Terminator_Control_TAG:

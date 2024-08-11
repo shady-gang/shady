@@ -41,18 +41,18 @@ SpvId spv_emit_type(Emitter*, const Type*);
 SpvId spv_emit_value(Emitter*, FnBuilder*, const Node*);
 void spv_emit_terminator(Emitter*, FnBuilder*, BBBuilder, const Node* abs, const Node* terminator);
 
-void register_result(Emitter*, FnBuilder*, const Node*, SpvId id);
+void spv_register_emitted(Emitter*, FnBuilder*, const Node*, SpvId id);
 SpvId* spv_search_emitted(Emitter* emitter, FnBuilder*, const Node* node);
-SpvId spv_find_reserved_id(Emitter* emitter, FnBuilder*, const Node* node);
+SpvId spv_find_emitted(Emitter* emitter, FnBuilder*, const Node* node);
 
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb);
 
-SpvId get_extended_instruction_set(Emitter*, const char*);
+SpvId spv_get_extended_instruction_set(Emitter*, const char*);
 
-SpvStorageClass emit_addr_space(Emitter*, AddressSpace address_space);
+SpvStorageClass spv_emit_addr_space(Emitter*, AddressSpace address_space);
 // SPIR-V doesn't have multiple return types, this bridges the gap...
-SpvId nodes_to_codom(Emitter* emitter, Nodes return_types);
-const Type* normalize_type(Emitter* emitter, const Type* type);
+SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types);
+const Type* spv_normalize_type(Emitter* emitter, const Type* type);
 void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id);
 
 #endif

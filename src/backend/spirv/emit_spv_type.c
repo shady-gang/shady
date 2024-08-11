@@ -12,7 +12,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-SpvStorageClass emit_addr_space(Emitter* emitter, AddressSpace address_space) {
+SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space) {
     switch(address_space) {
         case AsShared:                       return SpvStorageClassWorkgroup;
         case AsPrivate:                      return SpvStorageClassPrivate;
@@ -54,14 +54,14 @@ static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
     }
 }
 
-const Type* normalize_type(Emitter* emitter, const Type* type) {
+const Type* spv_normalize_type(Emitter* emitter, const Type* type) {
     Rewriter rewriter = create_node_rewriter(emitter->module, emitter->module, rewrite_normalize);
     const Node* rewritten = rewrite_node(&rewriter, type);
     destroy_rewriter(&rewriter);
     return rewritten;
 }
 
-SpvId nodes_to_codom(Emitter* emitter, Nodes return_types) {
+SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types) {
     switch (return_types.count) {
         case 0: return emitter->void_t;
         case 1: return spv_emit_type(emitter, return_types.nodes[0]);
@@ -97,7 +97,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
 SpvId spv_emit_type(Emitter* emitter, const Type* type) {
     // Some types in shady lower to the same spir-v type, but spir-v is unhappy with having duplicates of the same types
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
-    type = normalize_type(emitter, type);
+    type = spv_normalize_type(emitter, type);
 
     SpvId* existing = spv_search_emitted(emitter, NULL, type);
     if (existing)
@@ -140,11 +140,11 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_float_type(emitter->file_builder, width);
             break;
         } case PtrType_TAG: {
-            SpvStorageClass sc = emit_addr_space(emitter, type->payload.ptr_type.address_space);
+            SpvStorageClass sc = spv_emit_addr_space(emitter, type->payload.ptr_type.address_space);
             const Type* pointed_type = type->payload.ptr_type.pointed_type;
             if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
-                register_result(emitter, NULL, type, new);
+                spv_register_emitted(emitter, NULL, type, new);
                 SpvId pointee = spv_emit_type(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
@@ -168,7 +168,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             for (size_t i = 0; i < fnt->param_types.count; i++)
                 params[i] = spv_emit_type(emitter, fnt->param_types.nodes[i]);
 
-            new = spvb_fn_type(emitter->file_builder, fnt->param_types.count, params, nodes_to_codom(emitter, fnt->return_types));
+            new = spvb_fn_type(emitter->file_builder, fnt->param_types.count, params, spv_types_to_codom(emitter, fnt->return_types));
             break;
         }
         case QualifiedType_TAG: {
@@ -199,7 +199,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
-            register_result(emitter, NULL, type, new);
+            spv_register_emitted(emitter, NULL, type, new);
             spv_emit_nominal_type_body(emitter, type, new);
             return new;
         }
@@ -225,6 +225,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         }
     }
 
-    register_result(emitter, NULL, type, new);
+    spv_register_emitted(emitter, NULL, type, new);
     return new;
 }
