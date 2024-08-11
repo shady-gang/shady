@@ -327,10 +327,6 @@ static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
     [sqrt_op] = { IsMono, OsCall, "sqrt" },
     [exp_op] = { IsMono, OsCall, "exp" },
     [pow_op] = { IsMono, OsCall, "pow" },
-
-    [subgroup_active_mask_op] = { IsMono, OsCall, "lanemask" },
-    [subgroup_ballot_op] = { IsMono, OsCall, "packmask" },
-    [subgroup_reduce_sum_op] = { IsMono, OsCall, "reduce_add" },
 };
 
 static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISelTableEntry* entry, Nodes operands) {
@@ -692,15 +688,6 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
         }
         case default_join_point_op:
         case create_joint_point_op: error("lowered in lower_tailcalls.c");
-        case subgroup_elect_first_op: {
-            switch (emitter->config.dialect) {
-                case CDialect_CUDA: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_elect_first()")); break;
-                case CDialect_ISPC: term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))")); break;
-                case CDialect_C11:
-                case CDialect_GLSL: error("TODO")
-            }
-            break;
-        }
         case subgroup_assume_uniform_op: {
             if (emitter->config.dialect != CDialect_ISPC) {
                 return emit_value(emitter, p, prim_op->operands.nodes[0]);
@@ -731,6 +718,21 @@ static CTerm emit_ext_instruction(Emitter* emitter, Printer* p, ExtInstr instr) 
                 }
                 break;
             }
+            case SpvOpGroupNonUniformElect: {
+                assert(instr.operands.count == 1);
+                const IntLiteral* scope = resolve_to_int_literal(first(instr.operands));
+                assert(scope && scope->value == SpvScopeSubgroup);
+                switch (emitter->config.dialect) {
+                    case CDialect_CUDA: return term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_elect_first()"));
+                    case CDialect_ISPC: return term_from_cvalue(format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))"));
+                    case CDialect_C11:
+                    case CDialect_GLSL: error("TODO")
+                }
+                break;
+            }
+            // [subgroup_active_mask_op] = { IsMono, OsCall, "lanemask" },
+            // [subgroup_ballot_op] = { IsMono, OsCall, "packmask" },
+            // [subgroup_reduce_sum_op] = { IsMono, OsCall, "reduce_add" },
             default: error("Unsupported core spir-v instruction: %d", instr.opcode);
         }
     } else {

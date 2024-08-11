@@ -42,9 +42,9 @@ static bool is_supported_natively(Context* ctx, const Type* element_type) {
     return false;
 }
 
-static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src);
+static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src);
 
-static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const Node* param) {
+static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* t, const Node* param) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* original_t = t;
     t = get_maybe_nominal_type_body(t);
@@ -56,7 +56,7 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const 
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {
                 const Node* e = gen_extract(bb, param, singleton(uint32_literal(a, i)));
-                elements[i] = build_subgroup_first(ctx, bb, e);
+                elements[i] = build_subgroup_first(ctx, bb, scope, e);
             }
             return composite_helper(a, original_t, nodes(a, element_types.count, elements));
         }
@@ -65,8 +65,8 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const 
                 const Node* hi = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, param, int32_literal(a, 32)));
                 hi = convert_int_zero_extend(bb, int32_type(a), hi);
                 const Node* lo = convert_int_zero_extend(bb, int32_type(a), param);
-                hi = build_subgroup_first(ctx, bb, hi);
-                lo = build_subgroup_first(ctx, bb, lo);
+                hi = build_subgroup_first(ctx, bb, scope, hi);
+                lo = build_subgroup_first(ctx, bb, scope, lo);
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = convert_int_zero_extend(bb, it, hi);
                 lo = convert_int_zero_extend(bb, it, lo);
@@ -77,17 +77,17 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* t, const 
         }
         case Type_PtrType_TAG: {
             param = gen_reinterpret_cast(bb, uint64_type(a), param);
-            return gen_reinterpret_cast(bb, t, generate(ctx, bb, uint64_type(a), param));
+            return gen_reinterpret_cast(bb, t, generate(ctx, bb, scope, uint64_type(a), param));
         }
         default: break;
     }
     return NULL;
 }
 
-static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type* t) {
+static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node* param, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fn));
-    const Node* result = generate(ctx, bb, t, param);
+    const Node* result = generate(ctx, bb, scope, t, param);
     if (result) {
         set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
             .args = singleton(result),
@@ -102,12 +102,15 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* param, const Type*
     error_die();
 }
 
-static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* src) {
+static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
     const Node* t = get_unqualified_type(src->type);
     if (is_supported_natively(ctx, t))
-        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, qualified_type_helper(t, true), singleton(src));
+        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, qualified_type_helper(t, true), mk_nodes(a, scope, src));
+
+    if (resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
+        error("TODO")
 
     Node* fn = NULL;
     Node** found = find_value_dict(const Node*, Node*, ctx->fns, t);
@@ -118,7 +121,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
                       singleton(annotation(a, (Annotation) { .name = "Generated"})), singleton(qualified_type_helper(t, true)));
         insert_dict(const Node*, Node*, ctx->fns, t, fn);
-        build_fn_body(ctx, fn, src_param, t);
+        build_fn_body(ctx, fn, scope, src_param, t);
     }
 
     return first(gen_call(bb, fn_addr_helper(a, fn), singleton(src)));
@@ -137,7 +140,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
                 BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                 return yield_values_and_wrap_in_block(bb, singleton(
-                        build_subgroup_first(ctx, bb, rewrite_node(r, first(payload.operands)))));
+                        build_subgroup_first(ctx, bb, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))));
             }
         }
         default: break;

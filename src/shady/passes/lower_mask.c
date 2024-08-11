@@ -26,8 +26,6 @@ static const Node* process(Context* ctx, const Node* node) {
             Nodes old_nodes = node->payload.prim_op.operands;
             switch(op) {
                 case empty_mask_op: return ctx->zero;
-                case subgroup_active_mask_op: // this is just ballot(true)
-                    return prim_op(a, (PrimOp) { .op = subgroup_ballot_op, .type_arguments = empty(a), .operands = singleton(true_lit(ctx->rewriter.dst_arena)) });
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
                     BodyBuilder* bb = begin_block_pure(a);

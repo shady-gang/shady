@@ -371,13 +371,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
             goto rebuild;
         }
         case empty_mask_op:
-        case subgroup_active_mask_op:
-        case subgroup_elect_first_op:
-            input_types = nodes(a, 0, NULL);
-            break;
-        case subgroup_ballot_op:
-            input_types = singleton(qualified_type_helper(bool_type(a), false));
-            break;
         case mask_is_thread_active_op: {
             input_types = mk_nodes(a, qualified_type_helper(mask_type(a), false), qualified_type_helper(uint32_type(a), false));
             break;

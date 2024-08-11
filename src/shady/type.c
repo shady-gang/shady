@@ -845,28 +845,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             });
         }
         // Subgroup ops
-        case subgroup_active_mask_op: {
-            assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
-            return qualified_type_helper(get_actual_mask_type(arena), true);
-        }
-        case subgroup_ballot_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 1);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
-                .type = get_actual_mask_type(arena)
-            });
-        }
-        case subgroup_elect_first_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .is_uniform = false,
-                .type = bool_type(arena)
-            });
-        }
-        case subgroup_assume_uniform_op:
-        case subgroup_reduce_sum_op: {
+        case subgroup_assume_uniform_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Type* operand_type = get_unqualified_type(prim_op.operands.nodes[0]->type);

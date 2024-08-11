@@ -190,23 +190,7 @@
       "class": "memory_layout"
     },
     {
-      "name": "subgroup_elect_first",
-      "class": "subgroup_intrinsic"
-    },
-    {
       "name": "subgroup_assume_uniform",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_reduce_sum",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_active_mask",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_ballot",
       "class": "subgroup_intrinsic"
     },
     {
