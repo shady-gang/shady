@@ -281,11 +281,11 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address, value_param);
-        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = empty(a) })));
+        set_abstraction_body(fun, finish_body_with_return(bb, empty(a)));
     } else {
         const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address);
         assert(loaded_value);
-        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value) })));
+        set_abstraction_body(fun, finish_body_with_return(bb, singleton(loaded_value)));
     }
     return fun;
 }
@@ -305,12 +305,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
             const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
-            Nodes r = bind_instruction(bb, call(a, (Call) {.callee = fn_addr_helper(a, fn), .args = singleton(pointer_as_offset)}));
-            return yield_values_and_wrap_in_block(bb, r);
+            Nodes results = gen_call(bb, fn_addr_helper(a, fn), singleton(pointer_as_offset));
+            return yield_values_and_wrap_in_block(bb, results);
         }
         case Store_TAG: {
             Store payload = old->payload.store;
@@ -319,14 +319,14 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
 
             const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, true, ptr_type->payload.ptr_type.address_space);
 
             const Node* value = rewrite_node(&ctx->rewriter, payload.value);
-            bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = mk_nodes(a, pointer_as_offset, value) }));
+            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
         case StackAlloc_TAG: error("This needs to be lowered (see setup_stack_frames.c)")
