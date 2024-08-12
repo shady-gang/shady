@@ -16,6 +16,8 @@ RewritePass cleanup;
 
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and tailcalls
 RewritePass lower_cf_instrs;
+/// Try to identify reconvergence points throughout the program for unstructured control flow programs
+RewritePass reconvergence_heuristics;
 
 /// @}
 
@@ -24,11 +26,6 @@ RewritePass lower_cf_instrs;
 
 /// Extracts unstructured basic blocks into separate functions (including spilling)
 RewritePass lift_indirect_targets;
-/// Emulates uniform jumps within functions using a loop
-RewritePass lower_jumps_loop;
-/// Emulates uniform jumps within functions by applying a structuring transformation
-RewritePass lower_jumps_structure;
-RewritePass lcssa;
 RewritePass normalize_builtins;
 
 /// @}
@@ -106,9 +103,6 @@ RewritePass mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
 RewritePass opt_mem2reg;
-
-/// Try to identify reconvergence points throughout the program for unstructured control flow programs
-RewritePass reconvergence_heuristics;
 
 RewritePass opt_stack;
 RewritePass opt_restructurize;

@@ -21,7 +21,9 @@ add_dependencies(shady_generated node_generated primops_generated type_generated
 target_include_directories(shady_generated INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
 target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:shady_generated>")
 
-set(SHADY_SOURCES
+add_library(shady STATIC)
+
+target_sources(shady PRIVATE
     ir.c
     node.c
     node_helpers.c
@@ -39,62 +41,12 @@ set(SHADY_SOURCES
     annotation.c
     module.c
     config.c
-
-    analysis/cfg.c
-    analysis/cfg_dump.c
-    analysis/free_variables.c
-    analysis/verify.c
-    analysis/callgraph.c
-    analysis/uses.c
-    analysis/looptree.c
-    analysis/leak.c
-    analysis/scheduler.c
-
-    transform/memory_layout.c
-    transform/ir_gen_helpers.c
-    transform/internal_constants.c
-
-    passes/import.c
-    passes/cleanup.c
-    passes/lower_cf_instrs.c
-    passes/lift_indirect_targets.c
-    passes/lower_callf.c
-    passes/lower_alloca.c
-    passes/lower_stack.c
-    passes/lower_lea.c
-    passes/lower_physical_ptrs.c
-    passes/lower_generic_ptrs.c
-    passes/lower_memory_layout.c
-    passes/lower_memcpy.c
-    passes/lower_decay_ptrs.c
-    passes/lower_tailcalls.c
-    passes/lower_mask.c
-    passes/lower_fill.c
-    passes/lower_nullptr.c
-    passes/lower_switch_btree.c
-    passes/setup_stack_frames.c
-    passes/eliminate_constants.c
-    passes/normalize_builtins.c
-    passes/lower_subgroup_ops.c
-    passes/lower_subgroup_vars.c
-    passes/lower_int64.c
-    passes/lower_vec_arr.c
-    passes/lower_workgroups.c
-    passes/lower_generic_globals.c
-    passes/mark_leaf_functions.c
-    passes/opt_inline.c
-    passes/opt_restructure.c
-    passes/opt_demote_alloca.c
-    passes/reconvergence_heuristics.c
-    passes/simt2d.c
-    passes/specialize_entry_point.c
-    passes/specialize_execution_model.c
-    passes/lower_logical_pointers.c
-
-    passes/lower_entrypoint_args.c
 )
 
-add_library(shady STATIC ${SHADY_SOURCES})
+add_subdirectory(analysis)
+add_subdirectory(transform)
+add_subdirectory(passes)
+
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
 if (WIN32)
