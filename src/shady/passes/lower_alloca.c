@@ -48,6 +48,10 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     IrArena* a = vctx->context->rewriter.dst_arena;
     switch (node->tag) {
         case StackAlloc_TAG: {
+            StackSlot* found = find_value_dict(const Node*, StackSlot, vctx->prepared_offsets, node);
+            if (found)
+                break;
+
             const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(is_data_type(element_type));
             const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, entries_count_list(vctx->members))));
@@ -137,7 +141,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     error_die();
                 }
 
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.stack_alloc.mem));
+                BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, node->payload.stack_alloc.mem));
                 if (!ctx->stack_size_on_entry) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     assert(false);
