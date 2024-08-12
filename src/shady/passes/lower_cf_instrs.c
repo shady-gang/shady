@@ -1,4 +1,4 @@
-#include "pass.h"
+#include "shady/pass.h"
 
 #include "../type.h"
 #include "../analysis/cfg.h"

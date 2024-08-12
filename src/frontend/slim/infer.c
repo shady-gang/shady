@@ -1,7 +1,7 @@
-#include "pass.h"
+#include "shady/pass.h"
 
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
+#include "../shady/type.h"
+#include "../shady/transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"

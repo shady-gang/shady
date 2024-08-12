@@ -1,20 +1,13 @@
 #ifndef SHADY_PASSES_H
 
 #include "shady/ir.h"
-#include "pass.h"
+#include "shady/pass.h"
 
 /// @name Boring, regular compiler stuff
 /// @{
 
 RewritePass import;
 RewritePass cleanup;
-
-/// Removes all Unresolved nodes and replaces them with the appropriate decl/value
-RewritePass bind_program;
-/// Enforces the grammar, notably by let-binding any intermediary result
-RewritePass normalize;
-/// Makes sure every node is well-typed
-RewritePass infer_program;
 
 /// @}
 

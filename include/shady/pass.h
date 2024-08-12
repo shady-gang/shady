@@ -1,5 +1,5 @@
-#ifndef SHD_PASS_H
-#define SHD_PASS_H
+#ifndef SHADY_PASS_H
+#define SHADY_PASS_H
 
 #include "shady/config.h"
 #include "rewrite.h"

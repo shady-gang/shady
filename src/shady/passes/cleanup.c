@@ -1,4 +1,4 @@
-#include "pass.h"
+#include "shady/pass.h"
 
 #include "../analysis/uses.h"
 #include "../ir_private.h"

@@ -1,4 +1,4 @@
-#include "pass.h"
+#include "shady/pass.h"
 
 #include "../transform/memory_layout.h"
 #include "../type.h"

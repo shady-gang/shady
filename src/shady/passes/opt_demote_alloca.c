@@ -1,4 +1,4 @@
-#include "pass.h"
+#include "shady/pass.h"
 
 #include "../visit.h"
 #include "../type.h"

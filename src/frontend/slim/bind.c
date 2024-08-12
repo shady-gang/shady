@@ -1,6 +1,7 @@
-#include "pass.h"
+#include "shady/pass.h"
+#include "shady/fe/slim.h"
 
-#include "../ir_private.h"
+#include "../shady/ir_private.h"
 
 #include "list.h"
 #include "log.h"
@@ -8,8 +9,6 @@
 
 #include <assert.h>
 #include <string.h>
-
-#include "shady/fe/slim.h"
 
 typedef struct NamedBindEntry_ NamedBindEntry;
 struct NamedBindEntry_ {

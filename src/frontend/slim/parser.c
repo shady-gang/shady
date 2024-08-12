@@ -1144,7 +1144,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
     return nom;
 }
 
-static void parse_shady_ir(ParserConfig config, const char* contents, Module* mod) {
+void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = new_tokenizer(contents);
 
@@ -1174,33 +1174,3 @@ static void parse_shady_ir(ParserConfig config, const char* contents, Module* mo
     destroy_tokenizer(tokenizer);
 }
 
-#include "compile.h"
-#include "transform/internal_constants.h"
-
-Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name) {
-    ArenaConfig aconfig = default_arena_config(&config->target);
-    aconfig.name_bound = false;
-    aconfig.check_op_classes = false;
-    aconfig.check_types = false;
-    aconfig.validate_builtin_types = false;
-    aconfig.allow_fold = false;
-    IrArena* initial_arena = new_ir_arena(&aconfig);
-    Module* m = new_module(initial_arena, name);
-    parse_shady_ir(pconfig, contents, m);
-    Module** pmod = &m;
-    Module* old_mod = NULL;
-
-    debugv_print("Parsed slim module:\n");
-    log_module(DEBUGV, config, *pmod);
-
-    generate_dummy_constants(config, *pmod);
-
-    RUN_PASS(bind_program)
-    RUN_PASS(normalize)
-
-    RUN_PASS(normalize_builtins)
-    RUN_PASS(infer_program)
-
-    destroy_ir_arena(initial_arena);
-    return *pmod;
-}

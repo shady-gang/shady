@@ -56,9 +56,6 @@ set(SHADY_SOURCES
 
     passes/import.c
     passes/cleanup.c
-    passes/bind.c
-    passes/normalize.c
-    passes/infer.c
     passes/lower_cf_instrs.c
     passes/lift_indirect_targets.c
     passes/lower_callf.c

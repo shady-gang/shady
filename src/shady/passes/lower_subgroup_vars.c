@@ -1,6 +1,6 @@
 #include <dict.h>
 
-#include "pass.h"
+#include "shady/pass.h"
 
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
