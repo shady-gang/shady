@@ -310,6 +310,8 @@ const Node* finish_body_with_unreachable(BodyBuilder*);
 const Node* finish_body_with_selection_merge(BodyBuilder*, Nodes args);
 const Node* finish_body_with_loop_continue(BodyBuilder*, Nodes args);
 const Node* finish_body_with_loop_break(BodyBuilder*, Nodes args);
+const Node* finish_body_with_join(BodyBuilder*, const Node* jp, Nodes args);
+const Node* finish_body_with_jump(BodyBuilder*, const Node* target, Nodes args);
 
 void cancel_body(BodyBuilder*);
 

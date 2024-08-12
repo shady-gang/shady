@@ -183,20 +183,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             }
 
             Nodes continue_wrapper_params = recreate_params(rewriter, get_abstraction_params(node));
+            Node* continue_wrapper;
+            continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
-                .args = continue_wrapper_params
+                .args = continue_wrapper_params,
+                .mem = get_abstraction_mem(continue_wrapper),
             });
-            Node* continue_wrapper;
-            switch (node->tag) {
-                case BasicBlock_TAG: {
-                    continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
-                    set_abstraction_body(continue_wrapper, continue_wrapper_body);
-                    break;
-                }
-                default:
-                    assert(false);
-            }
+            set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // replace the exit nodes by the exit wrappers
             LARRAY(const Node*, cached_exits, exiting_nodes_count);
@@ -240,12 +234,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     gen_store(exit_wrapper_bb, exit_fwd_allocas[i].nodes[j], rewrite_node(rewriter, read_list(const Node*, leaking[i])[j]));
                 }
 
-                const Node* exit_wrapper_body = finish_body(exit_wrapper_bb, join(arena, (Join) {
-                    .join_point = join_token_exit,
-                    .args = empty(arena)
-                }));
-
-                set_abstraction_body(exit_helpers[i], exit_wrapper_body);
+                set_abstraction_body(exit_helpers[i], finish_body_with_join(exit_wrapper_bb, join_token_exit, empty(arena)));
             }
 
             destroy_dict(rewriter->map);
@@ -268,14 +257,12 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             set_abstraction_body(inner_control_case, loop_body);
             Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
 
-            set_abstraction_body(loop_outer, finish_body(inner_bb, jump(arena, (Jump) {
-                .target = loop_outer,
-                .args = inner_control_results
-            })));
+            set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_body, inner_control_results));
             Node* outer_control_case = case_(arena, singleton(join_token_exit));
             set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
-                .args = nparams
+                .args = nparams,
+                .mem = get_abstraction_mem(outer_control_case),
             }));
             gen_control(outer_bb, empty(arena), outer_control_case);
 
@@ -300,18 +287,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     recovered_args[j] = gen_load(exit_recover_bb, exit_param_allocas[i].nodes[j]);
 
                 exit_numbers[i] = int32_literal(arena, i);
-                if (recreated_exit->tag == BasicBlock_TAG) {
-                    set_abstraction_body(exit_bb, finish_body(exit_recover_bb, jump(arena, (Jump) {
-                        .target = recreated_exit,
-                        .args = nodes(arena, exit_param_allocas[i].count, recovered_args),
-                    })));
-                } else {
-                    // TODO: rewrite
-                    assert(get_abstraction_params(recreated_exit).count == 0);
-                    error("")
-                    // assert(recreated_exit->tag == Case_TAG);
-                    // exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_param_allocas[i].count, recovered_args)), recreated_exit));
-                }
+                set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, nodes(arena, exit_param_allocas[i].count, recovered_args)));
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena), bb_mem(outer_bb));
                 destroy_list(leaking[i]);
             }
@@ -467,7 +443,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* pre_join = basic_block(a, exit_args, format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
             set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
-                .args = exit_args
+                .args = exit_args,
+                .mem = get_abstraction_mem(pre_join),
             }));
 
             const Node* cached = search_processed(r, idom);
@@ -489,18 +466,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             set_abstraction_body(control_case, inner_terminator);
             const Node* join_target = rewrite_node(r, idom);
 
-            switch (idom->tag) {
-                case BasicBlock_TAG: {
-                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.branch.mem));
-                    Nodes results = gen_control(bb, yield_types, control_case);
-                    return finish_body(bb, jump(a, (Jump) {
-                        .target = join_target,
-                        .args = results
-                    }));
-                }
-                default:
-                    assert(false);
-            }
+            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.branch.mem));
+            Nodes results = gen_control(bb, yield_types, control_case);
+            return finish_body_with_jump(bb, join_target, results);
         }
         default: break;
     }

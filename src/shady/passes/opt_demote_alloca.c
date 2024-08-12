@@ -157,9 +157,9 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
     insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
-    debugv_print("demote_alloca: uses analysis results for ");
-    log_node(DEBUGV, old);
-    debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
+    // debugv_print("demote_alloca: uses analysis results for ");
+    // log_node(DEBUGV, old);
+    // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
     if (!k->leaks) {
         if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
             ctx->todo |= true;

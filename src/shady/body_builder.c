@@ -162,6 +162,22 @@ const Node* finish_body_with_loop_break(BodyBuilder* bb, Nodes args) {
     }));
 }
 
+const Node* finish_body_with_join(BodyBuilder* bb, const Node* jp, Nodes args) {
+    return finish_body(bb, join(bb->arena, (Join) {
+        .join_point = jp,
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_jump(BodyBuilder* bb, const Node* target, Nodes args) {
+    return finish_body(bb, jump(bb->arena, (Jump) {
+        .target = target,
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
 const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
     if (!bb->tail_block && entries_count_list(bb->stack) == 0) {
