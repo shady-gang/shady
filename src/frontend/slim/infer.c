@@ -504,6 +504,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     register_processed(&joinable_ctx.rewriter, ojp, jp);
 
     Node* new_case = basic_block(a, singleton(jp), NULL);
+    register_processed(&joinable_ctx.rewriter, olam, new_case);
     set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {

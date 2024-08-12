@@ -188,8 +188,10 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             }
             register_processed_list(&ctx->rewriter, decl->payload.fun.params, new_fn_params);
 
-            fn_ctx.current_function = bound;
-            set_abstraction_body(bound, rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
+            if (decl->payload.fun.body) {
+                fn_ctx.current_function = bound;
+                set_abstraction_body(bound, rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
+            }
             return bound;
         }
         case NominalType_TAG: {

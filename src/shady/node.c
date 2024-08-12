@@ -306,21 +306,23 @@ void set_abstraction_body(Node* abs, const Node* body) {
     assert(!body || is_terminator(body));
     IrArena* a = abs->arena;
 
-    while (true) {
-        const Node* mem0 = get_original_mem(get_terminator_mem(body));
-        assert(mem0->tag == AbsMem_TAG);
-        Node* mem_abs = mem0->payload.abs_mem.abs;
-        if (is_basic_block(mem_abs)) {
-            BodyBuilder* insert = mem_abs->payload.basic_block.insert;
-            if (insert && mem_abs != abs) {
-                const Node* mem = insert->block_entry_mem;
-                set_abstraction_body((Node*) insert->block_entry_block, finish_block_body(insert, body));
-                body = jump_helper(a, insert->block_entry_block, empty(a), mem);
-                continue;
+    if (body) {
+        while (true) {
+            const Node* mem0 = get_original_mem(get_terminator_mem(body));
+            assert(mem0->tag == AbsMem_TAG);
+            Node* mem_abs = mem0->payload.abs_mem.abs;
+            if (is_basic_block(mem_abs)) {
+                BodyBuilder* insert = mem_abs->payload.basic_block.insert;
+                if (insert && mem_abs != abs) {
+                    const Node* mem = insert->block_entry_mem;
+                    set_abstraction_body((Node*) insert->block_entry_block, finish_block_body(insert, body));
+                    body = jump_helper(a, insert->block_entry_block, empty(a), mem);
+                    continue;
+                }
+                assert(mem_abs == abs);
             }
-            assert(mem_abs == abs);
+            break;
         }
-        break;
     }
 
     switch (abs->tag) {
