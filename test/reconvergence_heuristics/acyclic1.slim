@@ -42,7 +42,7 @@ fn f2 i32(varying bool b) {
 
 @Restructure
 fn g i32(varying bool b) {
-    branch(b, bb1, bb2)();
+    branch(b, bb1(), bb2());
 
     cont bb1() {
         jump bb3();
@@ -142,7 +142,7 @@ fn hnot2 i32(varying bool b) {
 
 @Restructure
 fn i i32(varying bool b) {
-    branch(b, bb1, bb2)();
+    branch(b, bb1(), bb2());
 
     cont bb1() {
         jump bb2();

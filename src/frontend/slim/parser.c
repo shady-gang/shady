@@ -797,7 +797,7 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
 static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
     expect(target);
-    Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
+    Nodes args = expect_operands(ctx, bb);
     const Node* tgt = make_unbound(arena, bb_mem(bb), target);
     bind_instruction_single(bb, tgt);
     return jump(arena, (Jump) {
