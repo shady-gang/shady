@@ -877,7 +877,6 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
         case Instruction_GetStackSize_TAG:
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
-        case Instruction_BindIdentifiers_TAG:  error("front-end only!");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return emit_primop(emitter, p, instruction);
         case Instruction_Call_TAG: return emit_call(emitter, p, instruction);

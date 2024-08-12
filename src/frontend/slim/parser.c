@@ -8,6 +8,7 @@
 
 #include "type.h"
 #include "ir_private.h"
+#include "transform/ir_gen_helpers.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -171,6 +172,16 @@ static Nodes accept_type_arguments(ctxparams) {
     return ty_args;
 }
 
+static const Node* make_unbound(IrArena* a, const Node* mem, String identifier) {
+    return ext_instr(a, (ExtInstr) {
+        .mem = mem,
+        .set = "shady.frontend",
+        .opcode = SlimOpUnbound,
+        .result_t = unit_type(a),
+        .operands = singleton(string_lit_helper(a, identifier)),
+    });
+}
+
 static const Node* accept_value(ctxparams, BodyBuilder* bb) {
     Token tok = curr_token(tokenizer);
     size_t size = tok.end - tok.start;
@@ -237,8 +248,8 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             }
 
             if (bb)
-                return bind_instruction_single(bb, unbound(arena, (Unbound) { .name = id, .mem = bb_mem(bb) }));
-            return unbound(arena, (Unbound) { .name = id });
+                return bind_instruction_single(bb, make_unbound(arena, bb_mem(bb), id));
+            return make_unbound(arena, NULL, id);
         }
         case hex_lit_tok:
         case dec_lit_tok: {
@@ -391,7 +402,7 @@ static const Type* accept_unqualified_type(ctxparams) {
     } else {
         String id = accept_identifier(ctx);
         if (id)
-            return unbound(arena, (Unbound) { .name = id });
+            return make_unbound(arena, NULL, id);
 
         return NULL;
     }
@@ -755,16 +766,11 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
     destroy_list(tlist);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* instruction, const Node* mem, bool mut, Strings names, Nodes types);
-
-void parser_create_mutable_variables(BodyBuilder* bb, const Node* instruction, Nodes provided_types, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, true, output_names, provided_types);
-    bind_instruction_outputs_count(bb, let_mut_instr, 0);
-}
-
-void parser_create_immutable_variables(BodyBuilder* bb, const Node* instruction, Strings output_names) {
-    const Node* let_mut_instr = bind_identifiers(bb->arena, instruction, bb->mem, false, output_names, empty(bb->arena));
-    bind_instruction_outputs_count(bb, let_mut_instr, 0);
+static Nodes strings2nodes(IrArena* a, Strings strings) {
+    LARRAY(const Node*, arr, strings.count);
+    for (size_t i = 0; i < strings.count; i++)
+        arr[i] = string_lit_helper(a, strings.strings[i]);
+    return nodes(a, strings.count, arr);
 }
 
 static bool accept_statement(ctxparams, BodyBuilder* bb) {
@@ -773,13 +779,13 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, bb);
-        parser_create_immutable_variables(bb, instruction, ids);
+        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(bb->arena), prepend_nodes(bb->arena, strings2nodes(bb->arena, ids), instruction));
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok));
         const Node* instruction = accept_instruction(ctx, bb);
-        parser_create_mutable_variables(bb, instruction, types, ids);
+        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(bb->arena), prepend_nodes(bb->arena, concat_nodes(bb->arena, strings2nodes(bb->arena, ids), types), instruction));
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;
@@ -792,7 +798,7 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
     expect(target);
     Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : nodes(arena, 0, NULL);
-    const Node* tgt = unbound(arena, (Unbound) { .name = target, .mem = bb_mem(bb) });
+    const Node* tgt = make_unbound(arena, bb_mem(bb), target);
     bind_instruction_single(bb, tgt);
     return jump(arena, (Jump) {
         .target = tgt,
@@ -942,6 +948,9 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, mem);
 
+    //struct List* bb_names = new_list(String);
+    Nodes ids = empty(arena);
+    Nodes conts = empty(arena);
     if (curr_token(tokenizer).tag == cont_tok) {
         while (true) {
             if (!accept_token(ctx, cont_tok))
@@ -952,9 +961,13 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             expect_parameters(ctx, &parameters, NULL, bb);
             Node* continuation = basic_block(arena, parameters, name);
             set_abstraction_body(continuation, expect_body(ctx, get_abstraction_mem(continuation), NULL));
-            bind_instruction_single(cont_wrapper_bb, bind_identifiers(arena, continuation, bb_mem(cont_wrapper_bb), false, strings(arena, 1, &name), empty(arena)));
+            ids = append_nodes(arena, ids, string_lit_helper(arena, name));
+            conts = append_nodes(arena, conts, continuation);
         }
     }
+
+    gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), concat_nodes(arena, ids, conts));
+    //destroy_list(bb_names);
 
     expect(accept_token(ctx, rbracket_tok));
 
@@ -975,10 +988,8 @@ static Nodes accept_annotations(ctxparams) {
                     goto no_params;
                 }
 
-                // this is a map
-                if (first_value->tag == Unbound_TAG && accept_token(ctx, equal_tok)) {
-                    error("TODO: parse map")
-                } else if (curr_token(tokenizer).tag == comma_tok) {
+                // TODO: AnnotationCompound ?
+                if (curr_token(tokenizer).tag == comma_tok) {
                     next_token(tokenizer);
                     struct List* values = new_list(const Node*);
                     append_list(const Node*, values, first_value);

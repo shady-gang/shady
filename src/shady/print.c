@@ -1089,10 +1089,6 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf(BYELLOW);
         printf("%s", get_declaration_name(node));
         printf(RESET);
-    } else if (node->tag == Unbound_TAG) {
-        printf(YELLOW);
-        printf("`%s`", node->payload.unbound.name);
-        printf(RESET);
     } else if (is_annotation(node)) {
         print_annotation(ctx, node);
         return true;

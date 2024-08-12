@@ -88,15 +88,6 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (node->tag) {
-        case Unbound_TAG: {
-            if (node->payload.unbound.mem)
-                rewrite_node(&ctx->rewriter, node->payload.unbound.mem);
-            Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
-            // can't take the address if it's not a var!
-            if (!entry.is_var)
-                return NULL;
-            return entry.node;
-        }
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "shady.frontend") == 0) {
@@ -116,6 +107,14 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
                         .mem = rewrite_node(r, payload.mem),
                         .value = rewrite_node(&ctx->rewriter, first(payload.operands)),
                     });
+                } else if (payload.opcode == SlimOpUnbound) {
+                    if (payload.mem)
+                        rewrite_node(&ctx->rewriter, payload.mem);
+                    Resolved entry = resolve_using_name(ctx, get_string_literal(a, first(payload.operands)));
+                    // can't take the address if it's not a var!
+                    if (!entry.is_var)
+                        return NULL;
+                    return entry.node;
                 }
             }
             break;
@@ -131,30 +130,69 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
     return got;
 }
 
-static const Node* desugar_bind_identifiers(Context* ctx, const Node* node) {
-    assert(node->tag == BindIdentifiers_TAG);
+static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.bind_identifiers.mem));
-    const Node* ninstruction = rewrite_node(r, node->payload.bind_identifiers.value);
+    BodyBuilder* bb = instr.mem ? begin_body_with_mem(a, rewrite_node(r, instr.mem)) : begin_block_pure(a);
 
-    Strings names = node->payload.bind_identifiers.names;
-    Nodes results = deconstruct_composite(a, bb, ninstruction, names.count);
-    for (size_t i = 0; i < names.count; i++) {
-        String name = names.strings[i];
-        if (node->payload.bind_identifiers.mutable) {
-            const Type* type_annotation = node->payload.bind_identifiers.types.nodes[i];
-            assert(type_annotation);
-            const Node* alloca = stack_alloc(a, (StackAlloc) { .type = rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
-            const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
-            set_value_name(ptr, names.strings[i]);
-            bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
+    switch (instr.opcode) {
+        case SlimOpBindVal: {
+            size_t names_count = instr.operands.count - 1;
+            const Node** names = &instr.operands.nodes[1];
+            const Node* value = rewrite_node(r, first(instr.operands));
+            Nodes results = deconstruct_composite(a, bb, value, names_count);
+            for (size_t i = 0; i < names_count; i++) {
+                String name = get_string_literal(a, names[i]);
+                log_string(DEBUGV, "Bound immutable variable '%s'\n", name);
+                add_binding(ctx, false, name, results.nodes[i]);
+            }
+            break;
+        }
+        case SlimOpBindVar: {
+            size_t names_count = (instr.operands.count - 1) / 2;
+            const Node** names = &instr.operands.nodes[1];
+            const Node** types = &instr.operands.nodes[1 + names_count];
+            const Node* value = rewrite_node(r, first(instr.operands));
+            Nodes results = deconstruct_composite(a, bb, value, names_count);
+            for (size_t i = 0; i < names_count; i++) {
+                String name = get_string_literal(a, names[i]);
+                const Type* type_annotation = types[i];
+                assert(type_annotation);
+                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
+                const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
+                set_value_name(ptr, name);
+                bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
 
-            add_binding(ctx, true, name, ptr);
-            log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
-        } else {
-            log_string(DEBUGV, "Bound immutable variable '%s'\n", name);
-            add_binding(ctx, false, name, results.nodes[i]);
+                add_binding(ctx, true, name, ptr);
+                log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
+            }
+            break;
+        }
+        case SlimOpBindContinuations: {
+            size_t names_count = (instr.operands.count ) / 2;
+            const Node** names = &instr.operands.nodes[0];
+            const Node** conts = &instr.operands.nodes[0 + names_count];
+            LARRAY(Node*, bbs, names_count);
+            for (size_t i = 0; i < names_count; i++) {
+                String name = get_string_literal(a, names[i]);
+                Nodes nparams = recreate_params(r, get_abstraction_params(conts[i]));
+                bbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(conts[i]));
+                register_processed(r, conts[i], bbs[i]);
+                add_binding(ctx, false, name, bbs[i]);
+                log_string(DEBUGV, "Bound continuation '%s'\n", name);
+            }
+            for (size_t i = 0; i < names_count; i++) {
+                Context cont_ctx = *ctx;
+                Nodes bb_params = get_abstraction_params(bbs[i]);
+                for (size_t j = 0; j < bb_params.count; j++) {
+                    const Node* bb_param = bb_params.nodes[j];
+                    assert(bb_param->tag == Param_TAG);
+                    String param_name = bb_param->payload.param.name;
+                    if (param_name)
+                        add_binding(&cont_ctx, false, param_name, bb_param);
+                }
+                set_abstraction_body(bbs[i], rewrite_node(&cont_ctx.rewriter, get_abstraction_body(conts[i])));
+            }
         }
     }
 
@@ -232,18 +270,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             return rewrite_decl(ctx, node);
         }
         case Param_TAG: error("the binders should be handled such that this node is never reached");
-        case Unbound_TAG: {
-            const Node* mem = NULL;
-            if (node->payload.unbound.mem)
-                mem = rewrite_node(r, node->payload.unbound.mem);
-            Resolved entry = resolve_using_name(ctx, node->payload.unbound.name);
-            if (entry.is_var) {
-                return load(a, (Load) { .ptr = entry.node, .mem = mem });
-            } else if (mem) {
-                return mem_and_value(a, (MemAndValue) { .value = entry.node, .mem = mem });
-            }
-            return entry.node;
-        }
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);
@@ -263,7 +289,6 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             set_abstraction_body(new_bb, rewrite_node(&ctx->rewriter, node->payload.basic_block.body));
             return new_bb;
         }
-        case BindIdentifiers_TAG: return desugar_bind_identifiers(ctx, node);
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp("shady.frontend", payload.set) == 0) {
@@ -298,6 +323,19 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                             .mem = rewrite_node(r, payload.mem) }
                         );
                     }
+                    case SlimOpUnbound: {
+                        const Node* mem = NULL;
+                        if (payload.mem)
+                            mem = rewrite_node(r, payload.mem);
+                        Resolved entry = resolve_using_name(ctx, get_string_literal(a, first(payload.operands)));
+                        if (entry.is_var) {
+                            return load(a, (Load) { .ptr = entry.node, .mem = mem });
+                        } else if (mem) {
+                            return mem_and_value(a, (MemAndValue) { .value = entry.node, .mem = mem });
+                        }
+                        return entry.node;
+                    }
+                    default: return desugar_bind_identifiers(ctx, payload);
                 }
             }
             break;

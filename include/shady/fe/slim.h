@@ -6,6 +6,10 @@ typedef enum {
     SlimOpAssign,
     SlimOpAddrOf,
     SlimOpSubscript,
+    SlimOpBindVal,
+    SlimOpBindVar,
+    SlimOpBindContinuations,
+    SlimOpUnbound,
 } SlimFrontEndOpCodes;
 
 #endif

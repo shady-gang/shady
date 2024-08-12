@@ -366,7 +366,6 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
-        case Instruction_BindIdentifiers_TAG:
         case Instruction_StackAlloc_TAG: error("Should be lowered elsewhere")
         case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
         case Instruction_Call_TAG: return emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call);

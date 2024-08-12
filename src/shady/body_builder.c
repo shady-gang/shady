@@ -66,7 +66,7 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
     if (bb->arena->config.check_types) {
         assert(is_instruction(instruction) || is_value(instruction));
     }
-    if (is_mem(instruction))
+    if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ get_parent_mem(instruction))
         bb->mem = instruction;
     return deconstruct_composite(bb->arena, bb, instruction, outputs_count);
 }

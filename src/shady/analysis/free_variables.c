@@ -196,7 +196,7 @@ struct Dict* compute_cfg_variables_map(const CFG* cfg, CfgVariablesAnalysisFlags
         .flags = flags,
     };
 
-    debugv_print("Computing free variables for function '%s' ...\n", get_abstraction_name(cfg->entry->node));
+    // debugv_print("Computing free variables for function '%s' ...\n", get_abstraction_name(cfg->entry->node));
     root_context = visit_domtree(&root_context, cfg->entry, 0);
     destroy_dict(root_context.bound);
     destroy_dict(root_context.live);

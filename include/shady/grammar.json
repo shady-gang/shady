@@ -451,20 +451,6 @@
       ]
     },
     {
-      "name": "BindIdentifiers",
-      "class": ["instruction", "mem"],
-      "constructor": "custom",
-      "front-end-only": true,
-      "type": false,
-      "ops": [
-        { "name": "mem", "class": "mem" },
-        { "name": "value", "class": "value" },
-        { "name": "mutable", "type": "bool" },
-        { "name": "names", "class": "string", "list": true },
-        { "name": "types", "class": "type", "list": true }
-      ]
-    },
-    {
       "name": "TailCall",
       "class": "terminator",
       "ops": [
@@ -678,17 +664,6 @@
       "type": false,
       "ops": [
         { "name": "abs", "class": "abstraction" }
-      ]
-    },
-    {
-      "name": "Unbound",
-      "description": "Unbound identifier, obtained by parsing a file",
-      "type": false,
-      "front-end-only": true,
-      "class": ["value", "mem"],
-      "ops": [
-        { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "name", "type": "String" }
       ]
     },
     {

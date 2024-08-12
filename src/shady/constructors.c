@@ -77,26 +77,6 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return create_node_helper(arena, node, NULL);
 }
 
-const Node* bind_identifiers(IrArena* arena, const Node* value, const Node* mem, bool mut, Strings names, Nodes types) {
-    BindIdentifiers payload = {
-        .value = value,
-        .mutable = mut,
-        .names = names,
-        .types = types,
-        .mem = mem,
-    };
-
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = NULL,
-        .tag = BindIdentifiers_TAG,
-        .payload.bind_identifiers = payload
-    };
-    return create_node_helper(arena, node, NULL);
-}
-
 const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
     return composite(a, (Composite) { .type = t, .contents = contents });
 }

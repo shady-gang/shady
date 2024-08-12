@@ -19,9 +19,6 @@ const Node* get_parent_mem(const Node* mem) {
         case Mem_Comment_TAG:
             mem = mem->payload.comment.mem;
             return mem;
-        case Mem_BindIdentifiers_TAG:
-            mem = mem->payload.bind_identifiers.mem;
-            return mem;
         case Mem_StackAlloc_TAG:
             mem = mem->payload.stack_alloc.mem;
             return mem;
@@ -57,9 +54,6 @@ const Node* get_parent_mem(const Node* mem) {
             return mem;
         case Mem_ExtInstr_TAG:
             mem = mem->payload.ext_instr.mem;
-            return mem;
-        case Mem_Unbound_TAG:
-            mem = mem->payload.unbound.mem;
             return mem;
     }
 }
