@@ -85,7 +85,7 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
 
 static const Node* get_node_address(Context* ctx, const Node* node);
 
-static const Node* get_node_address_safe(Context* ctx, const Node* node) {
+static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (node->tag) {
@@ -103,7 +103,7 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
             if (strcmp(payload.set, "shady.frontend") == 0) {
                 if (payload.opcode == SlimOpSubscript) {
                     assert(payload.operands.count == 2);
-                    const Node* src_ptr = get_node_address_safe(ctx, first(payload.operands));
+                    const Node* src_ptr = get_node_address_maybe(ctx, first(payload.operands));
                     if (src_ptr == NULL)
                         return NULL;
                     const Node* index = rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
@@ -127,7 +127,7 @@ static const Node* get_node_address_safe(Context* ctx, const Node* node) {
 }
 
 static const Node* get_node_address(Context* ctx, const Node* node) {
-    const Node* got = get_node_address_safe(ctx, node);
+    const Node* got = get_node_address_maybe(ctx, node);
     if (!got) error("This doesn't really look like a place expression...")
     return got;
 }
@@ -283,6 +283,12 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                         return mem_and_value(a, (MemAndValue) { .value = target_ptr, .mem = rewrite_node(r, payload.mem) });
                     }
                     case SlimOpSubscript: {
+                        const Node* ptr = get_node_address_maybe(ctx, node);
+                        if (ptr)
+                            return load(a, (Load) {
+                                .ptr = ptr,
+                                .mem = rewrite_node(r, payload.mem)
+                            });
                         return mem_and_value(a, (MemAndValue) {
                             .value = prim_op(a, (PrimOp) {
                                 .op = extract_op,
