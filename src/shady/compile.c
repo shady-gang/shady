@@ -43,10 +43,11 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     IrArena* initial_arena = (*pmod)->arena;
-	
+
+    // we don't want to mess with the original module
+    *pmod = import(config, *pmod);
+
     if (config->dynamic_scheduling) {
-		*pmod = import(config, *pmod); // we don't want to mess with the original module
-	
         add_scheduler_source(config, *pmod);
 	}
 

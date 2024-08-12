@@ -103,7 +103,7 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
 }
 
 /// inlines the abstraction with supplied arguments
-static const Node* inline_call(Context* ctx, const Node* ocallee, Nodes nargs, const Node* return_to) {
+static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nmem, Nodes nargs, const Node* return_to) {
     assert(is_abstraction(ocallee));
 
     log_string(DEBUG, "Inlining '%s' inside '%s'\n", get_abstraction_name(ocallee), get_abstraction_name(ctx->fun));
@@ -119,6 +119,7 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, Nodes nargs, c
 
     Nodes oparams = get_abstraction_params(ocallee);
     register_processed_list(&inline_context.rewriter, oparams, nargs);
+    register_processed(&inline_context.rewriter, get_abstraction_mem(ocallee), nmem);
 
     const Node* nbody = rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
 
@@ -183,11 +184,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
                     const Node* join_point = param(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
 
-                    const Node* nbody = inline_call(ctx, ocallee, nargs, join_point);
                     Node* control_case = case_(a, singleton(join_point));
+                    const Node* nbody = inline_call(ctx, ocallee, get_abstraction_mem(control_case), nargs, join_point);
                     set_abstraction_body(control_case, nbody);
 
-                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+                    BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
                     return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
                 }
             }
@@ -202,8 +203,9 @@ static const Node* process(Context* ctx, const Node* node) {
             return bb;
         }*/
         case Return_TAG: {
+            Return payload = node->payload.fn_ret;
             if (ctx->inlined_call)
-                return join(a, (Join) { .join_point = ctx->inlined_call->return_jp, .args = rewrite_nodes(r, node->payload.fn_ret.args )});
+                return join(a, (Join) { .mem = rewrite_node(r, payload.mem), .join_point = ctx->inlined_call->return_jp, .args = rewrite_nodes(r, payload.args )});
             break;
         }
         case TailCall_TAG: {
@@ -216,7 +218,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
                     debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
-                    return inline_call(ctx, ocallee, nargs, NULL);
+                    return inline_call(ctx, ocallee, rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
                 }
             }
             break;
