@@ -381,7 +381,7 @@
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "callee", "class": "value" },
-        { "name": "args", "class": "value", "list": true },
+        { "name": "args", "class": "value", "list": true }
       ]
     },
     {
