@@ -114,6 +114,39 @@ static void test_body_builder_impure_block(IrArena* a) {
     CHECK(found_store, exit(-1));
 }
 
+/// There is some "magic" code in body_builder and set_abstraction_body to enable inserting control-flow
+/// where there is only a mem dependency. This is useful when writing some complex polyfills.
+static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
+    Module* m = new_module(a, "test_module");
+    const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
+        .address_space = AsGeneric,
+        .pointed_type = uint32_type(a),
+    }), false), NULL);
+    Node* fun = function(m, mk_nodes(a, p1), "fun", empty(a), empty(a));
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+
+    const Node* first_load = gen_load(bb, p1);
+
+    BodyBuilder* block_builder = begin_block_with_side_effects(a, bb_mem(bb));
+    Node* if_true_case = case_(a, empty(a));
+    BodyBuilder* if_true_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_case));
+    gen_store(if_true_builder, p1, uint32_literal(a, 0));
+    set_abstraction_body(if_true_case, finish_body_with_selection_merge(if_true_builder, empty(a)));
+    gen_if(block_builder, empty(a), gen_primop_e(block_builder, neq_op, empty(a), mk_nodes(a, first_load, uint32_literal(a, 0))), if_true_case, NULL);
+    bind_instruction(bb, yield_values_and_wrap_in_block(block_builder, empty(a)));
+
+    const Node* second_load = gen_load(bb, p1);
+
+    const Node* sum = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, first_load, second_load));
+    const Node* return_terminator = fn_ret(a, (Return) {
+        .mem = bb_mem(bb),
+        .args = singleton(sum)
+    });
+    set_abstraction_body(fun, finish_body(bb, return_terminator));
+
+    dump_module(m);
+}
+
 int main(int argc, char** argv) {
     cli_parse_common_args(&argc, argv);
 
@@ -123,5 +156,6 @@ int main(int argc, char** argv) {
     test_body_builder_constants(a);
     test_body_builder_fun_body(a);
     test_body_builder_impure_block(a);
+    test_body_builder_impure_block_with_control_flow(a);
     destroy_ir_arena(a);
 }

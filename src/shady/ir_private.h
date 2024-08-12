@@ -37,9 +37,10 @@ void destroy_module(Module* m);
 struct BodyBuilder_ {
     IrArena* arena;
     struct List* stack;
+    const Node* block_entry_block;
     const Node* block_entry_mem;
     const Node* mem;
-    Node* bb;
+    Node* tail_block;
 };
 
 NodeId allocate_node_id(IrArena*, const Node* n);

@@ -35,7 +35,8 @@ BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
 BodyBuilder* begin_block_with_side_effects(IrArena* a, const Node* mem) {
     Node* block = basic_block(a, empty(a), NULL);
     BodyBuilder* builder = begin_body_with_mem(a, get_abstraction_mem(block));
-    builder->bb = block;
+    builder->tail_block = block;
+    builder->block_entry_block = block;
     builder->block_entry_mem = mem;
     return builder;
 }
@@ -127,14 +128,6 @@ const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     return terminator;
 }
 
-const Node* finish_block_body(BodyBuilder* bb, const Node* terminator) {
-    assert(bb->block_entry_mem);
-    terminator = build_body(bb, terminator);
-    destroy_list(bb->stack);
-    free(bb);
-    return terminator;
-}
-
 const Node* finish_body_with_return(BodyBuilder* bb, Nodes args) {
     return finish_body(bb, fn_ret(bb->arena, (Return) {
         .args = args,
@@ -171,7 +164,7 @@ const Node* finish_body_with_loop_break(BodyBuilder* bb, Nodes args) {
 
 const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
-    if (!bb->bb && entries_count_list(bb->stack) == 0) {
+    if (!bb->tail_block && entries_count_list(bb->stack) == 0) {
         const Node* last_mem = bb_mem(bb);
         cancel_body(bb);
         if (last_mem)
@@ -181,8 +174,8 @@ const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
             });
         return value;
     }
-    assert(bb->bb && "This builder wasn't started with 'begin_block'");
-    bb->bb->payload.basic_block.insert = bb;
+    assert(bb->block_entry_mem && "This builder wasn't started with 'begin_block'");
+    bb->tail_block->payload.basic_block.insert = bb;
     const Node* r = mem_and_value(bb->arena, (MemAndValue) {
         .mem = bb_mem(bb),
         .value = value
@@ -192,6 +185,14 @@ const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     return yield_value_and_wrap_in_block(bb, maybe_tuple_helper(bb->arena, values));
+}
+
+const Node* finish_block_body(BodyBuilder* bb, const Node* terminator) {
+    assert(bb->block_entry_mem);
+    terminator = build_body(bb, terminator);
+    destroy_list(bb->stack);
+    free(bb);
+    return terminator;
 }
 
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
@@ -254,6 +255,7 @@ Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constru
     }
     bb->mem = get_abstraction_mem(tail);
     append_list(StackEntry , bb->stack, entry);
+    bb->tail_block = tail;
     return entry.vars;
 }
 
