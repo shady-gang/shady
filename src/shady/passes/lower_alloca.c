@@ -57,13 +57,11 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
             insert_dict(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
 
             vctx->num_slots++;
-
-            return;
+            break;
         }
         default: break;
     }
 
-    not_alloca:
     visit_node_operands(&vctx->visitor, IGNORE_ABSTRACTIONS_MASK, node);
 }
 
