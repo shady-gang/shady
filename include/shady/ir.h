@@ -283,7 +283,7 @@ static inline Node* case_(IrArena* a, Nodes params) {
 /// Used to build a chain of let
 BodyBuilder* begin_body_with_mem(IrArena*, const Node*);
 BodyBuilder* begin_block_pure(IrArena*);
-BodyBuilder* begin_block_with_side_effects(IrArena*);
+BodyBuilder* begin_block_with_side_effects(IrArena*, const Node*);
 
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction

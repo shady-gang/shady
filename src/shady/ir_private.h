@@ -37,7 +37,7 @@ void destroy_module(Module* m);
 struct BodyBuilder_ {
     IrArena* arena;
     struct List* stack;
-    const Node* mem0;
+    const Node* block_entry_mem;
     const Node* mem;
     Node* bb;
 };

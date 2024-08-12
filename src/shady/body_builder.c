@@ -27,16 +27,16 @@ BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
     *bb = (BodyBuilder) {
         .arena = a,
         .stack = new_list(StackEntry),
-        .mem0 = mem,
         .mem = mem,
     };
     return bb;
 }
 
-BodyBuilder* begin_block_with_side_effects(IrArena* a) {
+BodyBuilder* begin_block_with_side_effects(IrArena* a, const Node* mem) {
     Node* block = basic_block(a, empty(a), NULL);
     BodyBuilder* builder = begin_body_with_mem(a, get_abstraction_mem(block));
     builder->bb = block;
+    builder->block_entry_mem = mem;
     return builder;
 }
 
@@ -120,7 +120,15 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
 }
 
 const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
-    assert(bb->mem0);
+    assert(bb->mem && !bb->block_entry_mem);
+    terminator = build_body(bb, terminator);
+    destroy_list(bb->stack);
+    free(bb);
+    return terminator;
+}
+
+const Node* finish_block_body(BodyBuilder* bb, const Node* terminator) {
+    assert(bb->block_entry_mem);
     terminator = build_body(bb, terminator);
     destroy_list(bb->stack);
     free(bb);
@@ -163,7 +171,7 @@ const Node* finish_body_with_loop_break(BodyBuilder* bb, Nodes args) {
 
 const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
-    if (entries_count_list(bb->stack) == 0) {
+    if (!bb->bb && entries_count_list(bb->stack) == 0) {
         const Node* last_mem = bb_mem(bb);
         cancel_body(bb);
         if (last_mem)
@@ -198,7 +206,7 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    assert(!bb->mem0 && entries_count_list(bb->stack) == 0);
+    assert(!bb->mem && !bb->block_entry_mem && entries_count_list(bb->stack) == 0);
     return maybe_tuple_helper(arena, values);
 }
 

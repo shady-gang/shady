@@ -91,7 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
                 }
 
-                BodyBuilder* bb2 = begin_block_with_side_effects(a);
+                BodyBuilder* bb2 = begin_block_with_side_effects(a, bb_mem(bb));
                 // write the workgroup ID
                 gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
@@ -131,7 +131,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         gen_if(body_bb, empty(a), gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), out_of_bounds_case, NULL);
                         bind_instruction(body_bb, instr);
 
-                        BodyBuilder* bb3 = begin_block_with_side_effects(a);
+                        BodyBuilder* bb3 = begin_block_with_side_effects(a, NULL);
                         set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
                         gen_loop(bb3, empty(a), singleton(uint32_literal(a, 0)), loop_body);
                         instr = yield_values_and_wrap_in_block(bb3, empty(a));

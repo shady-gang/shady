@@ -75,6 +75,45 @@ static void test_body_builder_fun_body(IrArena* a) {
     destroy_cfg(cfg);
 }
 
+/// There is some "magic" code in body_builder and set_abstraction_body to enable inserting control-flow
+/// where there is only a mem dependency. This is useful when writing some complex polyfills.
+static void test_body_builder_impure_block(IrArena* a) {
+    Module* m = new_module(a, "test_module");
+    const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
+        .address_space = AsGeneric,
+        .pointed_type = uint32_type(a),
+    }), false), NULL);
+    Node* fun = function(m, mk_nodes(a, p1), "fun", empty(a), empty(a));
+    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+
+    const Node* first_load = gen_load(bb, p1);
+
+    BodyBuilder* block_builder = begin_block_with_side_effects(a, bb_mem(bb));
+    gen_store(block_builder, p1, uint32_literal(a, 0));
+    bind_instruction(bb, yield_values_and_wrap_in_block(block_builder, empty(a)));
+
+    const Node* second_load = gen_load(bb, p1);
+
+    const Node* sum = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, first_load, second_load));
+    const Node* return_terminator = fn_ret(a, (Return) {
+        .mem = bb_mem(bb),
+        .args = singleton(sum)
+    });
+    set_abstraction_body(fun, finish_body(bb, return_terminator));
+
+    dump_module(m);
+
+    bool found_store = false;
+    const Node* mem = get_terminator_mem(return_terminator);
+    while (mem->tag != AbsMem_TAG) {
+        if (mem->tag == Store_TAG)
+            found_store = true;
+        mem = get_parent_mem(mem);
+    }
+
+    CHECK(found_store, exit(-1));
+}
+
 int main(int argc, char** argv) {
     cli_parse_common_args(&argc, argv);
 
@@ -83,5 +122,6 @@ int main(int argc, char** argv) {
     IrArena* a = new_ir_arena(&aconfig);
     test_body_builder_constants(a);
     test_body_builder_fun_body(a);
+    test_body_builder_impure_block(a);
     destroy_ir_arena(a);
 }
