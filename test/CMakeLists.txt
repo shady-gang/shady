@@ -3,6 +3,10 @@ if (BUILD_TESTING)
     target_link_libraries(test_math driver)
     add_test(NAME test_math COMMAND test_math)
 
+    add_executable(test_builder test_builder.c)
+    target_link_libraries(test_builder driver)
+    add_test(NAME test_builder COMMAND test_builder)
+
     list(APPEND BASIC_TESTS empty.slim)
     list(APPEND BASIC_TESTS entrypoint_args1.slim)
     list(APPEND BASIC_TESTS basic_blocks1.slim)

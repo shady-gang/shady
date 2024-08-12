@@ -1,11 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "shady/ir.h"
 #include "shady/driver.h"
 
 #include "log.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define CHECK(x, failure_handler) { if (!(x)) { error_print(#x " failed\n"); failure_handler; } }
 
