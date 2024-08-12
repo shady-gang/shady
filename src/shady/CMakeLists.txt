@@ -92,8 +92,6 @@ set(SHADY_SOURCES
     passes/lower_logical_pointers.c
 
     passes/lower_entrypoint_args.c
-    passes/spirv_map_entrypoint_args.c
-    passes/spirv_lift_globals_ssbo.c
 )
 
 add_library(shady STATIC ${SHADY_SOURCES})

@@ -316,6 +316,9 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
     return new;
 }
 
+RewritePass spirv_map_entrypoint_args;
+RewritePass spirv_lift_globals_ssbo;
+
 static Module* run_backend_specific_passes(const CompilerConfig* config, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
     Module** pmod = &initial_mod;

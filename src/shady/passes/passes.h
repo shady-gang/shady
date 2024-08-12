@@ -116,9 +116,6 @@ RewritePass lower_switch_btree;
 
 RewritePass lower_entrypoint_args;
 
-RewritePass spirv_map_entrypoint_args;
-RewritePass spirv_lift_globals_ssbo;
-
 RewritePass specialize_entry_point;
 RewritePass specialize_execution_model;
 
