@@ -371,7 +371,10 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
         case Instruction_Call_TAG: return emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call);
         case PrimOp_TAG: return emit_primop(emitter, fn_builder, bb_builder, instruction);
-        case Comment_TAG: break;
+        case Comment_TAG: {
+            spv_emit_mem(emitter, fn_builder, instruction->payload.comment.mem);
+            return 0;
+        }
         case Instruction_LocalAlloc_TAG: {
             LocalAlloc payload = instruction->payload.local_alloc;
             spv_emit_mem(emitter, fn_builder, payload.mem);
@@ -454,6 +457,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             return 0;
         }
     }
+    SHADY_UNREACHABLE;
 }
 
 static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* node) {
@@ -562,6 +566,12 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
     return new;
 }
 
+static bool can_appear_at_top_level(const Node* node) {
+    if (is_instruction(node))
+        return false;
+    return true;
+}
+
 SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) {
     SpvId* existing = spv_search_emitted(emitter, fn_builder, node);
     if (existing)
@@ -570,6 +580,17 @@ SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) 
     CFNode* where = fn_builder ? schedule_instruction(fn_builder->scheduler, node) : NULL;
     if (where) {
         BBBuilder bb_builder = spv_find_basic_block_builder(emitter, where->node);
+        SpvId emitted = spv_emit_value_(emitter, fn_builder, bb_builder, node);
+        spv_register_emitted(emitter, fn_builder, node, emitted);
+        return emitted;
+    } else if (!can_appear_at_top_level(node)) {
+        if (!fn_builder) {
+            log_node(ERROR, node);
+            log_string(ERROR, "cannot appear at top-level");
+            exit(-1);
+        }
+        // Pick the entry block of the current fn
+        BBBuilder bb_builder = spv_find_basic_block_builder(emitter, fn_builder->cfg->entry->node);
         SpvId emitted = spv_emit_value_(emitter, fn_builder, bb_builder, node);
         spv_register_emitted(emitter, fn_builder, node, emitted);
         return emitted;
