@@ -102,8 +102,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_int)
 
-    if (config->lower.simt_to_explicit_simd)
-        RUN_PASS(simt2d)
     RUN_PASS(lower_fill)
     RUN_PASS(lower_nullptr)
     RUN_PASS(normalize_builtins)

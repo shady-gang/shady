@@ -31,7 +31,6 @@ target_sources(shady PRIVATE
     opt_restructure.c
     opt_demote_alloca.c
     reconvergence_heuristics.c
-    simt2d.c
     specialize_entry_point.c
     specialize_execution_model.c
     lower_logical_pointers.c

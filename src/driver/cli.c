@@ -90,7 +90,6 @@ F(config->hacks.force_join_point_lifting, lift-join-points) \
 F(config->logging.print_internal, print-internal) \
 F(config->logging.print_generated, print-builtin) \
 F(config->logging.print_generated, print-generated) \
-F(config->lower.simt_to_explicit_simd, lower-simt-to-simd) \
 F(config->optimisations.inline_everything, inline-everything) \
 F(config->hacks.restructure_everything, restructure-everything) \
 F(config->hacks.recover_structure, recover-structure) \

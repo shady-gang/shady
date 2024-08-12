@@ -392,9 +392,6 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitte
     if (econfig->dialect != CDialect_GLSL) {
         RUN_PASS(lower_vec_arr)
     }
-    if (config->lower.simt_to_explicit_simd) {
-        RUN_PASS(simt2d)
-    }
     return *pmod;
 }
 
