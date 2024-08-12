@@ -231,7 +231,8 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 Nodes ops = expect_operands(ctx, bb);
                 return bind_instruction_single(bb, debug_printf(arena, (DebugPrintf) {
                     .string = get_string_literal(arena, first(ops)),
-                    .args = nodes(arena, ops.count - 1, &ops.nodes[1])
+                    .args = nodes(arena, ops.count - 1, &ops.nodes[1]),
+                    .mem = bb_mem(bb),
                 }));
             }
 
