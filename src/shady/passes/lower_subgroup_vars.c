@@ -1,10 +1,9 @@
-#include <dict.h>
-
 #include "shady/pass.h"
 
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 
+#include "dict.h"
 #include "portability.h"
 #include "log.h"
 
@@ -15,10 +14,6 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
