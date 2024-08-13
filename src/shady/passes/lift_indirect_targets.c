@@ -61,6 +61,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
 typedef struct {
     Visitor v;
     Scheduler* scheduler;
+    CFG* cfg;
     CFNode* start;
     struct Dict* frontier;
 } FreeFrontierVisitor;
@@ -75,37 +76,60 @@ static bool is_dominated(CFNode* a, CFNode* b) {
     return false;
 }
 
+static struct Dict* free_frontier(Scheduler* scheduler, CFG*, const Node* abs);
+
+static void copy_node_set(struct Dict* dst, struct Dict* src) {
+    size_t i = 0, j = 0;
+    const Node* key;
+    while (dict_iter(src, &i, &key, NULL)) {
+        insert_set_get_result(const Node*, dst, key);
+    }
+}
+
 static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     CFNode* where = schedule_instruction(v->scheduler, node);
     if (where) {
-        FreeFrontierVisitor vv = *v;
-        if (is_dominated(where, v->start)) {
-            visit_node_operands(&vv.v, IGNORE_ABSTRACTIONS_MASK | NcType, node);
-        } else {
-            insert_set_get_result(const Node*, v->frontier, node);
+        /*if (is_abstraction(node)) {
+            if (is_dominated(where, v->start)) {
+                struct Dict* frontier = free_frontier(v->scheduler, v->cfg, node);
+                copy_node_set(v->frontier, frontier);
+                destroy_dict(frontier);
+            }
+        } else*/ {
+            FreeFrontierVisitor vv = *v;
+            if (is_dominated(where, v->start)) {
+                visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
+            } else {
+                insert_set_get_result(const Node*, v->frontier, node);
+            }
         }
     }
 }
 
-static Nodes free_frontier(Scheduler* scheduler, CFNode* start) {
+static struct Dict* free_frontier(Scheduler* scheduler, CFG* cfg, const Node* abs) {
     FreeFrontierVisitor ffv = {
         .v = {
             .visit_node_fn = (VisitNodeFn) visit_free_frontier,
         },
         .scheduler = scheduler,
-        .start = start,
+        .cfg = cfg,
+        .start = cfg_lookup(cfg, abs),
         .frontier = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    visit_free_frontier(&ffv, get_abstraction_body(start->node));
-    size_t count = entries_count_dict(ffv.frontier);
+    visit_free_frontier(&ffv, get_abstraction_body(abs));
+    return ffv.frontier;
+}
+
+static Nodes set2nodes(IrArena* a, struct Dict* set) {
+    size_t count = entries_count_dict(set);
     LARRAY(const Node*, tmp, count);
     size_t i = 0, j = 0;
     const Node* key;
-    while (dict_iter(ffv.frontier, &i, &key, NULL)) {
+    while (dict_iter(set, &i, &key, NULL)) {
         tmp[j++] = key;
     }
     assert(j == count);
-    return nodes(start->node->arena, count, tmp);
+    return nodes(a, count, tmp);
 }
 
 static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
@@ -119,8 +143,9 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     String name = get_abstraction_name_safe(liftee);
 
     Scheduler* scheduler = new_scheduler(cfg);
-    CFNode* cfn_liftee = cfg_lookup(cfg, liftee);
-    Nodes frontier = free_frontier(scheduler, cfn_liftee);
+    struct Dict* frontier_set = free_frontier(scheduler, cfg, liftee);
+    Nodes frontier = set2nodes(a, frontier_set);
+    destroy_dict(frontier_set);
 
     size_t recover_context_size = frontier.count;
 

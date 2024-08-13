@@ -63,6 +63,8 @@ CFNode* schedule_instruction(Scheduler* s, const Node* n) {
 
     if (n->tag == Param_TAG) {
         schedule_after(&s2.result, cfg_lookup(s->cfg, n->payload.param.abs));
+    } else if (n->tag == BasicBlock_TAG) {
+        schedule_after(&s2.result, cfg_lookup(s->cfg, n));
     } else if (n->tag == AbsMem_TAG) {
         schedule_after(&s2.result, cfg_lookup(s->cfg, n->payload.abs_mem.abs));
     }

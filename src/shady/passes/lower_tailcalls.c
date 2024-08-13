@@ -295,14 +295,10 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     if (count_iterations)
         iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, 1)));
 
-    const Node* break_terminator = merge_break(a, (MergeBreak) { .args = nodes(a, 0, NULL) });
-    const Node* continue_terminator = merge_continue(a, (MergeContinue) {
-        .args = count_iterations ? singleton(iteration_count_plus_one) : nodes(a, 0, NULL),
-    });
-
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         Node* true_case = case_(a, empty(a));
+        const Node* break_terminator = merge_break(a, (MergeBreak) { .args = empty(a), .mem = get_abstraction_mem(true_case) });
         set_abstraction_body(true_case, break_terminator);
         gen_if(loop_body_builder, empty(a), bail_condition, true_case, NULL);
     }
@@ -319,14 +315,14 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         gen_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
     }
-    set_abstraction_body(zero_if_true_lam, finish_body(zero_if_case_builder, break_terminator));
+    set_abstraction_body(zero_if_true_lam, finish_body_with_loop_break(zero_if_case_builder, empty(a)));
     gen_if(zero_case_builder, empty(a), should_run, zero_if_true_lam, NULL);
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         gen_debug_printf(zero_case_builder, "trace: thread %d:%d escaped death!\n", mk_nodes(a, sid, local_id));
     }
 
-    set_abstraction_body(zero_case_lam, finish_body(zero_case_builder, continue_terminator));
+    set_abstraction_body(zero_case_lam, finish_body_with_loop_continue(zero_case_builder, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
     const Node* zero_lit = uint64_literal(a, 0);
     append_list(const Node*, literals, zero_lit);
     append_list(const Node*, cases, zero_case_lam);
@@ -347,12 +343,12 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %ul with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
             gen_call(if_builder, fn_addr_helper(a, find_processed(&ctx->rewriter, decl)), empty(a));
-            set_abstraction_body(if_true_lam, finish_body(if_builder, merge_selection(a, (MergeSelection) {.args = nodes(a, 0, NULL)})));
+            set_abstraction_body(if_true_lam, finish_body_with_selection_merge(if_builder, empty(a)));
 
             Node* case_lam = case_(a, nodes(a, 0, NULL));
             BodyBuilder* case_builder = begin_body_with_mem(a, get_abstraction_mem(case_lam));
             gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
-            set_abstraction_body(case_lam, finish_body(case_builder, continue_terminator));
+            set_abstraction_body(case_lam, finish_body_with_loop_continue(case_builder, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
 
             append_list(const Node*, literals, fn_lit);
             append_list(const Node*, cases, case_lam);
