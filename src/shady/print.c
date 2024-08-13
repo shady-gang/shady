@@ -238,7 +238,7 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static String emit_abs_body(PrinterCtx* ctx, const CFNode* cfnode);
+static String emit_abs_body(PrinterCtx* ctx, const Node* abs);
 
 static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
     const Node* bb = node->node;
@@ -258,39 +258,43 @@ static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
     printf(" {");
     indent(ctx->printer);
     printf("\n");
-    printf("%s", emit_abs_body(ctx, node));
+    printf("%s", emit_abs_body(ctx, bb));
     deindent(ctx->printer);
     printf("\n}");
 }
 
-static String emit_abs_body(PrinterCtx* ctx, const CFNode* cfnode) {
+static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
-    ctx->bb_printers[cfnode->rpo_index] = p;
+    CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, abs) : NULL;
+    if (cfnode)
+        ctx->bb_printers[cfnode->rpo_index] = p;
 
-    emit_node(ctx, get_abstraction_body(cfnode->node));
+    emit_node(ctx, get_abstraction_body(abs));
 
-    Growy* g2 = new_growy();
-    Printer* p2 = open_growy_as_printer(g2);
+    if (cfnode) {
+        Growy* g2 = new_growy();
+        Printer* p2 = open_growy_as_printer(g2);
+        size_t count = cfnode->dominates->elements_count;
+        for (size_t i = 0; i < count; i++) {
+            const CFNode* dominated = read_list(const CFNode*, cfnode->dominates)[i];
+            assert(is_basic_block(dominated->node));
+            PrinterCtx bb_ctx = *ctx;
+            bb_ctx.printer = p2;
+            print_basic_block(&bb_ctx, dominated);
+            if (i + 1 < count)
+                newline(bb_ctx.printer);
+        }
 
-    size_t count = cfnode->dominates->elements_count;
-    for (size_t i = 0; i < count; i++) {
-        const CFNode* dominated = read_list(const CFNode*, cfnode->dominates)[i];
-        assert(is_basic_block(dominated->node));
-        PrinterCtx bb_ctx = *ctx;
-        bb_ctx.printer = p2;
-        print_basic_block(&bb_ctx, dominated);
-        if (i + 1 < count)
-            newline(bb_ctx.printer);
+        String bbs = printer_growy_unwrap(p2);
+        print(p, "%s", bbs);
+        free((void*) bbs);
     }
-
-    String bbs = printer_growy_unwrap(p2);
-    print(p, "%s", bbs);
-    free((void*) bbs);
 
     String s = printer_growy_unwrap(p);
     String s2 = string(ctx->fn->arena, s);
-    ctx->bb_printers[cfnode->rpo_index] = NULL;
+    if (cfnode)
+        ctx->bb_printers[cfnode->rpo_index] = NULL;
     free((void*) s);
     return s2;
 }
@@ -299,11 +303,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     assert(is_function(node));
 
     PrinterCtx sub_ctx = *ctx;
-    if (true || node->arena->config.name_bound) {
+    sub_ctx.fn = node;
+    if (node->arena->config.name_bound) {
         CFG* cfg = build_fn_cfg(node);
         sub_ctx.cfg = cfg;
         sub_ctx.scheduler = new_scheduler(cfg);
-        sub_ctx.fn = node;
         sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);
         sub_ctx.bb_printers = calloc(sizeof(size_t), cfg->size);
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
@@ -323,7 +327,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     indent(ctx->printer);
     printf("\n");
 
-    printf("%s", emit_abs_body(ctx, ctx->cfg->entry));
+    printf("%s", emit_abs_body(ctx, node));
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)
