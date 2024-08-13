@@ -196,7 +196,7 @@ static const Node* process(Context* ctx, const Node* old) {
             target = gen_conversion(bb, uint32_type(a), target);
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), singleton(target));
-            return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
+            return finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) }));
         }
         case Join_TAG: {
             Join payload = old->payload.join;
@@ -217,7 +217,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* tree_node = gen_primop_e(bb, extract_op, empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
-            return finish_body(bb, fn_ret(a, (Return) { .args = nodes(a, 0, NULL) }));
+            return finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;

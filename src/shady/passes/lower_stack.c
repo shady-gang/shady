@@ -81,10 +81,10 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     }
 
     if (push) {
-        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = empty(a) })));
+        set_abstraction_body(fun, finish_body_with_return(bb, empty(a)));
     } else {
         assert(popped_value);
-        set_abstraction_body(fun, finish_body(bb, fn_ret(a, (Return) { .args = singleton(popped_value) })));
+        set_abstraction_body(fun, finish_body_with_return(bb, singleton(popped_value)));
     }
     return fun;
 }
@@ -150,7 +150,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             const Node* fn = gen_fn(ctx, element_type, push);
             Nodes args = singleton(rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
-            Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
+            gen_call(bb, fn_addr_helper(a, fn), args);
 
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
@@ -163,8 +163,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             bool push = false;
 
             const Node* fn = gen_fn(ctx, element_type, push);
-            Nodes args = empty(a);
-            Nodes results = bind_instruction(bb, call(a, (Call) { .callee = fn_addr_helper(a, fn), .args = args}));
+            Nodes results = gen_call(bb, fn_addr_helper(a, fn), empty(a));
 
             assert(results.count == 1);
             return yield_values_and_wrap_in_block(bb, results);

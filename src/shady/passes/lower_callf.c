@@ -132,13 +132,14 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             nargs = append_nodes(a, nargs, jp);
 
             // the body of the control is just an immediate tail-call
+            Node* control_case = case_(a, singleton(jp));
             const Node* control_body = tail_call(a, (TailCall) {
                 .target = ncallee,
                 .args = nargs,
+                .mem = get_abstraction_mem(control_case),
             });
-            Node* control_case = case_(a, singleton(jp));
             set_abstraction_body(control_case, control_body);
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, old->payload.call.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
             return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
         }
         default: break;
