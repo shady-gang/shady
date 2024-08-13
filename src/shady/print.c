@@ -270,16 +270,23 @@ static String emit_abs_body(PrinterCtx* ctx, const CFNode* cfnode) {
 
     emit_node(ctx, get_abstraction_body(cfnode->node));
 
+    Growy* g2 = new_growy();
+    Printer* p2 = open_growy_as_printer(g2);
+
     size_t count = cfnode->dominates->elements_count;
     for (size_t i = 0; i < count; i++) {
         const CFNode* dominated = read_list(const CFNode*, cfnode->dominates)[i];
         assert(is_basic_block(dominated->node));
         PrinterCtx bb_ctx = *ctx;
-        bb_ctx.printer = p;
+        bb_ctx.printer = p2;
         print_basic_block(&bb_ctx, dominated);
         if (i + 1 < count)
             newline(bb_ctx.printer);
     }
+
+    String bbs = printer_growy_unwrap(p2);
+    print(p, "%s", bbs);
+    free((void*) bbs);
 
     String s = printer_growy_unwrap(p);
     String s2 = string(ctx->fn->arena, s);
