@@ -68,7 +68,7 @@ static void dump_cfg(FILE* output, CFG* cfg) {
     extra_uniqueness++;
 
     const Node* entry = cfg->entry->node;
-    fprintf(output, "subgraph cluster_%s {\n", get_abstraction_name_safe(entry));
+    fprintf(output, "subgraph cluster_%d {\n", entry->id);
     fprintf(output, "label = \"%s\";\n", get_abstraction_name_safe(entry));
     for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
         const CFNode* n = read_list(const CFNode*, cfg->contents)[i];
