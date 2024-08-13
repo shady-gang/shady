@@ -44,7 +44,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            print(p, to_cvalue(e, emit_value(e, block_printer, c.nodes[i])));
+            print(p, to_cvalue(e, c_emit_value(e, block_printer, c.nodes[i])));
             if (i + 1 < c.count)
                 print(p, ", ");
         }
@@ -53,7 +53,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
-CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
+CTerm c_emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
     CTerm* found = lookup_existing_term(emitter, value);
     if (found) return *found;
 
@@ -108,9 +108,9 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
             if (emitter->config.dialect == CDialect_GLSL)
-                return emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
+                return c_emit_value(emitter, block_printer, get_default_zero_value(emitter->arena, value->payload.undef.type));
             String name = unique_name(emitter->arena, "undef");
-            emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
+            c_emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
             // emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
@@ -137,7 +137,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                 }
             } else {
                 for (size_t i = 0; i < elements.count; i++) {
-                    print(p, "%s", to_cvalue(emitter, emit_value(emitter, block_printer, elements.nodes[i])));
+                    print(p, "%s", to_cvalue(emitter, c_emit_value(emitter, block_printer, elements.nodes[i])));
                     if (i + 1 < elements.count)
                         print(p, ", ");
                 }
@@ -154,7 +154,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
 
                     if (block_printer) {
                         String tmp = unique_name(emitter->arena, "composite");
-                        print(block_printer, "\n%s = { %s };", emit_type(emitter, value->type, tmp), emitted);
+                        print(block_printer, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
@@ -167,13 +167,13 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
-                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", emit_type(emitter, value->type, NULL), emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "((%s) { %s })", c_emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case CDialect_GLSL:
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
-                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", emit_type(emitter, value->type, NULL), emitted);
+                    emitted = format_string_arena(emitter->arena->arena, "%s(%s)", c_emit_type(emitter, value->type, NULL), emitted);
                     break;
             }
 
@@ -211,7 +211,7 @@ CTerm emit_value(Emitter* emitter, Printer* block_printer, const Node* value) {
         }
         case Value_RefDecl_TAG: {
             const Node* decl = value->payload.ref_decl.decl;
-            emit_decl(emitter, decl);
+            c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
                 if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
@@ -351,20 +351,20 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, Printer* p, const ISe
 
     switch (entry->style) {
         case OsInfix: {
-            CTerm a = emit_value(emitter, p, operands.nodes[0]);
-            CTerm b = emit_value(emitter, p, operands.nodes[1]);
+            CTerm a = c_emit_value(emitter, p, operands.nodes[0]);
+            CTerm b = c_emit_value(emitter, p, operands.nodes[1]);
             *out = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
             break;
         }
         case OsPrefix: {
-            CTerm operand = emit_value(emitter, p, operands.nodes[0]);
+            CTerm operand = c_emit_value(emitter, p, operands.nodes[0]);
             *out = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
             break;
         }
         case OsCall: {
             LARRAY(CTerm, cops, operands.count);
             for (size_t i = 0; i < operands.count; i++)
-                cops[i] = emit_value(emitter, p, operands.nodes[i]);
+                cops[i] = c_emit_value(emitter, p, operands.nodes[i]);
             if (operands.count == 1)
                 *out = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", operator_str, to_cvalue(emitter, cops[0])));
             else {
@@ -439,26 +439,26 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
             break;
         }
         case min_op: {
-            CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue a = to_cvalue(emitter, c_emit_value(emitter, p, first(prim_op->operands)));
+            CValue b = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1]));
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, b, a));
             break;
         }
         case max_op: {
-            CValue a = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
-            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue a = to_cvalue(emitter, c_emit_value(emitter, p, first(prim_op->operands)));
+            CValue b = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1]));
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, a, b));
             break;
         }
         case sign_op: {
-            CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue src = to_cvalue(emitter, c_emit_value(emitter, p, first(prim_op->operands)));
             term = term_from_cvalue(format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
         case fma_op: {
-            CValue a = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
-            CValue b = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            CValue c = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
+            CValue a = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[0]));
+            CValue b = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue c = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[2]));
             switch (emitter->config.dialect) {
                 case CDialect_C11:
                 case CDialect_CUDA: {
@@ -475,9 +475,9 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
-            CValue src = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue src = to_cvalue(emitter, c_emit_value(emitter, p, first(prim_op->operands)));
             const Node* offset = prim_op->operands.nodes[1];
-            CValue c_offset = to_cvalue(emitter, emit_value(emitter, p, offset));
+            CValue c_offset = to_cvalue(emitter, c_emit_value(emitter, p, offset));
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
                     c_offset = format_string_arena(arena->arena, "int(%s)", c_offset);
@@ -498,35 +498,35 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
             }
             const Node* index = first(prim_op->operands);
             uint64_t index_literal = get_int_literal_value(*resolve_to_int_literal(index), false);
-            String member_name = get_record_field_name(t, index_literal);
+            String member_name = c_get_record_field_name(t, index_literal);
             term = term_from_cvalue(format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, t, NULL), member_name));
             break;
         } case select_op: {
             assert(prim_op->operands.count == 3);
-            CValue condition = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
-            CValue l = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
-            CValue r = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[2]));
+            CValue condition = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[0]));
+            CValue l = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1]));
+            CValue r = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[2]));
             term = term_from_cvalue(format_string_arena(emitter->arena->arena, "(%s) ? (%s) : (%s)", condition, l, r));
             break;
         }
         case convert_op: {
-            CTerm src = emit_value(emitter, p, first(prim_op->operands));
+            CTerm src = c_emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-                    CType t = emit_type(emitter, dst_type, NULL);
+                    CType t = c_emit_type(emitter, dst_type, NULL);
                     term = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", t, to_cvalue(emitter, src)));
                 } else
                     assert(false);
             } else {
-                CType t = emit_type(emitter, dst_type, NULL);
+                CType t = c_emit_type(emitter, dst_type, NULL);
                 term = term_from_cvalue(format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
             }
             break;
         }
         case reinterpret_op: {
-            CTerm src_value = emit_value(emitter, p, first(prim_op->operands));
+            CTerm src_value = c_emit_value(emitter, p, first(prim_op->operands));
             const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
             const Type* dst_type = first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
@@ -534,8 +534,8 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
                 case CDialect_C11: {
                     String src = unique_name(arena, "bitcast_src");
                     String dst = unique_name(arena, "bitcast_result");
-                    print(p, "\n%s = %s;", emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
-                    print(p, "\n%s;", emit_type(emitter, dst_type, dst));
+                    print(p, "\n%s = %s;", c_emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
+                    print(p, "\n%s;", c_emit_type(emitter, dst_type, dst));
                     print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
                     return term_from_cvalue(dst);
                 }
@@ -564,7 +564,7 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
                     }
                     if (conv_fn) {
                         CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
-                        return bind_intermediary_result(emitter, p, node->type, converted);
+                        return c_bind_intermediary_result(emitter, p, node->type, converted);
                     }
                     error_print("glsl: unsupported bit cast from ");
                     log_node(ERROR, src_type);
@@ -586,16 +586,16 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
                                 break;
                         }
                         CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
-                        return bind_intermediary_result(emitter, p, node->type, converted);
+                        return c_bind_intermediary_result(emitter, p, node->type, converted);
                         break;
                     } else if (src_type->tag == Float_TAG) {
                         assert(dst_type->tag == Int_TAG);
                         CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
-                        return bind_intermediary_result(emitter, p, node->type, converted);
+                        return c_bind_intermediary_result(emitter, p, node->type, converted);
                         break;
                     }
 
-                    CType t = emit_type(emitter, dst_type, NULL);
+                    CType t = c_emit_type(emitter, dst_type, NULL);
                     return term_from_cvalue(format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src_value)));
                 }
             }
@@ -604,7 +604,7 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
-            CValue acc = to_cvalue(emitter, emit_value(emitter, p, first(prim_op->operands)));
+            CValue acc = to_cvalue(emitter, c_emit_value(emitter, p, first(prim_op->operands)));
             bool insert = prim_op->op == insert_op;
 
             if (insert) {
@@ -643,7 +643,7 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
                         break;
                     }
                     case Type_ArrType_TAG: {
-                        acc = index_into_array(emitter, t, term_from_cvar(acc), emit_value(emitter, p, index));
+                        acc = index_into_array(emitter, t, term_from_cvar(acc), c_emit_value(emitter, p, index));
                         break;
                     }
                     default:
@@ -652,7 +652,7 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
             }
 
             if (insert) {
-                print(p, "\n%s = %s;", acc, to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1])));
+                print(p, "\n%s = %s;", acc, to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1])));
                 break;
             }
 
@@ -663,8 +663,8 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
             String dst = unique_name(arena, "shuffled");
             const Node* lhs = prim_op->operands.nodes[0];
             const Node* rhs = prim_op->operands.nodes[1];
-            String lhs_e = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[0]));
-            String rhs_e = to_cvalue(emitter, emit_value(emitter, p, prim_op->operands.nodes[1]));
+            String lhs_e = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[0]));
+            String rhs_e = to_cvalue(emitter, c_emit_value(emitter, p, prim_op->operands.nodes[1]));
             const Type* lhs_t = lhs->type;
             const Type* rhs_t = rhs->type;
             bool lhs_u = deconstruct_qualified_type(&lhs_t);
@@ -688,7 +688,7 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
         }
         case subgroup_assume_uniform_op: {
             if (emitter->config.dialect != CDialect_ISPC) {
-                return emit_value(emitter, p, prim_op->operands.nodes[0]);
+                return c_emit_value(emitter, p, prim_op->operands.nodes[0]);
             }
         }
         case empty_mask_op:
@@ -707,7 +707,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, Printer* p, ExtInstr instr) 
     if (strcmp(instr.set, "spirv.core") == 0) {
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
-                CValue value = to_cvalue(emitter, emit_value(emitter, p, first(instr.operands)));
+                CValue value = to_cvalue(emitter, c_emit_value(emitter, p, first(instr.operands)));
                 switch (emitter->config.dialect) {
                     case CDialect_CUDA: return term_from_cvalue(format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
                     case CDialect_ISPC: return term_from_cvalue(format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
@@ -753,7 +753,7 @@ static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
             print(paramsp, ", ");
     }
     for (size_t i = 0; i < args.count; i++) {
-        print(paramsp, to_cvalue(emitter, emit_value(emitter, p, args.nodes[i])));
+        print(paramsp, to_cvalue(emitter, c_emit_value(emitter, p, args.nodes[i])));
         if (i + 1 < args.count)
             print(paramsp, ", ");
     }
@@ -763,12 +763,12 @@ static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
     if (callee->tag == FnAddr_TAG)
         e_callee = get_declaration_name(callee->payload.fn_addr.fn);
     else
-        e_callee = to_cvalue(emitter, emit_value(emitter, p, callee));
+        e_callee = to_cvalue(emitter, c_emit_value(emitter, p, callee));
 
     String params = printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
-    called = bind_intermediary_result(emitter, p, call->type, called);
+    called = c_bind_intermediary_result(emitter, p, call->type, called);
 
     free_tmp_str(params);
     return called;
@@ -776,7 +776,7 @@ static CTerm emit_call(Emitter* emitter, Printer* p, const Node* call) {
 
 static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
     IrArena* arena = emitter->arena;
-    CTerm acc = emit_value(emitter, p, lea.ptr);
+    CTerm acc = c_emit_value(emitter, p, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
     bool uniform = is_qualified_type_uniform(src_qtype);
@@ -785,12 +785,12 @@ static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
 
     const IntLiteral* offset_static_value = resolve_to_int_literal(lea.offset);
     if (!offset_static_value || offset_static_value->value != 0) {
-        CTerm offset = emit_value(emitter, p, lea.offset);
+        CTerm offset = c_emit_value(emitter, p, lea.offset);
         // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
         // this means such code is never going to be legal in GLSL
         // also the cast is to account for our arrays-in-structs hack
         const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
-        acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s)[%s])", emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
+        acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s)[%s])", c_emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
         uniform &= is_qualified_type_uniform(lea.offset->type);
     }
 
@@ -801,7 +801,7 @@ static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
         uniform &= is_qualified_type_uniform(selector->type);
         switch (is_type(pointee_type)) {
             case ArrType_TAG: {
-                CTerm index = emit_value(emitter, p, selector);
+                CTerm index = c_emit_value(emitter, p, selector);
                 acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
                 curr_ptr_type = ptr_type(arena, (PtrType) {
                         .pointed_type = pointee_type->payload.arr_type.element_type,
@@ -820,13 +820,13 @@ static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
                 // See https://github.com/ispc/ispc/issues/2496
                 if (emitter->config.dialect == CDialect_ISPC) {
                     String interm = unique_name(arena, "lea_intermediary_ptr_value");
-                    print(p, "\n%s = %s;", emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
+                    print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                     acc = term_from_cvalue(interm);
                 }
 
                 assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
                 size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
-                String field_name = get_record_field_name(pointee_type, static_index);
+                String field_name = c_get_record_field_name(pointee_type, static_index);
                 acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
                 curr_ptr_type = ptr_type(arena, (PtrType) {
                         .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
@@ -849,7 +849,7 @@ static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
-        acc = bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+        acc = c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
 
     return acc;
 }
@@ -857,7 +857,7 @@ static CTerm emit_lea(Emitter* emitter, Printer* p, Lea lea) {
 static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* type) {
     String variable_name = unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
-    emit_variable_declaration(emitter, p, type, variable_name, true, NULL);
+    c_emit_variable_declaration(emitter, p, type, variable_name, true, NULL);
     if (emitter->config.dialect == CDialect_ISPC) {
         variable = ispc_varying_ptr_helper(emitter, p, type, variable);
     }
@@ -898,7 +898,7 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
             }
             Nodes results2 = instruction->payload.compound_instruction.results;
             for (size_t i = 0; i < results2.count; i++) {
-                outputs.results[0] = emit_value(emitter, p, results2.nodes[i]);
+                outputs.results[0] = c_emit_value(emitter, p, results2.nodes[i]);
                 outputs.binding[0] = NoBinding;
             }
             return;
@@ -908,9 +908,9 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
         case Instruction_LocalAlloc_TAG: return emit_alloca(emitter, p, instruction->payload.local_alloc.type);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
-            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, payload.ptr));
+            CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, p, payload.ptr));
             // we must bind the intermediary result here, otherwise we duplicate the load everwhere it is consumed
-            return bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
+            return c_bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
@@ -918,8 +918,8 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
             bool addr_uniform = deconstruct_qualified_type(&addr_type);
             bool value_uniform = is_qualified_type_uniform(payload.value->type);
             assert(addr_type->tag == PtrType_TAG);
-            CAddr dereferenced = deref_term(emitter, emit_value(emitter, p, payload.ptr));
-            CValue cvalue = to_cvalue(emitter, emit_value(emitter, p, payload.value));
+            CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, p, payload.ptr));
+            CValue cvalue = to_cvalue(emitter, c_emit_value(emitter, p, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
             if (emitter->config.dialect == CDialect_ISPC && addr_uniform && is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
                 cvalue = format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
@@ -942,7 +942,7 @@ CTerm emit_instruction(Emitter* emitter, Printer* p, const Node* instruction) {
         case Instruction_DebugPrintf_TAG: {
             String args_list = format_string_interned(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++) {
-                CValue str = to_cvalue(emitter, emit_value(emitter, p, instruction->payload.debug_printf.args.nodes[i]));
+                CValue str = to_cvalue(emitter, c_emit_value(emitter, p, instruction->payload.debug_printf.args.nodes[i]));
 
                 if (emitter->config.dialect == CDialect_ISPC && i > 0)
                     str = format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);

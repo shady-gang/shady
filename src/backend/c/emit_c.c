@@ -82,30 +82,30 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
     String interm = unique_name(emitter->arena, "intermediary_ptr_value");
     const Type* ut = qualified_type_helper(ptr_type, true);
     const Type* vt = qualified_type_helper(ptr_type, false);
-    String lhs = emit_type(emitter, vt, interm);
-    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
+    String lhs = c_emit_type(emitter, vt, interm);
+    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, c_emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
     return term_from_cvalue(interm);
 }
 
-CTerm bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
+CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
     String bind_to = unique_name(emitter->arena, "");
-    emit_variable_declaration(emitter, p, t, bind_to, false, &term);
+    c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
     return term_from_cvalue(bind_to);
 }
 
-void emit_pack_code(Printer* p, Strings src, String dst) {
+void c_emit_pack_code(Printer* p, Strings src, String dst) {
     for (size_t i = 0; i < src.count; i++) {
         print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
     }
 }
 
-void emit_unpack_code(Printer* p, String src, Strings dst) {
+void c_emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
         print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
     }
 }
 
-void emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
+void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
     assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
 
     String prefix = "";
@@ -149,7 +149,7 @@ static void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, 
     print(p, "\n");
 }
 
-String emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
+String c_emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
     emit_lambda_body_at(emitter, p, body, bbs);
@@ -231,18 +231,18 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
     }
 
     if (init)
-        print(emitter->fn_decls, "\n%s%s = %s;", prefix, emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, decl_center), init);
     else
-        print(emitter->fn_decls, "\n%s%s;", prefix, emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "\n%s%s;", prefix, c_emit_type(emitter, type, decl_center));
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
     //
-    //String declaration = emit_type(emitter, type, decl_center);
+    //String declaration = c_emit_type(emitter, type, decl_center);
     //print(emitter->fn_decls, "\n%s;", declaration);
 }
 
-void emit_decl(Emitter* emitter, const Node* decl) {
+void c_emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
     CTerm* found = lookup_existing_term(emitter, decl);
@@ -260,7 +260,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         case GlobalVariable_TAG: {
             String init = NULL;
             if (decl->payload.global_variable.init)
-                init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.global_variable.init));
+                init = to_cvalue(emitter, c_emit_value(emitter, NULL, decl->payload.global_variable.init));
             AddressSpace ass = decl->payload.global_variable.address_space;
             if (ass == AsInput || ass == AsOutput)
                 init = NULL;
@@ -268,7 +268,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             if (is_decl_builtin(decl)) {
                 Builtin b = get_decl_builtin(decl);
-                CTerm t = emit_c_builtin(emitter, b);
+                CTerm t = c_emit_builtin(emitter, b);
                 register_emitted(emitter, decl, t);
                 return;
             }
@@ -303,7 +303,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
         case Function_TAG: {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
-            String head = emit_fn_head(emitter, decl->type, name, decl);
+            String head = c_emit_fn_head(emitter, decl->type, name, decl);
             const Node* body = decl->payload.fun.body;
             if (body) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
@@ -313,7 +313,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
                     register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
-                String fn_body = emit_lambda_body(emitter, body, NULL);
+                String fn_body = c_emit_lambda_body(emitter, body, NULL);
                 String free_me = fn_body;
                 if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
@@ -340,7 +340,7 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvalue(name);
             register_emitted(emitter, decl, emit_as);
 
-            String init = to_cvalue(emitter, emit_value(emitter, NULL, decl->payload.constant.value));
+            String init = to_cvalue(emitter, c_emit_value(emitter, NULL, decl->payload.constant.value));
             emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
             return;
         }
@@ -349,8 +349,8 @@ void emit_decl(Emitter* emitter, const Node* decl) {
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
                 case CDialect_ISPC:
-                default: print(emitter->type_decls, "\ntypedef %s;", emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case CDialect_GLSL: emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+                default: print(emitter->type_decls, "\ntypedef %s;", c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                case CDialect_GLSL: c_emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
         }
@@ -453,7 +453,7 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
         emitter.total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[1];
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[2];
-        print(emitter.type_decls, "\ntypedef %s;\n", emit_type(&emitter, arr_type(arena, (ArrType) {
+        print(emitter.type_decls, "\ntypedef %s;\n", c_emit_type(&emitter, arr_type(arena, (ArrType) {
                 .size = int32_literal(arena, 3),
                 .element_type = uint32_type(arena)
         }), "uvec3"));
@@ -469,7 +469,7 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++)
-        emit_decl(&emitter, decls.nodes[i]);
+        c_emit_decl(&emitter, decls.nodes[i]);
 
     destroy_printer(emitter.type_decls);
     destroy_printer(emitter.fn_decls);
