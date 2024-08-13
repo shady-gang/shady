@@ -4,6 +4,8 @@
 #include "../shady/ir_private.h"
 #include "../shady/compile.h"
 #include "../shady/transform/ir_gen_helpers.h"
+#include "../shady/analysis/cfg.h"
+#include "../shady/analysis/scheduler.h"
 
 #include "shady_cuda_prelude_src.h"
 #include "shady_cuda_builtins_src.h"
@@ -19,6 +21,32 @@
 #include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
+
+KeyHash hash_node(Node**);
+bool compare_node(Node**, Node**);
+
+void register_emitted(Emitter* emitter, FnEmitter* fn, const Node* node, CTerm as) {
+    //assert(as.value || as.var);
+    insert_dict(const Node*, CTerm, fn ? fn->emitted_terms : emitter->emitted_terms, node, as);
+}
+
+CTerm* lookup_existing_term(Emitter* emitter, FnEmitter* fn, const Node* node) {
+    CTerm* found = NULL;
+    if (fn)
+        found = find_value_dict(const Node*, CTerm, fn->emitted_terms, node);
+    if (!found)
+        found = find_value_dict(const Node*, CTerm, emitter->emitted_terms, node);
+    return found;
+}
+
+void register_emitted_type(Emitter* emitter, const Node* node, String as) {
+    insert_dict(const Node*, String, emitter->emitted_types, node, as);
+}
+
+CType* lookup_existing_type(Emitter* emitter, const Type* node) {
+    CType* found = find_value_dict(const Node*, CType, emitter->emitted_types, node);
+    return found;
+}
 
 CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     if (term.value)
@@ -133,31 +161,7 @@ void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const
         print(block_printer, "\n%s%s;", prefix, decl);
 }
 
-static void emit_lambda_body_at(Emitter* emitter, Printer* p, const Node* body, const Nodes* bbs) {
-    assert(is_terminator(body));
-    //print(p, "{");
-    indent(p);
-
-    c_emit_terminator(emitter, p, body);
-
-    if (bbs && bbs->count > 0) {
-        assert(emitter->config.dialect != CDialect_GLSL);
-        error("TODO");
-    }
-
-    deindent(p);
-    print(p, "\n");
-}
-
-String c_emit_lambda_body(Emitter* emitter, const Node* body, const Nodes* bbs) {
-    Growy* g = new_growy();
-    Printer* p = open_growy_as_printer(g);
-    emit_lambda_body_at(emitter, p, body, bbs);
-    growy_append_bytes(g, 1, (char[]) { 0 });
-    return printer_growy_unwrap(p);
-}
-
-static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, String decl_center, const Type* type, bool constant, String init) {
+void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
     bool is_fs = emitter->compiler_config->specialization.execution_model == EmFragment;
@@ -167,7 +171,7 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
             if (as != AsGeneric) warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
             prefix = "";
             if (constant)
-                decl_center = format_string_arena(emitter->arena->arena, "const %s", decl_center);
+                name = format_string_arena(emitter->arena->arena, "const %s", name);
             break;
         }
         case CDialect_ISPC:
@@ -180,7 +184,7 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
                     assert(false);
                     // Note: this requires many hacks.
                     prefix = "__device__ ";
-                    decl_center = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", decl_center);
+                    name = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", name);
                     break;
                 case AsShared: prefix = "__shared__ "; break;
                 case AsGlobal: {
@@ -225,15 +229,15 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
     if (emitter->config.dialect == CDialect_ISPC) {
         bool uniform = is_addr_space_uniform(emitter->arena, as);
         if (uniform)
-            decl_center = format_string_arena(emitter->arena->arena, "uniform %s", decl_center);
+            name = format_string_arena(emitter->arena->arena, "uniform %s", name);
         else
-            decl_center = format_string_arena(emitter->arena->arena, "varying %s", decl_center);
+            name = format_string_arena(emitter->arena->arena, "varying %s", name);
     }
 
     if (init)
-        print(emitter->fn_decls, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, decl_center), init);
+        print(emitter->fn_decls, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, name), init);
     else
-        print(emitter->fn_decls, "\n%s%s;", prefix, c_emit_type(emitter, type, decl_center));
+        print(emitter->fn_decls, "\n%s%s;", prefix, c_emit_type(emitter, type, name));
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
@@ -245,7 +249,7 @@ static void emit_global_variable_definition(Emitter* emitter, AddressSpace as, S
 void c_emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
-    CTerm* found = lookup_existing_term(emitter, decl);
+    CTerm* found = lookup_existing_term(emitter, NULL, decl);
     if (found) return;
 
     CType* found2 = lookup_existing_type(emitter, decl);
@@ -269,14 +273,14 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             if (is_decl_builtin(decl)) {
                 Builtin b = get_decl_builtin(decl);
                 CTerm t = c_emit_builtin(emitter, b);
-                register_emitted(emitter, decl, t);
+                register_emitted(emitter, NULL, decl, t);
                 return;
             }
 
             if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
                 int location = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(format_string_interned(emitter->arena, "gl_FragData[%d]", location));
-                register_emitted(emitter, decl, t);
+                register_emitted(emitter, NULL, decl, t);
                 return;
             }
 
@@ -285,35 +289,44 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvar(name);
             if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
                 if (emitter->use_private_globals) {
-                    register_emitted(emitter, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
+                    register_emitted(emitter, NULL, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
                     // HACK
                     return;
                 }
                 emit_as = term_from_cvar(format_string_interned(emitter->arena, "__shady_thread_local_access(%s)", name));
                 if (init)
                     init = format_string_interned(emitter->arena, "__shady_replicate_thread_local(%s)", init);
-                register_emitted(emitter, decl, emit_as);
+                register_emitted(emitter, NULL, decl, emit_as);
             }
-            register_emitted(emitter, decl, emit_as);
+            register_emitted(emitter, NULL, decl, emit_as);
 
             AddressSpace as = decl->payload.global_variable.address_space;
-            emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
+            c_emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
             return;
         }
         case Function_TAG: {
             emit_as = term_from_cvalue(name);
-            register_emitted(emitter, decl, emit_as);
+            register_emitted(emitter, NULL, decl, emit_as);
             String head = c_emit_fn_head(emitter, decl->type, name, decl);
             const Node* body = decl->payload.fun.body;
             if (body) {
+                FnEmitter fn = {
+                    .cfg = build_fn_cfg(decl),
+                    .emitted_terms = new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
+                };
+                fn.scheduler = new_scheduler(fn.cfg);
+                fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
+                // for (size_t i = 0; i < fn.cfg->size; i++)
+                //     fn.instruction_printers[i] = open_growy_as_printer(new_growy());
+
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = format_string_interned(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
-                    register_emitted(emitter, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
+                    register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
-                String fn_body = c_emit_lambda_body(emitter, body, NULL);
+                String fn_body = c_emit_body(emitter, &fn, decl);
                 String free_me = fn_body;
                 if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
@@ -329,8 +342,15 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                         fn_body = format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
                     }
                 }
-                print(emitter->fn_defs, "\n%s { %s }", head, fn_body);
+                print(emitter->fn_defs, "\n%s { ", head);
+                indent(emitter->fn_defs);
+                print(emitter->fn_defs, " %s", fn_body);
+                deindent(emitter->fn_defs);
+                print(emitter->fn_defs, "\n}");
                 free_tmp_str(free_me);
+
+                destroy_dict(fn.emitted_terms);
+                free(fn.instruction_printers);
             }
 
             print(emitter->fn_decls, "\n%s;", head);
@@ -338,10 +358,10 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
         }
         case Constant_TAG: {
             emit_as = term_from_cvalue(name);
-            register_emitted(emitter, decl, emit_as);
+            register_emitted(emitter, NULL, decl, emit_as);
 
             String init = to_cvalue(emitter, c_emit_value(emitter, NULL, decl->payload.constant.value));
-            emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
+            c_emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
             return;
         }
         case NominalType_TAG: {
@@ -357,28 +377,6 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
         default: error("not a decl");
     }
 }
-
-void register_emitted(Emitter* emitter, const Node* node, CTerm as) {
-    assert(as.value || as.var);
-    insert_dict(const Node*, CTerm, emitter->emitted_terms, node, as);
-}
-
-void register_emitted_type(Emitter* emitter, const Node* node, String as) {
-    insert_dict(const Node*, String, emitter->emitted_types, node, as);
-}
-
-CTerm* lookup_existing_term(Emitter* emitter, const Node* node) {
-    CTerm* found = find_value_dict(const Node*, CTerm, emitter->emitted_terms, node);
-    return found;
-}
-
-CType* lookup_existing_type(Emitter* emitter, const Type* node) {
-    CType* found = find_value_dict(const Node*, CType, emitter->emitted_types, node);
-    return found;
-}
-
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
 
 static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
