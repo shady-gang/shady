@@ -924,31 +924,32 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
 
 static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*)) {
     expect(accept_token(ctx, lbracket_tok));
-    Node* c = case_(arena, empty(arena));
-    BodyBuilder* bb = begin_body_with_mem(arena, get_abstraction_mem(c));
+    BodyBuilder* bb = begin_body_with_mem(arena, mem);
 
     while (true) {
         if (!accept_statement(ctx, bb))
             break;
     }
 
-    const Node* terminator = accept_terminator(ctx, bb);
+    Node* terminator_case = case_(arena, empty(arena));
+    BodyBuilder* terminator_bb = begin_body_with_mem(arena, get_abstraction_mem(terminator_case));
+    const Node* terminator = accept_terminator(ctx, terminator_bb);
 
     if (terminator)
         expect(accept_token(ctx, semi_tok));
 
     if (!terminator) {
         if (default_terminator)
-            terminator = default_terminator(bb_mem(bb));
+            terminator = default_terminator(bb_mem(terminator_bb));
         else
             error("expected terminator: return, jump, branch ...");
     }
 
-    set_abstraction_body(c, finish_body(bb, terminator));
+    set_abstraction_body(terminator_case, finish_body(terminator_bb, terminator));
 
-    BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, mem);
+    Node* cont_wrapper_case = case_(arena, empty(arena));
+    BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, get_abstraction_mem(cont_wrapper_case));
 
-    //struct List* bb_names = new_list(String);
     Nodes ids = empty(arena);
     Nodes conts = empty(arena);
     if (curr_token(tokenizer).tag == cont_tok) {
@@ -967,11 +968,10 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     }
 
     gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), concat_nodes(arena, ids, conts));
-    //destroy_list(bb_names);
-
     expect(accept_token(ctx, rbracket_tok));
 
-    return finish_body(cont_wrapper_bb, jump_helper(arena, c, empty(arena), bb_mem(cont_wrapper_bb)));
+    set_abstraction_body(cont_wrapper_case, finish_body_with_jump(cont_wrapper_bb, terminator_case, empty(arena)));
+    return finish_body_with_jump(bb, cont_wrapper_case, empty(arena));
 }
 
 static Nodes accept_annotations(ctxparams) {
