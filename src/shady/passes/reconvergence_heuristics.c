@@ -352,6 +352,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
+            Branch payload = node->payload.branch;
             if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
                 break;
             assert(ctx->fwd_cfg);
@@ -456,13 +457,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             register_processed(r, idom, pre_join);
 
-            const Node* inner_terminator = recreate_node_identity(r, node);
-
             remove_dict(const Node*, is_declaration(idom) ? r->decls_map : r->map, idom);
             if (cached)
                 register_processed(r, idom, cached);
 
             Node* control_case = case_(a, singleton(join_token));
+            const Node* inner_terminator = branch(a, (Branch) {
+                .mem = get_abstraction_mem(control_case),
+                .condition = rewrite_node(r, payload.condition),
+                .true_jump = jump_helper(a, rewrite_node(r, payload.true_jump->payload.jump.target), rewrite_nodes(r, payload.true_jump->payload.jump.args), get_abstraction_mem(control_case)),
+                .false_jump = jump_helper(a, rewrite_node(r, payload.false_jump->payload.jump.target), rewrite_nodes(r, payload.false_jump->payload.jump.args), get_abstraction_mem(control_case)),
+            });
             set_abstraction_body(control_case, inner_terminator);
             const Node* join_target = rewrite_node(r, idom);
 
