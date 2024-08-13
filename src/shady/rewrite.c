@@ -187,7 +187,7 @@ const Node* find_processed(const Rewriter* ctx, const Node* old) {
 
 void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(old->arena == ctx->src_arena);
-    assert(new->arena == ctx->dst_arena);
+    assert(new ? new->arena == ctx->dst_arena : true);
 #ifndef NDEBUG
     const Node* found = search_processed_(ctx, old, false);
     if (found) {
