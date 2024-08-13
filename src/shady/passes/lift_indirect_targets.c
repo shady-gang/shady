@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "join_point_ops.h"
 
 #include "../type.h"
 #include "../ir_private.h"
@@ -233,7 +234,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
-                const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
+                const Type* jp_type = join_point_type(a, (JoinPointType) {
+                    .yield_types = rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
+                });
+                const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(jp));
 

@@ -686,8 +686,6 @@ static CTerm emit_primop(Emitter* emitter, Printer* p, const Node* node) {
             term = term_from_cvalue(dst);
             break;
         }
-        case default_join_point_op:
-        case create_joint_point_op: error("lowered in lower_tailcalls.c");
         case subgroup_assume_uniform_op: {
             if (emitter->config.dialect != CDialect_ISPC) {
                 return emit_value(emitter, p, prim_op->operands.nodes[0]);

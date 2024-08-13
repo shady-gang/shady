@@ -22,9 +22,6 @@
       "name": "subgroup_intrinsic"
     },
     {
-      "name": "join_point"
-    },
-    {
       "name": "mask"
     }
   ],
@@ -216,16 +213,6 @@
     },
     {
       "name": "sample_texture",
-      "side-effects": true
-    },
-    {
-      "name": "create_joint_point",
-      "class": "join_point",
-      "side-effects": true
-    },
-    {
-      "name": "default_join_point",
-      "class": "join_point",
       "side-effects": true
     },
     {

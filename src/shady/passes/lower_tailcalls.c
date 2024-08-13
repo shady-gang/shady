@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "join_point_ops.h"
 
 #include "../type.h"
 #include "../ir_private.h"
@@ -36,7 +37,7 @@ typedef struct Context_ {
 static const Node* process(Context* ctx, const Node* old);
 
 static const Node* fn_ptr_as_value(IrArena* a, FnPtr ptr) {
-    return uint64_literal(a, ptr);
+    return uint32_literal(a, ptr);
 }
 
 static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
@@ -169,32 +170,21 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return type_decl_ref(a, (TypeDeclRef) {
             .decl = find_or_process_decl(&ctx->rewriter, "JoinPoint"),
         });
-        case PrimOp_TAG: {
-            switch (old->payload.prim_op.op) {
-                /*case create_joint_point_op: {
-                    BodyBuilder* bb = begin_body(a);
-                    Nodes args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
-                    assert(args.count == 2);
-                    const Node* dst = first(args);
-                    const Node* sp = args.nodes[1];
-                    dst = gen_conversion(bb, uint32_type(a), dst);
-                    Nodes r = bind_instruction(bb, call(a, (Call) {
-                        .callee = access_decl(&ctx->rewriter, "builtin_create_control_point"),
-                        .args = mk_nodes(a, dst, sp),
-                    }));
-                    return yield_values_and_wrap_in_block(bb, r);
+        case ExtInstr_TAG: {
+            ExtInstr payload = old->payload.ext_instr;
+            if (strcmp(payload.set, "shady.internal") == 0) {
+                String callee_name = NULL;
+                switch ((ShadyJoinPointOpcodes ) payload.opcode) {
+                    case ShadyOpDefaultJoinPoint: callee_name = "builtin_entry_join_point"; break;
+                    case ShadyOpCreateJoinPoint:  callee_name = "builtin_create_control_point"; break;
                 }
-                case default_join_point_op: {
-                    BodyBuilder* bb = begin_body(a);
-                    Nodes r = bind_instruction(bb, call(a, (Call) {
-                            .callee = access_decl(&ctx->rewriter, "builtin_entry_join_point"),
-                            .args = empty(a)
-                    }));
-                    return yield_values_and_wrap_in_block(bb, r);
-                }*/
-                error("TODO: unprimop-ify these")
-                default: return recreate_node_identity(&ctx->rewriter, old);
+                return call(a, (Call) {
+                    .mem = rewrite_node(r, payload.mem),
+                    .callee = access_decl(r, callee_name),
+                    .args = rewrite_nodes(r, payload.operands),
+                });
             }
+            break;
         }
         case TailCall_TAG: {
             //if (ctx->disable_lowering)

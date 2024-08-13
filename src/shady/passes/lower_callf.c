@@ -1,7 +1,7 @@
 #include "shady/pass.h"
+#include "join_point_ops.h"
 
 #include "../type.h"
-
 #include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
@@ -15,7 +15,6 @@ typedef struct Context_ {
     Rewriter rewriter;
     bool disable_lowering;
 
-    Node* self;
     const Node* return_jp;
 } Context;
 
@@ -30,12 +29,16 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         Context ctx2 = *ctx;
         ctx2.disable_lowering = lookup_annotation(old, "Leaf");
         ctx2.return_jp = NULL;
-        Node* fun = NULL;
 
-        if (!ctx2.disable_lowering) {
+        if (!ctx2.disable_lowering && get_abstraction_body(old)) {
             Nodes oparams = get_abstraction_params(old);
             Nodes nparams = recreate_params(&ctx->rewriter, oparams);
             register_processed_list(&ctx->rewriter, oparams, nparams);
+
+            Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
+
+            Node* prelude = case_(a, empty(a));
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(prelude));
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(a, (JoinPointType) {
@@ -43,19 +46,23 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
-                ctx2.return_jp = prim_op_helper(a, default_join_point_op, empty(a), empty(a));
+                ctx2.return_jp = gen_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint, qualified_type_helper(jp_type, true), empty(a));
             } else {
                 const Node* jp_variable = param(a, qualified_type_helper(jp_type, false), "return_jp");
                 nparams = append_nodes(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }
 
-            Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
-            fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, empty(a));
-            ctx2.self = fun;
+            Node* fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, empty(a));
             register_processed(&ctx->rewriter, old, fun);
-        } else
-            fun = recreate_decl_header_identity(&ctx->rewriter, old);
+
+            register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+            set_abstraction_body(prelude, finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
+            set_abstraction_body(fun, jump_helper(a, prelude, empty(a), get_abstraction_mem(fun)));
+            return fun;
+        }
+
+        Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
         if (old->payload.fun.body)
             set_abstraction_body(fun, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
         return fun;
