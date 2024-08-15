@@ -390,10 +390,15 @@ void destroy_cfg(CFG* cfg) {
 static size_t post_order_visit(CFG* cfg, CFNode* n, size_t i) {
     n->rpo_index = -2;
 
-    for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
-        CFEdge edge = read_list(CFEdge, n->succ_edges)[j];
-        if (edge.dst->rpo_index == SIZE_MAX)
-            i = post_order_visit(cfg, edge.dst, i);
+    for (int phase = 0; phase < 2; phase++) {
+        for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
+            CFEdge edge = read_list(CFEdge, n->succ_edges)[j];
+            // always visit structured tail edges last
+            if ((edge.type == StructuredTailEdge) == (phase == 1))
+                continue;
+            if (edge.dst->rpo_index == SIZE_MAX)
+                i = post_order_visit(cfg, edge.dst, i);
+        }
     }
 
     n->rpo_index = i - 1;

@@ -16,18 +16,21 @@ BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb) {
     return *found;
 }
 
+static void add_phis(Emitter* emitter, FnBuilder* fn_builder, SpvId src, BBBuilder dst_builder, Nodes args) {
+    struct List* phis = spbv_get_phis(dst_builder);
+    assert(entries_count_list(phis) == args.count);
+    for (size_t i = 0; i < args.count; i++) {
+        SpvbPhi* phi = read_list(SpvbPhi*, phis)[i];
+        spvb_add_phi_source(phi, src, spv_emit_value(emitter, fn_builder, args.nodes[i]));
+    }
+}
+
 static void add_branch_phis(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* dst, Nodes args) {
     // because it's forbidden to jump back into the entry block of a function
     // (which is actually a Function in this IR, not a BasicBlock)
     // we assert that the destination must be an actual BasicBlock
     assert(is_basic_block(dst));
-    BBBuilder dst_builder = spv_find_basic_block_builder(emitter, dst);
-    struct List* phis = spbv_get_phis(dst_builder);
-    assert(entries_count_list(phis) == args.count);
-    for (size_t i = 0; i < args.count; i++) {
-        SpvbPhi* phi = read_list(SpvbPhi*, phis)[i];
-        spvb_add_phi_source(phi, get_block_builder_id(bb_builder), spv_emit_value(emitter, fn_builder, args.nodes[i]));
-    }
+    add_phis(emitter, fn_builder, get_block_builder_id(bb_builder), spv_find_basic_block_builder(emitter, dst), args);
 }
 
 static void add_branch_phis_from_jump(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Jump jump) {
@@ -76,7 +79,7 @@ static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_bui
     spvb_switch(bb_builder, inspectee, default_id, match.cases.count * literal_case_entry_size, literals_and_cases);
 }
 
-static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Loop loop_instr) {
+static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* abs, Loop loop_instr) {
     spv_emit_mem(emitter, fn_builder, loop_instr.mem);
     SpvId body_id = spv_find_emitted(emitter, fn_builder, loop_instr.body);
 
@@ -84,28 +87,68 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
     BBBuilder continue_builder = spvb_begin_bb(fn_builder->base, continue_id);
     spvb_name(emitter->file_builder, continue_id, "loop_continue");
 
-    SpvId next_id = spv_find_emitted(emitter, fn_builder, loop_instr.tail);
+    SpvId header_id = spvb_fresh_id(emitter->file_builder);
+    BBBuilder header_builder = spvb_begin_bb(fn_builder->base, header_id);
+    spvb_name(emitter->file_builder, header_id, "loop_header");
+
+    Nodes body_params = get_abstraction_params(loop_instr.body);
+    LARRAY(SpvbPhi*, loop_continue_phis, body_params.count);
+    for (size_t i = 0; i < body_params.count; i++) {
+        SpvId loop_param_type = spv_emit_type(emitter, get_unqualified_type(body_params.nodes[i]->type));
+
+        SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvbPhi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);
+        loop_continue_phis[i] = continue_phi;
+
+        // To get the actual loop parameter, we make a second phi for the nodes that go into the header
+        // We already know the two edges into the header so we immediately add the Phi sources for it.
+        SpvId header_phi_id = spvb_fresh_id(emitter->file_builder);
+        SpvbPhi* header_phi = spvb_add_phi(header_builder, loop_param_type, header_phi_id);
+        SpvId param_initial_value = spv_emit_value(emitter, fn_builder, loop_instr.initial_args.nodes[i]);
+        spvb_add_phi_source(header_phi, get_block_builder_id(bb_builder), param_initial_value);
+        spvb_add_phi_source(header_phi, get_block_builder_id(continue_builder), continue_phi_id);
+
+        BBBuilder body_builder = spv_find_basic_block_builder(emitter, loop_instr.body);
+        spvb_add_phi_source(read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
+    }
+
+    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, abs)->rpo_index].continue_id = continue_id;
+    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, abs)->rpo_index].continue_builder = continue_builder;
+
+    SpvId tail_id = spv_find_emitted(emitter, fn_builder, loop_instr.tail);
 
     // the header block receives the loop merge annotation
-    spvb_loop_merge(bb_builder, next_id, continue_id, 0, 0, NULL);
-    spvb_branch(bb_builder, body_id);
-    add_branch_phis(emitter, fn_builder, bb_builder, loop_instr.body, loop_instr.initial_args);
+     spvb_loop_merge(header_builder, tail_id, continue_id, 0, 0, NULL);
+    spvb_branch(header_builder, body_id);
+
+    spvb_add_bb(fn_builder->base, header_builder);
 
     // the continue block just jumps back into the header
-    spvb_branch(continue_builder, body_id);
+    spvb_branch(continue_builder, header_id);
     spvb_add_bb(fn_builder->base, continue_builder);
+
+    spvb_branch(bb_builder, header_id);
+}
+
+static CFNode* find_surrounding_structured_construct_node(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Structured_constructTag tag) {
+    const Node* oabs = abs;
+    for (CFNode* n = cfg_lookup(fn_builder->cfg, abs); n; oabs = n->node, n = n->idom) {
+        const Node* terminator = get_abstraction_body(n->node);
+        assert(terminator);
+        if (is_structured_construct(terminator) && get_structured_construct_tail(terminator) == oabs) {
+             continue;
+        }
+        if (terminator->tag == tag) {
+            printf("structured construct for %d is %d\n", abs->id, n->node->id);
+            return n;
+        }
+    }
+    return NULL;
 }
 
 static const Node* find_construct(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Structured_constructTag tag) {
-    CFNode* n = cfg_lookup(fn_builder->cfg, abs);
-    while (n) {
-        const Node* terminator = get_abstraction_body(n->node);
-        assert(terminator);
-        if (terminator->tag == tag)
-            return terminator;
-        n = n->idom;
-    }
-    return NULL;
+    CFNode* found = find_surrounding_structured_construct_node(emitter, fn_builder, abs, tag);
+    return found ? get_abstraction_body(found->node) : NULL;
 }
 
 void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basic_block_builder, const Node* abs, const Node* terminator) {
@@ -156,7 +199,6 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             LARRAY(SpvId, targets, terminator->payload.br_switch.case_jumps.count * 2);
             for (size_t i = 0; i < terminator->payload.br_switch.case_jumps.count; i++) {
                 add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.br_switch.case_jumps.nodes[i]->payload.jump);
-                error("TODO finish")
             }
             add_branch_phis_from_jump(emitter, fn_builder, basic_block_builder, terminator->payload.br_switch.default_jump->payload.jump);
             SpvId default_tgt = spv_find_emitted(emitter, fn_builder, terminator->payload.br_switch.default_jump->payload.jump.target);
@@ -166,7 +208,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         }
         case If_TAG: return emit_if(emitter, fn_builder, basic_block_builder, terminator->payload.if_instr);
         case Match_TAG: return emit_match(emitter, fn_builder, basic_block_builder, terminator->payload.match_instr);
-        case Loop_TAG: return emit_loop(emitter, fn_builder, basic_block_builder, terminator->payload.loop_instr);
+        case Loop_TAG: return emit_loop(emitter, fn_builder, basic_block_builder, abs, terminator->payload.loop_instr);
         case MergeSelection_TAG: {
             MergeSelection payload = terminator->payload.merge_selection;
             spv_emit_mem(emitter, fn_builder, payload.mem);
@@ -175,19 +217,19 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
                 construct = find_construct(emitter, fn_builder, abs, Structured_construct_Match_TAG);
             const Node* tail = get_structured_construct_tail(construct);
             Nodes args = terminator->payload.merge_selection.args;
-            for (size_t i = 0; i < args.count; i++)
             add_branch_phis(emitter, fn_builder, basic_block_builder, tail, args);
+            assert(tail != abs);
             spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, tail));
             return;
         }
         case MergeContinue_TAG: {
             MergeContinue payload = terminator->payload.merge_continue;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            const Node* construct = find_construct(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
-            Loop loop_payload = construct->payload.loop_instr;
+            CFNode* loop_entry = find_surrounding_structured_construct_node(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
+            assert(loop_entry);
             Nodes args = terminator->payload.merge_continue.args;
-            add_branch_phis(emitter, fn_builder, basic_block_builder, loop_payload.body, args);
-            spvb_branch(basic_block_builder, spv_find_emitted(emitter, fn_builder, loop_payload.body));
+            add_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_entry->rpo_index].continue_builder, args);
+            spvb_branch(basic_block_builder, fn_builder->per_bb[loop_entry->rpo_index].continue_id);
             return;
         }
         case MergeBreak_TAG: {

@@ -9,15 +9,19 @@
 typedef struct CFG_ CFG;
 typedef struct Scheduler_ Scheduler;
 
+typedef SpvbFileBuilder* FileBuilder;
+typedef SpvbBasicBlockBuilder* BBBuilder;
+
 typedef struct {
     SpvbFnBuilder* base;
     CFG* cfg;
     Scheduler* scheduler;
     struct Dict* emitted;
+    struct {
+        SpvId continue_id;
+        BBBuilder continue_builder;
+    }* per_bb;
 } FnBuilder;
-
-typedef SpvbFileBuilder* FileBuilder;
-typedef SpvbBasicBlockBuilder* BBBuilder;
 
 typedef struct Emitter_ {
     Module* module;

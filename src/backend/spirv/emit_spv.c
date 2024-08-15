@@ -82,6 +82,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         .cfg = build_fn_cfg(node),
     };
     fn_builder.scheduler = new_scheduler(fn_builder.cfg);
+    fn_builder.per_bb = calloc(sizeof(*fn_builder.per_bb), fn_builder.cfg->size);
 
     Nodes params = node->payload.fun.params;
     for (size_t i = 0; i < params.count; i++) {
@@ -133,6 +134,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         }
 
         destroy_cfg(cfg);
+        free(fn_builder.per_bb);
 
         spvb_define_function(emitter->file_builder, fn_builder.base);
     } else {
