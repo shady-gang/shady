@@ -112,8 +112,8 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
         spvb_add_phi_source(read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
     }
 
-    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, abs)->rpo_index].continue_id = continue_id;
-    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, abs)->rpo_index].continue_builder = continue_builder;
+    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_id = continue_id;
+    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_builder = continue_builder;
 
     SpvId tail_id = spv_find_emitted(emitter, fn_builder, loop_instr.tail);
 
@@ -125,7 +125,6 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
 
     // the continue block just jumps back into the header
     spvb_branch(continue_builder, header_id);
-    spvb_add_bb(fn_builder->base, continue_builder);
 
     spvb_branch(bb_builder, header_id);
 }
@@ -225,11 +224,13 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         case MergeContinue_TAG: {
             MergeContinue payload = terminator->payload.merge_continue;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            CFNode* loop_entry = find_surrounding_structured_construct_node(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
-            assert(loop_entry);
+            const Node* construct = find_construct(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
+            Loop loop_payload = construct->payload.loop_instr;
+            CFNode* loop_body = cfg_lookup(fn_builder->cfg, loop_payload.body);
+            assert(loop_body);
             Nodes args = terminator->payload.merge_continue.args;
-            add_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_entry->rpo_index].continue_builder, args);
-            spvb_branch(basic_block_builder, fn_builder->per_bb[loop_entry->rpo_index].continue_id);
+            add_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_body->rpo_index].continue_builder, args);
+            spvb_branch(basic_block_builder, fn_builder->per_bb[loop_body->rpo_index].continue_id);
             return;
         }
         case MergeBreak_TAG: {

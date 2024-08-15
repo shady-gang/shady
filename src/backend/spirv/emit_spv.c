@@ -53,9 +53,9 @@ SpvId spv_find_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* node
     return *found;
 }
 
-static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFG* cfg, const CFNode* cf_node) {
+static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNode* cf_node) {
     const Node* bb_node = cf_node->node;
-    assert(is_basic_block(bb_node) || cf_node == cfg->entry);
+    assert(is_basic_block(bb_node) || cf_node == fn_builder->cfg->entry);
 
     const Node* body = get_abstraction_body(bb_node);
 
@@ -69,6 +69,14 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFG*
         spvb_name(emitter->file_builder, bb_id, name);
 
     spv_emit_terminator(emitter, fn_builder, bb_builder, bb_node, body);
+
+    for (size_t i = 0; i < entries_count_list(cf_node->dominates); i++) {
+        CFNode* dominated = read_list(CFNode*, cf_node->dominates)[i];
+        emit_basic_block(emitter, fn_builder, dominated);
+    }
+
+    if (fn_builder->per_bb[cf_node->rpo_index].continue_builder)
+        spvb_add_bb(fn_builder->base, fn_builder->per_bb[cf_node->rpo_index].continue_builder);
 }
 
 static void emit_function(Emitter* emitter, const Node* node) {
@@ -97,18 +105,15 @@ static void emit_function(Emitter* emitter, const Node* node) {
     }
 
     if (node->payload.fun.body) {
-        CFG* cfg = build_fn_cfg(node);
         // reserve a bunch of identifiers for the basic blocks in the CFG
-        for (size_t i = 0; i < cfg->size; i++) {
-            CFNode* cfnode = read_list(CFNode*, cfg->contents)[i];
+        for (size_t i = 0; i < fn_builder.cfg->size; i++) {
+            CFNode* cfnode = read_list(CFNode*, fn_builder.cfg->contents)[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
             BBBuilder basic_block_builder = spvb_begin_bb(fn_builder.base, bb_id);
             insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
-            // if (is_cfnode_structural_target(cfnode))
-            //     continue;
             // add phis for every non-entry basic block
             if (i > 0) {
                 assert(is_basic_block(bb) && bb != node);
@@ -123,17 +128,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
                 spv_register_emitted(emitter, false, bb, bb_id);
             }
         }
-        // emit the blocks using the dominator tree
-        for (size_t i = 0; i < cfg->size; i++) {
-            CFNode* cfnode = cfg->rpo[i];
-            if (i == 0)
-                assert(cfnode == cfg->entry);
-            // if (is_cfnode_structural_target(cfnode))
-            //     continue;
-            emit_basic_block(emitter, &fn_builder, cfg, cfnode);
-        }
+        emit_basic_block(emitter, &fn_builder, fn_builder.cfg->entry);
 
-        destroy_cfg(cfg);
         free(fn_builder.per_bb);
 
         spvb_define_function(emitter->file_builder, fn_builder.base);
