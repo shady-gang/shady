@@ -14,7 +14,6 @@ target_include_directories(shady_spirv PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURC
 target_link_libraries(shady_spirv PRIVATE "api")
 target_link_libraries(shady_spirv INTERFACE "$<BUILD_INTERFACE:shady>")
 target_link_libraries(shady_spirv PRIVATE "$<BUILD_INTERFACE:common>")
-target_link_libraries(shady_spirv PRIVATE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 target_link_libraries(shady_spirv PRIVATE "$<BUILD_INTERFACE:shady_generated>")
 
 target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady_spirv>")
