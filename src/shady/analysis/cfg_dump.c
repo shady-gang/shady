@@ -48,7 +48,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     String abs_name = get_abstraction_name_safe(bb);
 
-    print(p, "%s: \n%s: ", abs_name, abs_name);
+    print(p, "%s: \n%d: ", abs_name, bb->id);
 
     print_node_helper(p, body);
     print(p, "\\l");

@@ -170,21 +170,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
-                switch (exiting_node->node->tag) {
-                    case BasicBlock_TAG: {
-                        Node* pre_join_exit_bb = basic_block(arena, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
-                        set_abstraction_body(pre_join_exit_bb, jump_helper(arena, exit_helpers[i], empty(arena), get_abstraction_mem(pre_join_exit_bb)));
-                        exit_wrappers[i] = pre_join_exit_bb;
-                        break;
-                    }
-                    default:
-                        assert(false);
-                }
+                Node* pre_join_exit_bb = basic_block(arena, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
+                set_abstraction_body(pre_join_exit_bb, jump_helper(arena, exit_helpers[i], empty(arena), get_abstraction_mem(pre_join_exit_bb)));
+                exit_wrappers[i] = pre_join_exit_bb;
             }
 
             Nodes continue_wrapper_params = recreate_params(rewriter, get_abstraction_params(node));
-            Node* continue_wrapper;
-            continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
+            Node* continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params,
@@ -216,6 +208,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             rewriter->map = clone_dict(rewriter->map);
             Nodes inner_loop_params = recreate_params(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
+            Node* inner_control_case = case_(arena, singleton(join_token_continue));
+            register_processed(rewriter, get_abstraction_mem(node), get_abstraction_mem(inner_control_case));
             const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
 
             // save the context
@@ -237,6 +231,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 set_abstraction_body(exit_helpers[i], finish_body_with_join(exit_wrapper_bb, join_token_exit, empty(arena)));
             }
 
+            set_abstraction_body(inner_control_case, loop_body);
+
             destroy_dict(rewriter->map);
             rewriter->map = old_map;
             //register_processed_list(rewriter, get_abstraction_params(node), nparams);
@@ -253,11 +249,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
             BodyBuilder* inner_bb = begin_body_with_mem(arena, get_abstraction_mem(loop_outer));
-            Node* inner_control_case = case_(arena, singleton(join_token_continue));
-            set_abstraction_body(inner_control_case, loop_body);
             Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
 
-            set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_body, inner_control_results));
+            set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
             Node* outer_control_case = case_(arena, singleton(join_token_exit));
             set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
