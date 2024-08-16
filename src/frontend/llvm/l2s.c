@@ -53,17 +53,18 @@ static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, 
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         // LLVMDumpValue(instr);
         // printf("\n");
-        EmittedInstr emitted = convert_instruction(p, fn_ctx, fn_or_bb, b, instr);
-        if (emitted.terminator)
-            return finish_body(b, emitted.terminator);
-        if (!emitted.instruction)
+        const Node* emitted = convert_instruction(p, fn_ctx, fn_or_bb, b, instr);
+        if (!emitted)
             continue;
-        String names[] = { LLVMGetValueName(instr) };
-        Nodes results = bind_instruction_outputs_count(b, emitted.instruction, emitted.result_types.count);
-        if (emitted.result_types.count == 1) {
-            const Node* result = first(results);
-            insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
-        }
+        insert_dict(LLVMValueRef, const Node*, p->map, instr, emitted);
+        if (is_terminator(emitted))
+            return finish_body(b, emitted);
+        //String names[] = { LLVMGetValueName(instr) };
+        //Nodes results = bind_instruction_outputs_count(b, emitted.instruction, emitted.result_types.count);
+        //if (emitted.result_types.count == 1) {
+        //    const Node* result = first(results);
+        //    insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
+        //}
     }
     SHADY_UNREACHABLE;
 }

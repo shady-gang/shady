@@ -58,12 +58,6 @@ const Node* convert_function(Parser* p, LLVMValueRef fn);
 const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
 typedef struct {
-    const Node* terminator;
-    const Node* instruction;
-    Nodes result_types;
-} EmittedInstr;
-
-typedef struct {
     struct List* list;
 } BBPhis;
 
@@ -74,7 +68,7 @@ typedef struct {
 } JumpTodo;
 
 void convert_jump_finish(Parser* p, FnParseCtx*, JumpTodo todo);
-EmittedInstr convert_instruction(Parser* p, FnParseCtx*, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
+const Node* convert_instruction(Parser* p, FnParseCtx*, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
 Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 
