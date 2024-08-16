@@ -23,3 +23,8 @@ function(embed_file TYPE NAME SRC)
     target_include_directories(${NAME} INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
 
+if (BUILD_TESTING)
+    add_executable(test_dict test_dict.c)
+    target_link_libraries(test_dict PRIVATE common)
+    add_test(NAME test_dict COMMAND test_dict)
+endif ()
