@@ -5,10 +5,13 @@ else()
 endif()
 
 if (SHADY_ENABLE_VCC)
+    set (VCC_CLANG_EXECUTABLE_NAME "clang" CACHE STRING "What 'clang' executable Vcc should call into")
+
     add_library(vcc_lib STATIC vcc_lib.c)
     target_link_libraries(vcc_lib PUBLIC driver api)
 
     add_executable(vcc vcc.c)
+    target_compile_definitions(vcc_lib PRIVATE "VCC_CLANG_EXECUTABLE_NAME=${VCC_CLANG_EXECUTABLE_NAME}")
     target_link_libraries(vcc PRIVATE api vcc_lib)
     install(TARGETS vcc_lib vcc EXPORT shady_export_set)
 

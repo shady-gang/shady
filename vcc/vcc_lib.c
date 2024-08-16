@@ -9,6 +9,10 @@
 #include <assert.h>
 #include <string.h>
 
+#define STRINGIFY2(x) #x
+#define STRINGIFY(x) STRINGIFY2(x)
+#define VCC_CLANG STRINGIFY(VCC_CLANG_EXECUTABLE_NAME)
+
 uint32_t hash_murmur(const void* data, size_t size);
 
 void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
@@ -42,7 +46,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
 }
 
 void vcc_check_clang(void) {
-    int clang_retval = system("clang --version");
+    int clang_retval = system(VCC_CLANG" --version");
     if (clang_retval != 0)
         error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 }
@@ -74,7 +78,7 @@ void destroy_vcc_options(VccConfig vcc_options) {
 
 void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* input_filenames) {
     Growy* g = new_growy();
-    growy_append_string(g, "clang");
+    growy_append_string(g, VCC_CLANG);
     String self_path = get_executable_location();
     String working_dir = strip_path(self_path);
     growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
