@@ -101,7 +101,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.cfg = build_fn_cfg(old);
-            ctx2.uses = create_uses_map(old, (NcDeclaration | NcType));
+            ctx2.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
             const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
@@ -192,7 +192,7 @@ static const Node* process(Context* ctx, const Node* old) {
             TailCall payload = old->payload.tail_call;
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, payload.args));
-            const Node* target = rewrite_node(&ctx->rewriter, payload.target);
+            const Node* target = rewrite_node(&ctx->rewriter, payload.callee);
             target = gen_conversion(bb, uint32_type(a), target);
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), singleton(target));

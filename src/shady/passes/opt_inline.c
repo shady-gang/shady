@@ -211,7 +211,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case TailCall_TAG: {
             if (!ctx->graph)
                 break;
-            const Node* ocallee = node->payload.tail_call.target;
+            const Node* ocallee = node->payload.tail_call.callee;
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);

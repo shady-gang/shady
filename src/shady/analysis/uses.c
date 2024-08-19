@@ -34,6 +34,15 @@ static Use* get_last_use(UsesMap* map, const Node* n) {
     return use;
 }
 
+static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
+    if (!find_key_dict(const Node*, v->seen, n)) {
+        insert_set_get_result(const Node*, v->seen, n);
+        UsesMapVisitor nv = *v;
+        nv.user = n;
+        visit_node_operands(&nv.v, v->exclude, n);
+    }
+}
+
 static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, const Node* op) {
     Use* use = arena_alloc(v->map->a, sizeof(Use));
     memset(use, 0, sizeof(Use));
@@ -50,15 +59,10 @@ static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, co
     else
         insert_dict(const Node*, const Use*, v->map->map, op, use);
 
-    if (!find_key_dict(const Node*, v->seen, op)) {
-        insert_set_get_result(const Node*, v->seen, op);
-        UsesMapVisitor nv = *v;
-        nv.user = op;
-        visit_node_operands(&nv.v, v->exclude, op);
-    }
+    uses_visit_node(v, op);
 }
 
-const UsesMap* create_uses_map(const Node* root, NodeClass exclude) {
+static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeClass exclude) {
     UsesMap* uses = calloc(sizeof(UsesMap), 1);
     *uses = (UsesMap) {
         .map = new_dict(const Node*, Use*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -70,12 +74,23 @@ const UsesMap* create_uses_map(const Node* root, NodeClass exclude) {
         .map = uses,
         .exclude = exclude,
         .seen = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .user = root,
     };
-    insert_set_get_result(const Node*, v.seen, root);
-    visit_node_operands(&v.v, exclude, root);
-    destroy_dict(v.seen);
+    if (root)
+        uses_visit_node(&v, root);
+    if (m) {
+        Nodes nodes = get_module_declarations(m);
+        for (size_t i = 0; i < nodes.count; i++)
+            uses_visit_node(&v, nodes.nodes[i]);
+    }
     return uses;
+}
+
+const UsesMap* create_fn_uses_map(const Node* root, NodeClass exclude) {
+    return create_uses_map_(root, NULL, exclude);
+}
+
+const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude) {
+    return create_uses_map_(NULL, m, exclude);
 }
 
 void destroy_uses_map(const UsesMap* map) {

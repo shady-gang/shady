@@ -103,7 +103,7 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);

@@ -311,7 +311,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);
         sub_ctx.bb_printers = calloc(sizeof(size_t), cfg->size);
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
-            sub_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
+            sub_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
         }
     }
     ctx = &sub_ctx;

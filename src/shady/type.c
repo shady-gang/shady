@@ -1116,7 +1116,7 @@ const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    assert(check_value_call(tail_call.target, get_values_types(arena, tail_call.args)).count == 0);
+    assert(check_value_call(tail_call.callee, get_values_types(arena, tail_call.args)).count == 0);
     return noret_type(arena);
 }
 

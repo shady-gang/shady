@@ -46,7 +46,7 @@ const Node* process(Context* ctx, const Node* old) {
     IrArena* a = r->dst_arena;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
-        c.map = create_uses_map(old, NcType | NcDeclaration);
+        c.map = create_fn_uses_map(old, NcType | NcDeclaration);
         const Node* new = recreate_node_identity(&c.rewriter, old);
         destroy_uses_map(c.map);
         return new;

@@ -9,7 +9,8 @@
 
 typedef struct UsesMap_ UsesMap;
 
-const UsesMap* create_uses_map(const Node* root, NodeClass exclude);
+const UsesMap* create_fn_uses_map(const Node* root, NodeClass exclude);
+const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude);
 void destroy_uses_map(const UsesMap*);
 
 typedef struct Use_ Use;

@@ -134,7 +134,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             // the body of the control is just an immediate tail-call
             Node* control_case = case_(a, singleton(jp));
             const Node* control_body = tail_call(a, (TailCall) {
-                .target = ncallee,
+                .callee = ncallee,
                 .args = nargs,
                 .mem = get_abstraction_mem(control_case),
             });

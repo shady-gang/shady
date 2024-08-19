@@ -229,7 +229,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
             fn_ctx.disable_lowering = lookup_annotation(node, "Internal");
             ctx = &fn_ctx;
 

@@ -1,14 +1,15 @@
 #include "callgraph.h"
+#include "uses.h"
 
 #include "list.h"
 #include "dict.h"
-
 #include "portability.h"
 #include "log.h"
 
 #include "../visit.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 KeyHash hash_node(const Node**);
@@ -28,7 +29,6 @@ typedef struct {
     Visitor visitor;
     CallGraph* graph;
     CGNode* root;
-    const Node* abs;
 } CGVisitor;
 
 static const Node* ignore_immediate_fn_addr(const Node* node) {
@@ -51,56 +51,38 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
         .src_fn = visitor->root,
         .dst_fn = target,
         .instr = instr,
-        .abs = visitor->abs,
     };
     insert_set_get_result(CGEdge, visitor->root->callees, edge);
     insert_set_get_result(CGEdge, target->callers, edge);
 }
 
 static void search_for_callsites(CGVisitor* visitor, const Node* node) {
-    assert((visitor->abs && is_abstraction(visitor->abs)) || !visitor->root);
+    if (is_abstraction(node))
+        search_for_callsites(visitor, get_abstraction_body(node));
     switch (node->tag) {
-        case Function_TAG: {
-            assert(false);
-            // analyze_fn(visitor->graph, node)->is_address_captured = true;
-            break;
-        }
-        case BasicBlock_TAG: {
-            const Node* old_abs = visitor->abs;
-            visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
-            visitor->abs = old_abs;
-            break;
-        }
-        case FnAddr_TAG: {
-            CGNode* callee_node = analyze_fn(visitor->graph, node->payload.fn_addr.fn);
-            callee_node->is_address_captured = true;
-            break;
-        }
         case Call_TAG: {
             assert(visitor->root && "calls can only occur in functions");
             const Node* callee = node->payload.call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
-            else {
+            else
                 visitor->root->calls_indirect = true;
-                visit_op(&visitor->visitor, NcValue, "callee", callee);
-            }
-            visit_ops(&visitor->visitor, NcValue, "args", node->payload.call.args);
             break;
         }
         case TailCall_TAG: {
-            const Node* callee = node->payload.tail_call.target;
+            assert(visitor->root && "tail calls can only occur in functions");
+            const Node* callee = node->payload.tail_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_node(&visitor->visitor, callee);
-            visit_nodes(&visitor->visitor, node->payload.tail_call.args);
+                visitor->root->calls_indirect = true;
             break;
         }
-        default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
+        default: break;
     }
+    visit_node_operands(&visitor->visitor, ~NcMem, node);
 }
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
@@ -121,11 +103,10 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
         },
         .graph = graph,
         .root = new,
-        .abs = fn,
     };
 
-    if (fn->payload.fun.body) {
-        search_for_callsites(&v, fn->payload.fun.body);
+    if (get_abstraction_body(fn)) {
+        search_for_callsites(&v, get_abstraction_body(fn));
         visit_function_rpo(&v.visitor, fn);
     }
 
@@ -220,11 +201,22 @@ CallGraph* new_callgraph(Module* mod) {
         .fn2cgn = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
+    const UsesMap* uses = create_module_uses_map(mod, NcType);
+
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag == Function_TAG) {
-            analyze_fn(graph, decl);
+            CGNode* node = analyze_fn(graph, decl);
+
+            const Use* use = get_first_use(uses, fn_addr_helper(get_module_arena(mod), decl));
+            for (;use;use = use->next_use) {
+                if (use->user->tag == Call_TAG && strcmp(use->operand_name, "callee") == 0)
+                    continue;
+                if (use->user->tag == TailCall_TAG && strcmp(use->operand_name, "callee") == 0)
+                    continue;
+                node->is_address_captured = true;
+            }
         } else if (decl->tag == GlobalVariable_TAG && decl->payload.global_variable.init) {
             CGVisitor v = {
                 .visitor = {
@@ -232,7 +224,6 @@ CallGraph* new_callgraph(Module* mod) {
                 },
                 .graph = graph,
                 .root = NULL,
-                .abs = NULL,
             };
             search_for_callsites(&v, decl->payload.global_variable.init);
         } else if (decl->tag == Constant_TAG && decl->payload.constant.value) {
@@ -242,11 +233,12 @@ CallGraph* new_callgraph(Module* mod) {
                 },
                 .graph = graph,
                 .root = NULL,
-                .abs = NULL,
             };
             search_for_callsites(&v, decl->payload.constant.value);
         }
     }
+
+    destroy_uses_map(uses);
 
     debugv_print("CallGraph: done with CFG build, contains %d nodes\n", entries_count_dict(graph->fn2cgn));
 

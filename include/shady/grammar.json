@@ -455,7 +455,7 @@
       "class": "terminator",
       "ops": [
         { "name": "mem", "class": "mem" },
-        { "name": "target", "class": "value" },
+        { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
