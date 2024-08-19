@@ -2,6 +2,7 @@ target_sources(shady PRIVATE
     cfg.c
     cfg_dump.c
     free_variables.c
+    free_frontier.c
     verify.c
     callgraph.c
     uses.c

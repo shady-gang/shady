@@ -1,14 +1,14 @@
 #include "verify.h"
-#include "free_variables.h"
+#include "free_frontier.h"
 #include "cfg.h"
+
 #include "log.h"
+#include "dict.h"
+#include "list.h"
 
 #include "../visit.h"
 #include "../ir_private.h"
 #include "../type.h"
-
-#include "dict.h"
-#include "list.h"
 
 #include <assert.h>
 
@@ -46,16 +46,16 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod);
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
-        struct Dict* map = compute_cfg_variables_map(cfg, CfgVariablesAnalysisFlagFreeSet);
-        CFNodeVariables* entry_vars = *find_value_dict(CFNode*, CFNodeVariables*, map, cfg->entry);
-        if (entries_count_dict(entry_vars->free_set) > 0) {
+        Scheduler* scheduler = new_scheduler(cfg);
+        struct Dict* set = free_frontier(scheduler, cfg, cfg->entry->node);
+        if (entries_count_dict(set) > 0) {
             log_string(ERROR, "Leaking variables in ");
             log_node(ERROR, cfg->entry->node);
             log_string(ERROR, ":\n");
 
             size_t j = 0;
             const Node* leaking;
-            while (dict_iter(entry_vars->free_set, &j, &leaking, NULL)) {
+            while (dict_iter(set, &j, &leaking, NULL)) {
                 log_node(ERROR, leaking);
                 error_print("\n");
             }
@@ -64,7 +64,8 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
             log_module(ERROR, config, mod);
             error_die();
         }
-        destroy_cfg_variables_map(map);
+        destroy_dict(set);
+        destroy_scheduler(scheduler);
         destroy_cfg(cfg);
     }
     destroy_list(cfgs);
