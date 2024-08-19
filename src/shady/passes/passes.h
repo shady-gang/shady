@@ -17,7 +17,7 @@ RewritePass cleanup;
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and tailcalls
 RewritePass lower_cf_instrs;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
-RewritePass reconvergence_heuristics;
+//RewritePass reconvergence_heuristics;
 
 /// @}
 

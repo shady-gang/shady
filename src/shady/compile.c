@@ -52,7 +52,7 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 	}
 
     RUN_PASS(eliminate_inlineable_constants)	
-    RUN_PASS(reconvergence_heuristics)
+    //RUN_PASS(reconvergence_heuristics)
 
     RUN_PASS(lower_cf_instrs)
     //RUN_PASS(opt_mem2reg) // run because control-flow is now normalized
