@@ -119,7 +119,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
 
     // Keep annotations the same
-    Nodes annotations = nodes(a, 0, NULL);
+    Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Exported" }));
     new_params = prepend_nodes(a, new_params, payload);
     Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
     lifted_cont->lifted_fn = new_fn;
@@ -139,7 +139,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         //    set_value_name(recovered_value, param_name);
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = bind_instruction_single(bb, prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) }));
+            recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) });
 
         register_processed(r, ovar, recovered_value);
     }

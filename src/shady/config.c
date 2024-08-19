@@ -33,6 +33,14 @@ CompilerConfig default_compiler_config() {
             }
         },
 
+        /*.shader_diagnostics = {
+            .max_top_iterations = 10,
+        },
+
+        .printf_trace = {
+            .god_function = true,
+        },*/
+
         .target = default_target_config(),
 
         .specialization = {

@@ -28,15 +28,15 @@ static const Node* process(Context* ctx, const Node* old) {
             CopyBytes payload = old->payload.copy_bytes;
             const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
 
             const Node* dst_addr = rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
             deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
             dst_addr_type = ptr_type(a, (PtrType) {
-                    .address_space = dst_addr_type->payload.ptr_type.address_space,
-                    .pointed_type = word_type,
+                .address_space = dst_addr_type->payload.ptr_type.address_space,
+                .pointed_type = word_type,
             });
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
@@ -45,8 +45,8 @@ static const Node* process(Context* ctx, const Node* old) {
             deconstruct_qualified_type(&src_addr_type);
             assert(src_addr_type->tag == PtrType_TAG);
             src_addr_type = ptr_type(a, (PtrType) {
-                    .address_space = src_addr_type->payload.ptr_type.address_space,
-                    .pointed_type = word_type,
+                .address_space = src_addr_type->payload.ptr_type.address_space,
+                .pointed_type = word_type,
             });
             src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
@@ -60,9 +60,9 @@ static const Node* process(Context* ctx, const Node* old) {
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
             const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
             Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
+            set_abstraction_body(true_case, merge_continue(a, (MergeContinue) { .mem = get_abstraction_mem(true_case), .args = singleton(next_index) }));
             Node* false_case = case_(a, empty(a));
-            set_abstraction_body(false_case, merge_break(a, (MergeBreak) {.args = empty(a)}));
+            set_abstraction_body(false_case, merge_break(a, (MergeBreak) { .mem = get_abstraction_mem(false_case), .args = empty(a) }));
             gen_if(loop_bb, empty(a), gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)), true_case, false_case);
             set_abstraction_body(loop_case, finish_body(loop_bb, unreachable(a, (Unreachable) { .mem = bb_mem(loop_bb) })));
             gen_loop(bb, empty(a), singleton(uint32_literal(a, 0)), loop_case);
@@ -76,15 +76,15 @@ static const Node* process(Context* ctx, const Node* old) {
             assert(src_type->tag == Int_TAG);
             const Type* word_type = src_type;// int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
 
             const Node* dst_addr = rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
             deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
             dst_addr_type = ptr_type(a, (PtrType) {
-                    .address_space = dst_addr_type->payload.ptr_type.address_space,
-                    .pointed_type = word_type,
+                .address_space = dst_addr_type->payload.ptr_type.address_space,
+                .pointed_type = word_type,
             });
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
@@ -97,9 +97,9 @@ static const Node* process(Context* ctx, const Node* old) {
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), src_value);
             const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
             Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, merge_continue(a, (MergeContinue) {.args = singleton(next_index)}));
+            set_abstraction_body(true_case, merge_continue(a, (MergeContinue) { .mem = get_abstraction_mem(true_case), .args = singleton(next_index) }));
             Node* false_case = case_(a, empty(a));
-            set_abstraction_body(false_case, merge_break(a, (MergeBreak) {.args = empty(a)}));
+            set_abstraction_body(false_case, merge_break(a, (MergeBreak) { .mem = get_abstraction_mem(false_case), .args = empty(a) }));
             gen_if(loop_bb, empty(a), gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_bytes)), true_case, false_case);
             set_abstraction_body(loop_case, finish_body(loop_bb, unreachable(a, (Unreachable) { .mem = bb_mem(loop_bb) })));
             gen_loop(bb, empty(a), singleton(uint32_literal(a, 0)), loop_case);

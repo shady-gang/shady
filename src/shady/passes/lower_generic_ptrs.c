@@ -149,7 +149,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, empty(a));
-            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(new_fn) }));
+            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
             gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, (const Node**) cases), default_case);
             set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) })));
             break;

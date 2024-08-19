@@ -98,8 +98,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
         case Constant_TAG: {
             Node* new = (Node*) recreate_node_identity(r, node);
             BodyBuilder* bb = begin_block_pure(a);
-            const Node* value = first(bind_instruction(bb, new->payload.constant.value));
-            value = first(bind_instruction(bb, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value))));
+            const Node* value = new->payload.constant.value;
+            value = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value));
             new->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(value));
             return new;
         }
@@ -150,7 +150,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                         .mem = get_abstraction_mem(decl),
                 }));
             } else
-                wrap_in_controls(ctx, &controls, decl, node);
+                wrap_in_controls(&fn_ctx, &controls, decl, node);
             destroy_cfg(fn_ctx.cfg);
             return decl;
         }

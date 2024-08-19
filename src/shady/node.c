@@ -319,8 +319,8 @@ void set_abstraction_body(Node* abs, const Node* body) {
                     body = jump_helper(a, insert->block_entry_block, empty(a), mem);
                     continue;
                 }
-                assert(mem_abs == abs);
             }
+            assert(mem_abs == abs);
             break;
         }
     }

@@ -276,7 +276,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
             // Wrap the tail in a guarded if, to handle 'far' joins
             const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
-            const Node* guard = first(bind_instruction(bb_tail, prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) })));
+            const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
             Node* true_case = case_(a, empty(a));
             register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
             set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));

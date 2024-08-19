@@ -64,7 +64,7 @@ Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size
 
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     if (bb->arena->config.check_types) {
-        assert(is_instruction(instruction) || is_value(instruction));
+        assert(is_mem(instruction));
     }
     if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ get_parent_mem(instruction))
         bb->mem = instruction;

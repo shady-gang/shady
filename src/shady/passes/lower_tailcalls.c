@@ -336,22 +336,22 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
             const Node* fn_lit = lower_fn_addr(ctx, decl);
 
-            Node* if_true_lam = case_(a, empty(a));
-            BodyBuilder* if_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_lam));
+            Node* if_true_case = case_(a, empty(a));
+            BodyBuilder* if_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_case));
             if (ctx->config->printf_trace.god_function) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
-                gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %ul with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
+                gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
-            gen_call(if_builder, fn_addr_helper(a, find_processed(&ctx->rewriter, decl)), empty(a));
-            set_abstraction_body(if_true_lam, finish_body_with_selection_merge(if_builder, empty(a)));
+            gen_call(if_builder, fn_addr_helper(a, rewrite_node(&ctx->rewriter, decl)), empty(a));
+            set_abstraction_body(if_true_case, finish_body_with_selection_merge(if_builder, empty(a)));
 
-            Node* case_lam = case_(a, nodes(a, 0, NULL));
-            BodyBuilder* case_builder = begin_body_with_mem(a, get_abstraction_mem(case_lam));
-            gen_if(case_builder, empty(a), should_run, if_true_lam, NULL);
-            set_abstraction_body(case_lam, finish_body_with_loop_continue(case_builder, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
+            Node* fn_case = case_(a, nodes(a, 0, NULL));
+            BodyBuilder* case_builder = begin_body_with_mem(a, get_abstraction_mem(fn_case));
+            gen_if(case_builder, empty(a), should_run, if_true_case, NULL);
+            set_abstraction_body(fn_case, finish_body_with_loop_continue(case_builder, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
 
             append_list(const Node*, literals, fn_lit);
-            append_list(const Node*, cases, case_lam);
+            append_list(const Node*, cases, fn_case);
         }
     }
 

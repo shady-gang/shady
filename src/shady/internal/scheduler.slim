@@ -28,6 +28,9 @@
 @Internal @Builtin("SubgroupLocalInvocationId")
 var input u32 subgroup_local_id;
 
+@Internal @Builtin("SubgroupId")
+var uniform input u32 subgroup_id;
+
 @Internal
 fn subgroup_active_mask uniform mask_t() {
     return (ext_instr["spirv.core", 339, uniform mask_t](3, true));
@@ -116,7 +119,7 @@ fn builtin_yield(uniform u32 resume_target) {
         // bump the cursor
         // TODO bump it in a smarter way
         scheduler_cursor = (scheduler_cursor + u32 1) % actual_subgroup_size;
-        builtin_find_schedulable_Exported();
+        builtin_find_schedulable_leaf();
     }
 }
 
@@ -127,11 +130,11 @@ fn builtin_join(varying u32 join_at, varying TreeNode token) {
 
     // only one thread runs that part
     if (ext_instr["spirv.core", 333, varying bool](3)) {
-        builtin_find_schedulable_Exported();
+        builtin_find_schedulable_leaf();
     }
 }
 
-@Internal @Exported
+@Internal
 fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
   val child_mask = child#0;
   val parent_mask = maybe_parent#0;
@@ -141,14 +144,14 @@ fn is_parent bool(varying TreeNode child, varying TreeNode maybe_parent) {
   return (child_depth >= parent_depth);
 }
 
-@Internal @Exported
+@Internal
 fn forward_distance u32(varying u32 x, varying u32 dst, varying u32 max_mod) {
   var u32 t = dst - x;
   t = t % max_mod;
   return (t);
 }
 
-@Internal @Exported
+@Internal
 fn reduce2 u32(varying u32 a_index, varying u32 b_index) {
     val a = scheduler_vector#a_index;
     val b = scheduler_vector#b_index;
@@ -163,8 +166,8 @@ fn reduce2 u32(varying u32 a_index, varying u32 b_index) {
     return (b_index);
 }
 
-@Internal @Exported
-fn builtin_find_schedulable_Exported() {
+@Internal
+fn builtin_find_schedulable_leaf() {
     var u32 reduced = u32 0;
     loop (varying u32 i = u32 1) {
         if (i >= actual_subgroup_size) { break; }

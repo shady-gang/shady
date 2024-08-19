@@ -21,7 +21,7 @@ Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes type_args, Nodes operands) {
     assert(bb->arena->config.check_types);
     const Node* instruction = prim_op(bb->arena, (PrimOp) { .op = op, .type_arguments = type_args, .operands = operands });
-    return bind_instruction(bb, instruction);
+    return singleton(instruction);
 }
 
 Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
@@ -66,7 +66,7 @@ const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
 }
 
 const Node* gen_get_stack_base_addr(BodyBuilder* bb) {
-    return first(bind_instruction(bb, get_stack_base_addr(bb->arena, (GetStackBaseAddr) { .mem = bb_mem(bb) })));
+    return get_stack_base_addr(bb->arena, (GetStackBaseAddr) { .mem = bb_mem(bb) });
 }
 
 const Node* gen_get_stack_size(BodyBuilder* bb) {
@@ -79,12 +79,12 @@ void gen_set_stack_size(BodyBuilder* bb, const Node* new_size) {
 
 const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
     assert(is_type(dst));
-    return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = reinterpret_op, .operands = singleton(src), .type_arguments = singleton(dst)})));
+    return prim_op(bb->arena, (PrimOp) { .op = reinterpret_op, .operands = singleton(src), .type_arguments = singleton(dst)});
 }
 
 const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
     assert(is_type(dst));
-    return first(bind_instruction(bb, prim_op(bb->arena, (PrimOp) { .op = convert_op, .operands = singleton(src), .type_arguments = singleton(dst)})));
+    return prim_op(bb->arena, (PrimOp) { .op = convert_op, .operands = singleton(src), .type_arguments = singleton(dst)});
 }
 
 const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
@@ -113,7 +113,7 @@ const Node* gen_local_alloc(BodyBuilder* bb, const Type* type) {
 }
 
 const Node* gen_extract_single(BodyBuilder* bb, const Node* composite, const Node* index) {
-    return first(bind_instruction(bb, extract_helper(composite, index)));
+    return extract_helper(composite, index);
 }
 
 const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
@@ -125,7 +125,7 @@ void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
-    return first(bind_instruction(bb, lea(bb->arena, (Lea) { .ptr = base, .offset = offset, .indices = selectors })));
+    return lea(bb->arena, (Lea) { .ptr = base, .offset = offset, .indices = selectors });
 }
 
 const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {

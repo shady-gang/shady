@@ -150,7 +150,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
                 const Node* converted_offset = convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
                 const Node* lea_instr = lea(a, (Lea) { .ptr = ctx->base_stack_addr_on_entry, .offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, ctx->stack_size_on_entry, converted_offset)), .indices = empty(a) });
-                const Node* slot = first(bind_instruction_named(bb, lea_instr, (String []) { format_string_arena(a->arena, "stack_slot_%d", found_slot->i) }));
+                //const Node* slot = first(bind_instruction_named(bb, lea_instr, (String []) { format_string_arena(a->arena, "stack_slot_%d", found_slot->i) }));
+                const Node* slot = lea_instr;
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
                 slot = gen_reinterpret_cast(bb, ptr_t, slot);
                 //bool last = found_slot->i == ctx->num_slots - 1;
