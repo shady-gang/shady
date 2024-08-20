@@ -2,6 +2,7 @@
 #include "shady/fe/slim.h"
 
 #include "../shady/ir_private.h"
+#include "../shady/analysis/uses.h"
 
 #include "list.h"
 #include "log.h"
@@ -20,6 +21,7 @@ struct NamedBindEntry_ {
 
 typedef struct {
     Rewriter rewriter;
+    const UsesMap* uses;
 
     const Node* current_function;
     NamedBindEntry* local_variables;
@@ -246,6 +248,25 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     //return bound;
 }
 
+static bool is_used_as_value(Context* ctx, const Node* node) {
+    const Use* use = get_first_use(ctx->uses, node);
+    for (;use;use = use->next_use) {
+        if (use->operand_class != NcMem) {
+            if (use->user->tag == ExtInstr_TAG && strcmp(use->user->payload.ext_instr.set, "shady.frontend") == 0) {
+                if (use->user->payload.ext_instr.opcode == SlimOpAssign && use->operand_index == 0)
+                    continue;
+                if (use->user->payload.ext_instr.opcode == SlimOpSubscript && use->operand_index == 0) {
+                    const Node* ptr = get_node_address_maybe(ctx, node);
+                    if (ptr)
+                        continue;
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 static const Node* bind_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
@@ -294,6 +315,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             if (strcmp("shady.frontend", payload.set) == 0) {
                 switch ((SlimFrontEndOpCodes) payload.opcode) {
                     case SlimOpDereference:
+                        if (!is_used_as_value(ctx, node))
+                            return rewrite_node(r, payload.mem);
                         return load(a, (Load) {
                             .ptr = rewrite_node(r, first(payload.operands)),
                             .mem = rewrite_node(r, payload.mem),
@@ -325,8 +348,11 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                     }
                     case SlimOpUnbound: {
                         const Node* mem = NULL;
-                        if (payload.mem)
+                        if (payload.mem) {
+                            if (!is_used_as_value(ctx, node))
+                                return rewrite_node(r, payload.mem);
                             mem = rewrite_node(r, payload.mem);
+                        }
                         Resolved entry = resolve_using_name(ctx, get_string_literal(a, first(payload.operands)));
                         if (entry.is_var) {
                             return load(a, (Load) { .ptr = entry.node, .mem = mem });
@@ -356,9 +382,11 @@ Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module*
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
         .local_variables = NULL,
         .current_function = NULL,
+        .uses = create_module_uses_map(src, 0),
     };
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
+    destroy_uses_map(ctx.uses);
     return dst;
 }
