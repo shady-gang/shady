@@ -5,7 +5,7 @@
 
 typedef struct Visitor_ Visitor;
 typedef void (*VisitNodeFn)(Visitor*, const Node*);
-typedef void (*VisitOpFn)(Visitor*, NodeClass, String, const Node*);
+typedef void (*VisitOpFn)(Visitor*, NodeClass, String, const Node*, size_t);
 
 struct Visitor_ {
     VisitNodeFn visit_node_fn;
@@ -18,7 +18,7 @@ void visit_module(Visitor* visitor, Module*);
 void visit_node(Visitor* visitor, const Node*);
 void visit_nodes(Visitor* visitor, Nodes nodes);
 
-void visit_op(Visitor* visitor, NodeClass, String, const Node*);
+void visit_op(Visitor* visitor, NodeClass, String, const Node*, size_t i);
 void visit_ops(Visitor* visitor, NodeClass, String, Nodes nodes);
 
 // visits the abstractions in the function, starting with the entry block (ie the function itself)

@@ -18,6 +18,7 @@ struct Use_ {
     const Node* user;
     NodeClass operand_class;
     String operand_name;
+    size_t operand_index;
     const Use* next_use;
 };
 

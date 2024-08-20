@@ -28,7 +28,7 @@ static void schedule_after(CFNode** scheduled, CFNode* req) {
     }
 }
 
-static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node* op) {
+static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node* op, size_t i) {
     switch (nc) {
         // We only care about mem and value dependencies
         case NcMem:

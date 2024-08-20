@@ -35,7 +35,7 @@ void generate(Growy* g, json_object* src) {
                     if (list)
                         growy_append_formatted(g, "\t\t\tvisit_ops(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
                     else
-                        growy_append_formatted(g, "\t\t\tvisit_op(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
+                        growy_append_formatted(g, "\t\t\tvisit_op(visitor, Nc%s, \"%s\", payload.%s, 0);\n", class_cap, op_name, op_name);
                 }
                 free((void*) class_cap);
             }

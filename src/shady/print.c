@@ -1110,7 +1110,7 @@ typedef struct {
     PrinterCtx* ctx;
 } PrinterVisitor;
 
-static void print_mem_visitor(PrinterVisitor* ctx, NodeClass nc, String opname, const Node* op) {
+static void print_mem_visitor(PrinterVisitor* ctx, NodeClass nc, String opname, const Node* op, size_t i) {
     if (nc == NcMem)
         print_mem(ctx->ctx, op);
 }

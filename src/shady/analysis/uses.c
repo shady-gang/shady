@@ -43,14 +43,15 @@ static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
     }
 }
 
-static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, const Node* op) {
+static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, const Node* op, size_t i) {
     Use* use = arena_alloc(v->map->a, sizeof(Use));
     memset(use, 0, sizeof(Use));
     *use = (Use) {
         .user = v->user,
         .operand_class = class,
         .operand_name = op_name,
-        .next_use = NULL
+        .operand_index = i,
+        .next_use = NULL,
     };
 
     Use* last_use = get_last_use(v->map, op);
