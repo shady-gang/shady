@@ -243,10 +243,7 @@ const Node* recreate_param(Rewriter* rewriter, const Node* old) {
 Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
     LARRAY(const Node*, nparams, oparams.count);
     for (size_t i = 0; i < oparams.count; i++) {
-        if (rewriter->config.process_params)
-            nparams[i] = rewrite_node(rewriter, oparams.nodes[i]);
-        else
-            nparams[i] = recreate_param(rewriter, oparams.nodes[i]);
+        nparams[i] = recreate_param(rewriter, oparams.nodes[i]);
         assert(nparams[i]->tag == Param_TAG);
     }
     return nodes(rewriter->dst_arena, oparams.count, nparams);

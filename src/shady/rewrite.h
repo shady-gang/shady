@@ -33,7 +33,6 @@ struct Rewriter_ {
     struct {
         bool search_map;
         bool write_map;
-        bool process_params;
     } config;
 
     Rewriter* parent;

@@ -75,11 +75,19 @@ bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
 bool compare_nodes(Nodes* a, Nodes* b);
 
 static Nodes remake_params(Context* ctx, Nodes old) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     LARRAY(const Node*, nvars, old.count);
     for (size_t i = 0; i < old.count; i++) {
         const Node* node = old.nodes[i];
-            nvars[i] = param(a, node->payload.param.type ? qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.param.type), false) : NULL, node->payload.param.name);
+        const Type* t = NULL;
+        if (node->payload.param.type) {
+            if (node->payload.param.type->tag == QualifiedType_TAG)
+                t = rewrite_node(r, node->payload.param.type);
+            else
+                t = qualified_type_helper(rewrite_node(r, node->payload.param.type), false);
+        }
+        nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
     }
     return nodes(a, old.count, nvars);
@@ -90,10 +98,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
         case Param_TAG: {
-            assert(node->payload.param.type);
-            if (node->payload.param.type->tag == QualifiedType_TAG)
-                return param(a, node->payload.param.type ? rewrite_node(&ctx->rewriter, node->payload.param.type) : NULL, node->payload.param.name);
-            return param(a, qualified_type_helper(rewrite_node(&ctx->rewriter, node->payload.param.type), false), node->payload.param.name);
+            assert(false);
         }
         case Constant_TAG: {
             Node* new = (Node*) recreate_node_identity(r, node);
@@ -116,7 +121,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             fn_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
-            Nodes new_params = recreate_params(&fn_ctx.rewriter, node->payload.fun.params);
+            Nodes new_params = remake_params(&fn_ctx, node->payload.fun.params);
             Nodes old_annotations = node->payload.fun.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
@@ -146,8 +151,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 set_abstraction_body(decl, fn_ret(a, (Return) {
-                        .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl))),
-                        .mem = get_abstraction_mem(decl),
+                    .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl))),
+                    .mem = get_abstraction_mem(decl),
                 }));
             } else
                 wrap_in_controls(&fn_ctx, &controls, decl, node);
@@ -159,7 +164,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             bb_ctx.old_fn_or_bb = node;
             Controls controls;
             initialize_controls(ctx, &controls, node);
-            Nodes nparams = recreate_params(&ctx->rewriter, get_abstraction_params(node));
+            Nodes nparams = remake_params(ctx, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* new_bb = (Node*) basic_block(a, nparams, get_abstraction_name_unsafe(node));
             register_processed(r, node, new_bb);
@@ -304,7 +309,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return process_op(ctx, 0, NULL, old);
 }
 
-
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
@@ -314,10 +318,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
-    ctx.rewriter.config.process_params = true;
-    ctx.rewriter.config.search_map = true;
     ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
-    // ctx.rewriter.config.write_map = false;
 
     rewrite_module(&ctx.rewriter);
     destroy_dict(ctx.controls);
