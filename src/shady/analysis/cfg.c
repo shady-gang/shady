@@ -438,9 +438,8 @@ void compute_domtree(CFG* cfg) {
             continue;
         for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
-            CFNode* pred = e.src;
-            if (pred->rpo_index < n->rpo_index) {
-                n->idom = pred;
+            if (e.src->rpo_index < n->rpo_index) {
+                n->idom = e.src;
                 goto outer_loop;
             }
         }

@@ -15,6 +15,15 @@ struct Scheduler_ {
     struct Dict* scheduled;
 };
 
+static bool is_dominated(CFNode* a, CFNode* b) {
+    while (a) {
+        if (a == b)
+            return true;
+        a = a->idom;
+    }
+    return false;
+}
+
 static void schedule_after(CFNode** scheduled, CFNode* req) {
     if (!req)
         return;
@@ -23,8 +32,12 @@ static void schedule_after(CFNode** scheduled, CFNode* req) {
         *scheduled = req;
     else {
         // TODO: validate that old post-dominates req
-        if (req->rpo_index > old->rpo_index)
+        if (req->rpo_index > old->rpo_index) {
+            assert(is_dominated(req, old));
             *scheduled = req;
+        } else {
+            assert(is_dominated(old, req));
+        }
     }
 }
 
