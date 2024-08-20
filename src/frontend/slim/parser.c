@@ -1084,20 +1084,20 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     AddressSpace as = NumAddressSpaces;
     bool uniform = false, logical = false;
     while (true) {
-        AddressSpace nas = accept_address_space(ctx);
-        if (nas != NumAddressSpaces) {
-            if (as != NumAddressSpaces && as != nas) {
-                error("Conflicting address spaces for definition: %s and %s.\n", get_address_space_name(as), get_address_space_name(nas));
-            }
-            as = nas;
-            continue;
-        }
         if (accept_token(ctx, logical_tok)) {
             logical = true;
             continue;
         }
         if (accept_token(ctx, uniform_tok)) {
             uniform = true;
+            continue;
+        }
+        AddressSpace nas = accept_address_space(ctx);
+        if (nas != NumAddressSpaces) {
+            if (as != NumAddressSpaces && as != nas) {
+                error("Conflicting address spaces for definition: %s and %s.\n", get_address_space_name(as), get_address_space_name(nas));
+            }
+            as = nas;
             continue;
         }
         break;
