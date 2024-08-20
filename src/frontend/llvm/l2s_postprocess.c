@@ -163,7 +163,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* new_bb = (Node*) basic_block(a, nparams, get_abstraction_name_unsafe(node));
             register_processed(r, node, new_bb);
-            wrap_in_controls(ctx, &controls, new_bb, node);
+            wrap_in_controls(&bb_ctx, &controls, new_bb, node);
             // new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
             return new_bb;
         }

@@ -448,7 +448,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             assert(false && "We deal with phi nodes before, there shouldn't be one here");
             break;
         case LLVMCall: {
-            const Node* r;
+            const Node* r = NULL;
             unsigned num_args = LLVMGetNumArgOperands(instr);
             LLVMValueRef callee = LLVMGetCalledValue(instr);
             callee = remove_ptr_bitcasts(p, callee);
@@ -571,12 +571,8 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                             if (ops.count == 0)
                                 error("DebugPrintf called without arguments");
                             size_t whocares;
-                            r = debug_printf(a, (DebugPrintf) {
-                                .string = LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares),
-                                .args = nodes(a, ops.count - 1, &ops.nodes[1]),
-                                .mem = bb_mem(b),
-                            });
-                            goto finish;
+                            gen_debug_printf(b, LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares), nodes(a, ops.count - 1, &ops.nodes[1]));
+                            return tuple_helper(a, empty(a));
                         }
 
                         error_print("Unrecognised shady instruction '%s'\n", instructionname);
@@ -594,13 +590,12 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
 
             if (!r) {
                 Nodes ops = convert_operands(p, num_ops, instr);
-                r = call(a, (Call) {
+                r = bind_instruction_single(b, call(a, (Call) {
+                    .mem = bb_mem(b),
                     .callee = ops.nodes[num_args],
                     .args = nodes(a, num_args, ops.nodes),
-                });
+                }));
             }
-            if (t == unit_type(a))
-                num_results = 0;
             return r;
         }
         case LLVMSelect:
