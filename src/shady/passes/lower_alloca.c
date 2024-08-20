@@ -66,7 +66,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
         default: break;
     }
 
-    visit_node_operands(&vctx->visitor, IGNORE_ABSTRACTIONS_MASK, node);
+    visit_node_operands(&vctx->visitor, ~NcMem, node);
 }
 
 KeyHash hash_node(Node**);
