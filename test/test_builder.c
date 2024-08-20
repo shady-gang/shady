@@ -105,7 +105,7 @@ static void test_body_builder_impure_block(IrArena* a) {
 
     bool found_store = false;
     const Node* mem = get_terminator_mem(return_terminator);
-    while (mem->tag != AbsMem_TAG) {
+    while (mem) {
         if (mem->tag == Store_TAG)
             found_store = true;
         mem = get_parent_mem(mem);

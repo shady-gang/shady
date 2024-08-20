@@ -9,7 +9,7 @@ const Node* get_parent_mem(const Node* mem) {
     switch (is_mem(mem)) {
         case NotAMem: return NULL;
         case Mem_AbsMem_TAG:
-            return mem;
+            return NULL;
         case Mem_Call_TAG:
             mem = mem->payload.call.mem;
             return mem;
@@ -61,10 +61,10 @@ const Node* get_parent_mem(const Node* mem) {
 const Node* get_original_mem(const Node* mem) {
     while (true) {
         const Node* nmem = get_parent_mem(mem);
-        if (nmem != mem) {
+        if (nmem) {
             mem = nmem;
             continue;
         }
-        return nmem;
+        return mem;
     }
 }

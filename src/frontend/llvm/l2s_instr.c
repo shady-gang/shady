@@ -127,10 +127,10 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
         assert(fn && fn_or_bb);
         LLVMMetadataRef dbgloc = LLVMInstructionGetDebugLoc(instr);
         if (dbgloc) {
-            Nodes* found = find_value_dict(const Node*, Nodes, p->scopes, fn_or_bb);
-            if (!found) {
+            //Nodes* found = find_value_dict(const Node*, Nodes, p->scopes, fn_or_bb);
+            //if (!found) {
                 Nodes str = scope_to_string(p, dbgloc);
-                insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
+                //insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
                 debugv_print("Found a debug location for ");
                 log_node(DEBUGV, fn_or_bb);
                 debugv_print(" ");
@@ -139,7 +139,14 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     debugv_print(" -> ");
                 }
                 debugv_print(" (depth= %zu)\n", str.count);
-            }
+                bind_instruction_single(b, ext_instr(a, (ExtInstr) {
+                    .set = "shady.scope",
+                    .opcode = 0,
+                    .result_t = unit_type(a),
+                    .mem = bb_mem(b),
+                    .operands = str,
+                }));
+            //}
         }
     }
 

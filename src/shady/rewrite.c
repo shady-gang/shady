@@ -176,7 +176,7 @@ static const Node* search_processed_(const Rewriter* ctx, const Node* old, bool 
 }
 
 const Node* search_processed(const Rewriter* ctx, const Node* old) {
-    return search_processed_(ctx, old, false);
+    return search_processed_(ctx, old, true);
 }
 
 const Node* find_processed(const Rewriter* ctx, const Node* old) {
