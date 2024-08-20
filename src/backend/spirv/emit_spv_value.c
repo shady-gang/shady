@@ -566,9 +566,17 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
 }
 
 static bool can_appear_at_top_level(const Node* node) {
-    if (is_instruction(node))
-        return false;
-    return true;
+    switch (node->tag) {
+        case Undef_TAG:
+        case Composite_TAG:
+        case FloatLiteral_TAG:
+        case IntLiteral_TAG:
+        case True_TAG:
+        case False_TAG:
+            return true;
+        default: break;
+    }
+    return false;
 }
 
 SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) {
