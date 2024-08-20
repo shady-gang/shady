@@ -106,7 +106,6 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     };
 
     if (get_abstraction_body(fn)) {
-        search_for_callsites(&v, get_abstraction_body(fn));
         visit_function_rpo(&v.visitor, fn);
     }
 

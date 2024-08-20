@@ -21,8 +21,9 @@ void visit_nodes(Visitor* visitor, Nodes nodes);
 void visit_op(Visitor* visitor, NodeClass, String, const Node*);
 void visit_ops(Visitor* visitor, NodeClass, String, Nodes nodes);
 
-// visits the abstractions in the function, _except_ for the entry block (ie the function itself)
+// visits the abstractions in the function, starting with the entry block (ie the function itself)
 void visit_function_rpo(Visitor* visitor, const Node* function);
+void visit_function_bodies_rpo(Visitor* visitor, const Node* function);
 // use this in visit_node_operands to avoid visiting nodes in non-rpo order
 #define IGNORE_ABSTRACTIONS_MASK NcBasic_block | NcDeclaration | NcAbstraction
 

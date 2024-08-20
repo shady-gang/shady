@@ -110,8 +110,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 .members = new_list(const Node*),
                 .prepared_offsets = ctx2.prepared_offsets,
             };
-            search_operand_for_alloca(&vctx, node->payload.fun.body);
-            visit_function_rpo(&vctx.visitor, node);
+            visit_function_bodies_rpo(&vctx.visitor, node);
 
             vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
                 .members = nodes(a, vctx.num_slots, read_list(const Node*, vctx.members)),

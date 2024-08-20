@@ -35,9 +35,22 @@ void visit_function_rpo(Visitor* visitor, const Node* function) {
     assert(function->tag == Function_TAG);
     CFG* cfg = build_fn_cfg(function);
     assert(cfg->rpo[0]->node == function);
-    for (size_t i = 1; i < cfg->size; i++) {
+    for (size_t i = 0; i < cfg->size; i++) {
         const Node* node = cfg->rpo[i]->node;
         visit_node(visitor, node);
+    }
+    destroy_cfg(cfg);
+}
+
+void visit_function_bodies_rpo(Visitor* visitor, const Node* function) {
+    assert(function->tag == Function_TAG);
+    CFG* cfg = build_fn_cfg(function);
+    assert(cfg->rpo[0]->node == function);
+    for (size_t i = 0; i < cfg->size; i++) {
+        const Node* node = cfg->rpo[i]->node;
+        assert(is_abstraction(node));
+        if (get_abstraction_body(node))
+            visit_node(visitor, get_abstraction_body(node));
     }
     destroy_cfg(cfg);
 }
