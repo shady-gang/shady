@@ -56,23 +56,9 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
     return v;
 }
 
-static const Node* convert_jump_lazy(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef dst, const Node* mem) {
-    IrArena* a = fn_or_bb->arena;
-    Node* wrapper_bb = basic_block(a, empty(a), NULL);
-    JumpTodo todo = {
-        .wrapper = wrapper_bb,
-        .src = fn_or_bb,
-        .dst = dst,
-    };
-    append_list(JumpTodo, fn_ctx->jumps_todo, todo);
-    const Node* dst2 = convert_basic_block(p, fn_ctx, dst);
-    insert_dict(Node*, const Node*, p->wrappers_map, wrapper_bb, dst2);
-    return jump_helper(a, wrapper_bb, empty(a), mem);
-}
-
-void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
+static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, LLVMBasicBlockRef dst, const Node* mem) {
     IrArena* a = fn_ctx->fn->arena;
-    const Node* dst_bb = convert_basic_block(p, fn_ctx, todo.dst);
+    const Node* dst_bb = convert_basic_block(p, fn_ctx, dst);
     BBPhis* phis = find_value_dict(const Node*, BBPhis, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = entries_count_list(phis->list);
@@ -80,7 +66,7 @@ void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
     for (size_t i = 0; i < params_count; i++) {
         LLVMValueRef phi = read_list(LLVMValueRef, phis->list)[i];
         for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
-            if (convert_basic_block(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == todo.src) {
+            if (convert_basic_block(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == src) {
                 params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
                 goto next;
             }
@@ -88,7 +74,7 @@ void convert_jump_finish(Parser* p, FnParseCtx* fn_ctx, JumpTodo todo) {
         assert(false && "failed to find the appropriate source");
         next: continue;
     }
-    todo.wrapper->payload.basic_block.body = jump_helper(a, dst_bb, nodes(a, params_count, params), get_abstraction_mem(todo.wrapper));
+    return jump_helper(a, dst_bb, nodes(a, params_count, params), mem);
 }
 
 static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
@@ -165,24 +151,24 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return branch(a, (Branch) {
                         .condition = condition,
-                        .true_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b)),
-                        .false_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[1], bb_mem(b)),
+                        .true_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b)),
+                        .false_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[1], bb_mem(b)),
                         .mem = bb_mem(b),
                     });
             } else {
                 assert(n_targets == 1);
-                return convert_jump_lazy(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b));
+                return convert_jump(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b));
             }
         }
         case LLVMSwitch: {
             const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
-            const Node* default_jump = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), bb_mem(b));
+            const Node* default_jump = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), bb_mem(b));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
                 literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
-                targets[i] = convert_jump_lazy(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), bb_mem(b));
+                targets[i] = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), bb_mem(b));
             }
             return br_switch(a, (Switch) {
                     .switch_value = inspectee,

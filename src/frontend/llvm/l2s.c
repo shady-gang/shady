@@ -110,8 +110,6 @@ static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
             .instr = instr,
             .nbb = nbb,
         };
-        //append_list(TodoBB, p->todo_bbs, todo);
-        //return nbb;
         return todo;
     }
 }
@@ -120,9 +118,7 @@ const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
 
-    TodoBB todo = prepare_bb(p, fn_ctx, bb);
-    todo.nbb->payload.basic_block.body = write_bb_tail(p, fn_ctx, todo.nbb, todo.bb, todo.instr);
-    return todo.nbb;
+    assert(false);
 }
 
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
@@ -172,16 +168,25 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     const Node* r = fn_addr_helper(a, f);
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
-    if (LLVMCountBasicBlocks(fn) > 0) {
+    size_t bb_count = LLVMCountBasicBlocks(fn);
+    if (bb_count > 0) {
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
-        f->payload.fun.body = write_bb_tail(p, &fn_parse_ctx, f, first_bb, LLVMGetFirstInstruction(first_bb));
+
+        LLVMBasicBlockRef bb = LLVMGetNextBasicBlock(first_bb);
+        LARRAY(TodoBB, todo, bb_count);
+        size_t i = 1;
+        for (;bb; bb = LLVMGetNextBasicBlock(bb)) {
+            assert(i < bb_count);
+            todo[i++] = prepare_bb(p, &fn_parse_ctx, bb);
+        }
+
+        set_abstraction_body(f, write_bb_tail(p, &fn_parse_ctx, f, first_bb, LLVMGetFirstInstruction(first_bb)));
+        for (size_t i = 1; i < bb_count; i++) {
+            todo[i].nbb->payload.basic_block.body = write_bb_tail(p, &fn_parse_ctx, todo[i].nbb, todo[i].bb, todo[i].instr);
+        }
     }
 
-    while (entries_count_list(fn_parse_ctx.jumps_todo) > 0) {
-        JumpTodo todo = pop_last_list(JumpTodo, fn_parse_ctx.jumps_todo);
-        convert_jump_finish(p, &fn_parse_ctx, todo);
-    }
     {
         size_t i = 0;
         struct List* phis_list;
