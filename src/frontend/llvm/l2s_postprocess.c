@@ -193,14 +193,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             if (!ctx->config->hacks.recover_structure)
                 break;
             const Nodes* src_lexical_scope = find_scope_info(src);
-            bool src_is_wrapper = find_value_dict(const Node*, const Node*, ctx->p->wrappers_map, src);
-            const Node** found_dst_wrapper = find_value_dict(const Node*, const Node*, ctx->p->wrappers_map, dst);
-            if (found_dst_wrapper)
-                dst = *found_dst_wrapper;
             const Nodes* dst_lexical_scope = find_scope_info(dst);
-            if (src_is_wrapper) {
-                // silent
-            } else if (!src_lexical_scope) {
+            if (!src_lexical_scope) {
                 warn_print("Failed to find jump source node ");
                 log_node(WARN, src);
                 warn_print(" in lexical_scopes map. Is debug information enabled ?\n");

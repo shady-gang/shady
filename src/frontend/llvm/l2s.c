@@ -271,7 +271,6 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
         .config = config,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
-        .wrappers_map = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .annotations_arena = new_arena(),
         .src = src,
         .dst = dirty,
@@ -307,7 +306,6 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);
-    destroy_dict(p.wrappers_map);
     destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);
