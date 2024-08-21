@@ -103,7 +103,7 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
 }
 
 /// Adds an edge to somewhere inside a basic block
-static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type) {
+static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type, const Node* j) {
     assert(is_abstraction(src) && is_abstraction(dst));
     assert(!is_function(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
@@ -118,13 +118,14 @@ static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFE
         .type = type,
         .src = src_node,
         .dst = dst_node,
+        .jump = j,
     };
     append_list(CFEdge, src_node->succ_edges, edge);
     append_list(CFEdge, dst_node->pred_edges, edge);
 }
 
 static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type) {
-    add_edge(ctx, parent->node, dst, type);
+    add_edge(ctx, parent->node, dst, type, NULL);
     insert_set_get_result(const Node*, parent->structurally_dominates, dst);
 }
 
@@ -132,7 +133,7 @@ static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) 
     assert(j->tag == Jump_TAG);
     const Node* target = j->payload.jump.target;
     if (target->tag == BasicBlock_TAG)
-        add_edge(ctx, src, target, JumpEdge);
+        add_edge(ctx, src, target, JumpEdge, j);
 }
 
 #pragma GCC diagnostic error "-Wswitch"
@@ -164,7 +165,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             case Join_TAG: {
                 CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
                 if (dst)
-                    add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge);
+                    add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge, NULL);
                 return;
             }
             case If_TAG:

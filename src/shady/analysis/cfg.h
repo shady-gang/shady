@@ -20,6 +20,7 @@ typedef struct {
     CFEdgeType type;
     CFNode* src;
     CFNode* dst;
+    const Node* jump;
 } CFEdge;
 
 struct CFNode_ {

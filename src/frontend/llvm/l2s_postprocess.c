@@ -2,7 +2,9 @@
 
 #include "portability.h"
 #include "dict.h"
+#include "list.h"
 #include "log.h"
+#include "arena.h"
 
 #include "../shady/rewrite.h"
 #include "../shady/type.h"
@@ -14,9 +16,9 @@ typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
     Parser* p;
-    CFG* cfg;
-    const Node* old_fn_or_bb;
+    Arena* arena;
     struct Dict* controls;
+    struct Dict* jump2wrapper;
 } Context;
 
 typedef struct {
@@ -42,39 +44,49 @@ static Nodes remake_params(Context* ctx, Nodes old) {
     return nodes(a, old.count, nvars);
 }
 
-static void initialize_controls(Context* ctx, Controls* controls, const Node* fn_or_bb) {
+static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
+    Controls** found = find_value_dict(const Node, Controls*, ctx->controls, fn_or_bb);
+    if (found)
+        return *found;
     IrArena* a = ctx->rewriter.dst_arena;
+    Controls* controls = arena_alloc(ctx->arena, sizeof(Controls));
     *controls = (Controls) {
         .destinations = empty(a),
         .tokens = empty(a),
     };
     insert_dict(const Node*, Controls*, ctx->controls, fn_or_bb, controls);
+    return controls;
 }
 
-static void wrap_in_controls(Context* ctx, Controls* controls, Node* nabs, const Node* oabs) {
+static void wrap_in_controls(Context* ctx, Node* nabs, const Node* oabs) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     const Node* obody = get_abstraction_body(oabs);
     if (!obody)
         return;
-    // const Node* mem = get_abstraction_mem(nabs);
-    Node* c = case_(a, empty(a));
-    register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
-    set_abstraction_body(c, rewrite_node(r, obody));
-    for (size_t i = 0; i < controls->destinations.count; i++) {
-        const Node* token = controls->tokens.nodes[i];
-        const Node* dst = controls->destinations.nodes[i];
-        Node* control_case = case_(a, singleton(token));
-        set_abstraction_body(control_case, jump_helper(a, c, empty(a), get_abstraction_mem(control_case)));
 
-        Node* c2 = case_(a, empty(a));
-        BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
-        Nodes results = gen_control(bb, get_param_types(a, get_abstraction_params(dst)), control_case);
-        set_abstraction_body(c2, finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results, bb_mem(bb))));
-        c = c2;
+    Controls** found = find_value_dict(const Node, Controls*, ctx->controls, oabs);
+    if (found) {
+        Controls* controls = *found;
+        Node* c = case_(a, empty(a));
+        register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
+        set_abstraction_body(c, rewrite_node(r, obody));
+        for (size_t i = 0; i < controls->destinations.count; i++) {
+            const Node* token = controls->tokens.nodes[i];
+            const Node* dst = controls->destinations.nodes[i];
+            Node* control_case = case_(a, singleton(token));
+            set_abstraction_body(control_case, jump_helper(a, c, empty(a), get_abstraction_mem(control_case)));
+
+            Node* c2 = case_(a, empty(a));
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
+            Nodes results = gen_control(bb, get_param_types(a, get_abstraction_params(dst)), control_case);
+            set_abstraction_body(c2, finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results, bb_mem(bb))));
+            c = c2;
+        }
+        const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
+        return set_abstraction_body(nabs, body);
     }
-    const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
-    return set_abstraction_body(nabs, body);
+    return set_abstraction_body(nabs, rewrite_node(r, obody));
 }
 
 KeyHash hash_node(Node**);
@@ -90,8 +102,6 @@ bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
     return true;
 }
 
-bool compare_nodes(Nodes* a, Nodes* b);
-
 static const Nodes* find_scope_info(const Node* abs) {
     assert(is_abstraction(abs));
     const Node* terminator = get_abstraction_body(abs);
@@ -106,7 +116,96 @@ static const Nodes* find_scope_info(const Node* abs) {
     return info;
 }
 
-static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, const Node* node) {
+bool compare_nodes(Nodes* a, Nodes* b);
+
+static void process_edge(Context* ctx, CFG* cfg, CFEdge edge) {
+    assert(edge.type == JumpEdge && edge.jump);
+    const Node* src = edge.src->node;
+    const Node* dst = edge.dst->node;
+
+    IrArena* a = ctx->rewriter.dst_arena;
+    // if (!ctx->config->hacks.recover_structure)
+    //     break;
+    const Nodes* src_lexical_scope = find_scope_info(src);
+    const Nodes* dst_lexical_scope = find_scope_info(dst);
+    if (!src_lexical_scope) {
+        warn_print("Failed to find jump source node ");
+        log_node(WARN, src);
+        warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
+    } else if (!dst_lexical_scope) {
+        warn_print("Failed to find jump target node ");
+        log_node(WARN, dst);
+        warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
+    } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
+        debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
+
+        CFNode* src_cfnode = cfg_lookup(cfg, src);
+        assert(src_cfnode->node);
+        CFNode* target_cfnode = cfg_lookup(cfg, dst);
+        assert(src_cfnode && target_cfnode);
+        CFNode* dom = src_cfnode->idom;
+        while (dom) {
+            debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
+            Nodes* dom_lexical_scope = find_scope_info(dom->node);
+            if (!dom_lexical_scope) {
+                warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
+                dom = dom->idom;
+                continue;
+            } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
+                error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
+            } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
+                debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
+
+                Controls* controls = get_or_create_controls(ctx, dom->node);
+                const Node* join_token = NULL;
+                for (size_t i = 0; i < controls->destinations.count; i++) {
+                    if (controls->destinations.nodes[i] == dst) {
+                        join_token = controls->tokens.nodes[i];
+                        break;
+                    }
+                }
+
+                if (!join_token) {
+                    const Type* jp_type = join_point_type(a, (JoinPointType) {
+                        .yield_types = get_param_types(a, get_abstraction_params(dst))
+                    });
+                    join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name_unsafe(dst));
+                    controls->tokens = append_nodes(a, controls->tokens, join_token);
+                    controls->destinations = append_nodes(a, controls->destinations, dst);
+                }
+                Nodes nparams = remake_params(ctx, get_abstraction_params(dst));
+                register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
+
+                Node* wrapper = basic_block(a, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
+                wrapper->payload.basic_block.body = join(a, (Join) {
+                    .args = nparams,
+                    .join_point = join_token,
+                    .mem = get_abstraction_mem(wrapper),
+                });
+
+                insert_dict(const Node*, const Node*, ctx->jump2wrapper, edge.jump, wrapper);
+                // return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
+            } else {
+                dom = dom->idom;
+                continue;
+            }
+            break;
+        }
+    }
+}
+
+static void prepare_function(Context* ctx, const Node* old_fn) {
+    CFG* cfg = build_fn_cfg(old_fn);
+    for (size_t i = 0; i < cfg->size; i++) {
+        CFNode* n = cfg->rpo[i];
+        for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
+            process_edge(ctx, cfg, read_list(CFEdge, n->succ_edges)[j]);
+        }
+    }
+    destroy_cfg(cfg);
+}
+
+static const Node* process_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
@@ -122,12 +221,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             return new;
         }
         case Function_TAG: {
-            Context fn_ctx = *ctx;
-            fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.old_fn_or_bb = node;
-            Controls controls;
-            initialize_controls(ctx, &controls, node);
-            Nodes new_params = remake_params(&fn_ctx, node->payload.fun.params);
+            prepare_function(ctx, node);
+
+            Nodes new_params = remake_params(ctx, node->payload.fun.params);
             Nodes old_annotations = node->payload.fun.annotations;
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
@@ -151,8 +247,8 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                 old_annotations = append_nodes(a, old_annotations, an->payload);
                 an = an->next;
             }
-            register_processed_list(&fn_ctx.rewriter, node->payload.fun.params, new_params);
-            Nodes new_annotations = rewrite_nodes(&fn_ctx.rewriter, old_annotations);
+            register_processed_list(r, node->payload.fun.params, new_params);
+            Nodes new_annotations = rewrite_nodes(r, old_annotations);
             Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
@@ -161,23 +257,19 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
                     .mem = get_abstraction_mem(decl),
                 }));
             } else
-                wrap_in_controls(&fn_ctx, &controls, decl, node);
-            destroy_cfg(fn_ctx.cfg);
+                wrap_in_controls(ctx, decl, node);
             return decl;
         }
         case BasicBlock_TAG: {
-            Context bb_ctx = *ctx;
-            bb_ctx.old_fn_or_bb = node;
-            Controls controls;
-            initialize_controls(ctx, &controls, node);
             Nodes nparams = remake_params(ctx, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), nparams);
             Node* new_bb = (Node*) basic_block(a, nparams, get_abstraction_name_unsafe(node));
             register_processed(r, node, new_bb);
-            wrap_in_controls(&bb_ctx, &controls, new_bb, node);
+            wrap_in_controls(ctx, new_bb, node);
             // new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
             return new_bb;
         }
+        // Eliminate now-useless scope instructions
         case ExtInstr_TAG: {
             if (strcmp(node->payload.ext_instr.set, "shady.scope") == 0) {
                 return rewrite_node(r, node->payload.ext_instr.mem);
@@ -185,79 +277,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
             break;
         }
         case Jump_TAG: {
-            const Node* src = ctx->old_fn_or_bb;
-            const Node* dst = node->payload.jump.target;
-            assert(src && dst);
-            rewrite_node(&ctx->rewriter, dst);
-
-            if (!ctx->config->hacks.recover_structure)
-                break;
-            const Nodes* src_lexical_scope = find_scope_info(src);
-            const Nodes* dst_lexical_scope = find_scope_info(dst);
-            if (!src_lexical_scope) {
-                warn_print("Failed to find jump source node ");
-                log_node(WARN, src);
-                warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
-            } else if (!dst_lexical_scope) {
-                warn_print("Failed to find jump target node ");
-                log_node(WARN, dst);
-                warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
-            } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
-                debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
-
-                CFNode* src_cfnode = cfg_lookup(ctx->cfg, src);
-                assert(src_cfnode->node);
-                CFNode* target_cfnode = cfg_lookup(ctx->cfg, dst);
-                assert(src_cfnode && target_cfnode);
-                CFNode* dom = src_cfnode->idom;
-                while (dom) {
-                    debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
-                    Nodes* dom_lexical_scope = find_scope_info(dom->node);
-                    if (!dom_lexical_scope) {
-                        warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
-                        dom = dom->idom;
-                        continue;
-                    } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
-                        error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
-                    } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
-                        debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
-                        Controls** found = find_value_dict(const Node, Controls*, ctx->controls, dom->node);
-                        if (found) {
-                            Controls* controls = *found;
-                            const Node* join_token = NULL;
-                            for (size_t i = 0; i < controls->destinations.count; i++) {
-                                if (controls->destinations.nodes[i] == dst) {
-                                    join_token = controls->tokens.nodes[i];
-                                    break;
-                                }
-                            }
-                            if (!join_token) {
-                                const Type* jp_type = join_point_type(a, (JoinPointType) {
-                                    .yield_types = get_param_types(a, get_abstraction_params(dst))
-                                });
-                                join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name_unsafe(dst));
-                                controls->tokens = append_nodes(a, controls->tokens, join_token);
-                                controls->destinations = append_nodes(a, controls->destinations, dst);
-                            }
-                            Nodes nparams = remake_params(ctx, get_abstraction_params(dst));
-                            register_processed_list(&ctx->rewriter, get_abstraction_params(dst), nparams);
-                            Node* wrapper = basic_block(a, nparams, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
-                            wrapper->payload.basic_block.body = join(a, (Join) {
-                                .args = nparams,
-                                .join_point = join_token,
-                                .mem = get_abstraction_mem(wrapper),
-                            });
-                            return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
-                        } else {
-                            assert(false);
-                        }
-                    } else {
-                        dom = dom->idom;
-                        continue;
-                    }
-                    break;
-                }
-            }
+            const Node** found = find_value_dict(const Node*, const Node*, ctx->jump2wrapper, node);
+            if (found)
+                return jump_helper(a, *found, rewrite_nodes(&ctx->rewriter, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
             break;
         }
         case GlobalVariable_TAG: {
@@ -300,22 +322,22 @@ static const Node* process_op(Context* ctx, NodeClass op_class, String op_name, 
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-static const Node* process_node(Context* ctx, const Node* old) {
-    return process_op(ctx, 0, NULL, old);
-}
-
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = p->config,
         .p = p,
+        .arena = new_arena(),
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
+        .jump2wrapper = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
-    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process_op;
+    ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
     rewrite_module(&ctx.rewriter);
     destroy_dict(ctx.controls);
+    destroy_dict(ctx.jump2wrapper);
+    destroy_arena(ctx.arena);
     destroy_rewriter(&ctx.rewriter);
 }
