@@ -109,7 +109,7 @@ Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
     while (true) {
         if (!scope) break;
 
-        str = prepend_nodes(a, str, convert_metadata(p, scope));
+        str = prepend_nodes(a, str, uint32_literal(a, convert_metadata(p, scope)->id));
 
         // LLVMDumpValue(LLVMMetadataAsValue(p->ctx, scope));
         // printf("\n");
