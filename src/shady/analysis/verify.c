@@ -43,7 +43,7 @@ static void verify_same_arena(Module* mod) {
 }
 
 static void verify_scoping(const CompilerConfig* config, Module* mod) {
-    struct List* cfgs = build_cfgs(mod);
+    struct List* cfgs = build_cfgs(mod, forward_cfg_build(true));
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
         Scheduler* scheduler = new_scheduler(cfg);
@@ -136,7 +136,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
 }
 
 static void verify_bodies(const CompilerConfig* config, Module* mod) {
-    struct List* cfgs = build_cfgs(mod);
+    struct List* cfgs = build_cfgs(mod, forward_cfg_build(true));
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
 

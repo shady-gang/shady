@@ -34,4 +34,6 @@ target_sources(shady PRIVATE
     specialize_execution_model.c
     lower_logical_pointers.c
     lower_entrypoint_args.c
+    scope2control.c
+    lift_everything.c
 )

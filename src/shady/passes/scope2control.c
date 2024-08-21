@@ -61,16 +61,6 @@ static Nodes remake_params(Context* ctx, Nodes old) {
     return nodes(a, old.count, nvars);
 }
 
-/// Whether 'a' is dominated by 'b'
-static bool is_dominated(CFNode* a, CFNode* b) {
-    while (a) {
-        if (a == b)
-            return true;
-        a = a->idom;
-    }
-    return false;
-}
-
 static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
     Controls** found = find_value_dict(const Node, Controls*, ctx->controls, fn_or_bb);
     if (found)

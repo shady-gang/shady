@@ -1,8 +1,11 @@
-int square(int num) {
-    for (int i = 0; i < num; i++) {
+int square(int i) {
+    while (1) {
         if (i == 9)
             return i;
-        num--;
+        // if (i % 3 == 0) {
+        //     i-=2;
+        //     continue;
+        // }
+        i--;
     }
-    return 0;
 }

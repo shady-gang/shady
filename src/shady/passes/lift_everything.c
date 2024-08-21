@@ -23,6 +23,13 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
+    while (ctx->rewriter.parent) {
+        Context* parent_ctx = (Context*) ctx->rewriter.parent;
+        if (parent_ctx->cfg)
+            ctx = parent_ctx;
+        else
+            break;
+    }
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (node->tag) {

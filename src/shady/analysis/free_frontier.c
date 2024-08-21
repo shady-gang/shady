@@ -12,16 +12,6 @@ typedef struct {
     struct Dict* frontier;
 } FreeFrontierVisitor;
 
-/// Whether 'a' is dominated by 'b'
-static bool is_dominated(CFNode* a, CFNode* b) {
-    while (a) {
-        if (a == b)
-            return true;
-        a = a->idom;
-    }
-    return false;
-}
-
 static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     if (find_key_dict(const Node*, v->seen, node))
         return;
@@ -29,10 +19,11 @@ static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     CFNode* where = schedule_instruction(v->scheduler, node);
     if (where) {
         FreeFrontierVisitor vv = *v;
-        if (is_dominated(where, v->start)) {
+        if (cfg_is_dominated(where, v->start)) {
             visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
         } else {
-            insert_set_get_result(const Node*, v->frontier, node);
+            if (!is_abstraction(node))
+               insert_set_get_result(const Node*, v->frontier, node);
         }
     }
 }

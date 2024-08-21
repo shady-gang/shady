@@ -8,6 +8,7 @@ typedef struct CFNode_ CFNode;
 typedef enum {
     JumpEdge,
     StructuredEnterBodyEdge,
+    StructuredLoopContinue,
     StructuredLeaveBodyEdge,
     /// Join points might leak, and as a consequence, there might be no static edge to the
     /// tail of the enclosing let, which would make it look like dead code.
@@ -26,6 +27,8 @@ typedef struct {
 struct CFNode_ {
     const Node* node;
 
+    bool reachable;
+
     /** @brief Edges where this node is the source
      *
      * @ref List of @ref CFEdge
@@ -43,6 +46,7 @@ struct CFNode_ {
 
     // set by compute_domtree
     CFNode* idom;
+    CFNode* structured_idom;
 
     /** @brief All Nodes directly dominated by this CFNode.
      *
@@ -53,9 +57,19 @@ struct CFNode_ {
 };
 
 typedef struct Arena_ Arena;
+typedef struct LoopTree_ LoopTree;
+
+typedef struct {
+    bool include_structured_tails;
+    LoopTree* lt;
+    bool flipped;
+} CFGBuildConfig;
+
 typedef struct CFG_ {
     Arena* arena;
+    CFGBuildConfig config;
     size_t size;
+
     bool flipped;
 
     /**
@@ -70,24 +84,30 @@ typedef struct CFG_ {
 
     CFNode* entry;
     // set by compute_rpo
+    size_t reachable_size;
     CFNode** rpo;
 } CFG;
 
 /**
  * @returns @ref List of @ref CFG*
  */
-struct List* build_cfgs(Module*);
-
-typedef struct LoopTree_ LoopTree;
+struct List* build_cfgs(Module*, CFGBuildConfig);
 
 /** Construct the CFG starting in node.
  */
-CFG* build_cfg(const Node* fn, const Node* entry, LoopTree* lt, bool flipped);
+CFG* build_cfg(const Node* fn, const Node* entry, CFGBuildConfig);
 
 /** Construct the CFG starting in node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
-#define build_fn_cfg(node) build_cfg(node, node, NULL, false)
+
+static inline CFGBuildConfig forward_cfg_build(bool include_structured_tails) {
+    return (CFGBuildConfig) {
+        .include_structured_tails = include_structured_tails,
+    };
+}
+
+#define build_fn_cfg(node) build_cfg(node, node, forward_cfg_build(true))
 
 /** Construct the CFG stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
@@ -98,6 +118,8 @@ CFG* build_cfg(const Node* fn, const Node* entry, LoopTree* lt, bool flipped);
 CFNode* cfg_lookup(CFG* cfg, const Node* abs);
 void compute_rpo(CFG*);
 void compute_domtree(CFG*);
+
+bool cfg_is_dominated(CFNode* a, CFNode* b);
 
 bool is_cfnode_structural_target(CFNode*);
 

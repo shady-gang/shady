@@ -66,6 +66,10 @@ struct CompilerConfig_ {
     } target_spirv_version;
 
     struct {
+        bool has_scope_annotations;
+    } input_cf;
+
+    struct {
         bool emulate_generic_ptrs;
         bool emulate_physical_memory;
 

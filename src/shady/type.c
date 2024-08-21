@@ -39,6 +39,8 @@ bool is_subtype(const Type* supertype, const Type* type) {
         case RecordType_TAG: {
             const Nodes* supermembers = &supertype->payload.record_type.members;
             const Nodes* members = &type->payload.record_type.members;
+            if (supermembers->count != members->count)
+                return false;
             for (size_t i = 0; i < members->count; i++) {
                 if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
@@ -442,18 +444,33 @@ const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
 }
 
 const Type* check_type_composite(IrArena* arena, Composite composite) {
-    assert(is_data_type(composite.type));
-    Nodes expected_member_types = get_composite_type_element_types(composite.type);
+    if (composite.type) {
+        assert(is_data_type(composite.type));
+        Nodes expected_member_types = get_composite_type_element_types(composite.type);
+        bool is_uniform = true;
+        assert(composite.contents.count == expected_member_types.count);
+        for (size_t i = 0; i < composite.contents.count; i++) {
+            const Type* element_type = composite.contents.nodes[i]->type;
+            is_uniform &= deconstruct_qualified_type(&element_type);
+            assert(is_subtype(expected_member_types.nodes[i], element_type));
+        }
+        return qualified_type(arena, (QualifiedType) {
+            .is_uniform = is_uniform,
+            .type = composite.type
+        });
+    }
     bool is_uniform = true;
-    assert(composite.contents.count == expected_member_types.count);
+    LARRAY(const Type*, member_ts, composite.contents.count);
     for (size_t i = 0; i < composite.contents.count; i++) {
         const Type* element_type = composite.contents.nodes[i]->type;
         is_uniform &= deconstruct_qualified_type(&element_type);
-        assert(is_subtype(expected_member_types.nodes[i], element_type));
+        member_ts[i] = element_type;
     }
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = is_uniform,
-        .type = composite.type
+        .type = record_type(arena, (RecordType) {
+            .members = nodes(arena, composite.contents.count, member_ts)
+        })
     });
 }
 

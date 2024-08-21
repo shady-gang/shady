@@ -14,14 +14,14 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-struct List* build_cfgs(Module* mod) {
+struct List* build_cfgs(Module* mod, CFGBuildConfig config) {
     struct List* cfgs = new_list(CFG*);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != Function_TAG) continue;
-        CFG* cfg = build_fn_cfg(decl);
+        CFG* cfg = build_cfg(decl, decl, config);
         append_list(CFG*, cfgs, cfg);
     }
 
@@ -37,11 +37,18 @@ typedef struct {
     const Node* entry;
     LoopTree* lt;
     struct Dict* nodes;
-    struct List* queue;
     struct List* contents;
+
+    bool include_structured_tails;
+
+    const Node* selection_construct_tail;
+    const Node* loop_construct_head;
+    const Node* loop_construct_tail;
 
     struct Dict* join_point_values;
 } CfgBuildContext;
+
+static void process_cf_node(CfgBuildContext* ctx, CFNode* node);
 
 CFNode* cfg_lookup(CFG* cfg, const Node* abs) {
     CFNode** found = find_value_dict(const Node*, CFNode*, cfg->map, abs);
@@ -78,7 +85,7 @@ static CFNode* get_or_enqueue(CfgBuildContext* ctx, const Node* abs) {
     new->node = abs;
     assert(abs && new->node);
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
-    append_list(Node*, ctx->queue, new);
+    process_cf_node(ctx, new);
     append_list(Node*, ctx->contents, new);
     return new;
 }
@@ -163,38 +170,63 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 return;
             }
             case Join_TAG: {
-                CFNode** dst = find_value_dict(const Node*, CFNode*, ctx->join_point_values, terminator->payload.join.join_point);
+                const Node** dst = find_value_dict(const Node*, const Node*, ctx->join_point_values, terminator->payload.join.join_point);
                 if (dst)
-                    add_edge(ctx, node->node, (*dst)->node, StructuredLeaveBodyEdge, NULL);
+                    add_edge(ctx, node->node, *dst, StructuredLeaveBodyEdge, NULL);
                 return;
             }
-            case If_TAG:
-                add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
+            case If_TAG: {
+                CfgBuildContext if_ctx = *ctx;
+                if_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
+                add_structural_dominance_edge(&if_ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
                 if (terminator->payload.if_instr.if_false)
-                    add_structural_dominance_edge(ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(&if_ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
+                else
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredLeaveBodyEdge);
+
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
-            case Match_TAG:
+            } case Match_TAG: {
+                CfgBuildContext match_ctx = *ctx;
+                match_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
                 for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
-                    add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
+                add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
-            case Loop_TAG:
-                add_structural_dominance_edge(ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+            } case Loop_TAG: {
+                CfgBuildContext loop_ctx = *ctx;
+                loop_ctx.loop_construct_head = terminator->payload.loop_instr.body;
+                loop_ctx.loop_construct_tail = get_structured_construct_tail(terminator);
+                add_structural_dominance_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
-            case Control_TAG:
-                add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+            } case Control_TAG: {
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
-                CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
-                insert_dict(const Node*, CFNode*, ctx->join_point_values, param, let_tail_cfnode);
-                add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
+                const Node* tail = get_structured_construct_tail(terminator);
+                insert_dict(const Node*, const Node*, ctx->join_point_values, param, tail);
+                add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
-            case MergeSelection_TAG:
-            case MergeContinue_TAG:
+            } case MergeSelection_TAG: {
+                assert(ctx->selection_construct_tail);
+                add_structural_dominance_edge(ctx, node, ctx->selection_construct_tail, StructuredLeaveBodyEdge);
+                return;
+            }
+            case MergeContinue_TAG:{
+                assert(ctx->loop_construct_head);
+                add_structural_dominance_edge(ctx, node, ctx->loop_construct_head, StructuredLoopContinue);
+                return;
+            }
             case MergeBreak_TAG: {
-                return; // TODO i guess
+                assert(ctx->loop_construct_tail);
+                add_structural_dominance_edge(ctx, node, ctx->loop_construct_tail, StructuredLeaveBodyEdge);
+                return;
             }
             case TailCall_TAG:
             case Return_TAG:
@@ -284,6 +316,8 @@ static void validate_cfg(CFG* cfg) {
                 case JumpEdge:
                     num_jumps++;
                     break;
+                case StructuredLoopContinue:
+                    break;
                 case StructuredEnterBodyEdge:
                     structured_body_uses += 1;
                     break;
@@ -315,7 +349,19 @@ static void validate_cfg(CFG* cfg) {
     }
 }
 
-CFG* build_cfg(const Node* function, const Node* entry, LoopTree* lt, bool flipped) {
+static void mark_reachable(CFNode* n) {
+    if (!n->reachable) {
+        n->reachable = true;
+        for (size_t i = 0; i < entries_count_list(n->succ_edges); i++) {
+            CFEdge e = read_list(CFEdge, n->succ_edges)[i];
+            if (e.type == StructuredTailEdge)
+                continue;
+            mark_reachable(e.dst);
+        }
+    }
+}
+
+CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
     assert(function && function->tag == Function_TAG);
     assert(is_abstraction(entry));
     Arena* arena = new_arena();
@@ -324,29 +370,31 @@ CFG* build_cfg(const Node* function, const Node* entry, LoopTree* lt, bool flipp
         .arena = arena,
         .function = function,
         .entry = entry,
-        .lt = lt,
+        .lt = config.lt,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
-        .join_point_values = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
-        .queue = new_list(CFNode*),
+        .join_point_values = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .contents = new_list(CFNode*),
+        .include_structured_tails = config.include_structured_tails,
     };
 
     CFNode* entry_node = get_or_enqueue(&context, entry);
+    mark_reachable(entry_node);
+    //process_cf_node(&context, entry_node);
 
-    while (entries_count_list(context.queue) > 0) {
-        CFNode* this = pop_last_list(CFNode*, context.queue);
-        process_cf_node(&context, this);
-    }
+    //while (entries_count_list(context.queue) > 0) {
+    //    CFNode* this = pop_last_list(CFNode*, context.queue);
+    //    process_cf_node(&context, this);
+    //}
 
-    destroy_list(context.queue);
     destroy_dict(context.join_point_values);
 
     CFG* cfg = calloc(sizeof(CFG), 1);
     *cfg = (CFG) {
         .arena = arena,
+        .config = config,
         .entry = entry_node,
         .size = entries_count_list(context.contents),
-        .flipped = flipped,
+        .flipped = config.flipped,
         .contents = context.contents,
         .map = context.nodes,
         .rpo = NULL
@@ -354,7 +402,7 @@ CFG* build_cfg(const Node* function, const Node* entry, LoopTree* lt, bool flipp
 
     validate_cfg(cfg);
 
-    if (flipped)
+    if (config.flipped)
         flip_cfg(cfg);
 
     compute_rpo(cfg);
@@ -395,7 +443,7 @@ static size_t post_order_visit(CFG* cfg, CFNode* n, size_t i) {
         for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
             CFEdge edge = read_list(CFEdge, n->succ_edges)[j];
             // always visit structured tail edges last
-            if ((edge.type == StructuredTailEdge) == (phase == 1))
+            if ((edge.type == StructuredTailEdge) == (phase == 0))
                 continue;
             if (edge.dst->rpo_index == SIZE_MAX)
                 i = post_order_visit(cfg, edge.dst, i);
@@ -408,8 +456,16 @@ static size_t post_order_visit(CFG* cfg, CFNode* n, size_t i) {
 }
 
 void compute_rpo(CFG* cfg) {
+    /*cfg->reachable_size = 0;
+    for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
+        CFNode* n = read_list(CFNode*, cfg->contents)[i];
+        if (n->reachable)
+            cfg->reachable_size++;
+    }*/
+    cfg->reachable_size = cfg->size;
+
     cfg->rpo = malloc(sizeof(const CFNode*) * cfg->size);
-    size_t index = post_order_visit(cfg, cfg->entry, cfg->size);
+    size_t index = post_order_visit(cfg, cfg->entry, cfg->reachable_size);
     assert(index == 0);
 
     // debug_print("RPO: ");
@@ -432,17 +488,40 @@ CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
     return i;
 }
 
+bool cfg_is_dominated(CFNode* a, CFNode* b) {
+    while (a) {
+        if (a == b)
+            return true;
+        if (a->structured_idom)
+            a = a->structured_idom;
+        else
+            a = a->idom;
+    }
+    return false;
+}
+
 void compute_domtree(CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = read_list(CFNode*, cfg->contents)[i];
-        if (n == cfg->entry)
+        if (n == cfg->entry/* || !n->reachable*/)
             continue;
+        CFNode* structured_idom = NULL;
+        for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
+            CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+            if (e.type == StructuredTailEdge) {
+                structured_idom = n->structured_idom = e.src;
+                continue;
+            }
+        }
         for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
             if (e.src->rpo_index < n->rpo_index) {
                 n->idom = e.src;
                 goto outer_loop;
             }
+        }
+        if (structured_idom) {
+            continue;
         }
         error("no idom found");
         outer_loop:;
@@ -453,11 +532,13 @@ void compute_domtree(CFG* cfg) {
         todo = false;
         for (size_t i = 0; i < cfg->size; i++) {
             CFNode* n = read_list(CFNode*, cfg->contents)[i];
-            if (n == cfg->entry)
+            if (n == cfg->entry || n->structured_idom)
                 continue;
             CFNode* new_idom = NULL;
             for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
                 CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+                 if (e.type == StructuredTailEdge)
+                     continue;
                 CFNode* p = e.src;
                 new_idom = new_idom ? least_common_ancestor(new_idom, p) : p;
             }
@@ -470,12 +551,12 @@ void compute_domtree(CFG* cfg) {
     }
 
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* n = read_list(CFNode*, cfg->contents)[i];
+        CFNode* n = cfg->rpo[i];
         n->dominates = new_list(CFNode*);
     }
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* n = read_list(CFNode*, cfg->contents)[i];
-        if (n == cfg->entry)
+        CFNode* n = cfg->rpo[i];
+        if (!n->idom)
             continue;
         append_list(CFNode*, n->idom->dominates, n);
     }

@@ -107,7 +107,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     if (node->payload.fun.body) {
         // reserve a bunch of identifiers for the basic blocks in the CFG
         for (size_t i = 0; i < fn_builder.cfg->size; i++) {
-            CFNode* cfnode = read_list(CFNode*, fn_builder.cfg->contents)[i];
+            CFNode* cfnode = fn_builder.cfg->rpo[i];
             assert(cfnode);
             const Node* bb = cfnode->node;
             assert(is_basic_block(bb) || bb == node);

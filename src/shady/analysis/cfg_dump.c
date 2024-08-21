@@ -52,6 +52,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     print_node_helper(p, body);
     print(p, "\\l");
+    print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? get_abstraction_name_safe(n->structured_idom->node) : "null");
 
     String label = printer_growy_unwrap(p);
     fprintf(output, "bb_%zu [nojustify=true, label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
@@ -82,14 +83,16 @@ static void dump_cfg(FILE* output, CFG* cfg) {
             CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
             String edge_color = "black";
+            String edge_style = "solid";
             switch (edge.type) {
                 case StructuredEnterBodyEdge: edge_color = "blue"; break;
                 case StructuredLeaveBodyEdge: edge_color = "red"; break;
-                case StructuredTailEdge: edge_color = "darkred"; break;
+                case StructuredTailEdge: edge_style = "dashed"; break;
+                case StructuredLoopContinue: edge_style = "dotted"; break;
                 default: break;
             }
 
-            fprintf(output, "bb_%zu -> bb_%zu [color=\"%s\"];\n", (size_t) (src_node), (size_t) (target_node), edge_color);
+            fprintf(output, "bb_%zu -> bb_%zu [color=\"%s\", style=\"%s\"];\n", (size_t) (src_node), (size_t) (target_node), edge_color, edge_style);
         }
     }
     fprintf(output, "}\n");
@@ -118,7 +121,7 @@ void dump_cfgs(FILE* output, Module* mod) {
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod);
+    struct List* cfgs = build_cfgs(mod, forward_cfg_build(true));
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
         dump_cfg(output, cfg);
@@ -156,7 +159,7 @@ void dump_domtree_cfg(Printer* p, CFG* s) {
 
 void dump_domtree_module(Printer* p, Module* mod) {
     print(p, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod);
+    struct List* cfgs = build_cfgs(mod, forward_cfg_build(true));
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
         dump_domtree_cfg(p, cfg);
