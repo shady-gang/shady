@@ -176,6 +176,8 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 return;
             }
             case If_TAG: {
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 CfgBuildContext if_ctx = *ctx;
                 if_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
                 add_structural_dominance_edge(&if_ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
@@ -184,34 +186,32 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 else
                     add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredLeaveBodyEdge);
 
-                if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             } case Match_TAG: {
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 CfgBuildContext match_ctx = *ctx;
                 match_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
                 for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
                     add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
                 add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
-                if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             } case Loop_TAG: {
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 CfgBuildContext loop_ctx = *ctx;
                 loop_ctx.loop_construct_head = terminator->payload.loop_instr.body;
                 loop_ctx.loop_construct_tail = get_structured_construct_tail(terminator);
                 add_structural_dominance_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
-                if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             } case Control_TAG: {
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
                 //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 const Node* tail = get_structured_construct_tail(terminator);
                 insert_dict(const Node*, const Node*, ctx->join_point_values, param, tail);
                 add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
-                if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             } case MergeSelection_TAG: {
                 assert(ctx->selection_construct_tail);
@@ -492,10 +492,12 @@ bool cfg_is_dominated(CFNode* a, CFNode* b) {
     while (a) {
         if (a == b)
             return true;
-        if (a->structured_idom)
+        if (a->idom)
+            a = a->idom;
+        else if (a->structured_idom)
             a = a->structured_idom;
         else
-            a = a->idom;
+            break;
     }
     return false;
 }

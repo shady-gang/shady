@@ -47,6 +47,7 @@ struct ArenaConfig_ {
 
     /// 'folding' optimisations - happen in the constructors directly
     struct {
+        bool inline_single_use_bbs;
         bool fold_static_control_flow;
         bool delete_unreachable_structured_cases;
         bool weaken_non_leaking_allocas;

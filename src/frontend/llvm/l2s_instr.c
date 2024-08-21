@@ -109,6 +109,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
 #define BIND_PREV_R(t) bind_instruction_outputs_count(b, r, 1)
 
     //if (LLVMIsATerminatorInst(instr)) {
+    //if (LLVMIsAInstruction(instr) && !LLVMIsATerminatorInst(instr)) {
     if (LLVMIsAInstruction(instr)) {
         assert(fn && fn_or_bb);
         LLVMMetadataRef dbgloc = LLVMInstructionGetDebugLoc(instr);

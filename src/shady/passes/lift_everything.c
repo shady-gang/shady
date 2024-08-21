@@ -23,13 +23,6 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    while (ctx->rewriter.parent) {
-        Context* parent_ctx = (Context*) ctx->rewriter.parent;
-        if (parent_ctx->cfg)
-            ctx = parent_ctx;
-        else
-            break;
-    }
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (node->tag) {
@@ -71,7 +64,17 @@ static const Node* process(Context* ctx, const Node* node) {
             destroy_dict(frontier);
             insert_dict(const Node*, Nodes, ctx->lift, node, additional_args);
             Node* new_bb = basic_block(a, new_params, get_abstraction_name_unsafe(node));
-            register_processed(r, node, new_bb);
+
+            Context* fn_ctx = ctx;
+            while (fn_ctx->rewriter.parent) {
+                Context* parent_ctx = (Context*) ctx->rewriter.parent;
+                if (parent_ctx->cfg)
+                    fn_ctx = parent_ctx;
+                else
+                    break;
+            }
+
+            register_processed(&fn_ctx->rewriter, node, new_bb);
             set_abstraction_body(new_bb, rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
             return new_bb;
         }

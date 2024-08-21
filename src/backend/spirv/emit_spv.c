@@ -64,7 +64,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNo
     SpvId bb_id = get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder->base, bb_builder);
 
-    String name = get_abstraction_name_unsafe(bb_node);
+    String name = get_abstraction_name_safe(bb_node);
     if (name)
         spvb_name(emitter->file_builder, bb_id, name);
 

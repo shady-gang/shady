@@ -62,14 +62,22 @@ static void test_body_builder_fun_body(IrArena* a) {
     CFG* cfg = build_fn_cfg(fun);
     const Node* mem = get_terminator_mem(return_terminator);
     do {
-        mem = get_original_mem(mem);
+        const Node* omem = get_original_mem(mem);
+        if (!omem)
+            break;
+        mem = omem;
         CHECK(mem->tag == AbsMem_TAG, exit(-1));
         CFNode* n = cfg_lookup(cfg, mem->payload.abs_mem.abs);
         if (n->idom) {
             mem = get_terminator_mem(get_abstraction_body(n->idom->node));
             continue;
         }
-    } while (false);
+        if (n->structured_idom) {
+            mem = get_terminator_mem(get_abstraction_body(n->structured_idom->node));
+            continue;
+        }
+        break;
+    } while (1);
     mem = get_original_mem(mem);
     CHECK(mem == get_abstraction_mem(fun), exit(-1));
     destroy_cfg(cfg);

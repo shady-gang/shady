@@ -80,6 +80,7 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNo
         return found;
 
     const Node* rewritten = fn(rewriter, node);
+    // assert(rewriter->dst_arena == rewritten->arena);
     if (is_declaration(node))
         return rewritten;
     if (rewriter->config.write_map && should_memoize(node)) {

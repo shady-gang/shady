@@ -55,7 +55,7 @@ const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
-            if (uses <= 1) {
+            if (uses <= 1 && a->config.optimisations.inline_single_use_bbs) {
                 log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
                 return NULL;
             }
