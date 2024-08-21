@@ -10,6 +10,8 @@
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
+#include "../shady/analysis/scheduler.h"
+#include "../shady/analysis/free_frontier.h"
 #include "../shady/transform/ir_gen_helpers.h"
 
 typedef struct {
@@ -58,19 +60,40 @@ static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
     return controls;
 }
 
-static void wrap_in_controls(Context* ctx, Node* nabs, const Node* oabs) {
+static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oabs) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     const Node* obody = get_abstraction_body(oabs);
     if (!obody)
         return;
 
+    CFNode* n = cfg_lookup(cfg, oabs);
+    size_t num_dom = entries_count_list(n->dominates);
+    LARRAY(Node*, nbbs, num_dom);
+    for (size_t i = 0; i < num_dom; i++) {
+        CFNode* dominated = read_list(CFNode*, n->dominates)[i];
+        const Node* obb = dominated->node;
+        assert(obb->tag == BasicBlock_TAG);
+        Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
+        register_processed_list(r, get_abstraction_params(obb), nparams);
+        nbbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(obb));
+        register_processed(r, obb, nbbs[i]);
+    }
+
+    // We introduce a dummy case now because we don't know yet whether the body of the abstraction will be wrapped
+    Node* c = case_(a, empty(a));
+    register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
+
+    for (size_t i = 0; i < num_dom; i++) {
+        CFNode* dominated = read_list(CFNode*, n->dominates)[i];
+        const Node* obb = dominated->node;
+        wrap_in_controls(ctx, cfg, nbbs[i], obb);
+    }
+
+    set_abstraction_body(c, rewrite_node(r, obody));
     Controls** found = find_value_dict(const Node, Controls*, ctx->controls, oabs);
     if (found) {
         Controls* controls = *found;
-        Node* c = case_(a, empty(a));
-        register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
-        set_abstraction_body(c, rewrite_node(r, obody));
         for (size_t i = 0; i < controls->destinations.count; i++) {
             const Node* token = controls->tokens.nodes[i];
             const Node* dst = controls->destinations.nodes[i];
@@ -83,10 +106,10 @@ static void wrap_in_controls(Context* ctx, Node* nabs, const Node* oabs) {
             set_abstraction_body(c2, finish_body(bb, jump_helper(a, rewrite_node(&ctx->rewriter, dst), results, bb_mem(bb))));
             c = c2;
         }
-        const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
-        return set_abstraction_body(nabs, body);
     }
-    return set_abstraction_body(nabs, rewrite_node(r, obody));
+
+    const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
+    set_abstraction_body(nabs, body);
 }
 
 KeyHash hash_node(Node**);
@@ -118,7 +141,7 @@ static const Nodes* find_scope_info(const Node* abs) {
 
 bool compare_nodes(Nodes* a, Nodes* b);
 
-static void process_edge(Context* ctx, CFG* cfg, CFEdge edge) {
+static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge edge) {
     assert(edge.type == JumpEdge && edge.jump);
     const Node* src = edge.src->node;
     const Node* dst = edge.dst->node;
@@ -194,15 +217,15 @@ static void process_edge(Context* ctx, CFG* cfg, CFEdge edge) {
     }
 }
 
-static void prepare_function(Context* ctx, const Node* old_fn) {
-    CFG* cfg = build_fn_cfg(old_fn);
+static void prepare_function(Context* ctx, CFG* cfg, const Node* old_fn) {
+    Scheduler* scheduler = new_scheduler(cfg);
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = cfg->rpo[i];
         for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
-            process_edge(ctx, cfg, read_list(CFEdge, n->succ_edges)[j]);
+            process_edge(ctx, cfg, scheduler, read_list(CFEdge, n->succ_edges)[j]);
         }
     }
-    destroy_cfg(cfg);
+    destroy_scheduler(scheduler);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -221,7 +244,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Function_TAG: {
-            prepare_function(ctx, node);
+            CFG* cfg = build_fn_cfg(node);
+            prepare_function(ctx, cfg, node);
 
             Nodes new_params = remake_params(ctx, node->payload.fun.params);
             Nodes old_annotations = node->payload.fun.annotations;
@@ -257,17 +281,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .mem = get_abstraction_mem(decl),
                 }));
             } else
-                wrap_in_controls(ctx, decl, node);
+                wrap_in_controls(ctx, cfg, decl, node);
+            destroy_cfg(cfg);
             return decl;
         }
         case BasicBlock_TAG: {
-            Nodes nparams = remake_params(ctx, get_abstraction_params(node));
-            register_processed_list(r, get_abstraction_params(node), nparams);
-            Node* new_bb = (Node*) basic_block(a, nparams, get_abstraction_name_unsafe(node));
-            register_processed(r, node, new_bb);
-            wrap_in_controls(ctx, new_bb, node);
-            // new_bb->payload.basic_block.body = wrap_in_controls(ctx, &controls, new_bb->payload.basic_block.body);
-            return new_bb;
+            assert(false);
         }
         // Eliminate now-useless scope instructions
         case ExtInstr_TAG: {
