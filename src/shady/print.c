@@ -1087,6 +1087,7 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
         else
             printf("%%%d", node->id);
         printf(RESET);
+        return true;
     } else {
         print_node_generated(ctx, node);
     }
