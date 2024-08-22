@@ -315,8 +315,10 @@ void set_abstraction_body(Node* abs, const Node* body) {
                 BodyBuilder* insert = mem_abs->payload.basic_block.insert;
                 if (insert && mem_abs != abs) {
                     const Node* mem = insert->block_entry_mem;
-                    set_abstraction_body((Node*) insert->block_entry_block, finish_block_body(insert, body));
-                    body = jump_helper(a, insert->block_entry_block, empty(a), mem);
+                    const Node* block = insert->block_entry_block;
+                    set_abstraction_body((Node*) block, finish_block_body(insert, body));
+                    body = jump_helper(a, block, empty(a), mem);
+                    // mem_abs->payload.basic_block.insert = NULL;
                     continue;
                 }
             }

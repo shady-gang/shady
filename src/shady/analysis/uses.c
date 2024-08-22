@@ -83,6 +83,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
         for (size_t i = 0; i < nodes.count; i++)
             uses_visit_node(&v, nodes.nodes[i]);
     }
+    destroy_dict(v.seen);
     return uses;
 }
 

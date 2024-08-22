@@ -320,14 +320,16 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     print_param_list(ctx, node->payload.fun.params, NULL);
     if (!get_abstraction_body(node)) {
         printf(";");
-        return;
+    } else {
+        printf(" {");
+        indent(ctx->printer);
+        printf("\n");
+
+        printf("%s", emit_abs_body(ctx, node));
+
+        deindent(ctx->printer);
+        printf("\n}");
     }
-
-    printf(" {");
-    indent(ctx->printer);
-    printf("\n");
-
-    printf("%s", emit_abs_body(ctx, node));
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)
@@ -337,9 +339,6 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         destroy_cfg(sub_ctx.cfg);
         destroy_scheduler(sub_ctx.scheduler);
     }
-
-    deindent(ctx->printer);
-    printf("\n}");
 }
 
 static void print_nodes(PrinterCtx* ctx, Nodes nodes) {
