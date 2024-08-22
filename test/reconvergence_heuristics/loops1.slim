@@ -1,4 +1,4 @@
-@Restructure
+@Exported @Restructure
 fn exitingloop_controlblock varying i32(varying bool b) {
     jump pre_entry();
 
@@ -27,7 +27,7 @@ fn exitingloop_controlblock varying i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn exitingloop_function varying i32(varying bool b) {
     jump entry();
 
@@ -52,7 +52,7 @@ fn exitingloop_function varying i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn exitingloop_values varying i32(varying i32 n) {
     var i32 r = n + 0;
     var i32 k = 0;
@@ -76,7 +76,7 @@ fn exitingloop_values varying i32(varying i32 n) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn exitingloop_values_from_loop varying i32(varying i32 n) {
     var i32 r = n + 0;
     var i32 k = 0;

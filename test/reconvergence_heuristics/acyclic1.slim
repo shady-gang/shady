@@ -1,4 +1,4 @@
-@Restructure
+@Exported @Restructure
 fn f1 i32(varying bool b) {
     jump bb1();
 
@@ -19,7 +19,7 @@ fn f1 i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn f2 i32(varying bool b) {
     jump bb1();
 
@@ -40,7 +40,7 @@ fn f2 i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn g i32(varying bool b) {
     branch(b, bb1(), bb2());
 
@@ -61,7 +61,7 @@ fn g i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn hfixed i32(varying bool b) {
     branch(b, bb1(), bb2());
 
@@ -90,7 +90,7 @@ fn hfixed i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn hnot1 i32(varying bool b) {
     val not_b = ! b;
 
@@ -109,7 +109,7 @@ fn hnot1 i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn hnot2 i32(varying bool b) {
     branch(b, bb1(), bb2());
 
@@ -140,7 +140,7 @@ fn hnot2 i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn i i32(varying bool b) {
     branch(b, bb1(), bb2());
 

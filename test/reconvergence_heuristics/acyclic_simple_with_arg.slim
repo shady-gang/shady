@@ -1,158 +1,20 @@
 @Exported @Restructure
-fn f1 i32(varying bool b) {
+fn f1 i32(varying bool b, varying i32 i) {
     jump bb1();
 
     cont bb1() {
-        branch(b, bb2(), bb3());
+        branch(b, bb2(i), bb3(6, 6));
     }
 
-    cont bb2() {
-        jump bb4();
+    cont bb2(varying i32 j) {
+        jump bb4(j);
     }
 
-    cont bb3() {
-        jump bb4();
+    cont bb3(uniform i32 x, uniform i32 y) {
+        jump bb4(x + y);
     }
 
-    cont bb4() {
-        return (3);
-    }
-}
-
-@Exported @Restructure
-fn f2 i32(varying bool b) {
-    jump bb1();
-
-    cont bb1() {
-        branch(b, bb2(), bb3());
-    }
-
-    cont bb2() {
-        jump bb4(5);
-    }
-
-    cont bb3() {
-        jump bb4(4);
-    }
-
-    cont bb4(varying i32 r) {
-        return (r);
-    }
-}
-
-@Exported @Restructure
-fn g i32(varying bool b) {
-    branch(b, bb1(), bb2());
-
-    cont bb1() {
-        jump bb3();
-    }
-
-    cont bb2 () {
-        jump bb3();
-    }
-
-    cont bb3() {
-        jump bb4();
-    }
-
-    cont bb4() {
-        return (9);
-    }
-}
-
-@Exported @Restructure
-fn hfixed i32(varying bool b) {
-    branch(b, bb1(), bb2());
-
-    cont bb1() {
-        branch(b, bb3(), bb4b());
-    }
-
-    cont bb2 () {
-        jump bb4();
-    }
-
-    cont bb3() {
-        jump bb5();
-    }
-
-    cont bb4() {
-        jump bb5();
-    }
-
-    cont bb4b() {
-        jump bb5();
-    }
-
-    cont bb5() {
-        return (9);
-    }
-}
-
-@Exported @Restructure
-fn hnot1 i32(varying bool b) {
-    val not_b = ! b;
-
-    branch(not_b, bb1(), bb2());
-
-    cont bb1 () {
-        jump bb3();
-    }
-
-    cont bb2() {
-        jump bb3();
-    }
-
-    cont bb3() {
-        return (9);
-    }
-}
-
-@Exported @Restructure
-fn hnot2 i32(varying bool b) {
-    branch(b, bb1(), bb2());
-
-    cont bb1() {
-        val not_b = ! b;
-
-        branch(not_b, bb3(), bb4b());
-    }
-
-    cont bb2 () {
-        jump bb4();
-    }
-
-    cont bb3() {
-        jump bb5();
-    }
-
-    cont bb4() {
-        jump bb5();
-    }
-
-    cont bb4b() {
-        jump bb5();
-    }
-
-    cont bb5() {
-        return (9);
-    }
-}
-
-@Exported @Restructure
-fn i i32(varying bool b) {
-    branch(b, bb1(), bb2());
-
-    cont bb1() {
-        jump bb2();
-    }
-
-    cont bb2 () {
-        jump bb3();
-    }
-
-    cont bb3() {
-        return (0);
+    cont bb4(varying i32 l) {
+        return (l + i);
     }
 }

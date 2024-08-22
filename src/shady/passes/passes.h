@@ -21,7 +21,7 @@ RewritePass scope2control;
 RewritePass lift_everything;
 RewritePass scope_heuristic;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
-//RewritePass reconvergence_heuristics;
+RewritePass reconvergence_heuristics;
 
 /// @}
 

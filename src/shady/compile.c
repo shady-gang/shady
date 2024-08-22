@@ -50,16 +50,17 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     log_module(DEBUG, config, *pmod);
 
     if (config->input_cf.has_scope_annotations) {
-        if (config->hacks.restructure_everything) {
-            RUN_PASS(scope_heuristic)
-        }
+        // RUN_PASS(scope_heuristic)
         RUN_PASS(lift_everything)
         RUN_PASS(scope2control)
+    } else {
+        RUN_PASS(lift_everything)
+        RUN_PASS(reconvergence_heuristics)
     }
 
     if (config->dynamic_scheduling) {
         add_scheduler_source(config, *pmod);
-	}
+    }
 
     RUN_PASS(eliminate_inlineable_constants)	
     //RUN_PASS(reconvergence_heuristics)
