@@ -478,7 +478,11 @@ void compute_rpo(CFG* cfg) {
 }
 
 bool is_cfnode_structural_target(CFNode* cfn) {
-    return entries_count_list(cfn->pred_edges) == 1 && read_list(CFEdge, cfn->pred_edges)[0].type != JumpEdge;
+    for (size_t i = 0; i < entries_count_list(cfn->pred_edges); i++) {
+        if (read_list(CFEdge, cfn->pred_edges)[0].type != JumpEdge)
+            return true;
+    }
+    return false;
 }
 
 CFNode* least_common_ancestor(CFNode* i, CFNode* j) {

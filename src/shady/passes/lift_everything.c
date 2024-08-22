@@ -39,6 +39,9 @@ static const Node* process(Context* ctx, const Node* node) {
             return new_fn;
         }
         case BasicBlock_TAG: {
+            CFNode* n = cfg_lookup(ctx->cfg, node);
+            if (is_cfnode_structural_target(n))
+                break;
             struct Dict* frontier = free_frontier(ctx->scheduler, ctx->cfg, node);
             // insert_dict(const Node*, Dict*, ctx->lift, node, frontier);
 
@@ -76,6 +79,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             register_processed(&fn_ctx->rewriter, node, new_bb);
             set_abstraction_body(new_bb, rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
+            destroy_rewriter(&bb_ctx.rewriter);
             return new_bb;
         }
         case Jump_TAG: {
