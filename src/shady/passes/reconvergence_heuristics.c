@@ -117,14 +117,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             BodyBuilder* outer_bb = begin_body_with_mem(arena, get_abstraction_mem(loop_container));
             Nodes inner_yield_types = strip_qualifiers(arena, get_param_types(arena, nparams));
 
-            CFNode* cf_pre = cfg_lookup(ctx->fwd_cfg, node);
-            // assert(cf_pre->idom && "cfg entry nodes can't be loop headers anyhow");
-            // cf_pre = cf_pre->idom;
-            // CFNodeVariables* pre = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_pre);
-
             LARRAY(Nodes, exit_param_allocas, exiting_nodes_count);
-            LARRAY(struct List*, leaking, exiting_nodes_count);
-            LARRAY(Nodes, exit_fwd_allocas, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
                 Nodes exit_param_types = rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
@@ -132,19 +125,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 for (size_t j = 0; j < exit_param_types.count; j++)
                     exit_param_allocas_tmp[j] = gen_stack_alloc(outer_bb, get_unqualified_type(exit_param_types.nodes[j]));
                 exit_param_allocas[i] = nodes(arena, exit_param_types.count, exit_param_allocas_tmp);
-
-                // Search for what's required after the exit but not in scope at the loop header
-                // this is similar to the LCSSA constraint, but here it's because controls have hard scopes
-                CFNode* cf_post = cfg_lookup(ctx->fwd_cfg, exiting_node->node);
-                // CFNodeVariables* post = *find_value_dict(CFNode*, CFNodeVariables*, ctx->live_vars, cf_post);
-                leaking[i] = new_list(const Type*);
-                // find_unbound_vars(exiting_node->node, pre->bound_by_dominators_set, post->free_set, leaking[i]);
-
-                size_t leaking_count = entries_count_list(leaking[i]);
-                LARRAY(const Node*, exit_fwd_allocas_tmp, leaking_count);
-                for (size_t j = 0; j < leaking_count; j++)
-                    exit_fwd_allocas_tmp[j] = gen_stack_alloc(outer_bb, rewrite_node(rewriter, get_unqualified_type(read_list(const Node*, leaking[i])[j]->type)));
-                exit_fwd_allocas[i] = nodes(arena, leaking_count, exit_fwd_allocas_tmp);
             }
 
             const Node* exit_destination_alloca = NULL;
@@ -208,7 +188,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             Node* inner_control_case = case_(arena, singleton(join_token_continue));
             register_processed(rewriter, get_abstraction_mem(node), get_abstraction_mem(inner_control_case));
-            const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
+            const Node* loop_body = rewrite_node(rewriter, get_abstraction_body(node));
 
             // save the context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -221,10 +201,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     gen_store(exit_wrapper_bb, exit_param_allocas[i].nodes[j], exit_wrapper_params.nodes[j]);
                 if (exiting_nodes_count > 1)
                     gen_store(exit_wrapper_bb, exit_destination_alloca, int32_literal(arena, i));
-
-                for (size_t j = 0; j < exit_fwd_allocas[i].count; j++) {
-                    gen_store(exit_wrapper_bb, exit_fwd_allocas[i].nodes[j], rewrite_node(rewriter, read_list(const Node*, leaking[i])[j]));
-                }
 
                 set_abstraction_body(exit_helpers[i], finish_body_with_join(exit_wrapper_bb, join_token_exit, empty(arena)));
             }
@@ -266,12 +242,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 Node* exit_bb = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, get_abstraction_mem(exit_bb));
 
-                // recover the context
-                for (size_t j = 0; j < exit_fwd_allocas[i].count; j++) {
-                    const Node* recovered = gen_load(exit_recover_bb, exit_fwd_allocas[i].nodes[j]);
-                    register_processed(rewriter, read_list(const Node*, leaking[i])[j], recovered);
-                }
-
                 const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
 
                 LARRAY(const Node*, recovered_args, exit_param_allocas[i].count);
@@ -281,7 +251,6 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 exit_numbers[i] = int32_literal(arena, i);
                 set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, nodes(arena, exit_param_allocas[i].count, recovered_args)));
                 exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena), bb_mem(outer_bb));
-                destroy_list(leaking[i]);
             }
 
             const Node* outer_body;
