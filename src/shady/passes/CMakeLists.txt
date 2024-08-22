@@ -38,4 +38,5 @@ target_sources(shady PRIVATE
     lift_everything.c
     scope_heuristic.c
     reconvergence_heuristics.c
+    lcssa.c
 )

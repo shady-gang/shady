@@ -479,7 +479,7 @@ void compute_rpo(CFG* cfg) {
 
 bool is_cfnode_structural_target(CFNode* cfn) {
     for (size_t i = 0; i < entries_count_list(cfn->pred_edges); i++) {
-        if (read_list(CFEdge, cfn->pred_edges)[0].type != JumpEdge)
+        if (read_list(CFEdge, cfn->pred_edges)[i].type != JumpEdge)
             return true;
     }
     return false;

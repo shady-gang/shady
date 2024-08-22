@@ -14,7 +14,6 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-
 typedef struct {
     Rewriter rewriter;
     struct Dict* lift;
@@ -103,13 +102,19 @@ static const Node* process(Context* ctx, const Node* node) {
 Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     IrArena* a = new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
-    Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .lift = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
-    };
-    rewrite_module(&ctx.rewriter);
-    destroy_dict(ctx.lift);
-    destroy_rewriter(&ctx.rewriter);
+    bool todo = true;
+    Module* dst;
+    while (todo) {
+        todo = false;
+        dst = new_module(a, get_module_name(src));
+        Context ctx = {
+            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+            .lift = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+        };
+        rewrite_module(&ctx.rewriter);
+        destroy_dict(ctx.lift);
+        destroy_rewriter(&ctx.rewriter);
+        src = dst;
+    }
     return dst;
 }
