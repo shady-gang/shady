@@ -104,39 +104,14 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
         visit_looptree_prepend(a, arr, node, surrounding);
 
         assert(surrounding.count < 2);
-        //if (surrounding.count == 1) {
-            CFG* sub_cfg = build_cfg(fn, surrounding.count == 1 ? surrounding.nodes[0] : fn, (CFGBuildConfig) {
-                .include_structured_tails = true,
-                .lt = lt
-            });
+        CFG* sub_cfg = build_cfg(fn, surrounding.count == 1 ? surrounding.nodes[0] : fn, (CFGBuildConfig) {
+            .include_structured_tails = true,
+            .lt = lt
+        });
 
-            visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, lt);
+        visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, lt);
 
-            destroy_cfg(sub_cfg);
-        //}
-    } else {
-        /*for (size_t i = 0; i < entries_count_list(node->cf_nodes); i++) {
-            CFNode* src = read_list(CFNode*, node->cf_nodes)[i];
-
-            if (entries_count_list(src->succ_edges) < 2)
-                continue; // no divergence, no bother
-
-            CFNode* f_src = cfg_lookup(flipped, src->node);
-            CFNode* f_src_ipostdom = f_src->idom;
-            if (!f_src_ipostdom)
-                continue;
-
-            // your post-dominator can't be yourself... can it ?
-            assert(f_src_ipostdom->node != src->node);
-
-            LTNode* src_lt = looptree_lookup(lt, src->node);
-            LTNode* pst_lt = looptree_lookup(lt, f_src_ipostdom->node);
-            assert(src_lt->type == LF_LEAF && pst_lt->type == LF_LEAF);
-            if (src_lt->parent == pst_lt->parent) {
-                log_string(DEBUGVV, "We have a candidate for reconvergence: a branch starts at %d and ends at %d\n", src->node->id, f_src_ipostdom->node->id);
-            }
-        }
-        assert(node->lf_children);*/
+        destroy_cfg(sub_cfg);
     }
 }
 
@@ -153,37 +128,22 @@ static bool loop_depth(LTNode* a) {
     return i;
 }
 
-static Nodes* compute_scope_depth(IrArena* a, CFG* cfg, CFG* flipped, LoopTree* lt) {
+static Nodes* compute_scope_depth(IrArena* a, CFG* cfg) {
+    CFG* flipped = build_fn_cfg_flipped(cfg->entry->node);
+    LoopTree* lt = build_loop_tree(cfg);
+
     Nodes* arr = calloc(sizeof(Nodes), cfg->size);
     for (size_t i = 0; i < cfg->size; i++)
         arr[i] = empty(a);
 
     visit_looptree(a, arr, cfg->entry->node, flipped, lt, lt->root);
 
-    /*for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* src = cfg->rpo[i];
-        if (entries_count_list(src->succ_edges) < 2)
-            continue; // no divergence, no bother
-
-        CFNode* f_src = cfg_lookup(flipped, src->node);
-        CFNode* f_src_ipostdom = f_src->idom;
-        if (!f_src_ipostdom)
-            continue;
-
-        // your post-dominator can't be yourself... can it ?
-        assert(f_src_ipostdom->node != src->node);
-
-        LTNode* src_lt = looptree_lookup(lt, src->node);
-        LTNode* pst_lt = looptree_lookup(lt, f_src_ipostdom->node);
-        assert(src_lt->type == LF_LEAF && pst_lt->type == LF_LEAF);
-        if (src_lt->parent == pst_lt->parent) {
-            log_string(DEBUGVV, "We have a candidate for reconvergence: a branch starts at %d and ends at %d\n", src->node->id, f_src_ipostdom->node->id);
-        }
-    }*/
-
     // we don't want to cause problems by holding onto pointless references...
     for (size_t i = 0; i < cfg->size; i++)
         arr[i] = to_ids(a, arr[i]);
+
+    destroy_loop_tree(lt);
+    destroy_cfg(flipped);
 
     return arr;
 }
@@ -195,16 +155,12 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
-            CFG* flipped = build_fn_cfg_flipped(node);
-            LoopTree* lt = build_loop_tree(fn_ctx.cfg);
-            fn_ctx.depth_per_rpo = compute_scope_depth(a, fn_ctx.cfg, flipped, lt);
+            fn_ctx.depth_per_rpo = compute_scope_depth(a, fn_ctx.cfg);
             Node* new_fn = recreate_decl_header_identity(r, node);
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), empty(a));
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_fn, finish_body(bb, rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
-            destroy_loop_tree(lt);
-            destroy_cfg(flipped);
             destroy_cfg(fn_ctx.cfg);
             free(ctx->depth_per_rpo);
             return new_fn;
@@ -216,12 +172,6 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed(r, node, new_bb);
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_bb));
             CFNode* n = cfg_lookup(ctx->cfg, node);
-            /*Nodes path = empty(a);
-            while (n->idom) {
-                path = prepend_nodes(a, path, uint32_literal(a, n->idom->rpo_index));
-                n = n->idom;
-            }
-            gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), path);*/
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), ctx->depth_per_rpo[n->rpo_index]);
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_bb, finish_body(bb, rewrite_node(r, get_abstraction_body(node))));
