@@ -75,7 +75,7 @@ static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, 
 }
 
 static const Node* process_abstraction(Context* ctx, const Node* node) {
-    assert(is_abstraction(node));
+    assert(node && is_abstraction(node));
     Context new_context = *ctx;
     ctx = &new_context;
     ctx->current_abstraction = node;
@@ -321,7 +321,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(ctx->fwd_cfg);
 
             CFNode* cfnode = cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
-            const Node* idom = NULL;
+            const Node* post_dominator = NULL;
 
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
             assert(current_loop);
@@ -348,24 +348,24 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     });
                     CFNode* idom_cf = cfg_lookup(loop_cfg, ctx->current_abstraction)->idom;
                     if (idom_cf)
-                        idom = idom_cf->node;
+                        post_dominator = idom_cf->node;
                     destroy_cfg(loop_cfg);
                 }
             } else {
-                idom = cfnode->idom->node;
+                post_dominator = cfnode->idom->node;
             }
 
-            if (!idom) {
+            if (!post_dominator) {
                 break;
             }
 
-            if (cfg_lookup(ctx->fwd_cfg, idom)->idom->node != ctx->current_abstraction)
+            if (cfg_lookup(ctx->fwd_cfg, post_dominator)->idom->node != ctx->current_abstraction)
                 break;
 
-            assert(is_abstraction(idom) && idom->tag != Function_TAG);
+            assert(is_abstraction(post_dominator) && post_dominator->tag != Function_TAG);
 
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom);
+            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, post_dominator);
             CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
 
             assert(lt_node);
@@ -378,7 +378,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes yield_types;
             Nodes exit_args;
 
-            Nodes old_params = get_abstraction_params(idom);
+            Nodes old_params = get_abstraction_params(post_dominator);
 
             if (old_params.count == 0) {
                 yield_types = empty(a);
@@ -408,25 +408,25 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(a, exit_args, format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(idom)));
+            Node* pre_join = basic_block(a, exit_args, format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(post_dominator)));
             set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args,
                 .mem = get_abstraction_mem(pre_join),
             }));
 
-            const Node* cached = search_processed(r, idom);
+            const Node* cached = search_processed(r, post_dominator);
             if (cached)
-                remove_dict(const Node*, is_declaration(idom) ? r->decls_map : r->map, idom);
+                remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(r, old_params.nodes[i]));
             }
 
-            register_processed(r, idom, pre_join);
+            register_processed(r, post_dominator, pre_join);
 
-            remove_dict(const Node*, is_declaration(idom) ? r->decls_map : r->map, idom);
+            remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             if (cached)
-                register_processed(r, idom, cached);
+                register_processed(r, post_dominator, cached);
 
             Node* control_case = case_(a, singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
@@ -436,7 +436,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .false_jump = jump_helper(a, rewrite_node(r, payload.false_jump->payload.jump.target), rewrite_nodes(r, payload.false_jump->payload.jump.args), get_abstraction_mem(control_case)),
             });
             set_abstraction_body(control_case, inner_terminator);
-            const Node* join_target = rewrite_node(r, idom);
+            const Node* join_target = rewrite_node(r, post_dominator);
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.branch.mem));
             Nodes results = gen_control(bb, yield_types, control_case);
