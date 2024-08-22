@@ -182,8 +182,12 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
 
         CFNode* src_cfnode = cfg_lookup(cfg, src);
         assert(src_cfnode->node);
-        CFNode* target_cfnode = cfg_lookup(cfg, dst);
-        assert(src_cfnode && target_cfnode);
+        CFNode* dst_cfnode = cfg_lookup(cfg, dst);
+        assert(src_cfnode && dst_cfnode);
+
+        // if(!cfg_is_dominated(dst_cfnode, src_cfnode))
+        //     return;
+
         CFNode* dom = src_cfnode->idom;
         while (dom) {
             debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
@@ -195,6 +199,11 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
             } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
                 error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
             } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
+                // if (cfg_is_dominated(target_cfnode, dom)) {
+                if (!cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
+                    // assert(false);
+                }
+
                 debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
 
                 Controls* controls = get_or_create_controls(ctx, dom->node);

@@ -36,4 +36,5 @@ target_sources(shady PRIVATE
     lower_entrypoint_args.c
     scope2control.c
     lift_everything.c
+    scope_heuristic.c
 )

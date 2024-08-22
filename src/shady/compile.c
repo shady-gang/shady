@@ -46,8 +46,13 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     // we don't want to mess with the original module
     *pmod = import(config, *pmod);
+    log_string(DEBUG, "After import:\n");
+    log_module(DEBUG, config, *pmod);
 
     if (config->input_cf.has_scope_annotations) {
+        if (config->hacks.restructure_everything) {
+            RUN_PASS(scope_heuristic)
+        }
         RUN_PASS(lift_everything)
         RUN_PASS(scope2control)
     }

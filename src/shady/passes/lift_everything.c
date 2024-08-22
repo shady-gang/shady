@@ -67,7 +67,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             Context* fn_ctx = ctx;
             while (fn_ctx->rewriter.parent) {
-                Context* parent_ctx = (Context*) ctx->rewriter.parent;
+                Context* parent_ctx = (Context*) fn_ctx->rewriter.parent;
                 if (parent_ctx->cfg)
                     fn_ctx = parent_ctx;
                 else

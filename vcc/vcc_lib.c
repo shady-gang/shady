@@ -57,7 +57,8 @@ VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     };
 
     // magic!
-    compiler_config->hacks.recover_structure = true;
+    //compiler_config->hacks.recover_structure = true;
+    compiler_config->hacks.restructure_everything = true;
     compiler_config->input_cf.has_scope_annotations = true;
 
     String self_path = get_executable_location();

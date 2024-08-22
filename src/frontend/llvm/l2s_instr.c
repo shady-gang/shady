@@ -110,7 +110,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
 
     //if (LLVMIsATerminatorInst(instr)) {
     //if (LLVMIsAInstruction(instr) && !LLVMIsATerminatorInst(instr)) {
-    if (LLVMIsAInstruction(instr)) {
+    if (LLVMIsAInstruction(instr) && p->config->hacks.recover_structure) {
         assert(fn && fn_or_bb);
         LLVMMetadataRef dbgloc = LLVMInstructionGetDebugLoc(instr);
         if (dbgloc) {

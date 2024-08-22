@@ -259,7 +259,7 @@ static void dump_lt_node(FILE* f, const LTNode* n) {
 
     for (size_t i = 0; i < entries_count_list(n->cf_nodes); i++) {
         const Node* bb = read_list(const CFNode*, n->cf_nodes)[i]->node;
-        fprintf(f, "%s_%d;\n", get_abstraction_name(bb), extra_uniqueness++);
+        fprintf(f, "bb_%d[label=\"%s\"];\n", extra_uniqueness++, get_abstraction_name_safe(bb));
     }
 
     for (size_t i = 0; i < entries_count_list(n->lf_children); i++) {

@@ -106,6 +106,13 @@ static inline CFGBuildConfig forward_cfg_build(bool include_structured_tails) {
         .include_structured_tails = include_structured_tails,
     };
 }
+static inline CFGBuildConfig flipped_cfg_build(bool include_structured_tails) {
+    return (CFGBuildConfig) {
+        .include_structured_tails = include_structured_tails,
+        .lt = NULL,
+        .flipped = true,
+    };
+}
 
 #define build_fn_cfg(node) build_cfg(node, node, forward_cfg_build(true))
 
@@ -113,13 +120,13 @@ static inline CFGBuildConfig forward_cfg_build(bool include_structured_tails) {
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  * This CFG will contain post dominance information instead of regular dominance!
  */
-#define build_fn_cfg_flipped(node) build_cfg(node, node, NULL, true)
+#define build_fn_cfg_flipped(node) build_cfg(node, node, flipped_cfg_build(true))
 
 CFNode* cfg_lookup(CFG* cfg, const Node* abs);
 void compute_rpo(CFG*);
 void compute_domtree(CFG*);
 
-bool cfg_is_dominated(CFNode* a, CFNode* b);
+bool cfg_is_dominated(CFNode* dominated, CFNode* by);
 
 bool is_cfnode_structural_target(CFNode*);
 

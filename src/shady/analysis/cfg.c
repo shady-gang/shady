@@ -90,17 +90,19 @@ static CFNode* get_or_enqueue(CfgBuildContext* ctx, const Node* abs) {
     return new;
 }
 
-static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
+static bool in_loop(LoopTree* lt, const Node* fn, const Node* loopentry, const Node* block) {
     LTNode* lt_node = looptree_lookup(lt, block);
     assert(lt_node);
     LTNode* parent = lt_node->parent;
     assert(parent);
 
     while (parent) {
-        if (entries_count_list(parent->cf_nodes) != 1)
-            return false;
+        // we're not in a loop like we're expected to
+        if (entries_count_list(parent->cf_nodes) == 0 && loopentry == fn)
+            return true;
 
-        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+        // we are in the loop we were expected to
+        if (entries_count_list(parent->cf_nodes) == 1 && read_list(CFNode*, parent->cf_nodes)[0]->node == loopentry)
             return true;
 
         parent = parent->parent;
@@ -113,7 +115,7 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
 static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type, const Node* j) {
     assert(is_abstraction(src) && is_abstraction(dst));
     assert(!is_function(dst));
-    if (ctx->lt && !in_loop(ctx->lt, ctx->entry, dst))
+    if (ctx->lt && !in_loop(ctx->lt, ctx->function, ctx->entry, dst))
         return;
     if (ctx->lt && dst == ctx->entry) {
         return;
@@ -205,13 +207,13 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 add_structural_dominance_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
                 return;
             } case Control_TAG: {
-                if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
                 //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 const Node* tail = get_structured_construct_tail(terminator);
                 insert_dict(const Node*, const Node*, ctx->join_point_values, param, tail);
                 add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+                if (ctx->include_structured_tails)
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
                 return;
             } case MergeSelection_TAG: {
                 assert(ctx->selection_construct_tail);

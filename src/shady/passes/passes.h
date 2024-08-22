@@ -19,6 +19,7 @@ RewritePass lower_cf_instrs;
 /// Uses shady.scope annotations to insert control blocks
 RewritePass scope2control;
 RewritePass lift_everything;
+RewritePass scope_heuristic;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 //RewritePass reconvergence_heuristics;
 
