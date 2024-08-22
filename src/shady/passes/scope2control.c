@@ -123,6 +123,12 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         assert(jp_type->tag == JoinPointType_TAG);
         Nodes results = gen_control(bb, jp_type->payload.join_point_type.yield_types, control_case);
 
+        Nodes original_params = get_abstraction_params(dst);
+        for (size_t j = 0; j < results.count; j++) {
+            if (is_qualified_type_uniform(original_params.nodes[j]->type))
+                results = change_node_at_index(a, results, j, gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(results.nodes[j])));
+        }
+
         c = c2;
         set_abstraction_body(c2, finish_body(bb, jump_helper(a, find_processed(r, dst), results, bb_mem(bb))));
     }
