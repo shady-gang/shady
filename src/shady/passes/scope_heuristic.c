@@ -60,10 +60,14 @@ static void paint_dominated_up_to_postdom(CFNode* n, IrArena* a, Nodes* arr, con
     arr[n->rpo_index] = prepend_nodes(a, arr[n->rpo_index], prefix);
 }
 
-static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* flipped, LoopTree* lt) {
+static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* flipped, LTNode* loop, LoopTree* lt) {
+    LTNode* ltn = looptree_lookup(lt, n->node);
+    if (ltn->parent != loop)
+        return;
+
     for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
         CFNode* dominated = read_list(CFNode*, n->dominates)[i];
-        visit_acyclic_cfg_domtree(dominated, a, arr, flipped, lt);
+        visit_acyclic_cfg_domtree(dominated, a, arr, flipped, loop, lt);
     }
 
     CFNode* src = n;
@@ -91,9 +95,11 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
 static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped, LoopTree* lt, LTNode* node) {
     if (node->type == LF_HEAD) {
         Nodes surrounding = empty(a);
+        bool is_loop = false;
         for (size_t i = 0; i < entries_count_list(node->cf_nodes); i++) {
             CFNode* n = read_list(CFNode*, node->cf_nodes)[i];
             surrounding = append_nodes(a, surrounding, n->node);
+            is_loop = true;
         }
 
         for (size_t i = 0; i < entries_count_list(node->lf_children); i++) {
@@ -101,7 +107,15 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
             visit_looptree(a, arr, fn, flipped, lt, n);
         }
 
-        if (entries_count_list(node->cf_nodes) > 0)
+        assert(entries_count_list(node->cf_nodes) < 2);
+        CFG* sub_cfg = build_cfg(fn, is_loop ? read_list(CFNode*, node->cf_nodes)[0]->node : fn, (CFGBuildConfig) {
+            .include_structured_tails = true,
+            .lt = lt
+        });
+
+        visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, node, lt);
+
+        if (is_loop > 0)
             surrounding = prepend_nodes(a, surrounding, string_lit_helper(a, unique_name(a, "loop_body")));
 
         visit_looptree_prepend(a, arr, node, surrounding);
@@ -112,14 +126,6 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
             assert(old.count > 1);
             arr[n->rpo_index] = nodes(a, old.count - 1, &old.nodes[0]);
         }
-
-        assert(entries_count_list(node->cf_nodes) < 2);
-        CFG* sub_cfg = build_cfg(fn, surrounding.count == 1 ? surrounding.nodes[0] : fn, (CFGBuildConfig) {
-            .include_structured_tails = true,
-            .lt = lt
-        });
-
-        // visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, lt);
 
         destroy_cfg(sub_cfg);
     }
@@ -139,22 +145,21 @@ static bool loop_depth(LTNode* a) {
 }
 
 static Nodes* compute_scope_depth(IrArena* a, CFG* cfg) {
-    //CFG* flipped = build_fn_cfg_flipped(cfg->entry->node);
+    CFG* flipped = build_fn_cfg_flipped(cfg->entry->node);
     LoopTree* lt = build_loop_tree(cfg);
 
     Nodes* arr = calloc(sizeof(Nodes), cfg->size);
     for (size_t i = 0; i < cfg->size; i++)
         arr[i] = empty(a);
 
-    //visit_looptree(a, arr, cfg->entry->node, flipped, lt, lt->root);
-    visit_looptree(a, arr, cfg->entry->node, NULL, lt, lt->root);
+    visit_looptree(a, arr, cfg->entry->node, flipped, lt, lt->root);
 
     // we don't want to cause problems by holding onto pointless references...
     for (size_t i = 0; i < cfg->size; i++)
         arr[i] = to_ids(a, arr[i]);
 
     destroy_loop_tree(lt);
-    //destroy_cfg(flipped);
+    destroy_cfg(flipped);
 
     return arr;
 }
@@ -173,7 +178,7 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_fn, finish_body(bb, rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
             destroy_cfg(fn_ctx.cfg);
-            free(ctx->depth_per_rpo);
+            free(fn_ctx.depth_per_rpo);
             return new_fn;
         }
         case BasicBlock_TAG: {
