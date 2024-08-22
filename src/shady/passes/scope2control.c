@@ -314,18 +314,19 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
+    rewrite_module(&ctx.rewriter);
+
     size_t i = 0;
-    Controls controls;
+    Controls* controls;
     while (dict_iter(ctx.controls, &i, NULL, &controls)) {
-        size_t j = 0;
-        AddControl add_control;
+        //size_t j = 0;
+        //AddControl add_control;
         // while (dict_iter(controls.control_destinations, &j, NULL, &add_control)) {
         //     destroy_list(add_control.lift);
         // }
-        destroy_dict(controls.control_destinations);
+        destroy_dict(controls->control_destinations);
     }
 
-    rewrite_module(&ctx.rewriter);
     destroy_dict(ctx.controls);
     destroy_dict(ctx.jump2wrapper);
     destroy_arena(ctx.arena);
