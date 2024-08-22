@@ -1151,7 +1151,10 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op) 
 
 void print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
     print_operand_name_helper(ctx, name);
+    if (op_class == NcBasic_block)
+        print(ctx->printer, BYELLOW);
     print_operand_helper(ctx, op_class, op);
+    print(ctx->printer, RESET);
 }
 
 void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {

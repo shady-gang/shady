@@ -33,6 +33,21 @@ static void print_node_helper(Printer* p, const Node* n) {
     free((void*)label);
 }
 
+static const Nodes* find_scope_info(const Node* abs) {
+    assert(is_abstraction(abs));
+    const Node* terminator = get_abstraction_body(abs);
+    const Node* mem = get_terminator_mem(terminator);
+    Nodes* info = NULL;
+    while (mem) {
+        if (mem->tag == ExtInstr_TAG && strcmp(mem->payload.ext_instr.set, "shady.scope") == 0) {
+            if (!info || info->count > mem->payload.ext_instr.operands.count)
+                info = &mem->payload.ext_instr.operands;
+        }
+        mem = get_parent_mem(mem);
+    }
+    return info;
+}
+
 static void dump_cf_node(FILE* output, const CFNode* n) {
     const Node* bb = n->node;
     const Node* body = get_abstraction_body(bb);
@@ -40,8 +55,14 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         return;
 
     String color = "black";
-    if (is_basic_block(bb))
-        color = "blue";
+    switch (body->tag) {
+        case If_TAG: color = "blue"; break;
+        case Loop_TAG: color = "red"; break;
+        case Control_TAG: color = "orange"; break;
+        case Return_TAG: color = "teal"; break;
+        case Unreachable_TAG: color = "teal"; break;
+        default: break;
+    }
 
     Growy* g = new_growy();
     Printer* p = open_growy_as_printer(g);
@@ -50,8 +71,19 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     print(p, "%s: \n%d: ", abs_name, bb->id);
 
-    print_node_helper(p, body);
-    print(p, "\\l");
+    if (getenv("SHADY_CFG_SCOPE_ONLY")) {
+        const Nodes* scope = find_scope_info(bb);
+        if (scope) {
+            for (size_t i = 0; i < scope->count; i++) {
+                print(p, "%d", scope->nodes[i]->id);
+                if (i + 1 < scope->count)
+                    print(p, ", ");
+            }
+        }
+    } else {
+        print_node_helper(p, body);
+        print(p, "\\l");
+    }
     print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? get_abstraction_name_safe(n->structured_idom->node) : "null");
 
     String label = printer_growy_unwrap(p);
@@ -88,7 +120,7 @@ static void dump_cfg(FILE* output, CFG* cfg) {
                 case StructuredEnterBodyEdge: edge_color = "blue"; break;
                 case StructuredLeaveBodyEdge: edge_color = "red"; break;
                 case StructuredTailEdge: edge_style = "dashed"; break;
-                case StructuredLoopContinue: edge_style = "dotted"; break;
+                case StructuredLoopContinue: edge_style = "dotted"; edge_color = "orange"; break;
                 default: break;
             }
 
