@@ -424,10 +424,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             register_processed(r, post_dominator, pre_join);
 
-            remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
-            if (cached)
-                register_processed(r, post_dominator, cached);
-
             Node* control_case = case_(a, singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = get_abstraction_mem(control_case),
@@ -436,6 +432,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .false_jump = jump_helper(a, rewrite_node(r, payload.false_jump->payload.jump.target), rewrite_nodes(r, payload.false_jump->payload.jump.args), get_abstraction_mem(control_case)),
             });
             set_abstraction_body(control_case, inner_terminator);
+
+            remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
+            if (cached)
+                register_processed(r, post_dominator, cached);
+
             const Node* join_target = rewrite_node(r, post_dominator);
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.branch.mem));
@@ -449,6 +450,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
 Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
