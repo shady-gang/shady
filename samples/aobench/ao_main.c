@@ -149,7 +149,7 @@ int main(int argc, char **argv) {
         .runtime_config = default_runtime_config(),
     };
 
-    args.compiler_config.hacks.restructure_everything = true;
+    args.compiler_config.input_cf.restructure_with_heuristics = true;
 
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.compiler_config, &argc, argv);

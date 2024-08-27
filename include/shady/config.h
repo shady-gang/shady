@@ -67,6 +67,8 @@ struct CompilerConfig_ {
     } target_spirv_version;
 
     struct {
+        bool restructure_with_heuristics;
+        bool add_scope_annotations;
         bool has_scope_annotations;
     } input_cf;
 
@@ -83,8 +85,6 @@ struct CompilerConfig_ {
     struct {
         bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
-        bool restructure_everything;
-        bool recover_structure;
     } hacks;
 
     struct {

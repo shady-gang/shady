@@ -91,8 +91,9 @@ F(config->logging.print_internal, print-internal) \
 F(config->logging.print_generated, print-builtin) \
 F(config->logging.print_generated, print-generated) \
 F(config->optimisations.inline_everything, inline-everything) \
-F(config->hacks.restructure_everything, restructure-everything) \
-F(config->hacks.recover_structure, recover-structure) \
+F(config->input_cf.restructure_with_heuristics, restructure-everything) \
+F(config->input_cf.add_scope_annotations, add-scope-annotations) \
+F(config->input_cf.has_scope_annotations, has-scope-annotations) \
 
 static IntSizes parse_int_size(String argv) {
     if (strcmp(argv, "8") == 0)

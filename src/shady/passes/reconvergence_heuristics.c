@@ -289,7 +289,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             ctx = &new_context;
             ctx->current_fn = NULL;
-            if (!(lookup_annotation(node, "Restructure") || ctx->config->hacks.restructure_everything))
+            if (!(lookup_annotation(node, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
 
             ctx->current_fn = node;
@@ -311,12 +311,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             break;
         }
         case BasicBlock_TAG:
-            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
+            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
             Branch payload = node->payload.branch;
-            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->hacks.restructure_everything))
+            if (!ctx->current_fn || !(lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
             assert(ctx->fwd_cfg);
 
