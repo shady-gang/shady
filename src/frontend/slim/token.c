@@ -37,6 +37,8 @@ typedef struct Tokenizer_ {
     const size_t source_size;
     
     size_t pos;
+    size_t line;
+    size_t last_line_pos;
     Token current;
 } Tokenizer;
 
@@ -50,7 +52,8 @@ Tokenizer* new_tokenizer(const char* source) {
     Tokenizer tokenizer = (Tokenizer) {
         .source = source,
         .source_size = strlen(source),
-        .pos = 0
+        .pos = 0,
+        .line = 1,
     };
     memcpy(alloc, &tokenizer, sizeof(Tokenizer));
     next_token(alloc);
@@ -65,7 +68,7 @@ static bool in_bounds(Tokenizer* tokenizer, size_t offset_to_slice) {
     return (tokenizer->pos + offset_to_slice) <= tokenizer->source_size;
 }
 
-const char whitespace[] = { ' ', '\t', '\n', '\r' };
+const char whitespace[] = { ' ', '\t', '\r' };
 
 static inline bool is_alpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
 static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
@@ -75,7 +78,11 @@ static inline bool can_make_up_identifier(char c) { return can_start_identifier(
 
 static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
     while (tokenizer->pos < tokenizer->source_size) {
-        if (is_whitespace(tokenizer->source[tokenizer->pos])) {
+        if (tokenizer->source[tokenizer->pos] == '\n') {
+            tokenizer->line++;
+            tokenizer->pos++;
+            tokenizer->last_line_pos = tokenizer->pos;
+        } else if (is_whitespace(tokenizer->source[tokenizer->pos])) {
             tokenizer->pos++;
         } else if (tokenizer->pos + 2 <= tokenizer->source_size && tokenizer->source[tokenizer->pos] == '/' && tokenizer->source[tokenizer->pos + 1] == '/') {
             while (tokenizer->pos < tokenizer->source_size) {
@@ -195,14 +202,21 @@ Token next_token(Tokenizer* tokenizer) {
     token.end = token.start + token_size;
     tokenizer->current = token;
 
-    debugvv_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
-    if (token.tag == identifier_tok || token.tag == string_lit_tok) {
-        debugvv_print(", str=");
-        for (size_t i = token.start; i < token.end; i++)
-            debugvv_print("%c", tokenizer->source[i]);
-    }
-    debugvv_print(")\n");
+    // debugvv_print("Token parsed: (tag = %s, pos = %zu", token_tags[token.tag], token.start);
+    // if (token.tag == identifier_tok || token.tag == string_lit_tok) {
+    //     debugvv_print(", str=");
+    //     for (size_t i = token.start; i < token.end; i++)
+    //         debugvv_print("%c", tokenizer->source[i]);
+    // }
+    // debugvv_print(")\n");
     return token;
+}
+
+Loc current_loc(Tokenizer* tokenizer) {
+    return (Loc) {
+        .line = tokenizer->line,
+        .column = tokenizer->pos - tokenizer->last_line_pos
+    };
 }
 
 Token curr_token(Tokenizer* tokenizer) {

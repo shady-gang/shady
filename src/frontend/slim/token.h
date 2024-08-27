@@ -120,6 +120,12 @@ typedef struct {
     size_t end;
 } Token;
 
+typedef struct {
+    size_t line, column;
+} Loc;
+
+Loc current_loc(Tokenizer* tokenizer);
+
 Token curr_token(Tokenizer* tokenizer);
 Token next_token(Tokenizer* tokenizer);
 

@@ -2,6 +2,7 @@
 #define SHADY_LOG_H
 
 #include <stdio.h>
+#include <stdarg.h>
 
 typedef struct Node_ Node;
 typedef struct Module_ Module;
@@ -17,6 +18,7 @@ typedef enum LogLevel_ {
 
 LogLevel get_log_level();
 void set_log_level(LogLevel);
+void log_fmtv(LogLevel level, const char* format, va_list args);
 void log_string(LogLevel level, const char* format, ...);
 void log_node(LogLevel level, const Node* node);
 typedef struct CompilerConfig_ CompilerConfig;

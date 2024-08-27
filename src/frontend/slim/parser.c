@@ -55,11 +55,86 @@ INFIX_OPERATORS()
 #define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED const char* contents, SHADY_UNUSED Module* mod, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
 #define ctx config, contents, mod, arena, tokenizer
 
-#define expect(condition) expect_impl(condition, #condition)
-static void expect_impl(bool condition, const char* err) {
+static void error_with_loc(ctxparams) {
+    Loc loc = current_loc(tokenizer);
+    size_t startline = loc.line - 2;
+    if (startline < 1) startline = 1;
+    size_t endline = startline + 5;
+
+    int numdigits = 1;
+    int e = endline;
+    while (e >= 10) {
+        numdigits++;
+        e /= 10;
+    }
+    LARRAY(char, digits, numdigits);
+    // char* digits = malloc(sizeof(char) * numdigits);
+
+    size_t line = 1;
+    size_t len = strlen(contents);
+    for (size_t i = 0; i < len; i++) {
+        if (line >= startline && line <= endline) {
+            log_string(ERROR, "%c", contents[i]);
+        }
+        if (contents[i] == '\n') {
+            if (line == loc.line) {
+                for (size_t digit = 0; digit < numdigits; digit++) {
+                    log_string(ERROR, " ");
+                }
+                log_string(ERROR, "  ");
+                for (size_t j = 1; j < loc.column; j++) {
+                    log_string(ERROR, " ");
+                }
+                log_string(ERROR, "^");
+                log_string(ERROR, "\n");
+            }
+            line++;
+
+            if (line >= startline && line <= endline) {
+                size_t l = line, digit;
+                for (digit = 0; digit < numdigits; digit++) {
+                    if (l == 0)
+                        break;
+                    digits[numdigits - 1 - digit] = (char) ('0' + (l % 10));
+                    l /= 10;
+                }
+                for (; digit < numdigits; digit++) {
+                    digits[numdigits - 1 - digit] = (char) ' ';
+                }
+                for (digit = 0; digit < numdigits; digit++) {
+                    log_string(ERROR, "%c", digits[numdigits - 1 - digit]);
+                }
+                log_string(ERROR, ": ");
+            }
+        }
+    }
+    log_string(ERROR, "At %d:%d, ", loc.line, loc.column);
+}
+
+#define syntax_error(condition) syntax_error_impl(ctx, condition)
+#define syntax_error_fmt(condition, ...) syntax_error_impl(ctx, condition, __VA_ARGS__)
+static void syntax_error_impl(ctxparams, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    error_with_loc(ctx);
+    log_fmtv(ERROR, format, args);
+    log_string(ERROR, "\n");
+    exit(-4);
+    va_end(args);
+}
+
+#define expect(condition, format, ...) expect_impl(ctx, condition, format)
+#define expect_fmt(condition, format, ...) expect_impl(ctx, condition, format, __VA_ARGS__)
+static void expect_impl(ctxparams, bool condition, const char* format, ...) {
     if (!condition) {
-        error_print("expected to parse: %s\n", err);
+        va_list args;
+        va_start(args, format);
+        error_with_loc(ctx);
+        log_string(ERROR, "expected ");
+        log_fmtv(ERROR, format, args);
+        log_string(ERROR, "\n");
         exit(-4);
+        va_end(args);
     }
 }
 
@@ -128,14 +203,14 @@ static const Node* accept_numerical_literal(ctxparams) {
     switch (tok.tag) {
         case hex_lit_tok:
             if (negate)
-                error("hexadecimal literals can't start with '-'");
+                syntax_error("hexadecimal literals can't start with '-'");
         case dec_lit_tok: {
             next_token(tokenizer);
             break;
         }
         default: {
             if (negate || num_type)
-                error("expected numerical literal");
+                syntax_error("expected numerical literal");
             return NULL;
         }
     }
@@ -161,7 +236,7 @@ static Nodes accept_type_arguments(ctxparams) {
     if (accept_token(ctx, lsbracket_tok)) {
         while (true) {
             const Type* t = accept_unqualified_type(ctx);
-            expect(t);
+            expect(t, "unqualified type");
             ty_args = append_nodes(arena, ty_args, t);
             if (accept_token(ctx, comma_tok))
                 continue;
@@ -205,23 +280,23 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
 
             if (op != PRIMOPS_COUNT) {
                 if (!bb)
-                    error("can't have primops here");
+                    syntax_error("primops cannot be used outside of a function");
                 return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
                     .op = op,
                     .type_arguments = accept_type_arguments(ctx),
                     .operands = expect_operands(ctx, bb)
                 }));
             } else if (strcmp(id, "ext_instr") == 0) {
-                expect(accept_token(ctx, lsbracket_tok));
+                expect(accept_token(ctx, lsbracket_tok), "'['");
                 const Node* set = accept_value(ctx, NULL);
-                assert(set->tag == StringLiteral_TAG);
-                expect(accept_token(ctx, comma_tok));
+                expect(set->tag == StringLiteral_TAG, "string literal");
+                expect(accept_token(ctx, comma_tok), "','");
                 const Node* opcode = accept_value(ctx, NULL);
-                assert(opcode->tag == UntypedNumber_TAG);
-                expect(accept_token(ctx, comma_tok));
+                expect(opcode->tag == UntypedNumber_TAG, "number");
+                expect(accept_token(ctx, comma_tok), "','");
                 const Type* type = accept_qualified_type(ctx);
-                expect(type);
-                expect(accept_token(ctx, rsbracket_tok));
+                expect(type, "type");
+                expect(accept_token(ctx, rsbracket_tok), "]");
                 Nodes ops = expect_operands(ctx, bb);
                 return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
                     .result_t = type,
@@ -233,7 +308,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             } else if (strcmp(id, "alloca") == 0) {
                 const Node* type = first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);
-                expect(ops.count == 0);
+                expect(ops.count == 0, "no operands");
                 return bind_instruction_single(bb, stack_alloc(arena, (StackAlloc) {
                     .type = type,
                     .mem = bb_mem(bb),
@@ -281,7 +356,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 append_list(const Node*, elements, atom);
 
                 while (!accept_token(ctx, rpar_tok)) {
-                    expect(accept_token(ctx, comma_tok));
+                    expect(accept_token(ctx, comma_tok), "','");
                     const Node* element = expect_operand(ctx, bb);
                     append_list(const Node*, elements, element);
                 }
@@ -295,7 +370,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         case composite_tok: {
             next_token(tokenizer);
             const Type* elem_type = accept_unqualified_type(ctx);
-            expect(elem_type);
+            expect(elem_type, "composite data type");
             Nodes elems = expect_operands(ctx, bb);
             return composite_helper(arena, elem_type, elems);
         }
@@ -328,22 +403,18 @@ static const Type* accept_unqualified_type(ctxparams) {
         return mask_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
         AddressSpace as = accept_address_space(ctx);
-        if (as == NumAddressSpaces) {
-            error("expected address space qualifier");
-        }
+        expect(as != NumAddressSpaces, "address space");
         const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type);
+        expect(elem_type, "data type");
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
         });
     } else if (accept_token(ctx, ref_tok)) {
         AddressSpace as = accept_address_space(ctx);
-        if (as == NumAddressSpaces) {
-            error("expected address space qualifier");
-        }
+        expect(as != NumAddressSpaces, "address space");
         const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type);
+        expect(elem_type, "data type");
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
@@ -351,44 +422,44 @@ static const Type* accept_unqualified_type(ctxparams) {
         });
     } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type);
+        expect(elem_type, "type");
         const Node* size = NULL;
-        if(accept_token(ctx, semi_tok)) {
+        if (accept_token(ctx, semi_tok)) {
             size = accept_value(ctx, NULL);
-            expect(size);
+            expect(size, "value");
         }
-        expect(accept_token(ctx, rsbracket_tok));
+        expect(accept_token(ctx, rsbracket_tok), "']'");
         return arr_type(arena, (ArrType) {
             .element_type = elem_type,
             .size = size
         });
     } else if (accept_token(ctx, pack_tok)) {
-        expect(accept_token(ctx, lsbracket_tok));
+        expect(accept_token(ctx, lsbracket_tok), "'['");
         const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type);
+        expect(elem_type, "packed element type");
         const Node* size = NULL;
-        expect(accept_token(ctx, semi_tok));
+        expect(accept_token(ctx, semi_tok), "';'");
         size = accept_numerical_literal(ctx);
-        expect(size && size->tag == UntypedNumber_TAG);
-        expect(accept_token(ctx, rsbracket_tok));
+        expect(size && size->tag == UntypedNumber_TAG, "number");
+        expect(accept_token(ctx, rsbracket_tok), "']'");
         return pack_type(arena, (PackType) {
             .element_type = elem_type,
             .width = strtoll(size->payload.untyped_number.plaintext, NULL, 10)
         });
     } else if (accept_token(ctx, struct_tok)) {
-        expect(accept_token(ctx, lbracket_tok));
+        expect(accept_token(ctx, lbracket_tok), "'{'");
         struct List* names = new_list(String);
         struct List* types = new_list(const Type*);
         while (true) {
             if (accept_token(ctx, rbracket_tok))
                 break;
             const Type* elem = accept_unqualified_type(ctx);
-            expect(elem);
+            expect(elem, "struct member type");
             String id = accept_identifier(ctx);
-            expect(id);
+            expect(id, "struct member name");
             append_list(String, names, id);
             append_list(const Type*, types, elem);
-            expect(accept_token(ctx, semi_tok));
+            expect(accept_token(ctx, semi_tok), "';'");
         }
         Nodes elem_types = nodes(arena, entries_count_list(types), read_list(const Type*, types));
         Strings names2 = strings(arena, entries_count_list(names), read_list(String, names));
@@ -421,7 +492,7 @@ static const Type* accept_maybe_qualified_type(ctxparams) {
     DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
     const Type* unqualified = accept_unqualified_type(ctx);
     if (qualifier != Unknown)
-        expect(unqualified && "we read a uniformity qualifier and expected a type to follow");
+        expect(unqualified, "unqualified type");
     if (qualifier == Unknown)
         return unqualified;
     else
@@ -433,7 +504,7 @@ static const Type* accept_qualified_type(ctxparams) {
     if (qualifier == Unknown)
         return NULL;
     const Type* unqualified = accept_unqualified_type(ctx);
-    expect(unqualified);
+    expect(unqualified, "unqualified type");
     return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
 }
 
@@ -443,12 +514,12 @@ static const Node* accept_operand(ctxparams, BodyBuilder* bb) {
 
 static const Node* expect_operand(ctxparams, BodyBuilder* bb) {
     const Node* operand = accept_operand(ctx, bb);
-    expect(operand);
+    expect(operand, "value operand");
     return operand;
 }
 
 static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_values, BodyBuilder* bb) {
-    expect(accept_token(ctx, lpar_tok));
+    expect(accept_token(ctx, lpar_tok), "'('");
     struct List* params = new_list(Node*);
     struct List* default_vals = default_values ? new_list(Node*) : NULL;
 
@@ -458,15 +529,15 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
 
         next: {
             const Type* qtype = accept_qualified_type(ctx);
-            expect(qtype);
+            expect(qtype, "qualified type");
             const char* id = accept_identifier(ctx);
-            expect(id);
+            expect(id, "parameter name");
 
             const Node* node = param(arena, qtype, id);
             append_list(Node*, params, node);
 
             if (default_values) {
-                expect(accept_token(ctx, equal_tok));
+                expect(accept_token(ctx, equal_tok), "'='");
                 const Node* default_val = accept_operand(ctx, bb);
                 append_list(const Node*, default_vals, default_val);
             }
@@ -514,7 +585,7 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
     assert(bb);
     if (accept_token(ctx, minus_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
-        expect(expr);
+        expect(expr, "expression");
         if (expr->tag == IntLiteral_TAG) {
             return int_literal(arena, (IntLiteral) {
                 // We always treat that value like an signed integer, because it makes no sense to negate an unsigned number !
@@ -528,18 +599,18 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
         }
     } else if (accept_token(ctx, unary_excl_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
-        expect(expr);
+        expect(expr, "expression");
         return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
             .op = not_op,
             .operands = singleton(expr),
         }));
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
-        expect(expr);
+        expect(expr, "expression");
         return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimOpDereference, .operands = singleton(expr), .mem = bb_mem(bb) }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
-        expect(expr);
+        expect(expr, "expression");
         return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
             .set = "shady.frontend",
             .result_t = unit_type(arena),
@@ -563,7 +634,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
             next_token(tokenizer);
 
             const Node* rhs = accept_expr(ctx, bb, precedence - 1);
-            expect(rhs);
+            expect(rhs, "expression");
             Op primop_op;
             if (is_primop_op(infix, &primop_op)) {
                 expr = bind_instruction_single(bb, prim_op(arena, (PrimOp) {
@@ -591,7 +662,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                     }));
                     break;
                 }
-                default: error("unknown infix operator")
+                default: syntax_error("unknown infix operator");
             }
             continue;
         }
@@ -616,8 +687,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
 }
 
 static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
-    if (!accept_token(ctx, lpar_tok))
-        error("Expected left parenthesis")
+    expect(accept_token(ctx, lpar_tok), "'('");
 
     struct List* list = new_list(Node*);
 
@@ -626,11 +696,11 @@ static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
         const Node* val = accept_operand(ctx, bb);
         if (!val) {
             if (expect)
-                error("expected value but got none")
+                syntax_error("expected value but got none");
             else if (accept_token(ctx, rpar_tok))
                 break;
             else
-                error("Expected value or closing parenthesis")
+                syntax_error("Expected value or ')'");
         }
 
         append_list(Node*, list, val);
@@ -640,7 +710,7 @@ static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
         else if (accept_token(ctx, rpar_tok))
             break;
         else
-            error("Expected comma or closing parenthesis")
+            syntax_error("Expected ',' or ')'");
     }
 
     Nodes final = nodes(arena, list->elements_count, (const Node**) list->alloc);
@@ -664,10 +734,10 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
         case if_tok: {
             next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
-            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
             const Node* condition = accept_operand(ctx, bb);
-            expect(condition);
-            expect(accept_token(ctx, rpar_tok));
+            expect(condition, "condition value");
+            expect(accept_token(ctx, rpar_tok), "')'");
             const Node* (*merge)(const Node*) = config.front_end ? make_selection_merge : NULL;
 
             Node* true_case = case_(arena, nodes(arena, 0, NULL));
@@ -697,13 +767,13 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
         case control_tok: {
             next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
-            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
             String str = accept_identifier(ctx);
-            expect(str);
+            expect(str, "control parameter name");
             const Node* jp = param(arena, join_point_type(arena, (JoinPointType) {
                 .yield_types = yield_types,
             }), str);
-            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, rpar_tok), "')'");
             Node* control_case = case_(arena, singleton(jp));
             set_abstraction_body(control_case, expect_body(ctx, get_abstraction_mem(control_case), NULL));
             return maybe_tuple_helper(arena, gen_control(bb, yield_types, control_case));
@@ -717,7 +787,7 @@ static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
     const Node* instr = accept_expr(ctx, bb, max_precedence());
 
     if (instr)
-        expect(accept_token(ctx, semi_tok) && "Non-control flow instructions must be followed by a semicolon");
+        expect(accept_token(ctx, semi_tok), "';'");
 
     if (!instr) instr = accept_control_flow_instruction(ctx, bb);
     return instr;
@@ -727,7 +797,7 @@ static void expect_identifiers(ctxparams, Strings* out_strings) {
     struct List* list = new_list(const char*);
     while (true) {
         const char* id = accept_identifier(ctx);
-        expect(id);
+        expect(id, "identifier");
 
         append_list(const char*, list, id);
 
@@ -747,9 +817,9 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
 
     while (true) {
         const Type* type = accept_unqualified_type(ctx);
-        expect(type);
+        expect(type, "type");
         const char* id = accept_identifier(ctx);
-        expect(id);
+        expect(id, "identifier");
 
         append_list(const char*, tlist, type);
         append_list(const char*, slist, id);
@@ -777,13 +847,13 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
     Strings ids;
     if (accept_token(ctx, val_tok)) {
         expect_identifiers(ctx, &ids);
-        expect(accept_token(ctx, equal_tok));
+        expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
         gen_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(bb->arena), prepend_nodes(bb->arena, strings2nodes(bb->arena, ids), instruction));
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
-        expect(accept_token(ctx, equal_tok));
+        expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
         gen_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(bb->arena), prepend_nodes(bb->arena, concat_nodes(bb->arena, strings2nodes(bb->arena, ids), types), instruction));
     } else {
@@ -796,7 +866,7 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
 
 static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
-    expect(target);
+    expect(target, "jump target name");
     Nodes args = expect_operands(ctx, bb);
     const Node* tgt = make_unbound(arena, bb_mem(bb), target);
     bind_instruction_single(bb, tgt);
@@ -817,14 +887,14 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
         case branch_tok: {
             next_token(tokenizer);
 
-            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
             const Node* condition = accept_value(ctx, bb);
-            expect(condition);
-            expect(accept_token(ctx, comma_tok));
+            expect(condition, "branch condition value");
+            expect(accept_token(ctx, comma_tok), "','");
             const Node* true_target = expect_jump(ctx, bb);
-            expect(accept_token(ctx, comma_tok));
+            expect(accept_token(ctx, comma_tok), "','");
             const Node* false_target = expect_jump(ctx, bb);
-            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, rpar_tok), "')'");
 
             return branch(arena, (Branch) {
                 .condition = condition,
@@ -836,10 +906,10 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
         case switch_tok: {
             next_token(tokenizer);
 
-            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
             const Node* inspectee = accept_value(ctx, bb);
-            expect(inspectee);
-            expect(accept_token(ctx, comma_tok));
+            expect(inspectee, "value");
+            expect(accept_token(ctx, comma_tok), "','");
             Nodes values = empty(arena);
             Nodes cases = empty(arena);
             const Node* default_jump;
@@ -848,16 +918,16 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                     default_jump = expect_jump(ctx, bb);
                     break;
                 }
-                expect(accept_token(ctx, case_tok));
+                expect(accept_token(ctx, case_tok), "'case'");
                 const Node* value = accept_value(ctx, bb);
-                expect(value);
-                expect(accept_token(ctx, comma_tok) && 1);
+                expect(value, "case value");
+                expect(accept_token(ctx, comma_tok), "','");
                 const Node* j = expect_jump(ctx, bb);
-                expect(accept_token(ctx, comma_tok) && true);
+                expect(accept_token(ctx, comma_tok), "','");
                 values = append_nodes(arena, values, value);
                 cases = append_nodes(arena, cases, j);
             }
-            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, rpar_tok), "')'");
 
             return br_switch(arena, (Switch) {
                 .switch_value = first(values),
@@ -901,9 +971,9 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
         }
         case join_tok: {
             next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
             const Node* jp = accept_operand(ctx, bb);
-            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, rpar_tok), "')'");
             Nodes args = expect_operands(ctx, bb);
             return join(arena, (Join) {
                 .join_point = jp,
@@ -913,8 +983,8 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
         }
         case unreachable_tok: {
             next_token(tokenizer);
-            expect(accept_token(ctx, lpar_tok));
-            expect(accept_token(ctx, rpar_tok));
+            expect(accept_token(ctx, lpar_tok), "'('");
+            expect(accept_token(ctx, rpar_tok), "')'");
             return unreachable(arena, (Unreachable) { .mem = bb_mem(bb) });
         }
         default: break;
@@ -923,7 +993,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
 }
 
 static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*)) {
-    expect(accept_token(ctx, lbracket_tok));
+    expect(accept_token(ctx, lbracket_tok), "'['");
     BodyBuilder* bb = begin_body_with_mem(arena, mem);
 
     while (true) {
@@ -936,13 +1006,13 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     const Node* terminator = accept_terminator(ctx, terminator_bb);
 
     if (terminator)
-        expect(accept_token(ctx, semi_tok));
+        expect(accept_token(ctx, semi_tok), "';'");
 
     if (!terminator) {
         if (default_terminator)
             terminator = default_terminator(bb_mem(terminator_bb));
         else
-            error("expected terminator: return, jump, branch ...");
+            syntax_error("expected terminator: return, jump, branch ...");
     }
 
     set_abstraction_body(terminator_case, finish_body(terminator_bb, terminator));
@@ -968,7 +1038,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     }
 
     gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), concat_nodes(arena, ids, conts));
-    expect(accept_token(ctx, rbracket_tok));
+    expect(accept_token(ctx, rbracket_tok), "']'");
 
     set_abstraction_body(cont_wrapper_case, finish_body_with_jump(cont_wrapper_bb, terminator_case, empty(arena)));
     return finish_body_with_jump(bb, cont_wrapper_case, empty(arena));
@@ -984,7 +1054,7 @@ static Nodes accept_annotations(ctxparams) {
             if (accept_token(ctx, lpar_tok)) {
                 const Node* first_value = accept_value(ctx, NULL);
                 if (!first_value) {
-                    expect(accept_token(ctx, rpar_tok));
+                    expect(accept_token(ctx, rpar_tok), "value");
                     goto no_params;
                 }
 
@@ -995,7 +1065,7 @@ static Nodes accept_annotations(ctxparams) {
                     append_list(const Node*, values, first_value);
                     while (true) {
                         const Node* next_value = accept_value(ctx, NULL);
-                        expect(next_value);
+                        expect(next_value, "value");
                         append_list(const Node*, values, next_value);
                         if (accept_token(ctx, comma_tok))
                             continue;
@@ -1013,14 +1083,14 @@ static Nodes accept_annotations(ctxparams) {
                     });
                 }
 
-                expect(accept_token(ctx, rpar_tok));
+                expect(accept_token(ctx, rpar_tok), "')'");
             } else {
                 no_params:
                 annot = annotation(arena, (Annotation) {
                     .name = id,
                 });
             }
-            expect(annot);
+            expect(annot, "annotation");
             append_list(const Node*, list, annot);
             continue;
         }
@@ -1038,13 +1108,13 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     const Type* type = accept_unqualified_type(ctx);
     const char* id = accept_identifier(ctx);
-    expect(id);
-    expect(accept_token(ctx, equal_tok));
+    expect(id, "constant name");
+    expect(accept_token(ctx, equal_tok), "'='");
     BodyBuilder* bb = begin_block_pure(arena);
     const Node* definition = accept_expr(ctx, bb, max_precedence());
-    expect(definition);
+    expect(definition, "expression");
 
-    expect(accept_token(ctx, semi_tok));
+    expect(accept_token(ctx, semi_tok), "';'");
 
     Node* cnst = constant(mod, annotations, type, id);
     cnst->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(definition));
@@ -1061,9 +1131,9 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
         return NULL;
 
     const char* name = accept_identifier(ctx);
-    expect(name);
+    expect(name, "function name");
     Nodes types = accept_types(ctx, comma_tok, MaybeQualified);
-    expect(curr_token(tokenizer).tag == lpar_tok);
+    expect(curr_token(tokenizer).tag == lpar_tok, "')'");
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL, NULL);
 
@@ -1071,10 +1141,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, semi_tok))
         set_abstraction_body(fn, expect_body(ctx, get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 
-    const Node* declaration = fn;
-    expect(declaration);
-
-    return declaration;
+    return fn;
 }
 
 static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
@@ -1095,7 +1162,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
         AddressSpace nas = accept_address_space(ctx);
         if (nas != NumAddressSpaces) {
             if (as != NumAddressSpaces && as != nas) {
-                error("Conflicting address spaces for definition: %s and %s.\n", get_address_space_name(as), get_address_space_name(nas));
+                syntax_error_fmt("Conflicting address spaces for definition: %s and %s", get_address_space_name(as), get_address_space_name(nas));
             }
             as = nas;
             continue;
@@ -1104,14 +1171,14 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     }
 
     if (as == NumAddressSpaces) {
-        error("Address space required for global variable declaration.\n");
+        syntax_error("Address space required for global variable declaration.");
     }
 
     if (uniform) {
         if (as == AsInput)
             as = AsUInput;
         else {
-            error("'uniform' can only be used with 'input' currently.\n");
+            syntax_error("'uniform' can only be used with 'input'");
         }
     }
 
@@ -1122,17 +1189,17 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     }
 
     const Type* type = accept_unqualified_type(ctx);
-    expect(type);
+    expect(type, "global variable type");
     const char* id = accept_identifier(ctx);
-    expect(id);
+    expect(id, "global variable name");
 
     const Node* initial_value = NULL;
     if (accept_token(ctx, equal_tok)) {
         initial_value = accept_value(ctx, NULL);
-        expect(initial_value);
+        expect_fmt(initial_value, "value for global variable '%s'", id);
     }
 
-    expect(accept_token(ctx, semi_tok));
+    expect(accept_token(ctx, semi_tok), "';'");
 
     Node* gv = global_var(mod, annotations, type, id, as);
     gv->payload.global_variable.init = initial_value;
@@ -1144,15 +1211,15 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
         return NULL;
 
     const char* id = accept_identifier(ctx);
-    expect(id);
+    expect(id, "nominal type name");
 
-    expect(accept_token(ctx, equal_tok));
+    expect(accept_token(ctx, equal_tok), "'='");
 
     Node* nom = nominal_type(mod, annotations, id);
     nom->payload.nom_type.body = accept_unqualified_type(ctx);
-    expect(nom->payload.nom_type.body);
+    expect(nom->payload.nom_type.body, "nominal type body");
 
-    expect(accept_token(ctx, semi_tok));
+    expect(accept_token(ctx, semi_tok), "';'");
     return nom;
 }
 
@@ -1173,14 +1240,13 @@ void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
         if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
 
         if (decl) {
-            debugv_print("decl parsed : ");
-            log_node(DEBUGV, decl);
-            debugv_print("\n");
+            log_string(DEBUGVV, "decl parsed : ");
+            log_node(DEBUGVV, decl);
+            log_string(DEBUGVV, "\n");
             continue;
         }
 
-        error_print("No idea what to parse here... (tok=(tag = %s, pos = %zu))\n", token_tags[token.tag], token.start);
-        exit(-3);
+        syntax_error("expected a declaration");
     }
 
     destroy_tokenizer(tokenizer);
