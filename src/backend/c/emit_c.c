@@ -108,6 +108,7 @@ static bool has_forward_declarations(CDialect dialect) {
 /// hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term) {
     String interm = unique_name(emitter->arena, "intermediary_ptr_value");
+    assert(ptr_type->tag == PtrType_TAG);
     const Type* ut = qualified_type_helper(ptr_type, true);
     const Type* vt = qualified_type_helper(ptr_type, false);
     String lhs = c_emit_type(emitter, vt, interm);

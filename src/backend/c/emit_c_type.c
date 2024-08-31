@@ -209,10 +209,10 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         case Type_RecordType_TAG: {
-            if (type->payload.record_type.members.count == 0) {
-                emitted = "void";
-                break;
-            }
+            //if (type->payload.record_type.members.count == 0) {
+            //    emitted = "void";
+            //    break;
+            //}
 
             emitted = unique_name(emitter->arena, "Record");
             String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
@@ -224,6 +224,10 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_QualifiedType_TAG:
+            if (type->payload.qualified_type.type == unit_type(emitter->arena)) {
+                emitted = "void";
+                break;
+            }
             switch (emitter->config.dialect) {
                 default:
                     return c_emit_type(emitter, type->payload.qualified_type.type, center);

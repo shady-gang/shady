@@ -775,7 +775,10 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     String params = printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
-    called = c_bind_intermediary_result(emitter, p, call->type, called);
+    if (call->type != empty_multiple_return_type(emitter->arena))
+        called = c_bind_intermediary_result(emitter, p, call->type, called);
+    // else
+    //     called = empty_term();
 
     free_tmp_str(params);
     return called;
@@ -861,12 +864,20 @@ static CTerm emit_lea(Emitter* emitter, FnEmitter* fn, Printer* p, Lea lea) {
     return acc;
 }
 
-static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* type) {
+static const Type* get_allocated_type(const Node* alloc) {
+    switch (alloc->tag) {
+        case Instruction_StackAlloc_TAG: return alloc->payload.stack_alloc.type;
+        case Instruction_LocalAlloc_TAG: return alloc->payload.local_alloc.type;
+        default: assert(false); return NULL;
+    }
+}
+
+static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     String variable_name = unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
-    c_emit_variable_declaration(emitter, p, type, variable_name, true, NULL);
+    c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
     if (emitter->config.dialect == CDialect_ISPC) {
-        variable = ispc_varying_ptr_helper(emitter, p, type, variable);
+        variable = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(instr->type), variable);
     }
    return variable;
 }
@@ -886,8 +897,8 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_PrimOp_TAG: return emit_primop(emitter, fn, p, instruction);
         case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
         case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
-        case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.stack_alloc.mem); return emit_alloca(emitter, p, instruction->payload.stack_alloc.type);
-        case Instruction_LocalAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction->payload.local_alloc.type);
+        case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
+        case Instruction_LocalAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_Lea_TAG: return emit_lea(emitter, fn, p, instruction->payload.lea);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
@@ -955,9 +966,18 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
     SHADY_UNREACHABLE;
 }
 
-static bool can_appear_at_top_level(const Node* node) {
+static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
     if (is_instruction(node))
         return false;
+    if (emitter->config.dialect == CDialect_ISPC) {
+        if (node->tag == RefDecl_TAG) {
+            const Node* decl = node->payload.ref_decl.decl;
+            if (decl->tag == GlobalVariable_TAG)
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl))
+                    //if (is_value(node) && !is_qualified_type_uniform(node->type))
+                        return false;
+        }
+    }
     return true;
 }
 
@@ -970,7 +990,7 @@ CTerm c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
         CTerm emitted = c_emit_value_(emitter, fn_builder, fn_builder->instruction_printers[where->rpo_index], node);
         register_emitted(emitter, fn_builder, node, emitted);
         return emitted;
-    } else if (!can_appear_at_top_level(node)) {
+    } else if (!can_appear_at_top_level(emitter, node)) {
         if (!fn_builder) {
             log_node(ERROR, node);
             log_string(ERROR, "cannot appear at top-level");
