@@ -66,9 +66,7 @@ typedef struct {
 extern Vec3u builtin_NumWorkgroups;
 
 void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    uint64_t tsn = timespec_to_nano(ts);
+    uint64_t tsn = get_time_nano();
     Ctx ctx = get_init_context();
     init_scene(&ctx);
     for (size_t i = 0; i < WIDTH; i++) {
@@ -84,9 +82,7 @@ void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
     builtin_NumWorkgroups.z = 1;
 
     aobench_kernel(img);
-    struct timespec tp;
-    timespec_get(&tp, TIME_UTC);
-    uint64_t tpn = timespec_to_nano(tp);
+    uint64_t tpn = get_time_nano();
     info_print("ispc rendering took %d us\n", (tpn - tsn) / 1000);
 }
 #endif
