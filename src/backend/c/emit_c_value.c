@@ -579,8 +579,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                         }
                     }
                     if (conv_fn) {
-                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
-                        return c_bind_intermediary_result(emitter, p, node->type, converted);
+                        return term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
                     }
                     error_print("glsl: unsupported bit cast from ");
                     log_node(ERROR, src_type);
@@ -601,14 +600,10 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                             case FloatTy64: n = "doublebits";
                                 break;
                         }
-                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
-                        return c_bind_intermediary_result(emitter, p, node->type, converted);
-                        break;
+                        return term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
                     } else if (src_type->tag == Float_TAG) {
                         assert(dst_type->tag == Int_TAG);
-                        CTerm converted = term_from_cvalue(format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
-                        return c_bind_intermediary_result(emitter, p, node->type, converted);
-                        break;
+                        return term_from_cvalue(format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
                     }
 
                     CType t = c_emit_type(emitter, dst_type, NULL);
@@ -787,10 +782,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     String params = printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
-    if (call->type != empty_multiple_return_type(emitter->arena))
-        called = c_bind_intermediary_result(emitter, p, call->type, called);
-    // else
-    //     called = empty_term();
+    called = c_bind_intermediary_result(emitter, p, call->type, called);
 
     free_tmp_str(params);
     return called;
@@ -906,7 +898,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
-        case Instruction_PrimOp_TAG: return emit_primop(emitter, fn, p, instruction);
+        case Instruction_PrimOp_TAG: return c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
         case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
         case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
         case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
@@ -916,8 +908,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Load payload = instruction->payload.load;
             c_emit_mem(emitter, fn, payload.mem);
             CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, fn, payload.ptr));
-            // we must bind the intermediary result here, otherwise we duplicate the load everwhere it is consumed
-            return c_bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
+            return term_from_cvalue(dereferenced);
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
