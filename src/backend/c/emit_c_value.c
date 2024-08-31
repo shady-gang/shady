@@ -124,6 +124,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             Nodes elements = value->payload.composite.contents;
 
             Growy* g = new_growy();
+            Printer* p2 = p;
             Printer* p = open_growy_as_printer(g);
 
             if (type->tag == ArrType_TAG) {
@@ -155,9 +156,9 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                     if (type->tag == ArrType_TAG)
                         emitted = format_string_arena(emitter->arena->arena, "{ %s }", emitted);
 
-                    if (p) {
+                    if (p2) {
                         String tmp = unique_name(emitter->arena, "composite");
-                        print(p, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
+                        print(p2, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
