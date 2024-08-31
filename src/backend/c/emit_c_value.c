@@ -232,6 +232,18 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
     return term_from_cvalue(emitted);
 }
 
+CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
+    if (is_term_empty(term))
+        return term;
+    if (t == empty_multiple_return_type(emitter->arena)) {
+        print(p, "%s;", to_cvalue(emitter, term));
+        return empty_term();
+    }
+    String bind_to = unique_name(emitter->arena, "");
+    c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
+    return term_from_cvalue(bind_to);
+}
+
 static const Type* get_first_op_scalar_type(Nodes ops) {
     const Type* t = first(ops)->type;
     deconstruct_qualified_type(&t);

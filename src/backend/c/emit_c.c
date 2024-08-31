@@ -116,24 +116,6 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
     return term_from_cvalue(interm);
 }
 
-CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
-    String bind_to = unique_name(emitter->arena, "");
-    c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
-    return term_from_cvalue(bind_to);
-}
-
-void c_emit_pack_code(Printer* p, Strings src, String dst) {
-    for (size_t i = 0; i < src.count; i++) {
-        print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
-    }
-}
-
-void c_emit_unpack_code(Printer* p, String src, Strings dst) {
-    for (size_t i = 0; i < dst.count; i++) {
-        print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
-    }
-}
-
 void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
     assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
 
@@ -160,6 +142,18 @@ void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const
         print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
     else
         print(block_printer, "\n%s%s;", prefix, decl);
+}
+
+void c_emit_pack_code(Printer* p, Strings src, String dst) {
+    for (size_t i = 0; i < src.count; i++) {
+        print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
+    }
+}
+
+void c_emit_unpack_code(Printer* p, String src, Strings dst) {
+    for (size_t i = 0; i < dst.count; i++) {
+        print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
+    }
 }
 
 void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init) {
