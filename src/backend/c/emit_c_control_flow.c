@@ -62,6 +62,8 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
 
     assert(get_abstraction_params(if_.if_true).count == 0);
     String true_body = c_emit_body(&sub_emiter, fn, if_.if_true);
+    String false_body = if_.if_false ? c_emit_body(&sub_emiter, fn, if_.if_false) : NULL;
+    String tail = c_emit_body(emitter, fn, if_.tail);
     CValue condition = to_cvalue(emitter, c_emit_value(emitter, fn, if_.condition));
     print(p, "\nif (%s) { ", condition);
     indent(p);
@@ -70,7 +72,6 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
     print(p, "\n}");
     if (if_.if_false) {
         assert(get_abstraction_params(if_.if_false).count == 0);
-        String false_body = c_emit_body(&sub_emiter, fn, if_.if_false);
         print(p, " else {");
         indent(p);
         print(p, "%s", false_body);
@@ -83,7 +84,7 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", c_emit_body(emitter, fn, if_.tail));
+    print(p, "%s", tail);
 }
 
 static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match) {
@@ -103,23 +104,25 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
     CValue inspectee = to_cvalue(emitter, c_emit_value(emitter, fn, match.inspect));
     bool first = true;
     LARRAY(CValue, literals, match.cases.count);
+    LARRAY(String, bodies, match.cases.count);
+    String default_case_body = c_emit_body(&sub_emiter, fn, match.default_case);
+    String tail = c_emit_body(emitter, fn, match.tail);
     for (size_t i = 0; i < match.cases.count; i++) {
         literals[i] = to_cvalue(emitter, c_emit_value(emitter, fn, match.literals.nodes[i]));
+        bodies[i] = c_emit_body(&sub_emiter, fn, match.cases.nodes[i]);
     }
     for (size_t i = 0; i < match.cases.count; i++) {
-        String case_body = c_emit_body(&sub_emiter, fn, match.cases.nodes[i]);
         print(p, "\n");
         if (!first)
             print(p, "else ");
         print(p, "if (%s == %s) { ", inspectee, literals[i]);
         indent(p);
-        print(p, "%s", case_body);
+        print(p, "%s", bodies[i]);
         deindent(p);
         print(p, "\n}");
         first = false;
     }
     if (match.default_case) {
-        String default_case_body = c_emit_body(&sub_emiter, fn, match.default_case);
         print(p, "\nelse { ");
         indent(p);
         print(p, "%s", default_case_body);
@@ -132,7 +135,7 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", c_emit_body(emitter, fn, match.tail));
+    print(p, "%s", tail);
 }
 
 static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
@@ -155,6 +158,7 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
     sub_emiter.phis.loop_break = ephis;
 
     String body = c_emit_body(&sub_emiter, fn, loop.body);
+    String tail = c_emit_body(emitter, fn, loop.tail);
     print(p, "\nwhile(true) { ");
     indent(p);
     print(p, "%s", body);
@@ -166,7 +170,7 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", c_emit_body(emitter, fn, loop.tail));
+    print(p, "%s", tail);
 }
 
 static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_printer, const Node* terminator) {
