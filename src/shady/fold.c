@@ -422,6 +422,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
                 .literals = nodes(arena, new_cases_count, literals),
                 .cases = nodes(arena, new_cases_count, cases),
                 .tail = payload.tail,
+                .mem = payload.mem,
             });
         }
         default: break;
