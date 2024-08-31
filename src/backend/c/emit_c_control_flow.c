@@ -30,7 +30,10 @@ String c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
     // print(p, "\n");
 
     fn->instruction_printers[cf_node->rpo_index] = NULL;
-    return printer_growy_unwrap(p);
+    String s2 = printer_growy_unwrap(p);
+    String s = string(emitter->arena, s2);
+    free((void*)s2);
+    return s;
 }
 
 static Strings emit_variable_declarations(Emitter* emitter, FnEmitter* fn, Printer* p, String given_name, Strings* given_names, Nodes types, bool mut, const Nodes* init_values) {
@@ -65,7 +68,6 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
     print(p, "%s", true_body);
     deindent(p);
     print(p, "\n}");
-    free_tmp_str(true_body);
     if (if_.if_false) {
         assert(get_abstraction_params(if_.if_false).count == 0);
         String false_body = c_emit_body(&sub_emiter, fn, if_.if_false);
@@ -74,7 +76,6 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
         print(p, "%s", false_body);
         deindent(p);
         print(p, "\n}");
-        free_tmp_str(false_body);
     }
 
     Nodes results = get_abstraction_params(if_.tail);
@@ -115,7 +116,6 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
         print(p, "%s", case_body);
         deindent(p);
         print(p, "\n}");
-        free_tmp_str(case_body);
         first = false;
     }
     if (match.default_case) {
@@ -125,7 +125,6 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
         print(p, "%s", default_case_body);
         deindent(p);
         print(p, "\n}");
-        free_tmp_str(default_case_body);
     }
 
     Nodes results = get_abstraction_params(match.tail);
@@ -161,7 +160,6 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
     print(p, "%s", body);
     deindent(p);
     print(p, "\n}");
-    free_tmp_str(body);
 
     Nodes results = get_abstraction_params(loop.tail);
     for (size_t i = 0; i < ephis.count; i++) {

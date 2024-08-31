@@ -328,7 +328,6 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 }
 
                 String fn_body = c_emit_body(emitter, &fn, decl);
-                String free_me = fn_body;
                 if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
@@ -348,8 +347,9 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 print(emitter->fn_defs, " %s", fn_body);
                 deindent(emitter->fn_defs);
                 print(emitter->fn_defs, "\n}");
-                free_tmp_str(free_me);
 
+                destroy_scheduler(fn.scheduler);
+                destroy_cfg(fn.cfg);
                 destroy_dict(fn.emitted_terms);
                 free(fn.instruction_printers);
             }
