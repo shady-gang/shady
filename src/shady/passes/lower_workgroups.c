@@ -17,6 +17,16 @@ typedef struct {
     bool is_entry_point;
 } Context;
 
+static void add_bounds_check(BodyBuilder* bb, const Node* i, const Node* max) {
+    IrArena* a = bb->arena;
+    Node* out_of_bounds_case = case_(a, empty(a));
+    set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
+        .args = empty(a),
+        .mem = get_abstraction_mem(out_of_bounds_case)
+    }));
+    gen_if(bb, empty(a), gen_primop_e(bb, gte_op, empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
+}
+
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -61,6 +71,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
+                register_processed(&ctx->rewriter, get_abstraction_mem(node), get_abstraction_mem(inner));
                 set_abstraction_body(inner, recreate_node_identity(&ctx->rewriter, node->payload.fun.body));
 
                 BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(wrapper));
@@ -91,7 +102,30 @@ static const Node* process(Context* ctx, const Node* node) {
                     num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
                 }
 
-                BodyBuilder* bb2 = begin_block_with_side_effects(a, bb_mem(bb));
+                Node* cases[6];
+                BodyBuilder* builders[6];
+                for (int scope = 0; scope < 2; scope++) {
+                    const Node** params;
+                    const Node** maxes;
+                    if (scope == 1) {
+                        params = subgroup_id;
+                        maxes = num_subgroups_literals;
+                    } else if (scope == 0) {
+                        params = workgroup_id;
+                        maxes = num_workgroups;
+                    } else
+                        assert(false);
+                    for (int dim = 0; dim < 3; dim++) {
+                        Node* loop_body = case_(a, singleton(params[dim]));
+                        cases[scope * 3 + dim] = loop_body;
+                        BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_body));
+                        builders[scope * 3 + dim] = loop_bb;
+                        add_bounds_check(loop_bb, params[dim], maxes[dim]);
+                    }
+                }
+
+                // BodyBuilder* bb2 = begin_block_with_side_effects(a, bb_mem(builders[5]));
+                BodyBuilder* bb2 = builders[5];
                 // write the workgroup ID
                 gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
@@ -107,39 +141,31 @@ static const Node* process(Context* ctx, const Node* node) {
                     global_id[dim] = gen_primop_e(bb2, add_op, empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
                 gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
-
-                bind_instruction(bb2, call(a, (Call) { .callee = fn_addr_helper(a, inner), .args = wparams }));
-                const Node* instr = yield_values_and_wrap_in_block(bb2, empty(a));
+                gen_call(bb2, fn_addr_helper(a, inner), wparams);
 
                 // Wrap in 3 loops for iterating over subgroups, then again for workgroups
-                for (int scope = 0; scope < 2; scope++) {
+                for (unsigned scope = 1; scope < 2; scope--) {
                     const Node** params;
-                    const Node** maxes;
                     if (scope == 0) {
-                        params = subgroup_id;
-                        maxes = num_subgroups_literals;
-                    } else if (scope == 1) {
                         params = workgroup_id;
-                        maxes = num_workgroups;
+                    } else if (scope == 1) {
+                        params = subgroup_id;
                     } else
                         assert(false);
-                    for (int dim = 0; dim < 3; dim++) {
-                        Node* loop_body = case_(a, singleton(params[dim]));
-                        BodyBuilder* body_bb = begin_body_with_mem(a, get_abstraction_mem(loop_body));
-                        Node* out_of_bounds_case = case_(a, empty(a));
-                        set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {.args = empty(a), .mem = get_abstraction_mem(out_of_bounds_case)}));
-                        gen_if(body_bb, empty(a), gen_primop_e(body_bb, gte_op, empty(a), mk_nodes(a, params[dim], maxes[dim])), out_of_bounds_case, NULL);
-                        bind_instruction(body_bb, instr);
+                    for (unsigned dim = 2; dim < 3; dim--) {
+                        size_t depth = scope * 3 + dim;
+                        Node* loop_body = cases[depth];
+                        BodyBuilder* body_bb = builders[depth];
 
-                        BodyBuilder* bb3 = begin_block_with_side_effects(a, NULL);
-                        set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {.args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1))))})));
-                        gen_loop(bb3, empty(a), singleton(uint32_literal(a, 0)), loop_body);
-                        instr = yield_values_and_wrap_in_block(bb3, empty(a));
+                        set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {
+                            .args = singleton(gen_primop_e(body_bb, add_op, empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1)))),
+                            .mem = bb_mem(body_bb)
+                        })));
+                        gen_loop(depth > 0 ? builders[depth - 1] : bb, empty(a), singleton(uint32_literal(a, 0)), loop_body);
                     }
                 }
 
-                bind_instruction(bb, instr);
-                set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = empty(a) })));
+                set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) })));
                 return wrapper;
             }
             return recreate_node_identity(&ctx2.rewriter, node);
