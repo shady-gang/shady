@@ -12,24 +12,29 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (node->tag) {
+        case RefDecl_TAG: {
+            // make sure we rewrite the decl first, and then look if it rewrote the ref to it!
+            rewrite_node(r, node->payload.ref_decl.decl);
+            const Node* f = search_processed(r, node);
+            if (f) return f;
+            break;
+        }
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
                 AddressSpace dst_as = AsGlobal;
                 const Type* t = rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
                 Node* new_global = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), t, node->payload.global_variable.name, dst_as);
+                register_processed(&ctx->rewriter, node, new_global);
 
                 const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
-                Nodes decl_annotations = singleton(annotation(a, (Annotation) { .name = "Generated" }));
-                Node* constant_decl = constant(ctx->rewriter.dst_module, decl_annotations, dst_t,
-                                            format_string_interned(a, "%s_generic", get_declaration_name(node)));
-                const Node* result = constant_decl;
-                constant_decl->payload.constant.value = prim_op_helper(a, convert_op, singleton(dst_t), singleton(ref_decl_helper(a, new_global)));
-                register_processed(&ctx->rewriter, node, result);
-                new_global->payload.global_variable.init = rewrite_node(&ctx->rewriter, node->payload.global_variable.init);
-                return result;
+                const Node* converted = prim_op_helper(a, convert_op, singleton(dst_t), singleton(ref_decl_helper(a, new_global)));
+                register_processed(&ctx->rewriter, ref_decl_helper(node->arena, node), converted);
+                return new_global;
             }
+            break;
         }
         default: break;
     }
