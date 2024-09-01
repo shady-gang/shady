@@ -155,7 +155,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                set_abstraction_body(tag_case, finish_body_with_selection_merge(case_bb, empty(a)));
+                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, empty(a)));
                 jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
