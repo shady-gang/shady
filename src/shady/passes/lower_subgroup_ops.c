@@ -119,7 +119,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     else {
         const Node* src_param = param(a, qualified_type_helper(t, false), "src");
         fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
-                      singleton(annotation(a, (Annotation) { .name = "Generated"})), singleton(qualified_type_helper(t, true)));
+                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), singleton(qualified_type_helper(t, true)));
         insert_dict(const Node*, Node*, ctx->fns, t, fn);
         build_fn_body(ctx, fn, scope, src_param, t);
     }

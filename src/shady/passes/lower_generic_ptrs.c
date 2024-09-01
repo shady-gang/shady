@@ -93,64 +93,83 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             params = append_nodes(a, params, value_param);
             break;
     }
-    Node* new_fn = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
+    Node* new_fn = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     insert_dict(String, const Node*, ctx->fns, name, new_fn);
 
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     switch (which) {
         case LoadFn: {
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
+            gen_comment(bb, "Generated generic ptr store");
+            struct begin_control_r r = begin_control(bb, singleton(t));
+            const Node* final_loaded_value = first(r.results);
+
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(Node*, cases, max_tag);
+            LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a));
-                    set_abstraction_body(cases[tag], unreachable(a, (Unreachable) { .mem = get_abstraction_mem(cases[tag]) }));
+                    Node* tag_case = case_(a, empty(a));
+                    set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(tag_case) }));
+                    jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
                     continue;
                 }
-                cases[tag] = case_(a, empty(a));
-                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(cases[tag]));
+                Node* tag_case = case_(a, empty(a));
+                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                set_abstraction_body(cases[tag], finish_body_with_selection_merge(case_bb, singleton(loaded_value)));
+                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, singleton(loaded_value)));
+                jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
             }
-
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
-            gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
-            const Node* loaded_value = first(gen_match(bb, singleton(t), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, (const Node**) cases), default_case));
-            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .mem = bb_mem(bb) })));
+            set_abstraction_body(r.case_, br_switch(a, (Switch) {
+                .mem = get_abstraction_mem(r.case_),
+                .switch_value = extracted_tag,
+                .case_values = nodes(a, max_tag, literals),
+                .case_jumps = nodes(a, max_tag, jumps),
+                .default_jump = jump_helper(a, default_case, empty(a), get_abstraction_mem(r.case_))
+            }));
+            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = singleton(final_loaded_value), .mem = bb_mem(bb) })));
             break;
         }
         case StoreFn: {
+            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
+            gen_comment(bb, "Generated generic ptr store");
+            struct begin_control_r r = begin_control(bb, empty(a));
+
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(Node*, cases, max_tag);
+            LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a));
-                    set_abstraction_body(cases[tag], unreachable(a, (Unreachable) { .mem = get_abstraction_mem(cases[tag]) }));
+                    Node* tag_case = case_(a, empty(a));
+                    set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(tag_case) }));
+                    jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
                     continue;
                 }
-                cases[tag] = case_(a, empty(a));
-                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(cases[tag]));
+                Node* tag_case = case_(a, empty(a));
+                BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                set_abstraction_body(cases[tag], finish_body_with_selection_merge(case_bb, empty(a)));
+                set_abstraction_body(tag_case, finish_body_with_selection_merge(case_bb, empty(a)));
+                jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
             }
-
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
-            gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
             const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
-            gen_match(bb, empty(a), extracted_tag, nodes(a, max_tag, literals), nodes(a, max_tag, (const Node**) cases), default_case);
+            set_abstraction_body(r.case_, br_switch(a, (Switch) {
+                    .mem = get_abstraction_mem(r.case_),
+                    .switch_value = extracted_tag,
+                    .case_values = nodes(a, max_tag, literals),
+                    .case_jumps = nodes(a, max_tag, jumps),
+                    .default_jump = jump_helper(a, default_case, empty(a), get_abstraction_mem(r.case_))
+            }));
             set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) })));
             break;
         }

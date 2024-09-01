@@ -296,6 +296,21 @@ Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size
 Nodes gen_if(BodyBuilder*, Nodes, const Node*, const Node*, Node*);
 Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, Node*);
 Nodes gen_loop(BodyBuilder*, Nodes, Nodes, Node*);
+
+struct begin_control_r {
+    Nodes results;
+    Node* case_;
+    const Node* jp;
+} begin_control(BodyBuilder*, Nodes);
+
+struct begin_loop_helper_r {
+    Nodes results;
+    Node* loop_body;
+    Nodes params;
+    const Node* continue_jp;
+    const Node* break_jp;
+} begin_loop_helper(BodyBuilder*, Nodes, Nodes, Nodes);
+
 Nodes gen_control(BodyBuilder*, Nodes, Node*);
 
 const Node* bb_mem(BodyBuilder*);

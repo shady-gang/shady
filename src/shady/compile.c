@@ -83,7 +83,6 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     RUN_PASS(lower_tailcalls)
     //RUN_PASS(lower_switch_btree)
-    RUN_PASS(opt_restructurize)
     //RUN_PASS(opt_mem2reg)
 
     if (config->specialization.entry_point)
@@ -117,6 +116,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
     RUN_PASS(lower_fill)
     RUN_PASS(lower_nullptr)
     RUN_PASS(normalize_builtins)
+
+    RUN_PASS(opt_restructurize)
 
     return CompilationNoError;
 }
