@@ -18,8 +18,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case RefDecl_TAG: {
             // make sure we rewrite the decl first, and then look if it rewrote the ref to it!
             rewrite_node(r, node->payload.ref_decl.decl);
-            const Node* f = search_processed(r, node);
-            if (f) return f;
+            const Node** f = search_processed(r, node);
+            if (f) return *f;
             break;
         }
         case GlobalVariable_TAG: {

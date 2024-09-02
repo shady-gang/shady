@@ -72,12 +72,12 @@ const Node* rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNo
     assert(rewriter->rewrite_fn);
     if (!node)
         return NULL;
-    const Node* found = NULL;
+    const Node** found = NULL;
     if (rewriter->config.search_map) {
         found = search_processed(rewriter, node);
     }
     if (found)
-        return found;
+        return *found;
 
     const Node* rewritten = fn(rewriter, node);
     // assert(rewriter->dst_arena == rewritten->arena);
@@ -110,12 +110,12 @@ const Node* rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String op_na
     assert(rewriter->rewrite_op_fn);
     if (!node)
         return NULL;
-    const Node* found = NULL;
+    const Node** found = NULL;
     if (rewriter->config.search_map) {
         found = search_processed(rewriter, node);
     }
     if (found)
-        return found;
+        return *found;
 
     const Node* rewritten = fn(rewriter, class, op_name, node);
     if (is_declaration(node))
@@ -157,17 +157,17 @@ static Nodes rewrite_ops_helper(Rewriter* rewriter, NodeClass class, String op_n
     return rewrite_nodes_with_fn(rewriter, old_nodes, rewriter->rewrite_fn);
 }
 
-static const Node* search_processed_(const Rewriter* ctx, const Node* old, bool deep) {
+static const Node** search_processed_(const Rewriter* ctx, const Node* old, bool deep) {
     if (is_declaration(old)) {
         const Node** found = find_value_dict(const Node*, const Node*, ctx->decls_map, old);
-        return found ? *found : NULL;
+        return found ? found : NULL;
     }
 
     while (ctx) {
         assert(ctx->map && "this rewriter has no processed cache");
         const Node** found = find_value_dict(const Node*, const Node*, ctx->map, old);
         if (found)
-            return *found;
+            return found;
         if (deep)
             ctx = ctx->parent;
         else
@@ -176,34 +176,37 @@ static const Node* search_processed_(const Rewriter* ctx, const Node* old, bool 
     return NULL;
 }
 
-const Node* search_processed(const Rewriter* ctx, const Node* old) {
+const Node** search_processed(const Rewriter* ctx, const Node* old) {
     return search_processed_(ctx, old, true);
 }
 
 const Node* find_processed(const Rewriter* ctx, const Node* old) {
-    const Node* found = search_processed(ctx, old);
+    const Node** found = search_processed(ctx, old);
     assert(found && "this node was supposed to have been processed before");
-    return found;
+    return *found;
 }
 
 void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
     assert(old->arena == ctx->src_arena);
     assert(new ? new->arena == ctx->dst_arena : true);
 #ifndef NDEBUG
-    const Node* found = search_processed_(ctx, old, false);
+    const Node** found = search_processed_(ctx, old, false);
     if (found) {
         // this can happen and is typically harmless
         // ie: when rewriting a jump into a loop, the outer jump cannot be finished until the loop body is rebuilt
         // and therefore the back-edge jump inside the loop will be rebuilt while the outer one isn't done.
         // as long as there is no conflict, this is correct, but this might hide perf hazards if we fail to cache things
-        if (found == new)
+        if (*found == new)
             return;
         error_print("Trying to replace ");
         log_node(ERROR, old);
         error_print(" with ");
         log_node(ERROR, new);
         error_print(" but there was already ");
-        log_node(ERROR, found);
+        if (*found)
+            log_node(ERROR, *found);
+        else
+            log_string(ERROR, "NULL");
         error_print("\n");
         error("The same node got processed twice !");
     }

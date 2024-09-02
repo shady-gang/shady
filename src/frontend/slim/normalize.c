@@ -87,9 +87,9 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    const Node* already_done = search_processed(&ctx->rewriter, node);
+    const Node** already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
-        return already_done;
+        return *already_done;
 
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;

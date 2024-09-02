@@ -66,7 +66,7 @@ Node* clone_bb_head(Rewriter*, const Node* bb);
 //const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
 
 /// Looks up if the node was already processed
-const Node* search_processed(const Rewriter*, const Node*);
+const Node** search_processed(const Rewriter*, const Node*);
 /// Same as search_processed but asserts if it fails to find a mapping
 const Node* find_processed(const Rewriter*, const Node*);
 void register_processed(Rewriter*, const Node*, const Node*);
