@@ -82,7 +82,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
-                const Node* word = gen_load(bb, gen_lea(bb, arr, zero, singleton(base_offset)));
+                const Node* word = gen_load(bb, gen_lea(bb, arr, zero, singleton(offset)));
                             word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                             word = first(gen_primop(bb, lshift_op, empty(a), mk_nodes(a, word, shift))); // shift it
                 acc = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, acc, word));
@@ -189,7 +189,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* word = value;
                 word = first(gen_primop(bb, rshift_logical_op, empty(a), mk_nodes(a, word, shift))); // shift it
                 word = gen_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
-                gen_store(bb, gen_lea(bb, arr, zero, singleton(base_offset)), word);
+                gen_store(bb, gen_lea(bb, arr, zero, singleton(offset)), word);
 
                 offset = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
                 shift = first(gen_primop(bb, add_op, empty(a), mk_nodes(a, shift, word_bitwidth)));
