@@ -28,8 +28,12 @@ typedef struct Context_ {
 
 typedef struct {
     const Type* type;
+    /// Set when the alloca is used in a way the analysis cannot follow
+    /// Allocation must be left alone in such cases!
     bool leaks;
+    /// Set when the alloca is read from.
     bool read_from;
+    /// Set when the alloca is used in a manner forbidden by logical pointer rules
     bool non_logical_use;
     const Node* new;
 } AllocaInfo;
@@ -66,36 +70,18 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             switch (payload.op) {
                 case reinterpret_op: {
                     k->non_logical_use = true;
-                    continue;
-                }
-                case convert_op: {
-                    if (first(payload.type_arguments)->tag == PtrType_TAG) {
-                        k->non_logical_use = true;
-                    } else {
-                        k->leaks = true;
-                    }
-                    continue;
-                }
-                /*case reinterpret_op: {
-                    debugvv_print("demote_alloca leak analysis: following reinterpret instr: ");
-                    log_node(DEBUGVV, use->user);
-                    debugvv_print(".\n");
                     visit_ptr_uses(use->user, slice_type, k, map);
                     continue;
                 }
                 case convert_op: {
                     if (first(payload.type_arguments)->tag == PtrType_TAG) {
-                        // this is a ptr-ptr conversion, which means it's a Generic-non generic conversion
-                        // these are fine, just track them
-                        debugvv_print("demote_alloca leak analysis: following conversion instr: ");
-                        log_node(DEBUGVV, use->user);
-                        debugvv_print(".\n");
+                        k->non_logical_use = true;
                         visit_ptr_uses(use->user, slice_type, k, map);
-                        continue;
+                    } else {
+                        k->leaks = true;
                     }
-                    k->leaks = true;
                     continue;
-                }*/
+                }
                 default: break;
             }
             if (has_primop_got_side_effects(payload.op))
@@ -163,7 +149,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     // log_node(DEBUGV, old);
     // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
     if (!k->leaks) {
-        if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
+        if (!k->read_from/* this should include killing dead stores! */) {
             *ctx->todo |= true;
             const Node* new = undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(r, old->type)) });
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
