@@ -1,7 +1,7 @@
 @Exported
 fn f varying i32(varying i32 x) {
   var i32 i = 0;
-  branch ((x > 0), t, j);
+  branch ((x > 0), t(), j());
 
   cont t() {
       i = x;
