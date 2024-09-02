@@ -47,6 +47,8 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     for (;use; use = use->next_use) {
         if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
+        if (use->operand_class == NcMem)
+            continue;
         else if (use->user->tag == Load_TAG) {
             //if (get_pointer_type_element(ptr_type) != slice_type)
             //    k->reinterpreted = true;
