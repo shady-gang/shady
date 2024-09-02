@@ -112,14 +112,17 @@ static bool in_loop(LoopTree* lt, const Node* fn, const Node* loopentry, const N
 }
 
 /// Adds an edge to somewhere inside a basic block
-static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type, const Node* j) {
+static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFEdgeType type, const Node* term) {
     assert(is_abstraction(src) && is_abstraction(dst));
+    assert(term && is_terminator(term));
     assert(!is_function(dst));
     if (ctx->lt && !in_loop(ctx->lt, ctx->function, ctx->entry, dst))
         return;
     if (ctx->lt && dst == ctx->entry) {
         return;
     }
+
+    const Node* j = term->tag == Jump_TAG ? term : NULL;
 
     CFNode* src_node = get_or_enqueue(ctx, src);
     CFNode* dst_node = get_or_enqueue(ctx, dst);
@@ -128,13 +131,18 @@ static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFE
         .src = src_node,
         .dst = dst_node,
         .jump = j,
+        .terminator = term,
     };
     append_list(CFEdge, src_node->succ_edges, edge);
     append_list(CFEdge, dst_node->pred_edges, edge);
 }
 
-static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type) {
-    add_edge(ctx, parent->node, dst, type, NULL);
+static void add_structural_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type, const Node* term) {
+    add_edge(ctx, parent->node, dst, type, term);
+}
+
+static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type, const Node* term) {
+    add_edge(ctx, parent->node, dst, type, term);
     insert_set_get_result(const Node*, parent->structurally_dominates, dst);
 }
 
@@ -174,60 +182,60 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             case Join_TAG: {
                 const Node** dst = find_value_dict(const Node*, const Node*, ctx->join_point_values, terminator->payload.join.join_point);
                 if (dst)
-                    add_edge(ctx, node->node, *dst, StructuredLeaveBodyEdge, NULL);
+                    add_edge(ctx, node->node, *dst, StructuredLeaveBodyEdge, terminator);
                 return;
             }
             case If_TAG: {
                 if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge, terminator);
                 CfgBuildContext if_ctx = *ctx;
                 if_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
-                add_structural_dominance_edge(&if_ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge);
+                add_structural_edge(&if_ctx, node, terminator->payload.if_instr.if_true, StructuredEnterBodyEdge, terminator);
                 if (terminator->payload.if_instr.if_false)
-                    add_structural_dominance_edge(&if_ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge);
+                    add_structural_edge(&if_ctx, node, terminator->payload.if_instr.if_false, StructuredEnterBodyEdge, terminator);
                 else
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredLeaveBodyEdge);
+                    add_structural_edge(ctx, node, get_structured_construct_tail(terminator), StructuredLeaveBodyEdge, terminator);
 
                 return;
             } case Match_TAG: {
                 if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge, terminator);
                 CfgBuildContext match_ctx = *ctx;
                 match_ctx.selection_construct_tail = get_structured_construct_tail(terminator);
                 for (size_t i = 0; i < terminator->payload.match_instr.cases.count; i++)
-                    add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge);
-                add_structural_dominance_edge(&match_ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge);
+                    add_structural_edge(&match_ctx, node, terminator->payload.match_instr.cases.nodes[i], StructuredEnterBodyEdge, terminator);
+                add_structural_edge(&match_ctx, node, terminator->payload.match_instr.default_case, StructuredEnterBodyEdge, terminator);
                 return;
             } case Loop_TAG: {
                 if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge, terminator);
                 CfgBuildContext loop_ctx = *ctx;
                 loop_ctx.loop_construct_head = terminator->payload.loop_instr.body;
                 loop_ctx.loop_construct_tail = get_structured_construct_tail(terminator);
-                add_structural_dominance_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge);
+                add_structural_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge, terminator);
                 return;
             } case Control_TAG: {
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
                 //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 const Node* tail = get_structured_construct_tail(terminator);
                 insert_dict(const Node*, const Node*, ctx->join_point_values, param, tail);
-                add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge);
+                add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge, terminator);
                 if (ctx->include_structured_tails)
-                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge);
+                    add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge, terminator);
                 return;
             } case MergeSelection_TAG: {
                 assert(ctx->selection_construct_tail);
-                add_structural_dominance_edge(ctx, node, ctx->selection_construct_tail, StructuredLeaveBodyEdge);
+                add_structural_edge(ctx, node, ctx->selection_construct_tail, StructuredLeaveBodyEdge, terminator);
                 return;
             }
             case MergeContinue_TAG:{
                 assert(ctx->loop_construct_head);
-                add_structural_dominance_edge(ctx, node, ctx->loop_construct_head, StructuredLoopContinue);
+                add_structural_edge(ctx, node, ctx->loop_construct_head, StructuredLoopContinue, terminator);
                 return;
             }
             case MergeBreak_TAG: {
                 assert(ctx->loop_construct_tail);
-                add_structural_dominance_edge(ctx, node, ctx->loop_construct_tail, StructuredLeaveBodyEdge);
+                add_structural_edge(ctx, node, ctx->loop_construct_tail, StructuredLeaveBodyEdge, terminator);
                 return;
             }
             case TailCall_TAG:
@@ -518,6 +526,7 @@ void compute_domtree(CFG* cfg) {
             CFEdge e = read_list(CFEdge, n->pred_edges)[j];
             if (e.type == StructuredTailEdge) {
                 structured_idom = n->structured_idom = e.src;
+                n->structured_idom_edge = e;
                 continue;
             }
         }

@@ -22,6 +22,7 @@ typedef struct {
     CFNode* src;
     CFNode* dst;
     const Node* jump;
+    const Node* terminator;
 } CFEdge;
 
 struct CFNode_ {
@@ -47,6 +48,7 @@ struct CFNode_ {
     // set by compute_domtree
     CFNode* idom;
     CFNode* structured_idom;
+    CFEdge structured_idom_edge;
 
     /** @brief All Nodes directly dominated by this CFNode.
      *
