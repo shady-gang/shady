@@ -100,6 +100,7 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
 }
 
 OptPass opt_demote_alloca;
+OptPass opt_mem2reg;
 RewritePass import;
 
 Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
@@ -110,11 +111,17 @@ Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
     size_t r = 0;
     Module* m = src;
     do {
+        todo = false;
         debugv_print("Cleanup round %d\n", r);
+
         if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
             log_module(DEBUGVV, config, m);
-        todo = false;
         todo |= opt_demote_alloca(config, &m);
+
+        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
+            log_module(DEBUGVV, config, m);
+        todo |= opt_mem2reg(config, &m);
+
         if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
             log_module(DEBUGVV, config, m);
         todo |= simplify(config, &m);

@@ -105,7 +105,7 @@ RewritePass eliminate_inlineable_constants;
 RewritePass mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics
 RewritePass opt_inline;
-RewritePass opt_mem2reg;
+OptPass opt_mem2reg;
 
 RewritePass opt_stack;
 RewritePass opt_restructurize;
