@@ -23,7 +23,7 @@ typedef struct Context_ {
     const CompilerConfig* config;
     Arena* arena;
     struct Dict* alloca_info;
-    bool todo;
+    bool* todo;
 } Context;
 
 typedef struct {
@@ -164,14 +164,14 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
     if (!k->leaks) {
         if (!k->read_from && !k->non_logical_use/* this should include killing dead stores! */) {
-            ctx->todo |= true;
+            *ctx->todo |= true;
             const Node* new = undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(r, old->type)) });
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
         }
         if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-            ctx->todo |= true;
+            *ctx->todo |= old->tag != LocalAlloc_TAG;
             const Node* new = local_alloc(a, (LocalAlloc) { .type = rewrite_node(r, old_type), .mem = nmem });
             k->new = new;
             return new;
@@ -214,7 +214,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == rewrite_node(r, payload.ptr))
                         break;
-                    ctx->todo |= true;
+                    *ctx->todo |= true;
                     BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     const Node* data = gen_load(bb, k.src_alloca->new);
                     data = gen_reinterpret_cast(bb, access_type, data);
@@ -232,7 +232,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == rewrite_node(r, payload.ptr))
                         break;
-                    ctx->todo |= true;
+                    *ctx->todo |= true;
                     BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.value));
                     gen_store(bb, k.src_alloca->new, data);
@@ -252,6 +252,7 @@ KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
 bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+    bool todo = false;
     Module* src = *m;
     IrArena* a = get_module_arena(src);
     Module* dst = new_module(a, get_module_name(src));
@@ -260,12 +261,12 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
         .config = config,
         .arena = new_arena(),
         .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
-        .todo = false
+        .todo = &todo
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.alloca_info);
     destroy_arena(ctx.arena);
     *m = dst;
-    return ctx.todo;
+    return todo;
 }

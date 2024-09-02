@@ -57,6 +57,7 @@ const Node* process(Context* ctx, const Node* old) {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1 && a->config.optimisations.inline_single_use_bbs) {
                 log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
+                *ctx->todo = true;
                 return NULL;
             }
             break;
@@ -103,29 +104,39 @@ OptPass opt_demote_alloca;
 OptPass opt_mem2reg;
 RewritePass import;
 
-Module* cleanup(SHADY_UNUSED const CompilerConfig* config, Module* const src) {
+static void apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
+    bool changed = pass(config, m);
+    *todo |= changed;
+
+    if (getenv("SHADY_DUMP_CLEAN_ROUNDS") && changed) {
+        log_string(DEBUGVV, "%s changed something:\n", pass_name);
+        log_module(DEBUGVV, config, *m);
+    }
+}
+
+#define APPLY_OPT(pass_name) apply_opt_impl(config, &todo, &m, pass_name, #pass_name);
+
+Module* cleanup(const CompilerConfig* config, Module* const src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     if (!aconfig.check_types)
         return src;
     bool todo;
     size_t r = 0;
     Module* m = src;
+    bool changed_at_all = false;
     do {
         todo = false;
         debugv_print("Cleanup round %d\n", r);
 
-        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
-            log_module(DEBUGVV, config, m);
-        todo |= opt_demote_alloca(config, &m);
+        APPLY_OPT(opt_demote_alloca);
+        APPLY_OPT(opt_mem2reg);
+        APPLY_OPT(simplify);
 
-        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
-            log_module(DEBUGVV, config, m);
-        todo |= opt_mem2reg(config, &m);
+        changed_at_all |= todo;
 
-        if (getenv("SHADY_DUMP_CLEAN_ROUNDS"))
-            log_module(DEBUGVV, config, m);
-        todo |= simplify(config, &m);
         r++;
     } while (todo);
+    if (changed_at_all)
+        debugv_print("After %d rounds of cleanup:\n", r);
     return import(config, m);
 }

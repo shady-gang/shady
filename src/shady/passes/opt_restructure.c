@@ -205,6 +205,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         case Branch_TAG: {
             Branch payload = body->payload.branch;
             const Node* condition = rewrite_node(&ctx->rewriter, payload.condition);
+            rewrite_node(r, payload.mem);
 
             Node* true_case = case_(a, empty(a));
             set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, get_abstraction_mem(true_case), make_selection_merge_case(a)));
@@ -219,6 +220,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         case Switch_TAG: {
             Switch payload = body->payload.br_switch;
             const Node* switch_value = rewrite_node(r, payload.switch_value);
+            rewrite_node(r, payload.mem);
 
             Node* default_case = case_(a, empty(a));
             set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, get_abstraction_mem(default_case), make_selection_merge_case(a)));
