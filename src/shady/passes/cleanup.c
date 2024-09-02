@@ -1,6 +1,7 @@
 #include "shady/pass.h"
 
 #include "../analysis/uses.h"
+#include "../analysis/leak.h"
 #include "../ir_private.h"
 #include "../type.h"
 
@@ -71,6 +72,36 @@ const Node* process(Context* ctx, const Node* old) {
                 register_processed_list(r, get_abstraction_params(otarget), nargs);
                 register_processed(r, get_abstraction_mem(otarget), rewrite_node(r, old->payload.jump.mem));
                 return rewrite_node(r, get_abstraction_body(otarget));
+            }
+            break;
+        }
+        case Control_TAG: {
+            Control payload = old->payload.control;
+            if (is_control_static(ctx->map, old)) {
+                const Node* control_inside = payload.inside;
+                const Node* term = get_abstraction_body(control_inside);
+                if (term->tag == Join_TAG) {
+                    Join payload_join = term->payload.join;
+                    if (payload_join.join_point == first(get_abstraction_params(control_inside))) {
+                        // if we immediately consume the join point and it's never leaked, this control block does nothing and can be eliminated
+                        register_processed(r, get_abstraction_mem(control_inside), rewrite_node(r, payload.mem));
+                        register_processed(r, control_inside, NULL);
+                        *ctx->todo = true;
+                        return rewrite_node(r, term);
+                    }
+                }
+            }
+            break;
+        }
+        case Join_TAG: {
+            Join payload = old->payload.join;
+            const Node* control = get_control_for_jp(ctx->map, payload.join_point);
+            if (control) {
+                Control old_control_payload = control->payload.control;
+                // there was a control but now there is not anymore - jump to the tail!
+                if (rewrite_node(r, old_control_payload.inside) == NULL) {
+                    return jump_helper(a, rewrite_node(r, old_control_payload.tail), rewrite_nodes(r, payload.args), rewrite_node(r, payload.mem));
+                }
             }
             break;
         }

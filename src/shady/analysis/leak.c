@@ -43,7 +43,8 @@ bool is_control_static(const UsesMap* map, const Node* control) {
 }
 
 const Node* get_control_for_jp(const UsesMap* map, const Node* jp) {
-    assert(is_param(jp));
+    if (!is_param(jp))
+        return NULL;
     const Node* abs = jp->payload.param.abs;
     assert(is_abstraction(abs));
 
