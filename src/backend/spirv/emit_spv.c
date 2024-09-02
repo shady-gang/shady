@@ -130,8 +130,6 @@ static void emit_function(Emitter* emitter, const Node* node) {
         }
         emit_basic_block(emitter, &fn_builder, fn_builder.cfg->entry);
 
-        free(fn_builder.per_bb);
-
         spvb_define_function(emitter->file_builder, fn_builder.base);
     } else {
         Growy* g = new_growy();
@@ -142,6 +140,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         spvb_declare_function(emitter->file_builder, fn_builder.base);
     }
 
+    free(fn_builder.per_bb);
     destroy_scheduler(fn_builder.scheduler);
     destroy_cfg(fn_builder.cfg);
     destroy_dict(fn_builder.emitted);

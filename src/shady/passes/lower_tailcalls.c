@@ -328,7 +328,6 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     // Build 'zero' case (exits the program)
     Node* zero_case_lam = case_(a, nodes(a, 0, NULL));
-    BodyBuilder* zero_case_builder = begin_body_with_mem(a, get_abstraction_mem(zero_case_lam));
     Node* zero_if_true_lam = case_(a, empty(a));
     BodyBuilder* zero_if_case_builder = begin_body_with_mem(a, get_abstraction_mem(zero_if_true_lam));
     if (ctx->config->printf_trace.god_function) {
@@ -336,9 +335,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         gen_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
     }
     set_abstraction_body(zero_if_true_lam, finish_body_with_join(zero_if_case_builder, l.break_jp, empty(a)));
-    // gen_if(zero_case_builder, empty(a), should_run, zero_if_true_lam, NULL);
 
-    // set_abstraction_body(zero_case_lam, finish_body_with_join(zero_case_builder, l.continue_jp, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
     Node* zero_if_false = case_(a, empty(a));
     BodyBuilder* zero_false_builder = begin_body_with_mem(a, get_abstraction_mem(zero_if_false));
     if (ctx->config->printf_trace.god_function) {
