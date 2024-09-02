@@ -52,9 +52,6 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 

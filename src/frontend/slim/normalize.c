@@ -87,8 +87,6 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    if (node == NULL) return NULL;
-
     const Node* already_done = search_processed(&ctx->rewriter, node);
     if (already_done)
         return already_done;

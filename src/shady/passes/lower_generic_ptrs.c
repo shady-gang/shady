@@ -178,9 +178,6 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
 }
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = ctx->rewriter.dst_module;

@@ -130,12 +130,6 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    if (!node)
-        return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found)
-        return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     assert(a != node->arena);

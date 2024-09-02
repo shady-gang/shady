@@ -42,9 +42,6 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
 }
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
 

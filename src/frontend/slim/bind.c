@@ -270,11 +270,6 @@ static bool is_used_as_value(Context* ctx, const Node* node) {
 static const Node* bind_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
-    if (node == NULL)
-        return NULL;
-
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
 
     // in case the node is an l-value, we load it
     // const Node* lhs = get_node_address_safe(ctx, node);

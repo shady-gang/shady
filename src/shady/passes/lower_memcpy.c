@@ -16,9 +16,6 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;

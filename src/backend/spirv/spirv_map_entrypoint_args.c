@@ -30,10 +30,6 @@ static const Node* rewrite_args_type(Rewriter* rewriter, const Node* old_type) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     switch (node->tag) {
         case GlobalVariable_TAG:
             if (lookup_annotation(node, "EntryPointArgs")) {

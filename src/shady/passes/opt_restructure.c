@@ -322,12 +322,8 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    if (!node) return NULL;
     assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
-
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
 
     if (is_declaration(node)) {
         String name = get_declaration_name(node);

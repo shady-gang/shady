@@ -92,9 +92,6 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 }
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (old->tag) {

@@ -85,10 +85,6 @@ static const Node* infer_type(Context* ctx, const Type* type) {
 
 static const Node* infer_decl(Context* ctx, const Node* node) {
     assert(is_declaration(node));
-    const Node* already_done = search_processed(&ctx->rewriter, node);
-    if (already_done)
-        return already_done;
-
     if (lookup_annotation(node, "SkipOnInfer"))
         return NULL;
 
@@ -590,13 +586,6 @@ static const Node* process(Context* src_ctx, const Node* node) {
     ctx.expected_type = NULL;
 
     IrArena* a = ctx.rewriter.dst_arena;
-
-    const Node* found = search_processed(&src_ctx->rewriter, node);
-    if (found) {
-        //if (expect)
-        //    assert(is_subtype(expect, found->type));
-        return found;
-    }
 
     if (is_type(node)) {
         assert(expected_type == NULL);

@@ -93,10 +93,6 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
 
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     switch (node->tag) {
         case Function_TAG: {
             Context fn_ctx = *ctx;

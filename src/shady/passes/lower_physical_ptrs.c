@@ -291,9 +291,6 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 }
 
 static const Node* process_node(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 

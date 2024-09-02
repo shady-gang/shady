@@ -13,9 +13,6 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {

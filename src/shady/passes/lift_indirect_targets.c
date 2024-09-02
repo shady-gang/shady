@@ -156,9 +156,6 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
 

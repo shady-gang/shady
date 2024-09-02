@@ -19,8 +19,6 @@ typedef struct Context_ {
 } Context;
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
     Rewriter* r = &ctx->rewriter;

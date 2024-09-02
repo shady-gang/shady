@@ -73,9 +73,6 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 static const Node* process(Context* ctx, const Node* node) {
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;

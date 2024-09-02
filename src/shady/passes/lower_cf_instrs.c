@@ -18,13 +18,7 @@ typedef struct Context_ {
     CFG* cfg;
 } Context;
 
-static const Node* process_node(Context* ctx, const Node* node);
-
 static const Node* process_node(Context* ctx, const Node* node) {
-    const Node* already_done = search_processed(&ctx->rewriter, node);
-    if (already_done)
-        return already_done;
-
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 

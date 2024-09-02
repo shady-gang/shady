@@ -75,10 +75,6 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     switch (node->tag) {
         case Function_TAG:
             if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {

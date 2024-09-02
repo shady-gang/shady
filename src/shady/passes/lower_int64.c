@@ -33,9 +33,6 @@ static void extract_low_hi_halves_list(BodyBuilder* bb, Nodes src, const Node** 
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (node->tag) {
