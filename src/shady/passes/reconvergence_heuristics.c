@@ -163,16 +163,16 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // replace the exit nodes by the exit wrappers
-            LARRAY(const Node*, cached_exits, exiting_nodes_count);
+            LARRAY(const Node**, cached_exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                cached_exits[i] = *search_processed(rewriter, exiting_node->node);
+                cached_exits[i] = search_processed(rewriter, exiting_node->node);
                 if (cached_exits[i])
                     remove_dict(const Node*, rewriter->map, exiting_node->node);
                 register_processed(rewriter, exiting_node->node, exit_wrappers[i]);
             }
             // ditto for the loop entry and the continue wrapper
-            const Node* cached_entry = *search_processed(rewriter, node);
+            const Node** cached_entry = search_processed(rewriter, node);
             if (cached_entry)
                 remove_dict(const Node*, rewriter->map, node);
             register_processed(rewriter, node, continue_wrapper);
@@ -215,11 +215,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 remove_dict(const Node*, rewriter->map, read_list(CFNode*, exiting_nodes)[i]->node);
                 if (cached_exits[i])
-                    register_processed(rewriter, read_list(CFNode*, exiting_nodes)[i]->node, cached_exits[i]);
+                    register_processed(rewriter, read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
             }
             remove_dict(const Node*, rewriter->map, node);
             if (cached_entry)
-                register_processed(rewriter, node, cached_entry);
+                register_processed(rewriter, node, *cached_entry);
 
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
             BodyBuilder* inner_bb = begin_body_with_mem(arena, get_abstraction_mem(loop_outer));
@@ -415,11 +415,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .mem = get_abstraction_mem(pre_join),
             }));
 
-            const Node* cached = *search_processed(r, post_dominator);
+            const Node** cached = search_processed(r, post_dominator);
             if (cached)
                 remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             for (size_t i = 0; i < old_params.count; i++) {
-                assert(!*search_processed(r, old_params.nodes[i]));
+                assert(!search_processed(r, old_params.nodes[i]));
             }
 
             register_processed(r, post_dominator, pre_join);
@@ -435,7 +435,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             if (cached)
-                register_processed(r, post_dominator, cached);
+                register_processed(r, post_dominator, *cached);
 
             const Node* join_target = rewrite_node(r, post_dominator);
 
