@@ -16,13 +16,25 @@ typedef struct {
     bool* todo;
 } Context;
 
+typedef struct {
+    const Node* src;
+    Nodes indices;
+};
+
 static const Node* get_ptr_source(const Node* ptr) {
+    IrArena* a = ptr->arena;
     while (true) {
         switch (ptr->tag) {
-            // case Lea_TAG: {
-            //     ptr = ptr->payload.lea.ptr;
-            //     break;
-            // }
+            case PtrCompositeElement_TAG: {
+                PtrCompositeElement payload = ptr->payload.ptr_composite_element;
+                ptr = payload.ptr;
+                break;
+            }
+            case PtrArrayElementOffset_TAG: {
+                PtrArrayElementOffset payload = ptr->payload.ptr_array_element_offset;
+                ptr = payload.ptr;
+                break;
+            }
             case PrimOp_TAG: {
                 PrimOp payload = ptr->payload.prim_op;
                 switch (payload.op) {
@@ -45,7 +57,8 @@ static const Node* get_ptr_source(const Node* ptr) {
     }
 }
 
-static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const Node* mem) {
+static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const Node* mem, const Type* expected_type) {
+    const Node* ptr_source = get_ptr_source(ptr);
     while (mem) {
         switch (mem->tag) {
             case AbsMem_TAG: {
@@ -56,11 +69,15 @@ static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const No
                     mem = get_terminator_mem(e.terminator);
                     continue;
                 }
+                break;
             }
             case Store_TAG: {
                 Store payload = mem->payload.store;
                 if (payload.ptr == ptr)
                     return payload.value;
+                if (get_ptr_source(payload.ptr) == ptr_source)
+                    return NULL;
+                break;
             }
             default: break;
         }
@@ -84,10 +101,10 @@ static const Node* process(Context* ctx, const Node* node) {
         case Load_TAG: {
             Load payload = node->payload.load;
             const Node* src = get_ptr_source(payload.ptr);
-            if (src->tag != StackAlloc_TAG)
+            if (src->tag != LocalAlloc_TAG)
                 break;
             // for now, only simplify loads from non-leaking allocas
-            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem);
+            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, get_unqualified_type(node->type));
             if (ovalue) {
                 *ctx->todo = true;
                 const Node* value = rewrite_node(r, ovalue);
