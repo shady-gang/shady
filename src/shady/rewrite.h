@@ -38,6 +38,7 @@ struct Rewriter_ {
     Rewriter* parent;
 
     struct Dict* map;
+    bool own_decls;
     struct Dict* decls_map;
 };
 
@@ -47,6 +48,7 @@ Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter create_importer(Module* src, Module* dst);
 
 Rewriter create_children_rewriter(Rewriter* parent);
+Rewriter create_decl_rewriter(Rewriter* parent);
 void destroy_rewriter(Rewriter*);
 
 void rewrite_module(Rewriter*);

@@ -90,6 +90,10 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     destroy_scheduler(scheduler);
 
+    Context lifting_ctx = *ctx;
+    lifting_ctx.rewriter = create_decl_rewriter(&ctx->rewriter);
+    Rewriter* r = &lifting_ctx.rewriter;
+
     Nodes ovariables = get_abstraction_params(liftee);
     debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
@@ -112,9 +116,6 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     lifted_cont->save_values = frontier;
     insert_dict(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
 
-    Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
-    Rewriter* r = &lifting_ctx.rewriter;
     register_processed_list(r, ovariables, new_params);
 
     const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
@@ -146,6 +147,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     }
 
     register_processed(r, get_abstraction_mem(liftee), bb_mem(bb));
+    register_processed(r, liftee, new_fn);
     const Node* substituted = rewrite_node(r, obody);
     destroy_rewriter(r);
 

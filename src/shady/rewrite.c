@@ -24,13 +24,15 @@ Rewriter create_rewriter_base(Module* src, Module* dst) {
             .write_map = true,
         },
         .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .own_decls = true,
+        .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .parent = NULL,
     };
 }
 
 Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
     Rewriter r = create_rewriter_base(src, dst);
     r.rewrite_fn = fn;
-    r.decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     return r;
 }
 
@@ -38,14 +40,13 @@ Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn) {
     Rewriter r = create_rewriter_base(src, dst);
     r.config.write_map = false;
     r.rewrite_op_fn = fn;
-    r.decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     return r;
 }
 
 void destroy_rewriter(Rewriter* r) {
     assert(r->map);
     destroy_dict(r->map);
-    if (!r->parent)
+    if (r->own_decls)
         destroy_dict(r->decls_map);
 }
 
@@ -57,6 +58,14 @@ Rewriter create_children_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
     r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     r.parent = parent;
+    r.own_decls = false;
+    return r;
+}
+
+Rewriter create_decl_rewriter(Rewriter* parent) {
+    Rewriter r = *parent;
+    r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.own_decls = false;
     return r;
 }
 
