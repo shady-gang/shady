@@ -485,6 +485,10 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     // don't care
                     return NULL;
                 }
+                if (string_starts_with(intrinsic, "llvm.var.annotation")) {
+                    // don't care
+                    return NULL;
+                }
                 if (string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return bind_instruction_single(b, copy_bytes(a, (CopyBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = bb_mem(b) }));
