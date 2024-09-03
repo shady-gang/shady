@@ -42,8 +42,8 @@ static const Node* look_past_stuff(const Node* thing) {
             default: assert(false);
         }
     }
-    if (thing->tag == Lea_TAG) {
-        thing = thing->payload.lea.ptr;
+    if (thing->tag == PtrCompositeElement_TAG) {
+        thing = thing->payload.ptr_composite_element.ptr;
     }
     return thing;
 }

@@ -49,7 +49,7 @@ const Type* get_pointee_type(IrArena* arena, const Type* type) {
     return type;
 }
 
-void step_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack) {
+void enter_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack) {
     const Type* current_type = *datatype;
 
     if (selector->arena->config.check_types) {
@@ -98,10 +98,10 @@ void step_composite(const Type** datatype, bool* uniform, const Node* selector, 
     *datatype = current_type;
 }
 
-void enter_composite(const Type** datatype, bool* uniform, Nodes indices, bool allow_entering_pack) {
+void enter_composite_indices(const Type** datatype, bool* uniform, Nodes indices, bool allow_entering_pack) {
     for(size_t i = 0; i < indices.count; i++) {
         const Node* selector = indices.nodes[i];
-        step_composite(datatype, uniform, selector, allow_entering_pack);
+        enter_composite(datatype, uniform, selector, allow_entering_pack);
     }
 }
 

@@ -269,13 +269,13 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 ptr = first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, singleton(typed_ptr), singleton(ptr)), 1));
             }
             ops = change_node_at_index(a, ops, 0, ptr);
-            const Node* r = lea(a, (Lea) { .ptr = ops.nodes[0], .offset = ops.nodes[1], .indices = nodes(a, ops.count - 2, &ops.nodes[2])});
+            const Node* r = lea_helper(a, ops.nodes[0], ops.nodes[1], nodes(a, ops.count - 2, &ops.nodes[2]));
             if (UNTYPED_POINTERS) {
                 const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 bool idk;
                 //element_t = qualified_type_helper(element_t, false);
-                enter_composite(&element_t, &idk, nodes(a, ops.count - 2, &ops.nodes[2]), true);
+                enter_composite_indices(&element_t, &idk, nodes(a, ops.count - 2, &ops.nodes[2]), true);
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 r = prim_op_helper(a, reinterpret_op, singleton(untyped_ptr_t), BIND_PREV_R(typed_ptr));
             }

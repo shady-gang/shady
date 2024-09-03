@@ -83,18 +83,12 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
     while (true) {
         ptr = resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
-            case Lea_TAG: {
-                Lea lea = ptr->payload.lea;
-                if (!is_zero(lea.offset))
-                    goto outer_break;
-                for (size_t i = 0; i < lea.indices.count; i++) {
-                    if (!is_zero(lea.indices.nodes[i]))
-                        goto outer_break;
-                }
-                ptr = lea.ptr;
+            case PtrArrayElementOffset_TAG: break;
+            case PtrCompositeElement_TAG: {
+                PtrCompositeElement payload = ptr->payload.ptr_composite_element;
+                if (!is_zero(payload.index))
+                    break;
                 continue;
-                outer_break:
-                break;
             }
             case PrimOp_TAG: {
                 switch (ptr->payload.prim_op.op) {
@@ -240,7 +234,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             const Node* decl = node->payload.ref_decl.decl;
             return get_string_literal(arena, decl);
         }
-        case Lea_TAG: {
+        /*case Lea_TAG: {
             Lea lea = node->payload.lea;
             if (lea.indices.count == 3 && is_zero(lea.offset) && is_zero(first(lea.indices))) {
                 const Node* ref = lea.ptr;
@@ -252,7 +246,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
                 return get_string_literal(arena, decl->payload.global_variable.init);
             }
             break;
-        }
+        }*/
         case StringLiteral_TAG: return node->payload.string_lit.string;
         case Composite_TAG: {
             Nodes contents = node->payload.composite.contents;

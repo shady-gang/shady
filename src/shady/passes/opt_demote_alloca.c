@@ -86,12 +86,12 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             }
             if (has_primop_got_side_effects(payload.op))
                 k->leaks = true;
-        } else if (use->user->tag == Lea_TAG) {
+        } /*else if (use->user->tag == Lea_TAG) {
             // TODO: follow where those derived pointers are used and establish whether they leak themselves
             // use slice_type to keep track of the expected type for the relevant sub-object
             k->leaks = true;
             continue;
-        } else if (use->user->tag == Composite_TAG) {
+        } */else if (use->user->tag == Composite_TAG) {
             // todo...
             // note: if a composite literal containing our POI (pointer-of-interest) is extracted from, folding ops simplify this to the original POI
             // so we don't need to be so clever here I think

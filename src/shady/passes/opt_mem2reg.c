@@ -19,10 +19,10 @@ typedef struct {
 static const Node* get_ptr_source(const Node* ptr) {
     while (true) {
         switch (ptr->tag) {
-            case Lea_TAG: {
-                ptr = ptr->payload.lea.ptr;
-                break;
-            }
+            // case Lea_TAG: {
+            //     ptr = ptr->payload.lea.ptr;
+            //     break;
+            // }
             case PrimOp_TAG: {
                 PrimOp payload = ptr->payload.prim_op;
                 switch (payload.op) {

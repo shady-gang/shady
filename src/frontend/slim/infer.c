@@ -517,18 +517,6 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_type);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_type);
         case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
-        case Instruction_Lea_TAG: {
-            Lea payload = node->payload.lea;
-            const Node* ptr = infer(ctx, payload.ptr, NULL);
-            const Node* offset = infer(ctx, payload.offset, NULL);
-            Nodes indices = infer_nodes(ctx, payload.indices);
-
-            const Type* src_ptr = remove_uniformity_qualifier(ptr->type);
-            const Type* base_datatype = src_ptr;
-            assert(base_datatype->tag == PtrType_TAG);
-
-            return lea(a, (Lea) { .ptr = ptr, .offset = offset, .indices = indices });
-        }
         case Instruction_Load_TAG: {
             return load(a, (Load) { .ptr = infer(ctx, node->payload.load.ptr, NULL), .mem = infer(ctx, node->payload.load.mem, NULL) });
         }

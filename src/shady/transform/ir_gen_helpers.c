@@ -125,7 +125,7 @@ void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
-    return lea(bb->arena, (Lea) { .ptr = base, .offset = offset, .indices = selectors });
+    return lea_helper(bb->arena, base, offset, selectors);
 }
 
 const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {

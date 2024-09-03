@@ -427,22 +427,19 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             spvb_store(bb_builder, eval, eptr, operands_count, operands);
             return 0;
         }
-        case Lea_TAG: {
-            Lea payload = instruction->payload.lea;
+        case Instruction_PtrCompositeElement_TAG: {
+            PtrCompositeElement payload = instruction->payload.ptr_composite_element;
             SpvId base = spv_emit_value(emitter, fn_builder, payload.ptr);
-
-            LARRAY(SpvId, indices, payload.indices.count);
-            for (size_t i = 0; i < payload.indices.count; i++)
-                indices[i] = payload.indices.nodes[i] ? spv_emit_value(emitter, fn_builder, payload.indices.nodes[i]) : 0;
-
-            const IntLiteral* known_offset = resolve_to_int_literal(payload.offset);
-            if (known_offset && known_offset->value == 0) {
-                const Type* target_type = instruction->type;
-                return spvb_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, payload.indices.count, indices);
-            } else {
-                const Type* target_type = instruction->type;
-                return spvb_ptr_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, spv_emit_value(emitter, fn_builder, payload.offset), payload.indices.count, indices);
-            }
+            const Type* target_type = instruction->type;
+            SpvId index = spv_emit_value(emitter, fn_builder, payload.index);
+            return spvb_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, 1, &index);
+        }
+        case Instruction_PtrArrayElementOffset_TAG: {
+            PtrArrayElementOffset payload = instruction->payload.ptr_array_element_offset;
+            SpvId base = spv_emit_value(emitter, fn_builder, payload.ptr);
+            const Type* target_type = instruction->type;
+            SpvId offset = spv_emit_value(emitter, fn_builder, payload.offset);
+            return spvb_ptr_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, offset, 0, NULL);
         }
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;

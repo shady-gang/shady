@@ -246,6 +246,20 @@ const Node* prim_op_helper(IrArena* a, Op op, Nodes types, Nodes operands) {
     });
 }
 
+const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) {
+    const Node* lea = ptr_array_element_offset(a, (PtrArrayElementOffset) {
+        .ptr = ptr,
+        .offset = offset,
+    });
+    for (size_t i = 0; i < indices.count; i++) {
+        lea = ptr_composite_element(a, (PtrCompositeElement) {
+            .ptr = lea,
+            .index = indices.nodes[i],
+        });
+    }
+    return lea;
+}
+
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem) {
     return jump(a, (Jump) {
         .target = dst,

@@ -788,7 +788,73 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     return called;
 }
 
-static CTerm emit_lea(Emitter* emitter, FnEmitter* fn, Printer* p, Lea lea) {
+static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer* p, PtrCompositeElement lea) {
+    IrArena* arena = emitter->arena;
+    CTerm acc = c_emit_value(emitter, fn, lea.ptr);
+
+    const Type* src_qtype = lea.ptr->type;
+    bool uniform = is_qualified_type_uniform(src_qtype);
+    const Type* curr_ptr_type = get_unqualified_type(src_qtype);
+    assert(curr_ptr_type->tag == PtrType_TAG);
+
+    const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
+    const Node* selector = lea.index;
+    uniform &= is_qualified_type_uniform(selector->type);
+    switch (is_type(pointee_type)) {
+        case ArrType_TAG: {
+            CTerm index = c_emit_value(emitter, fn, selector);
+            acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
+            curr_ptr_type = ptr_type(arena, (PtrType) {
+                    .pointed_type = pointee_type->payload.arr_type.element_type,
+                    .address_space = curr_ptr_type->payload.ptr_type.address_space
+            });
+            break;
+        }
+        case TypeDeclRef_TAG: {
+            pointee_type = get_nominal_type_body(pointee_type);
+            SHADY_FALLTHROUGH
+        }
+        case RecordType_TAG: {
+            // yet another ISPC bug and workaround
+            // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
+            // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
+            // See https://github.com/ispc/ispc/issues/2496
+            if (emitter->config.dialect == CDialect_ISPC) {
+                String interm = unique_name(arena, "lea_intermediary_ptr_value");
+                print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
+                acc = term_from_cvalue(interm);
+            }
+
+            assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
+            size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            String field_name = c_get_record_field_name(pointee_type, static_index);
+            acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
+            curr_ptr_type = ptr_type(arena, (PtrType) {
+                    .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
+                    .address_space = curr_ptr_type->payload.ptr_type.address_space
+            });
+            break;
+        }
+        case Type_PackType_TAG: {
+            size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            String suffixes = "xyzw";
+            acc = term_from_cvar(format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
+            curr_ptr_type = ptr_type(arena, (PtrType) {
+                    .pointed_type = pointee_type->payload.pack_type.element_type,
+                    .address_space = curr_ptr_type->payload.ptr_type.address_space
+            });
+            break;
+        }
+        default: error("lea can't work on this");
+    }
+
+    // if (emitter->config.dialect == CDialect_ISPC)
+    //     acc = c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+
+    return acc;
+}
+
+static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Printer* p, PtrArrayElementOffset lea) {
     IrArena* arena = emitter->arena;
     CTerm acc = c_emit_value(emitter, fn, lea.ptr);
 
@@ -806,60 +872,6 @@ static CTerm emit_lea(Emitter* emitter, FnEmitter* fn, Printer* p, Lea lea) {
         const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
         acc = term_from_cvalue(format_string_arena(arena->arena, "((%s) &(%s)[%s])", c_emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
         uniform &= is_qualified_type_uniform(lea.offset->type);
-    }
-
-    //t = t->payload.ptr_type.pointed_type;
-    for (size_t i = 0; i < lea.indices.count; i++) {
-        const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
-        const Node* selector = lea.indices.nodes[i];
-        uniform &= is_qualified_type_uniform(selector->type);
-        switch (is_type(pointee_type)) {
-            case ArrType_TAG: {
-                CTerm index = c_emit_value(emitter, fn, selector);
-                acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
-                curr_ptr_type = ptr_type(arena, (PtrType) {
-                        .pointed_type = pointee_type->payload.arr_type.element_type,
-                        .address_space = curr_ptr_type->payload.ptr_type.address_space
-                });
-                break;
-            }
-            case TypeDeclRef_TAG: {
-                pointee_type = get_nominal_type_body(pointee_type);
-                SHADY_FALLTHROUGH
-            }
-            case RecordType_TAG: {
-                // yet another ISPC bug and workaround
-                // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
-                // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
-                // See https://github.com/ispc/ispc/issues/2496
-                if (emitter->config.dialect == CDialect_ISPC) {
-                    String interm = unique_name(arena, "lea_intermediary_ptr_value");
-                    print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
-                    acc = term_from_cvalue(interm);
-                }
-
-                assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
-                size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
-                String field_name = c_get_record_field_name(pointee_type, static_index);
-                acc = term_from_cvar(format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
-                curr_ptr_type = ptr_type(arena, (PtrType) {
-                        .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
-                        .address_space = curr_ptr_type->payload.ptr_type.address_space
-                });
-                break;
-            }
-            case Type_PackType_TAG: {
-                size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
-                String suffixes = "xyzw";
-                acc = term_from_cvar(format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
-                curr_ptr_type = ptr_type(arena, (PtrType) {
-                        .pointed_type = pointee_type->payload.pack_type.element_type,
-                        .address_space = curr_ptr_type->payload.ptr_type.address_space
-                });
-                break;
-            }
-            default: error("lea can't work on this");
-        }
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
@@ -903,7 +915,8 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
         case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_LocalAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
-        case Instruction_Lea_TAG: return emit_lea(emitter, fn, p, instruction->payload.lea);
+        case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);
+        case Instruction_PtrCompositeElement_TAG: return emit_ptr_composite_element(emitter, fn, p, instruction->payload.ptr_composite_element);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
             c_emit_mem(emitter, fn, payload.mem);

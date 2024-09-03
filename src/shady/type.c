@@ -776,7 +776,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Type* t = source->type;
             bool uniform = deconstruct_qualified_type(&t);
-            enter_composite(&t, &uniform, indices, true);
+            enter_composite_indices(&t, &uniform, indices, true);
 
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
@@ -1045,7 +1045,7 @@ const Type* check_type_store(IrArena* a, Store store) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_lea(IrArena* a, Lea lea) {
+const Type* check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffset lea) {
     const Type* base_ptr_type = lea.ptr->type;
     bool uniform = deconstruct_qualified_type(&base_ptr_type);
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
@@ -1062,7 +1062,23 @@ const Type* check_type_lea(IrArena* a, Lea lea) {
     assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
     uniform &= offset_uniform;
 
-    enter_composite(&pointee_type, &uniform, lea.indices, true);
+    return qualified_type(a, (QualifiedType) {
+        .is_uniform = uniform,
+        .type = ptr_type(a, (PtrType) {
+            .pointed_type = pointee_type,
+            .address_space = base_ptr_type->payload.ptr_type.address_space,
+            .is_reference = base_ptr_type->payload.ptr_type.is_reference
+        })
+    });
+}
+
+const Type* check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea) {
+    const Type* base_ptr_type = lea.ptr->type;
+    bool uniform = deconstruct_qualified_type(&base_ptr_type);
+    assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
+    const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
+
+    enter_composite(&pointee_type, &uniform, lea.index, true);
 
     return qualified_type(a, (QualifiedType) {
         .is_uniform = uniform,

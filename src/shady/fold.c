@@ -215,18 +215,13 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
                 }
                 break;
             }
-            case Lea_TAG: {
-                Lea payload = def->payload.lea;
-                if (!is_zero(payload.offset))
-                    goto outer_break;
-                for (size_t i = 0; i < payload.indices.count; i++) {
-                    if (!is_zero(payload.indices.nodes[i]))
-                        goto outer_break;
+            case PtrCompositeElement_TAG: {
+                PtrCompositeElement payload = def->payload.ptr_composite_element;
+                if (is_zero(payload.index)) {
+                    distance++;
+                    ptr = payload.ptr;
+                    continue;
                 }
-                distance++;
-                ptr = payload.ptr;
-                continue;
-                outer_break:
                 break;
             }
             default: break;
@@ -276,12 +271,20 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             r = store(arena, payload);
             break;
         }
-        case Lea_TAG: {
-            Lea payload = node->payload.lea;
+        case PtrCompositeElement_TAG: {
+            PtrCompositeElement payload = node->payload.ptr_composite_element;
             const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
             if (!nptr) break;
             payload.ptr = nptr;
-            r = lea(arena, payload);
+            r = ptr_composite_element(arena, payload);
+            break;
+        }
+        case PtrArrayElementOffset_TAG: {
+            PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
+            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
+            if (!nptr) break;
+            payload.ptr = nptr;
+            r = ptr_array_element_offset(arena, payload);
             break;
         }
         default: return node;
@@ -332,8 +335,14 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
                 return mem_and_value(arena, (MemAndValue) { .value = tuple_helper(arena, empty(arena)), .mem = node->payload.store.mem });
             break;
         }
-        case Lea_TAG: {
-            Lea payload = node->payload.lea;
+        case PtrArrayElementOffset_TAG: {
+            PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
+            if (payload.ptr->tag == Undef_TAG)
+                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+            break;
+        }
+        case PtrCompositeElement_TAG: {
+            PtrCompositeElement payload = node->payload.ptr_composite_element;
             if (payload.ptr->tag == Undef_TAG)
                 return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
             break;
@@ -374,6 +383,12 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     node = fold_simplify_ptr_operand(node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
+        case PtrArrayElementOffset_TAG: {
+            PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
+            if (is_zero(payload.offset))
+                return payload.ptr;
+            break;
+        }
         case Branch_TAG: {
             Branch payload = node->payload.branch;
             if (arena->config.optimisations.fold_static_control_flow) {

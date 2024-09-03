@@ -1000,11 +1000,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < num_indices; i++)
                 indices[i] = get_def_ssa_value(parser, instruction[indices_start + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = first(bind_instruction_outputs_count(parser->current_block.builder, lea(a, (Lea) {
-                .ptr = ptr,
-                .offset = offset,
-                .indices = nodes(a, num_indices, indices),
-            }), 1));
+            parser->defs[result].node = lea_helper(a, ptr, offset, nodes(a, num_indices, indices));
             break;
         }
         case SpvOpCompositeExtract: {

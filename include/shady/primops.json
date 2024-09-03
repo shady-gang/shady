@@ -272,12 +272,19 @@
       ]
     },
     {
-      "name": "Lea",
+      "name": "PtrCompositeElement",
       "class": ["instruction", "value"],
       "ops": [
         { "name": "ptr", "class": "value" },
-        { "name": "offset", "class": "value" },
-        { "name": "indices", "class": "value", "list": true }
+        { "name": "index", "class": "value" }
+      ]
+    },
+    {
+      "name": "PtrArrayElementOffset",
+      "class": ["instruction", "value"],
+      "ops": [
+        { "name": "ptr", "class": "value" },
+        { "name": "offset", "class": "value" }
       ]
     },
     {

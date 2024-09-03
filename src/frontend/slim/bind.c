@@ -101,7 +101,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
                     const Node* index = rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = rewrite_node(r, payload.mem),
-                        .value = lea(a, (Lea) { .ptr = src_ptr, .offset = int32_literal(a, 0), .indices = singleton(index) }),
+                        .value = ptr_composite_element(a, (PtrCompositeElement) { .ptr = src_ptr, .index = index }),
                     });
                 } else if (payload.opcode == SlimOpDereference) {
                     assert(payload.operands.count == 1);
