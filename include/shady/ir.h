@@ -298,19 +298,21 @@ Nodes gen_if(BodyBuilder*, Nodes, const Node*, const Node*, Node*);
 Nodes gen_match(BodyBuilder*, Nodes, const Node*, Nodes, Nodes, Node*);
 Nodes gen_loop(BodyBuilder*, Nodes, Nodes, Node*);
 
-struct begin_control_r {
+typedef struct {
     Nodes results;
     Node* case_;
     const Node* jp;
-} begin_control(BodyBuilder*, Nodes);
+} begin_control_t;
+begin_control_t begin_control(BodyBuilder*, Nodes);
 
-struct begin_loop_helper_r {
+typedef struct {
     Nodes results;
     Node* loop_body;
     Nodes params;
     const Node* continue_jp;
     const Node* break_jp;
-} begin_loop_helper(BodyBuilder*, Nodes, Nodes, Nodes);
+} begin_loop_helper_t;
+begin_loop_helper_t begin_loop_helper(BodyBuilder*, Nodes, Nodes, Nodes);
 
 Nodes gen_control(BodyBuilder*, Nodes, Node*);
 

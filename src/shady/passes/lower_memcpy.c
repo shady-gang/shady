@@ -50,7 +50,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num_in_bytes));
 
-            struct begin_loop_helper_r l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
 
             const Node* index = first(l.params);
             set_value_name(index, "memcpy_i");
@@ -97,7 +97,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num = rewrite_node(&ctx->rewriter, payload.count);
             const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
-            struct begin_loop_helper_r l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
 
             const Node* index = first(l.params);
             set_value_name(index, "memset_i");

@@ -322,7 +322,7 @@ Nodes gen_control(BodyBuilder* bb, Nodes yield_types, Node* body) {
     });
 }
 
-struct begin_control_r begin_control(BodyBuilder* bb, Nodes yield_types) {
+begin_control_t begin_control(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
     const Type* jp_type = qualified_type(a, (QualifiedType) {
             .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
@@ -330,17 +330,17 @@ struct begin_control_r begin_control(BodyBuilder* bb, Nodes yield_types) {
     });
     const Node* jp = param(a, jp_type, NULL);
     Node* c = case_(a, singleton(jp));
-    return (struct begin_control_r) {
-            .results = gen_control(bb, yield_types, c),
-            .case_ = c,
-            .jp = jp
+    return (begin_control_t) {
+        .results = gen_control(bb, yield_types, c),
+        .case_ = c,
+        .jp = jp
     };
 }
 
-struct begin_loop_helper_r begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes arg_types, Nodes initial_values) {
+begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes arg_types, Nodes initial_values) {
     assert(arg_types.count == initial_values.count);
     IrArena* a = bb->arena;
-    struct begin_control_r outer_control = begin_control(bb, yield_types);
+    begin_control_t outer_control = begin_control(bb, yield_types);
     BodyBuilder* outer_control_case_builder = begin_body_with_mem(a, get_abstraction_mem(outer_control.case_));
     LARRAY(const Node*, params, arg_types.count);
     for (size_t i = 0; i < arg_types.count; i++) {
@@ -349,10 +349,10 @@ struct begin_loop_helper_r begin_loop_helper(BodyBuilder* bb, Nodes yield_types,
     Node* loop_header = case_(a, nodes(a, arg_types.count, params));
     set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
     BodyBuilder* loop_header_builder = begin_body_with_mem(a, get_abstraction_mem(loop_header));
-    struct begin_control_r inner_control = begin_control(loop_header_builder, arg_types);
+    begin_control_t inner_control = begin_control(loop_header_builder, arg_types);
     set_abstraction_body(loop_header, finish_body_with_jump(loop_header_builder, loop_header, inner_control.results));
 
-    return (struct begin_loop_helper_r) {
+    return (begin_loop_helper_t) {
         .results = outer_control.results,
         .params = nodes(a, arg_types.count, params),
         .loop_body = inner_control.case_,

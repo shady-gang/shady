@@ -275,7 +275,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     // Node* loop_inside_case = case_(a, count_iterations ? singleton(iterations_count_param) : nodes(a, 0, NULL));
     // gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : empty(a), loop_inside_case);
-    struct begin_loop_helper_r l = begin_loop_helper(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_type(a)) : empty(a), count_iterations ? singleton(int32_literal(a, 0)) : empty(a));
+    begin_loop_helper_t l = begin_loop_helper(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_type(a)) : empty(a), count_iterations ? singleton(int32_literal(a, 0)) : empty(a));
     Node* loop_inside_case = l.loop_body;
     if (count_iterations)
         iterations_count_param = first(l.params);
@@ -300,7 +300,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, 1)));
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
-        struct begin_control_r c = begin_control(loop_body_builder, empty(a));
+        begin_control_t c = begin_control(loop_body_builder, empty(a));
         const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         Node* bail_case = case_(a, empty(a));
         const Node* break_terminator = join(a, (Join) { .args = empty(a), .join_point = l.break_jp, .mem = get_abstraction_mem(bail_case) });
