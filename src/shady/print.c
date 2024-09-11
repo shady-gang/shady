@@ -305,7 +305,8 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     PrinterCtx sub_ctx = *ctx;
     sub_ctx.fn = node;
     if (node->arena->config.name_bound) {
-        CFG* cfg = build_fn_cfg(node);
+        CFGBuildConfig cfg_config = structured_scope_cfg_build();
+        CFG* cfg = build_cfg(node, node, cfg_config);
         sub_ctx.cfg = cfg;
         sub_ctx.scheduler = new_scheduler(cfg);
         sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);

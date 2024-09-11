@@ -284,7 +284,7 @@ void dump_loop_trees(FILE* output, Module* mod) {
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod, forward_cfg_build(true));
+    struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < entries_count_list(cfgs); i++) {
         CFG* cfg = read_list(CFG*, cfgs)[i];
         LoopTree* lt = build_loop_tree(cfg);

@@ -62,6 +62,7 @@ typedef struct Arena_ Arena;
 typedef struct LoopTree_ LoopTree;
 
 typedef struct {
+    bool include_structured_exits;
     bool include_structured_tails;
     LoopTree* lt;
     bool flipped;
@@ -103,26 +104,35 @@ CFG* build_cfg(const Node* fn, const Node* entry, CFGBuildConfig);
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  */
 
-static inline CFGBuildConfig forward_cfg_build(bool include_structured_tails) {
+static inline CFGBuildConfig default_forward_cfg_build(void) {
     return (CFGBuildConfig) {
-        .include_structured_tails = include_structured_tails,
+        .include_structured_exits = true,
+        .include_structured_tails = true,
     };
 }
-static inline CFGBuildConfig flipped_cfg_build(bool include_structured_tails) {
+
+static inline CFGBuildConfig structured_scope_cfg_build(void) {
     return (CFGBuildConfig) {
-        .include_structured_tails = include_structured_tails,
+        .include_structured_exits = false,
+        .include_structured_tails = true,
+    };
+}
+
+static inline CFGBuildConfig flipped_cfg_build(void) {
+    return (CFGBuildConfig) {
+        //.include_structured_tails = include_structured_tails,
         .lt = NULL,
         .flipped = true,
     };
 }
 
-#define build_fn_cfg(node) build_cfg(node, node, forward_cfg_build(true))
+#define build_fn_cfg(node) build_cfg(node, node, default_forward_cfg_build())
 
 /** Construct the CFG stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  * This CFG will contain post dominance information instead of regular dominance!
  */
-#define build_fn_cfg_flipped(node) build_cfg(node, node, flipped_cfg_build(true))
+#define build_fn_cfg_flipped(node) build_cfg(node, node, flipped_cfg_build())
 
 CFNode* cfg_lookup(CFG* cfg, const Node* abs);
 void compute_rpo(CFG*);
