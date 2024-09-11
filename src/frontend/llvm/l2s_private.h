@@ -24,8 +24,17 @@ typedef struct {
 } Parser;
 
 typedef struct {
+    LLVMBasicBlockRef bb;
+    LLVMValueRef instr;
+    Node* nbb;
+    BodyBuilder* builder;
+    bool translated;
+} BBParseCtx;
+
+typedef struct {
     Node* fn;
     struct Dict* phis;
+    struct Dict* bbs;
     struct List* jumps_todo;
 } FnParseCtx;
 
@@ -53,7 +62,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t);
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
 const Node* convert_global(Parser* p, LLVMValueRef global);
 const Node* convert_function(Parser* p, LLVMValueRef fn);
-const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
+const Node* convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
+const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
 typedef struct {
     struct List* list;

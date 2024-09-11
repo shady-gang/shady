@@ -58,7 +58,7 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
 
 static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, LLVMBasicBlockRef dst, const Node* mem) {
     IrArena* a = fn_ctx->fn->arena;
-    const Node* dst_bb = convert_basic_block(p, fn_ctx, dst);
+    const Node* dst_bb = convert_basic_block_body(p, fn_ctx, dst);
     BBPhis* phis = find_value_dict(const Node*, BBPhis, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = entries_count_list(phis->list);
@@ -66,7 +66,7 @@ static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, 
     for (size_t i = 0; i < params_count; i++) {
         LLVMValueRef phi = read_list(LLVMValueRef, phis->list)[i];
         for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
-            if (convert_basic_block(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == src) {
+            if (convert_basic_block_header(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == src) {
                 params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
                 goto next;
             }

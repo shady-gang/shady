@@ -44,38 +44,34 @@ int vcc_get_linked_major_llvm_version() {
 #error "wat"
 #endif
 
-static const Node* write_bb_tail(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, LLVMBasicBlockRef bb, LLVMValueRef first_instr) {
-    BodyBuilder* b = begin_body_with_mem(fn_or_bb->arena, get_abstraction_mem(fn_or_bb));
+static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
+    bb_ctx->builder = begin_body_with_mem(bb_ctx->nbb->arena, get_abstraction_mem(bb_ctx->nbb));
     LLVMValueRef instr;
-    for (instr = first_instr; instr; instr = LLVMGetNextInstruction(instr)) {
+    LLVMBasicBlockRef bb = bb_ctx->bb;
+    for (instr = bb_ctx->instr; instr; instr = LLVMGetNextInstruction(instr)) {
         bool last = instr == LLVMGetLastInstruction(bb);
         if (last)
             assert(LLVMGetBasicBlockTerminator(bb) == instr);
         // LLVMDumpValue(instr);
         // printf("\n");
-        const Node* emitted = convert_instruction(p, fn_ctx, fn_or_bb, b, instr);
+        if (LLVMIsATerminatorInst(instr))
+            return;
+        const Node* emitted = convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr);
         if (!emitted)
             continue;
         insert_dict(LLVMValueRef, const Node*, p->map, instr, emitted);
-        if (is_terminator(emitted))
-            return finish_body(b, emitted);
-        //String names[] = { LLVMGetValueName(instr) };
-        //Nodes results = bind_instruction_outputs_count(b, emitted.instruction, emitted.result_types.count);
-        //if (emitted.result_types.count == 1) {
-        //    const Node* result = first(results);
-        //    insert_dict(LLVMValueRef, const Node*, p->map, instr, result);
-        //}
     }
+    log_string(ERROR, "Reached end of LLVM basic block without encountering a terminator!");
     SHADY_UNREACHABLE;
 }
 
-typedef struct {
-    LLVMBasicBlockRef bb;
-    LLVMValueRef instr;
-    Node* nbb;
-} TodoBB;
+static void write_bb_tail(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
+    LLVMBasicBlockRef bb = bb_ctx->bb;
+    LLVMValueRef instr = LLVMGetLastInstruction(bb);
+    set_abstraction_body(bb_ctx->nbb, finish_body(bb_ctx->builder, convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr)));
+}
 
-static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
     debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
     if (get_log_level() >= DEBUG)
@@ -105,20 +101,42 @@ static TodoBB prepare_bb(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
         Node* nbb = basic_block(a, params, name);
         insert_dict(LLVMValueRef, const Node*, p->map, bb, nbb);
         insert_dict(const Node*, struct List*, fn_ctx->phis, nbb, phis);
-        TodoBB todo = {
+        *ctx = (BBParseCtx) {
             .bb = bb,
             .instr = instr,
             .nbb = nbb,
         };
-        return todo;
     }
 }
 
-const Node* convert_basic_block(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+static BBParseCtx* get_bb_ctx(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+    BBParseCtx** found = find_value_dict(LLVMValueRef, BBParseCtx*, fn_ctx->bbs, bb);
+    if (found) return *found;
+
+    BBParseCtx* ctx = arena_alloc(p->annotations_arena, sizeof(BBParseCtx));
+    prepare_bb(p, fn_ctx, ctx, bb);
+    insert_dict(LLVMBasicBlockRef, BBParseCtx*, fn_ctx->bbs, bb, ctx);
+
+    return ctx;
+}
+
+const Node* convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     const Node** found = find_value_dict(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
 
-    assert(false);
+    BBParseCtx* ctx = get_bb_ctx(p, fn_ctx, bb);
+    return ctx->nbb;
+}
+
+const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+    BBParseCtx* ctx = get_bb_ctx(p, fn_ctx, bb);
+    if (ctx->translated)
+        return ctx->nbb;
+
+    ctx->translated = true;
+    write_bb_body(p, fn_ctx, ctx);
+    write_bb_tail(p, fn_ctx, ctx);
+    return ctx->nbb;
 }
 
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
@@ -163,6 +181,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     FnParseCtx fn_parse_ctx = {
         .fn = f,
         .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
+        .bbs = new_dict(LLVMBasicBlockRef, BBParseCtx*, (HashFn) hash_ptr, (CmpFn) compare_ptrs),
         .jumps_todo = new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
@@ -173,18 +192,33 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         insert_dict(LLVMValueRef, const Node*, p->map, first_bb, f);
 
-        LLVMBasicBlockRef bb = LLVMGetNextBasicBlock(first_bb);
-        LARRAY(TodoBB, todo, bb_count);
-        size_t i = 1;
-        for (;bb; bb = LLVMGetNextBasicBlock(bb)) {
+        //LLVMBasicBlockRef bb = LLVMGetNextBasicBlock(first_bb);
+        //LARRAY(BBParseCtx, bbs, bb_count);
+        //bbs[0] = (BBParseCtx) {
+        BBParseCtx bb0 = {
+            .nbb = f,
+            .bb = first_bb,
+            .instr = LLVMGetFirstInstruction(first_bb),
+        };
+        //BBParseCtx* bb0p = &bbs[0];
+        BBParseCtx* bb0p = &bb0;
+        insert_dict(LLVMBasicBlockRef, BBParseCtx*, fn_parse_ctx.bbs, first_bb, bb0p);
+
+        write_bb_body(p, &fn_parse_ctx, &bb0);
+        write_bb_tail(p, &fn_parse_ctx, &bb0);
+
+        /*for (size_t i = 1;bb; bb = LLVMGetNextBasicBlock(bb)) {
             assert(i < bb_count);
-            todo[i++] = prepare_bb(p, &fn_parse_ctx, bb);
+            prepare_bb(p, &fn_parse_ctx, &bbs[i++], bb);
         }
 
-        set_abstraction_body(f, write_bb_tail(p, &fn_parse_ctx, f, first_bb, LLVMGetFirstInstruction(first_bb)));
-        for (size_t i = 1; i < bb_count; i++) {
-            todo[i].nbb->payload.basic_block.body = write_bb_tail(p, &fn_parse_ctx, todo[i].nbb, todo[i].bb, todo[i].instr);
+        for (size_t i = 0; i < bb_count; i++) {
+            write_bb_body(p, &fn_parse_ctx, &bbs[i]);
         }
+
+        for (size_t i = 0; i < bb_count; i++) {
+            write_bb_tail(p, &fn_parse_ctx, &bbs[i]);
+        }*/
     }
 
     {
@@ -195,6 +229,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         }
     }
     destroy_dict(fn_parse_ctx.phis);
+    destroy_dict(fn_parse_ctx.bbs);
     destroy_list(fn_parse_ctx.jumps_todo);
 
     return r;
