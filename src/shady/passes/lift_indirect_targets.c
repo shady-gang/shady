@@ -98,7 +98,10 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = frontier.nodes[i];
-        assert(is_value(item));
+        if (!is_value(item)) {
+            //lambda_lift()
+            continue;
+        }
         debugv_print("%%%d", item->id);
         if (i + 1 < recover_context_size)
             debugv_print(", ");

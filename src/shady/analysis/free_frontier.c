@@ -22,8 +22,18 @@ static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
         if (cfg_is_dominated(where, v->start)) {
             visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
         } else {
-            if (!is_abstraction(node))
-               insert_set_get_result(const Node*, v->frontier, node);
+            if (is_abstraction(node)) {
+                struct Dict* other_ff = free_frontier(v->scheduler, v->cfg, node);
+                size_t i = 0;
+                const Node* f;
+                while (dict_iter(other_ff, &i, &f, NULL)) {
+                    insert_set_get_result(const Node*, v->frontier, f);
+                }
+                destroy_dict(other_ff);
+            }
+            if (is_value(node)) {
+                insert_set_get_result(const Node*, v->frontier, node);
+            }
         }
     }
 }
