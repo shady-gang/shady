@@ -129,7 +129,12 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
     spvb_branch(bb_builder, header_id);
 }
 
-static CFNode* find_surrounding_structured_construct_node(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Structured_constructTag tag) {
+typedef enum {
+    SelectionConstruct,
+    LoopConstruct,
+} Construct;
+
+static CFNode* find_surrounding_structured_construct_node(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Construct construct) {
     const Node* oabs = abs;
     for (CFNode* n = cfg_lookup(fn_builder->cfg, abs); n; oabs = n->node, n = n->idom) {
         const Node* terminator = get_abstraction_body(n->node);
@@ -137,16 +142,19 @@ static CFNode* find_surrounding_structured_construct_node(Emitter* emitter, FnBu
         if (is_structured_construct(terminator) && get_structured_construct_tail(terminator) == oabs) {
              continue;
         }
-        if (terminator->tag == tag) {
-            printf("structured construct for %d is %d\n", abs->id, n->node->id);
+        if (construct == LoopConstruct && terminator->tag == Loop_TAG)
             return n;
-        }
+        if (construct == SelectionConstruct && terminator->tag == If_TAG)
+            return n;
+        if (construct == SelectionConstruct && terminator->tag == Match_TAG)
+            return n;
+
     }
     return NULL;
 }
 
-static const Node* find_construct(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Structured_constructTag tag) {
-    CFNode* found = find_surrounding_structured_construct_node(emitter, fn_builder, abs, tag);
+static const Node* find_construct(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Construct construct) {
+    CFNode* found = find_surrounding_structured_construct_node(emitter, fn_builder, abs, construct);
     return found ? get_abstraction_body(found->node) : NULL;
 }
 
@@ -211,9 +219,8 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         case MergeSelection_TAG: {
             MergeSelection payload = terminator->payload.merge_selection;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            const Node* construct = find_construct(emitter, fn_builder, abs, Structured_construct_If_TAG);
-            if (!construct)
-                construct = find_construct(emitter, fn_builder, abs, Structured_construct_Match_TAG);
+            const Node* construct = find_construct(emitter, fn_builder, abs, SelectionConstruct);
+            assert(construct);
             const Node* tail = get_structured_construct_tail(construct);
             Nodes args = terminator->payload.merge_selection.args;
             add_branch_phis(emitter, fn_builder, basic_block_builder, tail, args);
@@ -224,7 +231,8 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         case MergeContinue_TAG: {
             MergeContinue payload = terminator->payload.merge_continue;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            const Node* construct = find_construct(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
+            const Node* construct = find_construct(emitter, fn_builder, abs, LoopConstruct);
+            assert(construct);
             Loop loop_payload = construct->payload.loop_instr;
             CFNode* loop_body = cfg_lookup(fn_builder->cfg, loop_payload.body);
             assert(loop_body);
@@ -236,7 +244,8 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         case MergeBreak_TAG: {
             MergeBreak payload = terminator->payload.merge_break;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            const Node* construct = find_construct(emitter, fn_builder, abs, Structured_construct_Loop_TAG);
+            const Node* construct = find_construct(emitter, fn_builder, abs, LoopConstruct);
+            assert(construct);
             Loop loop_payload = construct->payload.loop_instr;
             Nodes args = terminator->payload.merge_break.args;
             add_branch_phis(emitter, fn_builder, basic_block_builder, loop_payload.tail, args);
