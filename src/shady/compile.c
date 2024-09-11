@@ -54,7 +54,9 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
         RUN_PASS(lift_everything)
         RUN_PASS(scope2control)
     } else if (config->input_cf.restructure_with_heuristics) {
-        RUN_PASS(lcssa)
+        RUN_PASS(remove_critical_edges)
+        // RUN_PASS(lcssa)
+        RUN_PASS(lift_everything)
         RUN_PASS(reconvergence_heuristics)
     }
 
