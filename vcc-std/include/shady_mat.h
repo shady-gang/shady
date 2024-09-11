@@ -164,7 +164,7 @@ static const Mat3f identity_mat3f = {
     0, 0, 1,
 };
 
-Mat3f transpose_mat3f(Mat3f src) {
+static Mat3f transpose_mat3f(Mat3f src) {
     return (Mat3f) {
         src.m00, src.m10, src.m20,
         src.m01, src.m11, src.m21,
@@ -172,7 +172,7 @@ Mat3f transpose_mat3f(Mat3f src) {
     };
 }
 
-Mat3f mul_mat3f(Mat3f l, Mat3f r) {
+static Mat3f mul_mat3f(Mat3f l, Mat3f r) {
     Mat3f dst = { 0 };
 #define a(i, j) m##i##j
 #define t(bc, br, i) l.a(i, br) * r.a(bc, i)
