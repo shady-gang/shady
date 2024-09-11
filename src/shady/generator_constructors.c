@@ -37,7 +37,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     if (list) {
                         growy_append_formatted(g, "\t\t\tsize_t ops_count = node->payload.%s.%s.count;\n", snake_name, op_name);
                         growy_append_formatted(g, "\t\t\tLARRAY(const Node*, ops, ops_count);\n");
-                        growy_append_formatted(g, "\t\t\tmemcpy(ops, node->payload.%s.%s.nodes, sizeof(const Node*) * ops_count);\n", snake_name, op_name);
+                        growy_append_formatted(g, "\t\t\tif (ops_count > 0) memcpy(ops, node->payload.%s.%s.nodes, sizeof(const Node*) * ops_count);\n", snake_name, op_name);
                         growy_append_formatted(g, "\t\t\tfor (size_t i = 0; i < ops_count; i++) {\n");
                         growy_append_formatted(g, "\t\t\tconst Node** pop = &ops[i];\n");
                         extra = "\t";
