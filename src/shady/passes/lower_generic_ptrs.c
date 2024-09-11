@@ -19,9 +19,15 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static AddressSpace generic_ptr_tags[4] = { AsGlobal, AsShared, AsSubgroup, AsPrivate };
+static AddressSpace generic_ptr_tags[8] = {
+    [0x0] = AsGlobal,
+    [0x1] = AsShared,
+    [0x2] = AsSubgroup,
+    [0x3] = AsPrivate,
+    [0x7] = AsGlobal
+};
 
-static size_t generic_ptr_tag_bitwidth = 2;
+static size_t generic_ptr_tag_bitwidth = 3;
 
 static AddressSpace get_addr_space_from_tag(size_t tag) {
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
@@ -61,6 +67,9 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
 }
 
 static bool allowed(Context* ctx, AddressSpace as) {
+    // some tags aren't in use
+    if (as == AsGeneric)
+        return false;
     // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
     if (!ctx->rewriter.dst_arena->config.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.address_spaces[as].allowed)
         return false;
