@@ -48,6 +48,18 @@ static const Node* look_past_stuff(const Node* thing) {
     return thing;
 }
 
+static bool is_io_as(AddressSpace as) {
+    switch (as) {
+        case AsInput:
+        case AsUInput:
+        case AsOutput:
+        case AsUniform:
+        case AsUniformConstant: return true;
+        default: break;
+    }
+    return false;
+}
+
 void process_llvm_annotations(Parser* p, LLVMValueRef global) {
     IrArena* a = get_module_arena(p->dst);
     const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
@@ -132,11 +144,13 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 });
             } else if (strcmp(keyword, "extern") == 0) {
                 assert(target->tag == GlobalVariable_TAG);
-                ((Node*) target)->payload.global_variable.init = NULL;
+                AddressSpace as = convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));
+                if (is_io_as(as))
+                    ((Node*) target)->payload.global_variable.init = NULL;
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "AddressSpace",
-                        .value = int32_literal(a, convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10)))
+                        .value = int32_literal(a, as)
                     })
                 });
             } else {

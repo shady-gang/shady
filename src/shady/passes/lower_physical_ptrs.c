@@ -430,15 +430,17 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
 }
 
 static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     IrArena* oa = ctx->rewriter.src_arena;
     for (size_t i = 0; i < collected.count; i++) {
         const Node* old_decl = collected.nodes[i];
         assert(old_decl->tag == GlobalVariable_TAG);
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
-            error("TODO: reimplement")
-            // const Node* old_store = store(oa, (Store) { .ptr = ref_decl_helper(oa, old_decl), .value = old_init, bb_mem(bb) });
-            // bind_instruction(bb, rewrite_node(&ctx->rewriter, old_store));
+            const Node* value = rewrite_node(r, old_init);
+            const Node* fn = gen_serdes_fn(ctx, get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
+            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
         }
     }
 }
