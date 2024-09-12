@@ -54,13 +54,13 @@ static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
     }
 }
 
-static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset) {
+static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* address) {
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
     const Node* zero = size_t_literal(a, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
-            const Node* logical_ptr = gen_lea(bb, arr, zero, singleton(base_offset));
+            const Node* logical_ptr = gen_lea(bb, arr, zero, singleton(address));
             const Node* value = gen_load(bb, logical_ptr);
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })});
         }
@@ -68,7 +68,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             case AsGlobal: {
                 // TODO: add a per-as size configuration
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
-                const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, base_offset);
+                const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
                 return gen_reinterpret_cast(bb, element_type, unsigned_int);
             }
             default: error("TODO")
@@ -78,7 +78,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
             size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
-            const Node* offset = base_offset;
+            const Node* offset = bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
@@ -96,14 +96,14 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, uint32_type(a), acc);
-                gen_debug_printf(bb, template, mk_nodes(a, widened, base_offset));
+                gen_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             acc = gen_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
             return acc;
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
-            const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, base_offset);
+            const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
             return gen_reinterpret_cast(bb, element_type, unsigned_int);
         }
         case TypeDeclRef_TAG:
@@ -115,8 +115,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(size_t_literal(a, i)));
-                            field_offset = bytes_to_words(bb, field_offset);
-                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, base_offset, field_offset));
+                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, address, field_offset));
                 loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
             }
             return composite_helper(a, element_type, nodes(a, member_types.count, loaded));
@@ -132,7 +131,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
             LARRAY(const Node*, components, components_count);
-            const Node* offset = base_offset;
+            const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 components[i] = gen_deserialisation(ctx, bb, component_type, arr, offset);
                 offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(component_type), empty(a))));
@@ -143,13 +142,13 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
     }
 }
 
-static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* base_offset, const Node* value) {
+static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* address, const Node* value) {
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
     const Node* zero = size_t_literal(a, 0);
     switch (element_type->tag) {
         case Bool_TAG: {
-            const Node* logical_ptr = gen_lea(bb, arr, zero, singleton(base_offset));
+            const Node* logical_ptr = gen_lea(bb, arr, zero, singleton(address));
             const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.memory.word_size });
             const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size });
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one_b, zero_b });
@@ -160,7 +159,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             case AsGlobal: {
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(ptr_int_t), singleton(value));
-                return gen_serialisation(ctx, bb, ptr_int_t, arr, base_offset, unsigned_value);
+                return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
             }
             default: error("TODO")
         }
@@ -173,7 +172,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
             size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
-            const Node* offset = base_offset;
+            const Node* offset = bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
@@ -200,22 +199,21 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, uint32_type(a), value);
-                gen_debug_printf(bb, template, mk_nodes(a, widened, base_offset));
+                gen_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             return;
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(unsigned_int_t), singleton(value));
-            return gen_serialisation(ctx, bb, unsigned_int_t, arr, base_offset, unsigned_value);
+            return gen_serialisation(ctx, bb, unsigned_int_t, arr, address, unsigned_value);
         }
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, value, int32_literal(a, i)), .type_arguments = empty(a) });
                 const Node* field_offset = gen_primop_e(bb, offset_of_op, singleton(element_type), singleton(size_t_literal(a, i)));
-                            field_offset = bytes_to_words(bb, field_offset);
-                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, base_offset, field_offset));
+                const Node* adjusted_offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, address, field_offset));
                 gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
             }
             return;
@@ -223,7 +221,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case TypeDeclRef_TAG: {
             const Node* nom = element_type->payload.type_decl_ref.decl;
             assert(nom && nom->tag == NominalType_TAG);
-            gen_serialisation(ctx, bb, nom->payload.nom_type.body, arr, base_offset, value);
+            gen_serialisation(ctx, bb, nom->payload.nom_type.body, arr, address, value);
             return;
         }
         case ArrType_TAG:
@@ -236,7 +234,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             }
             size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
-            const Node* offset = base_offset;
+            const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, singleton(int32_literal(a, i))));
                 offset = gen_primop_e(bb, add_op, empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, singleton(component_type), empty(a))));
@@ -277,13 +275,12 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     insert_dict(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
-    const Node* address = bytes_to_words(bb, address_param);
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
-        gen_serialisation(ctx, bb, element_type, base, address, value_param);
+        gen_serialisation(ctx, bb, element_type, base, address_param, value_param);
         set_abstraction_body(fun, finish_body_with_return(bb, empty(a)));
     } else {
-        const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address);
+        const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address_param);
         assert(loaded_value);
         set_abstraction_body(fun, finish_body_with_return(bb, singleton(loaded_value)));
     }
@@ -413,7 +410,6 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = begin_block_pure(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), singleton(size_t_literal(a,  i)));
-        // const Node* offset_in_words = bytes_to_words(bb, offset);
         new_address->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(offset));
 
         register_processed(&ctx->rewriter, decl, new_address);
