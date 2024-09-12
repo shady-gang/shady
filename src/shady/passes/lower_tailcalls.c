@@ -36,22 +36,35 @@ typedef struct Context_ {
 
 static const Node* process(Context* ctx, const Node* old);
 
-static const Node* fn_ptr_as_value(IrArena* a, FnPtr ptr) {
-    return uint32_literal(a, ptr);
+static const Type* lowered_fn_type(Context* ctx) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    return int_type_helper(a, false, ctx->config->target.memory.ptr_size);
 }
 
-static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
+static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
     IrArena* a = ctx->rewriter.dst_arena;
+    return int_literal(a, (IntLiteral) {
+        .is_signed = false,
+        .width = ctx->config->target.memory.ptr_size,
+        .value = ptr
+    });
+}
+
+static FnPtr get_fn_ptr(Context* ctx, const Node* the_function) {
     assert(the_function->arena == ctx->rewriter.src_arena);
     assert(the_function->tag == Function_TAG);
 
     FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
-    if (found) return fn_ptr_as_value(a, *found);
+    if (found) return *found;
 
     FnPtr ptr = (*ctx->next_fn_ptr)++;
     bool r = insert_dict_and_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
     assert(r);
-    return fn_ptr_as_value(a, ptr);
+    return ptr;
+}
+
+static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
+    return fn_ptr_as_value(ctx, get_fn_ptr(ctx, the_function));
 }
 
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
@@ -75,8 +88,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     // Initialise next_fn/next_mask to the entry function
     const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
-    const Node* fn_addr = lower_fn_addr(ctx, old);
-    fn_addr = gen_conversion(bb, uint32_type(a), fn_addr);
+    const Node* fn_addr = uint32_literal(a, get_fn_ptr(ctx, old));
+    // fn_addr = gen_conversion(bb, lowered_fn_type(ctx), fn_addr);
     gen_call(bb, jump_fn, singleton(fn_addr));
 
     if (!*ctx->top_dispatcher_fn) {
@@ -171,14 +184,20 @@ static const Node* process(Context* ctx, const Node* old) {
             ExtInstr payload = old->payload.ext_instr;
             if (strcmp(payload.set, "shady.internal") == 0) {
                 String callee_name = NULL;
+                Nodes args = rewrite_nodes(r, payload.operands);
                 switch ((ShadyJoinPointOpcodes ) payload.opcode) {
-                    case ShadyOpDefaultJoinPoint: callee_name = "builtin_entry_join_point"; break;
-                    case ShadyOpCreateJoinPoint:  callee_name = "builtin_create_control_point"; break;
+                    case ShadyOpDefaultJoinPoint:
+                        callee_name = "builtin_entry_join_point";
+                        break;
+                    case ShadyOpCreateJoinPoint:
+                        callee_name = "builtin_create_control_point";
+                        args = change_node_at_index(a, args, 0, prim_op_helper(a, convert_op, singleton(uint32_type(a)), singleton(args.nodes[0])));
+                        break;
                 }
                 return call(a, (Call) {
                     .mem = rewrite_node(r, payload.mem),
                     .callee = access_decl(r, callee_name),
-                    .args = rewrite_nodes(r, payload.operands),
+                    .args = args,
                 });
             }
             break;
@@ -360,7 +379,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             if (lookup_annotation(decl, "Leaf"))
                 continue;
 
-            const Node* fn_lit = lower_fn_addr(ctx, decl);
+            const Node* fn_lit = uint32_literal(a, get_fn_ptr(ctx, decl));
 
             Node* if_true_case = case_(a, empty(a));
             BodyBuilder* if_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_case));
@@ -369,7 +388,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
             gen_call(if_builder, fn_addr_helper(a, rewrite_node(&ctx->rewriter, decl)), empty(a));
-            set_abstraction_body(if_true_case, finish_body_with_join(if_builder, l.continue_jp, empty(a)));
+            set_abstraction_body(if_true_case, finish_body_with_join(if_builder, l.continue_jp, count_iterations ? singleton(iteration_count_plus_one) : empty(a)));
 
             Node* if_false = case_(a, empty(a));
             set_abstraction_body(if_false, join(a, (Join) {

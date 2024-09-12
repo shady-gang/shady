@@ -287,6 +287,22 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             r = ptr_array_element_offset(arena, payload);
             break;
         }
+        case Call_TAG: {
+            Call payload = node->payload.call;
+            const Node* nptr = simplify_ptr_operand(arena, payload.callee);
+            if (!nptr) break;
+            payload.callee = nptr;
+            r = call(arena, payload);
+            break;
+        }
+        case TailCall_TAG: {
+            TailCall payload = node->payload.tail_call;
+            const Node* nptr = simplify_ptr_operand(arena, payload.callee);
+            if (!nptr) break;
+            payload.callee = nptr;
+            r = tail_call(arena, payload);
+            break;
+        }
         default: return node;
     }
 

@@ -185,6 +185,8 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         .jumps_todo = new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
+    r = prim_op_helper(a, reinterpret_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
+    //r = prim_op_helper(a, convert_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
     insert_dict(LLVMValueRef, const Node*, p->map, fn, r);
 
     size_t bb_count = LLVMCountBasicBlocks(fn);

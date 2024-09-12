@@ -445,6 +445,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             const Node* r = NULL;
             unsigned num_args = LLVMGetNumArgOperands(instr);
             LLVMValueRef callee = LLVMGetCalledValue(instr);
+            LLVMTypeRef callee_type = LLVMGetCalledFunctionType(instr);
             callee = remove_ptr_bitcasts(p, callee);
             assert(num_args + 1 == num_ops);
             String intrinsic = NULL;
@@ -590,7 +591,10 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 Nodes ops = convert_operands(p, num_ops, instr);
                 r = bind_instruction_single(b, call(a, (Call) {
                     .mem = bb_mem(b),
-                    .callee = ops.nodes[num_args],
+                    .callee = prim_op_helper(a, reinterpret_op, singleton(ptr_type(a, (PtrType) {
+                        .address_space = AsGeneric,
+                        .pointed_type = convert_type(p, callee_type)
+                    })), singleton(ops.nodes[num_args])),
                     .args = nodes(a, num_args, ops.nodes),
                 }));
             }

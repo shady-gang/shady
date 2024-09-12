@@ -141,7 +141,7 @@ void gen_comment(BodyBuilder* bb, String str) {
 }
 
 void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
-    bind_instruction(bb, debug_printf(bb->arena, (DebugPrintf) { .string = pattern, .args = args, .mem = bb_mem(bb) }));
+    bind_instruction_single(bb, debug_printf(bb->arena, (DebugPrintf) { .string = pattern, .args = args, .mem = bb_mem(bb) }));
 }
 
 const Node* get_builtin(Module* m, Builtin b) {
