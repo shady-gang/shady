@@ -264,7 +264,6 @@ const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
 // instructions
 const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 const Node* lea_helper(IrArena*, const Node*, const Node*, Nodes);
-const Node* compound_instruction(IrArena* arena, Nodes instructions, Nodes results);
 
 // terminators
 const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem);
