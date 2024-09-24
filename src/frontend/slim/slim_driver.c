@@ -39,6 +39,7 @@ Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, co
 
     RUN_PASS(normalize_builtins)
     RUN_PASS(infer_program)
+    RUN_PASS(lower_cf_instrs)
 
     destroy_ir_arena(initial_arena);
     return *pmod;
