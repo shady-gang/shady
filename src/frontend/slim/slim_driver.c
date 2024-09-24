@@ -1,9 +1,11 @@
-#include "compile.h"
 #include "parser.h"
 
 #include "shady/pass.h"
 
 #include "../shady/transform/internal_constants.h"
+#include "../shady/passes/passes.h"
+
+#include "log.h"
 
 /// Removes all Unresolved nodes and replaces them with the appropriate decl/value
 RewritePass bind_program;

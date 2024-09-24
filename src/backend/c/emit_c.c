@@ -2,8 +2,8 @@
 
 #include "../shady/type.h"
 #include "../shady/ir_private.h"
-#include "../shady/compile.h"
 #include "../shady/transform/ir_gen_helpers.h"
+#include "../shady/passes/passes.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/analysis/scheduler.h"
 

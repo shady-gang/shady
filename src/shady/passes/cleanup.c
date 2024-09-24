@@ -135,18 +135,6 @@ OptPass opt_demote_alloca;
 OptPass opt_mem2reg;
 RewritePass import;
 
-static void apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
-    bool changed = pass(config, m);
-    *todo |= changed;
-
-    if (getenv("SHADY_DUMP_CLEAN_ROUNDS") && changed) {
-        log_string(DEBUGVV, "%s changed something:\n", pass_name);
-        log_module(DEBUGVV, config, *m);
-    }
-}
-
-#define APPLY_OPT(pass_name) apply_opt_impl(config, &todo, &m, pass_name, #pass_name);
-
 Module* cleanup(const CompilerConfig* config, Module* const src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     if (!aconfig.check_types)

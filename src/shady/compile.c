@@ -1,11 +1,16 @@
+#include "ir_private.h"
 #include "shady/driver.h"
-#include "compile.h"
+#include "shady/ir.h"
+
+#include "passes/passes.h"
+#include "analysis/verify.h"
 
 #include "../frontend/slim/parser.h"
 #include "shady_scheduler_src.h"
 #include "transform/internal_constants.h"
-#include "ir_private.h"
+
 #include "util.h"
+#include "log.h"
 
 #include <stdbool.h>
 
@@ -18,6 +23,12 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     link_module(dst, builtin_scheduler_mod);
     destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
+
+#ifdef NDEBUG
+#define SHADY_RUN_VERIFY 0
+#else
+#define SHADY_RUN_VERIFY 1
+#endif
 
 void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
     Module* old_mod = NULL;
@@ -39,6 +50,16 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
         destroy_ir_arena(get_module_arena(old_mod));
     if (config->hooks.after_pass.fn)
         config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
+}
+
+void apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
+    bool changed = pass(config, m);
+    *todo |= changed;
+
+    if (getenv("SHADY_DUMP_CLEAN_ROUNDS") && changed) {
+        log_string(DEBUGVV, "%s changed something:\n", pass_name);
+        log_module(DEBUGVV, config, *m);
+    }
 }
 
 CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {

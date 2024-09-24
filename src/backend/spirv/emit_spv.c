@@ -4,8 +4,8 @@
 
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
+#include "../shady/passes/passes.h"
 #include "../shady/type.h"
-#include "../shady/compile.h"
 
 #include "list.h"
 #include "dict.h"
