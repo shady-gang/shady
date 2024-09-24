@@ -88,6 +88,7 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                 PtrCompositeElement payload = ptr->payload.ptr_composite_element;
                 if (!is_zero(payload.index))
                     break;
+                ptr = payload.ptr;
                 continue;
             }
             case PrimOp_TAG: {
