@@ -2,9 +2,11 @@
 #include "shady/driver.h"
 #include "shady/print.h"
 
+#include "../shady/passes/passes.h"
 #include "../shady/visit.h"
 
 #include "log.h"
+#include "portability.h"
 
 #include <string.h>
 #include <assert.h>
@@ -27,24 +29,22 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
         default: break;
     }
 
-    visit_node_operands(v, NcDeclaration, n);
+    visit_node_operands(v, ~(NcMem | NcDeclaration | NcTerminator), n);
 }
 
-static void after_pass(void* uptr, String pass_name, Module* mod) {
-    if (strcmp(pass_name, "opt_mem2reg") == 0) {
-        Visitor v = {.visit_node_fn = search_for_memstuff};
-        visit_module(&v, mod);
-        if (expect_memstuff != found_memstuff) {
-            error_print("Expected ");
-            if (!expect_memstuff)
-                error_print("no more ");
-            error_print("memory primops in the output.\n");
-            dump_module(mod);
-            exit(-1);
-        }
+static void check_module(Module* mod) {
+    Visitor v = { .visit_node_fn = search_for_memstuff };
+    visit_module(&v, mod);
+    if (expect_memstuff != found_memstuff) {
+        error_print("Expected ");
+        if (!expect_memstuff)
+            error_print("no more ");
+        error_print("memory primops in the output.\n");
         dump_module(mod);
-        exit(0);
+        exit(-1);
     }
+    dump_module(mod);
+    exit(0);
 }
 
 static void cli_parse_oracle_args(int* pargc, char** argv) {
@@ -63,11 +63,42 @@ static void cli_parse_oracle_args(int* pargc, char** argv) {
     cli_pack_remaining_args(pargc, argv);
 }
 
-static void hook(DriverConfig* args, int* pargc, char** argv) {
-    args->config.hooks.after_pass.fn = after_pass;
-    cli_parse_oracle_args(pargc, argv);
+static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) {
+    IrArena* initial_arena = get_module_arena(initial_mod);
+    Module** pmod = &initial_mod;
+
+    RUN_PASS(cleanup)
+    check_module(*pmod);
+
+    return *pmod;
 }
 
-#define HOOK_STUFF hook(&args, &argc, argv);
+int main(int argc, char** argv) {
+    platform_specific_terminal_init_extras();
 
-#include "../../src/driver/slim.c"
+    DriverConfig args = default_driver_config();
+    cli_parse_driver_arguments(&args, &argc, argv);
+    cli_parse_common_args(&argc, argv);
+    cli_parse_compiler_config_args(&args.config, &argc, argv);
+    cli_parse_oracle_args(&argc, argv);
+    cli_parse_input_files(args.input_filenames, &argc, argv);
+
+    ArenaConfig aconfig = default_arena_config(&args.config.target);
+    aconfig.optimisations.weaken_non_leaking_allocas = true;
+    IrArena* arena = new_ir_arena(&aconfig);
+    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+
+    ShadyErrorCodes err = driver_load_source_files(&args, mod);
+    if (err)
+        exit(err);
+
+    Module* mod2 = oracle_passes(&args.config, mod);
+    destroy_ir_arena(get_module_arena(mod2));
+
+    if (err)
+        exit(err);
+    info_print("Compilation successful\n");
+
+    destroy_ir_arena(arena);
+    destroy_driver_config(&args);
+}

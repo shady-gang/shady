@@ -6,17 +6,10 @@
 #include "util.h"
 #include "portability.h"
 
-#include <assert.h>
-
-#ifndef HOOK_STUFF
-#define HOOK_STUFF
-#endif
-
 int main(int argc, char** argv) {
     platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
-    HOOK_STUFF
     cli_parse_driver_arguments(&args, &argc, argv);
     cli_parse_common_args(&argc, argv);
     cli_parse_compiler_config_args(&args.config, &argc, argv);
