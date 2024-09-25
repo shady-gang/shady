@@ -448,7 +448,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
 
         if (resource->host_backed_allocation) {
             assert(vkr_can_import_host_memory(program->device));
-            resource->host_ptr = alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
+            resource->host_ptr = shd_alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
             resource->buffer = vkr_import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
             resource->buffer = vkr_allocate_buffer_device(program->device, resource->size);
@@ -521,7 +521,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
         if (resource->buffer)
             vkr_destroy_buffer(resource->buffer);
         if (resource->host_ptr && resource->host_backed_allocation)
-            free_aligned(resource->host_ptr);
+            shd_free_aligned(resource->host_ptr);
     }
     free(spec->resources.resources);
     vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);

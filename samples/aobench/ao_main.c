@@ -43,7 +43,7 @@ void render_host(TEXEL_T* img, int w, int h, int nsubsamples) {
     Scalar* fimg = (Scalar *)malloc(sizeof(Scalar) * w * h * 3);
     memset((void *)fimg, 0, sizeof(Scalar) * w * h * 3);
 
-    uint64_t tsn = get_time_nano();
+    uint64_t tsn = shd_get_time_nano();
     Ctx ctx = get_init_context();
     init_scene(&ctx);
 
@@ -52,7 +52,7 @@ void render_host(TEXEL_T* img, int w, int h, int nsubsamples) {
             render_pixel(&ctx, x, y, w, h, nsubsamples, img);
         }
     }
-    uint64_t tpn = get_time_nano();
+    uint64_t tpn = shd_get_time_nano();
     info_print("reference rendering took %d us\n", (tpn - tsn) / 1000);
 }
 
@@ -66,7 +66,7 @@ typedef struct {
 extern Vec3u builtin_NumWorkgroups;
 
 void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
-    uint64_t tsn = get_time_nano();
+    uint64_t tsn = shd_get_time_nano();
     Ctx ctx = get_init_context();
     init_scene(&ctx);
     for (size_t i = 0; i < WIDTH; i++) {
@@ -82,7 +82,7 @@ void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
     builtin_NumWorkgroups.z = 1;
 
     aobench_kernel(img);
-    uint64_t tpn = get_time_nano();
+    uint64_t tpn = shd_get_time_nano();
     info_print("ispc rendering took %d us\n", (tpn - tsn) / 1000);
 }
 #endif
@@ -121,13 +121,13 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     // run it twice to compile everything and benefit from caches
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }, NULL));
-    uint64_t tsn = get_time_nano();
+    uint64_t tsn = shd_get_time_nano();
     uint64_t profiled_gpu_time = 0;
     ExtraKernelOptions extra_kernel_options = {
         .profiled_gpu_time = &profiled_gpu_time
     };
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }, &extra_kernel_options));
-    uint64_t tpn = get_time_nano();
+    uint64_t tpn = shd_get_time_nano();
     info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
 
     if (!import_memory)

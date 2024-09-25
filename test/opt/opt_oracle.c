@@ -74,7 +74,7 @@ static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) 
 }
 
 int main(int argc, char** argv) {
-    platform_specific_terminal_init_extras();
+    shd_platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
     cli_parse_driver_arguments(&args, &argc, argv);

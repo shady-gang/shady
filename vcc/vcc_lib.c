@@ -61,7 +61,7 @@ VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     compiler_config->input_cf.add_scope_annotations = true;
     compiler_config->input_cf.has_scope_annotations = true;
 
-    String self_path = get_executable_location();
+    String self_path = shd_get_executable_location();
     String working_dir = shd_strip_path(self_path);
     if (!vcc_config.include_path) {
         vcc_config.include_path = shd_format_string_new("%s/../share/vcc/include/", working_dir);
@@ -81,7 +81,7 @@ void destroy_vcc_options(VccConfig vcc_options) {
 void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* input_filenames) {
     Growy* g = shd_new_growy();
     shd_growy_append_string(g, VCC_CLANG);
-    String self_path = get_executable_location();
+    String self_path = shd_get_executable_location();
     String working_dir = shd_strip_path(self_path);
     shd_growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
     free((void*) working_dir);

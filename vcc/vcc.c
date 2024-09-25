@@ -10,7 +10,7 @@
 #include <string.h>
 
 int main(int argc, char** argv) {
-    platform_specific_terminal_init_extras();
+    shd_platform_specific_terminal_init_extras();
 
     DriverConfig args = default_driver_config();
     VccConfig vcc_options = vcc_init_config(&args.config);
