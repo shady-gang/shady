@@ -42,8 +42,8 @@ static const LTNode* get_loop(const LTNode* n) {
 }
 
 static String loop_name(const LTNode* n) {
-    if (n && n->type == LF_HEAD && entries_count_list(n->cf_nodes) > 0) {
-        return get_abstraction_name(read_list(CFNode*, n->cf_nodes)[0]->node);
+    if (n && n->type == LF_HEAD && shd_list_count(n->cf_nodes) > 0) {
+        return get_abstraction_name(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
     }
     return "";
 }
@@ -95,9 +95,9 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     const CFNode* n = cfg_lookup(ctx->cfg, old);
 
     size_t children_count = 0;
-    LARRAY(const Node*, old_children, entries_count_list(n->dominates));
-    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
-        CFNode* c = read_list(CFNode*, n->dominates)[i];
+    LARRAY(const Node*, old_children, shd_list_count(n->dominates));
+    for (size_t i = 0; i < shd_list_count(n->dominates); i++) {
+        CFNode* c = shd_read_list(CFNode*, n->dominates)[i];
         if (is_cfnode_structural_target(c))
             continue;
         old_children[children_count++] = c->node;

@@ -33,10 +33,10 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
     assert(parent);
 
     while (parent) {
-        if (entries_count_list(parent->cf_nodes) != 1)
+        if (shd_list_count(parent->cf_nodes) != 1)
             return false;
 
-        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+        if (shd_read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
             return true;
 
         parent = parent->parent;
@@ -48,12 +48,12 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
 //TODO: This is massively inefficient.
 static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode* block, struct List* exiting_nodes) {
     if (!in_loop(lt, entry->node, block->node)) {
-        append_list(CFNode*, exiting_nodes, block);
+        shd_list_append(CFNode*, exiting_nodes, block);
         return;
     }
 
-    for (size_t i = 0; i < entries_count_list(block->dominates); i++) {
-        const CFNode* target = read_list(CFNode*, block->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(block->dominates); i++) {
+        const CFNode* target = shd_read_list(CFNode*, block->dominates)[i];
         gather_exiting_nodes(lt, entry, target, exiting_nodes);
     }
 }
@@ -71,7 +71,7 @@ static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, 
         log_node(DEBUGVV, exiting_node);
         log_string(DEBUGVV, " )\n");
 
-        append_list(const Node*, leaking, v);
+        shd_list_append(const Node*, leaking, v);
     }
 }
 
@@ -104,11 +104,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
     bool is_loop_entry = false;
     if (lt_node->parent && lt_node->parent->type == LF_HEAD) {
-        if (entries_count_list(lt_node->parent->cf_nodes) == 1)
-            if (read_list(CFNode*, lt_node->parent->cf_nodes)[0]->node == node) {
+        if (shd_list_count(lt_node->parent->cf_nodes) == 1)
+            if (shd_read_list(CFNode*, lt_node->parent->cf_nodes)[0]->node == node) {
                 loop_header = lt_node->parent;
                 assert(loop_header->type == LF_HEAD);
-                assert(entries_count_list(loop_header->cf_nodes) == 1 && "only reducible loops are handled");
+                assert(shd_list_count(loop_header->cf_nodes) == 1 && "only reducible loops are handled");
                 is_loop_entry = true;
             }
     }
@@ -116,14 +116,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     if (is_loop_entry) {
         assert(!is_function(node));
 
-        struct List* exiting_nodes = new_list(CFNode*);
+        struct List* exiting_nodes = shd_new_list(CFNode*);
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
-        for (size_t i = 0; i < entries_count_list(exiting_nodes); i++) {
-            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(read_list(CFNode*, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
+        for (size_t i = 0; i < shd_list_count(exiting_nodes); i++) {
+            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(shd_read_list(CFNode *, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
         }
 
-        size_t exiting_nodes_count = entries_count_list(exiting_nodes);
+        size_t exiting_nodes_count = shd_list_count(exiting_nodes);
         if (exiting_nodes_count > 0) {
             Nodes nparams = recreate_params(rewriter, get_abstraction_params(node));
             Node* loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
@@ -132,10 +132,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             LARRAY(Exit, exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 Nodes exit_param_types = rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
 
-                ExitValue* exit_params = arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
+                ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
                     exit_params[j].alloca = gen_stack_alloc(outer_bb, get_unqualified_type(exit_param_types.nodes[j]));
                     exit_params[j].uniform = is_qualified_type_uniform(exit_param_types.nodes[j]);
@@ -159,7 +159,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             }), true), "jp_continue");
 
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
@@ -179,7 +179,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             // replace the exit nodes by the exit wrappers
             LARRAY(const Node**, cached_exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 cached_exits[i] = search_processed(rewriter, exiting_node->node);
                 if (cached_exits[i])
                     remove_dict(const Node*, rewriter->map, exiting_node->node);
@@ -206,7 +206,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             // save the context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = get_abstraction_params(exits[i].wrapper);
                 BodyBuilder* exit_wrapper_bb = begin_body_with_mem(arena, get_abstraction_mem(exits[i].wrapper));
@@ -228,9 +228,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             // restore the old context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                remove_dict(const Node*, rewriter->map, read_list(CFNode*, exiting_nodes)[i]->node);
+                remove_dict(const Node*, rewriter->map, shd_read_list(CFNode *, exiting_nodes)[i]->node);
                 if (cached_exits[i])
-                    register_processed(rewriter, read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
+                    register_processed(rewriter, shd_read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
             }
             remove_dict(const Node*, rewriter->map, node);
             if (cached_entry)
@@ -256,7 +256,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
                 Node* exit_bb = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, get_abstraction_mem(exit_bb));
@@ -289,11 +289,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 }));
             }
             set_abstraction_body(loop_container, outer_body);
-            destroy_list(exiting_nodes);
+            shd_destroy_list(exiting_nodes);
             return loop_container;
         }
 
-        destroy_list(exiting_nodes);
+        shd_destroy_list(exiting_nodes);
     }
 
     return recreate_node_identity(&ctx->rewriter, node);
@@ -348,11 +348,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
             assert(current_loop);
 
-            if (entries_count_list(current_loop->cf_nodes)) {
+            if (shd_list_count(current_loop->cf_nodes)) {
                 bool leaves_loop = false;
                 CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
-                for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
-                    CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
+                for (size_t i = 0; i < shd_list_count(current_node->succ_edges); i++) {
+                    CFEdge edge = shd_read_list(CFEdge, current_node->succ_edges)[i];
                     LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
 
                     if (lt_target->parent != current_loop) {
@@ -362,7 +362,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 }
 
                 if (!leaves_loop) {
-                    const Node* current_loop_head = read_list(CFNode*, current_loop->cf_nodes)[0]->node;
+                    const Node* current_loop_head = shd_read_list(CFNode*, current_loop->cf_nodes)[0]->node;
                     CFG* loop_cfg = build_cfg(ctx->current_fn, current_loop_head, (CFGBuildConfig) {
                         .include_structured_tails = true,
                         .lt = ctx->current_looptree,
@@ -489,11 +489,11 @@ Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
         .fwd_cfg = NULL,
         .rev_cfg = NULL,
         .current_looptree = NULL,
-        .arena = new_arena(),
+        .arena = shd_new_arena(),
     };
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_arena(ctx.arena);
+    shd_destroy_arena(ctx.arena);
     return dst;
 }

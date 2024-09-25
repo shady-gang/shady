@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     cli_parse_vcc_args(&vcc_options, &argc, argv);
     cli_parse_input_files(args.input_filenames, &argc, argv);
 
-    if (entries_count_list(args.input_filenames) == 0) {
+    if (shd_list_count(args.input_filenames) == 0) {
         error_print("Missing input file. See --help for proper usage");
         exit(MissingInputArg);
     }
@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 
     if (vcc_options.only_run_clang)
         vcc_options.tmp_filename = format_string_new("%s", args.output_filename);
-    vcc_run_clang(&vcc_options, entries_count_list(args.input_filenames), read_list(String, args.input_filenames));
+    vcc_run_clang(&vcc_options, shd_list_count(args.input_filenames), shd_read_list(String, args.input_filenames));
 
     if (!vcc_options.only_run_clang) {
         Module* mod = vcc_parse_back_into_module(&args.config, &vcc_options, "my_module");

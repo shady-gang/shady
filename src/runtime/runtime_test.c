@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
     IrArena* arena = NULL;
     ArenaConfig aconfig = default_arena_config(&args.driver_config.config.target);
     arena = new_ir_arena(&aconfig);
-    if (entries_count_list(args.driver_config.input_filenames) == 0) {
+    if (shd_list_count(args.driver_config.input_filenames) == 0) {
         Module* module;
         driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader, "runtime_test", &module);
         program = new_program_from_module(runtime, &args.driver_config.config, module);

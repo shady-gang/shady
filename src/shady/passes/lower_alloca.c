@@ -54,8 +54,8 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
 
             const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(is_data_type(element_type));
-            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, entries_count_list(vctx->members))));
-            append_list(const Type*, vctx->members, element_type);
+            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, singleton(type_decl_ref_helper(a, vctx->nom_t)), singleton(int32_literal(a, shd_list_count(vctx->members))));
+            shd_list_append(const Type*, vctx->members, element_type);
 
             StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
             insert_dict(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
@@ -104,17 +104,17 @@ static const Node* process(Context* ctx, const Node* node) {
                 .bb = bb,
                 .nom_t = nom_t,
                 .num_slots = 0,
-                .members = new_list(const Node*),
+                .members = shd_new_list(const Node*),
                 .prepared_offsets = ctx2.prepared_offsets,
             };
             visit_function_bodies_rpo(&vctx.visitor, node);
 
             vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
-                .members = nodes(a, vctx.num_slots, read_list(const Node*, vctx.members)),
+                .members = nodes(a, vctx.num_slots, shd_read_list(const Node*, vctx.members)),
                 .names = strings(a, 0, NULL),
                 .special = 0
             });
-            destroy_list(vctx.members);
+            shd_destroy_list(vctx.members);
             ctx2.num_slots = vctx.num_slots;
             ctx2.frame_size = gen_primop_e(bb, size_of_op, singleton(type_decl_ref_helper(a, vctx.nom_t)), empty(a));
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);

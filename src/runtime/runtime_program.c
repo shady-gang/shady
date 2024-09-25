@@ -20,7 +20,7 @@ Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_co
     program->module = mod;
 
     // TODO split the compilation pipeline into generic and non-generic parts
-    append_list(Program*, runtime->programs, program);
+    shd_list_append(Program*, runtime->programs, program);
     return program;
 }
 

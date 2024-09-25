@@ -326,17 +326,17 @@ bool probe_vkr_devices(VkrBackend* runtime) {
                 .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) vkr_launch_kernel,
                 .can_import_host_memory = (bool(*)(Device*)) vkr_can_import_host_memory,
             };
-            append_list(Device*, runtime->base.runtime->devices, device);
+            shd_list_append(Device*, runtime->base.runtime->devices, device);
         }
     }
 
-    if (entries_count_list(runtime->base.runtime->devices) == 0 && !runtime->base.runtime->config.allow_no_devices) {
+    if (shd_list_count(runtime->base.runtime->devices) == 0 && !runtime->base.runtime->config.allow_no_devices) {
         error_print("No __suitable__ vulkan devices found!\n");
         error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
         return false;
     }
 
-    info_print("Found %d usable devices\n", entries_count_list(runtime->base.runtime->devices));
+    info_print("Found %d usable devices\n", shd_list_count(runtime->base.runtime->devices));
 
     return true;
 }

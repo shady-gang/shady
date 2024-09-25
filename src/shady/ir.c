@@ -25,10 +25,10 @@ bool compare_node(const Node** a, const Node** b);
 IrArena* new_ir_arena(const ArenaConfig* config) {
     IrArena* arena = malloc(sizeof(IrArena));
     *arena = (IrArena) {
-        .arena = new_arena(),
+        .arena = shd_new_arena(),
         .config = *config,
 
-        .modules = new_list(Module*),
+        .modules = shd_new_list(Module*),
 
         .node_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
@@ -46,16 +46,16 @@ const Node* get_node_by_id(const IrArena* a, NodeId id) {
 }
 
 void destroy_ir_arena(IrArena* arena) {
-    for (size_t i = 0; i < entries_count_list(arena->modules); i++) {
-        destroy_module(read_list(Module*, arena->modules)[i]);
+    for (size_t i = 0; i < shd_list_count(arena->modules); i++) {
+        destroy_module(shd_read_list(Module*, arena->modules)[i]);
     }
 
-    destroy_list(arena->modules);
+    shd_destroy_list(arena->modules);
     destroy_dict(arena->strings_set);
     destroy_dict(arena->string_set);
     destroy_dict(arena->nodes_set);
     destroy_dict(arena->node_set);
-    destroy_arena(arena->arena);
+    shd_destroy_arena(arena->arena);
     destroy_growy(arena->ids);
     free(arena);
 }
@@ -80,7 +80,7 @@ Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
 
     Nodes nodes;
     nodes.count = count;
-    nodes.nodes = arena_alloc(arena->arena, sizeof(Node*) * count);
+    nodes.nodes = shd_arena_alloc(arena->arena, sizeof(Node*) * count);
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
 
@@ -99,7 +99,7 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
 
     Strings strings;
     strings.count = count;
-    strings.strings = arena_alloc(arena->arena, sizeof(const char*) * count);
+    strings.strings = shd_arena_alloc(arena->arena, sizeof(const char*) * count);
     for (size_t i = 0; i < count; i++)
         strings.strings[i] = in_strs[i];
 
@@ -173,7 +173,7 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     if (found)
         return *found;
 
-    char* new_str = (char*) arena_alloc(arena->arena, strlen(zero_terminated) + 1);
+    char* new_str = (char*) shd_arena_alloc(arena->arena, strlen(zero_terminated) + 1);
     strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
 
@@ -266,5 +266,5 @@ bool compare_string(const char** a, const char** b) {
 }
 
 Nodes list_to_nodes(IrArena* arena, struct List* list) {
-    return nodes(arena, entries_count_list(list), read_list(const Node*, list));
+    return nodes(arena, shd_list_count(list), shd_read_list(const Node*, list));
 }

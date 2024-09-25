@@ -15,14 +15,14 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 struct List* build_cfgs(Module* mod, CFGBuildConfig config) {
-    struct List* cfgs = new_list(CFG*);
+    struct List* cfgs = shd_new_list(CFG*);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != Function_TAG) continue;
         CFG* cfg = build_cfg(decl, decl, config);
-        append_list(CFG*, cfgs, cfg);
+        shd_list_append(CFG*, cfgs, cfg);
     }
 
     return cfgs;
@@ -62,10 +62,10 @@ CFNode* cfg_lookup(CFG* cfg, const Node* abs) {
 }
 
 static CFNode* new_cfnode(Arena* a) {
-    CFNode* new = arena_alloc(a, sizeof(CFNode));
+    CFNode* new = shd_arena_alloc(a, sizeof(CFNode));
     *new = (CFNode) {
-        .succ_edges = new_list(CFEdge),
-        .pred_edges = new_list(CFEdge),
+        .succ_edges = shd_new_list(CFEdge),
+        .pred_edges = shd_new_list(CFEdge),
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
@@ -85,7 +85,7 @@ static CFNode* get_or_enqueue(CfgBuildContext* ctx, const Node* abs) {
     assert(abs && new->node);
     insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
     process_cf_node(ctx, new);
-    append_list(Node*, ctx->contents, new);
+    shd_list_append(Node*, ctx->contents, new);
     return new;
 }
 
@@ -97,11 +97,11 @@ static bool in_loop(LoopTree* lt, const Node* fn, const Node* loopentry, const N
 
     while (parent) {
         // we're not in a loop like we're expected to
-        if (entries_count_list(parent->cf_nodes) == 0 && loopentry == fn)
+        if (shd_list_count(parent->cf_nodes) == 0 && loopentry == fn)
             return true;
 
         // we are in the loop we were expected to
-        if (entries_count_list(parent->cf_nodes) == 1 && read_list(CFNode*, parent->cf_nodes)[0]->node == loopentry)
+        if (shd_list_count(parent->cf_nodes) == 1 && shd_read_list(CFNode*, parent->cf_nodes)[0]->node == loopentry)
             return true;
 
         parent = parent->parent;
@@ -132,8 +132,8 @@ static void add_edge(CfgBuildContext* ctx, const Node* src, const Node* dst, CFE
         .jump = j,
         .terminator = term,
     };
-    append_list(CFEdge, src_node->succ_edges, edge);
-    append_list(CFEdge, dst_node->pred_edges, edge);
+    shd_list_append(CFEdge, src_node->succ_edges, edge);
+    shd_list_append(CFEdge, dst_node->pred_edges, edge);
 }
 
 static void add_structural_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type, const Node* term) {
@@ -258,29 +258,29 @@ static void flip_cfg(CFG* cfg) {
     cfg->entry = NULL;
 
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* cur = read_list(CFNode*, cfg->contents)[i];
+        CFNode* cur = shd_read_list(CFNode*, cfg->contents)[i];
 
         struct List* tmp = cur->succ_edges;
         cur->succ_edges = cur->pred_edges;
         cur->pred_edges = tmp;
 
-        for (size_t j = 0; j < entries_count_list(cur->succ_edges); j++) {
-            CFEdge* edge = &read_list(CFEdge, cur->succ_edges)[j];
+        for (size_t j = 0; j < shd_list_count(cur->succ_edges); j++) {
+            CFEdge* edge = &shd_read_list(CFEdge, cur->succ_edges)[j];
 
             CFNode* tmp2 = edge->dst;
             edge->dst = edge->src;
             edge->src = tmp2;
         }
 
-        for (size_t j = 0; j < entries_count_list(cur->pred_edges); j++) {
-            CFEdge* edge = &read_list(CFEdge, cur->pred_edges)[j];
+        for (size_t j = 0; j < shd_list_count(cur->pred_edges); j++) {
+            CFEdge* edge = &shd_read_list(CFEdge, cur->pred_edges)[j];
 
             CFNode* tmp2 = edge->dst;
             edge->dst = edge->src;
             edge->src = tmp2;
         }
 
-        if (entries_count_list(cur->pred_edges) == 0) {
+        if (shd_list_count(cur->pred_edges) == 0) {
             if (cfg->entry != NULL) {
                 if (cfg->entry->node) {
                     CFNode* new_entry = new_cfnode(cfg->arena);
@@ -289,8 +289,8 @@ static void flip_cfg(CFG* cfg) {
                         .src = new_entry,
                         .dst = cfg->entry
                     };
-                    append_list(CFEdge, new_entry->succ_edges, prev_entry_edge);
-                    append_list(CFEdge, cfg->entry->pred_edges, prev_entry_edge);
+                    shd_list_append(CFEdge, new_entry->succ_edges, prev_entry_edge);
+                    shd_list_append(CFEdge, cfg->entry->pred_edges, prev_entry_edge);
                     cfg->entry = new_entry;
                 }
 
@@ -299,8 +299,8 @@ static void flip_cfg(CFG* cfg) {
                     .src = cfg->entry,
                     .dst = cur
                 };
-                append_list(CFEdge, cfg->entry->succ_edges, new_edge);
-                append_list(CFEdge, cur->pred_edges, new_edge);
+                shd_list_append(CFEdge, cfg->entry->succ_edges, new_edge);
+                shd_list_append(CFEdge, cur->pred_edges, new_edge);
             } else {
                 cfg->entry = cur;
             }
@@ -310,19 +310,19 @@ static void flip_cfg(CFG* cfg) {
     assert(cfg->entry);
     if (!cfg->entry->node) {
         cfg->size += 1;
-        append_list(Node*, cfg->contents, cfg->entry);
+        shd_list_append(Node*, cfg->contents, cfg->entry);
     }
 }
 
 static void validate_cfg(CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* node = read_list(CFNode*, cfg->contents)[i];
+        CFNode* node = shd_read_list(CFNode*, cfg->contents)[i];
         size_t structured_body_uses = 0;
         size_t num_jumps = 0;
         size_t num_exits = 0;
         bool is_tail = false;
-        for (size_t j = 0; j < entries_count_list(node->pred_edges); j++) {
-            CFEdge edge = read_list(CFEdge, node->pred_edges)[j];
+        for (size_t j = 0; j < shd_list_count(node->pred_edges); j++) {
+            CFEdge edge = shd_read_list(CFEdge, node->pred_edges)[j];
             switch (edge.type) {
                 case JumpEdge:
                     num_jumps++;
@@ -363,8 +363,8 @@ static void validate_cfg(CFG* cfg) {
 static void mark_reachable(CFNode* n) {
     if (!n->reachable) {
         n->reachable = true;
-        for (size_t i = 0; i < entries_count_list(n->succ_edges); i++) {
-            CFEdge e = read_list(CFEdge, n->succ_edges)[i];
+        for (size_t i = 0; i < shd_list_count(n->succ_edges); i++) {
+            CFEdge e = shd_read_list(CFEdge, n->succ_edges)[i];
             if (e.type == StructuredTailEdge)
                 continue;
             mark_reachable(e.dst);
@@ -375,7 +375,7 @@ static void mark_reachable(CFNode* n) {
 CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
     assert(function && function->tag == Function_TAG);
     assert(is_abstraction(entry));
-    Arena* arena = new_arena();
+    Arena* arena = shd_new_arena();
 
     CfgBuildContext context = {
         .arena = arena,
@@ -383,7 +383,7 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
         .entry = entry,
         .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
         .join_point_values = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .contents = new_list(CFNode*),
+        .contents = shd_new_list(CFNode*),
         .config = config,
     };
 
@@ -403,7 +403,7 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
         .arena = arena,
         .config = config,
         .entry = entry_node,
-        .size = entries_count_list(context.contents),
+        .size = shd_list_count(context.contents),
         .flipped = config.flipped,
         .contents = context.contents,
         .map = context.nodes,
@@ -424,25 +424,25 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
 void destroy_cfg(CFG* cfg) {
     bool entry_destroyed = false;
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* node = read_list(CFNode*, cfg->contents)[i];
+        CFNode* node = shd_read_list(CFNode*, cfg->contents)[i];
         entry_destroyed |= node == cfg->entry;
-        destroy_list(node->pred_edges);
-        destroy_list(node->succ_edges);
+        shd_destroy_list(node->pred_edges);
+        shd_destroy_list(node->succ_edges);
         if (node->dominates)
-            destroy_list(node->dominates);
+            shd_destroy_list(node->dominates);
         if (node->structurally_dominates)
             destroy_dict(node->structurally_dominates);
     }
     if (!entry_destroyed) {
-        destroy_list(cfg->entry->pred_edges);
-        destroy_list(cfg->entry->succ_edges);
+        shd_destroy_list(cfg->entry->pred_edges);
+        shd_destroy_list(cfg->entry->succ_edges);
         if (cfg->entry->dominates)
-            destroy_list(cfg->entry->dominates);
+            shd_destroy_list(cfg->entry->dominates);
     }
     destroy_dict(cfg->map);
-    destroy_arena(cfg->arena);
+    shd_destroy_arena(cfg->arena);
     free(cfg->rpo);
-    destroy_list(cfg->contents);
+    shd_destroy_list(cfg->contents);
     free(cfg);
 }
 
@@ -450,8 +450,8 @@ static size_t post_order_visit(CFG* cfg, CFNode* n, size_t i) {
     n->rpo_index = -2;
 
     for (int phase = 0; phase < 2; phase++) {
-        for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
-            CFEdge edge = read_list(CFEdge, n->succ_edges)[j];
+        for (size_t j = 0; j < shd_list_count(n->succ_edges); j++) {
+            CFEdge edge = shd_read_list(CFEdge, n->succ_edges)[j];
             // always visit structured tail edges last
             if ((edge.type == StructuredTailEdge) == (phase == 0))
                 continue;
@@ -486,8 +486,8 @@ void compute_rpo(CFG* cfg) {
 }
 
 bool is_cfnode_structural_target(CFNode* cfn) {
-    for (size_t i = 0; i < entries_count_list(cfn->pred_edges); i++) {
-        if (read_list(CFEdge, cfn->pred_edges)[i].type != JumpEdge)
+    for (size_t i = 0; i < shd_list_count(cfn->pred_edges); i++) {
+        if (shd_read_list(CFEdge, cfn->pred_edges)[i].type != JumpEdge)
             return true;
     }
     return false;
@@ -518,20 +518,20 @@ bool cfg_is_dominated(CFNode* a, CFNode* b) {
 
 void compute_domtree(CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++) {
-        CFNode* n = read_list(CFNode*, cfg->contents)[i];
+        CFNode* n = shd_read_list(CFNode*, cfg->contents)[i];
         if (n == cfg->entry/* || !n->reachable*/)
             continue;
         CFNode* structured_idom = NULL;
-        for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
-            CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+        for (size_t j = 0; j < shd_list_count(n->pred_edges); j++) {
+            CFEdge e = shd_read_list(CFEdge, n->pred_edges)[j];
             if (e.type == StructuredTailEdge) {
                 structured_idom = n->structured_idom = e.src;
                 n->structured_idom_edge = e;
                 continue;
             }
         }
-        for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
-            CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+        for (size_t j = 0; j < shd_list_count(n->pred_edges); j++) {
+            CFEdge e = shd_read_list(CFEdge, n->pred_edges)[j];
             if (e.src->rpo_index < n->rpo_index) {
                 n->idom = e.src;
                 goto outer_loop;
@@ -548,12 +548,12 @@ void compute_domtree(CFG* cfg) {
     while (todo) {
         todo = false;
         for (size_t i = 0; i < cfg->size; i++) {
-            CFNode* n = read_list(CFNode*, cfg->contents)[i];
+            CFNode* n = shd_read_list(CFNode*, cfg->contents)[i];
             if (n == cfg->entry || n->structured_idom)
                 continue;
             CFNode* new_idom = NULL;
-            for (size_t j = 0; j < entries_count_list(n->pred_edges); j++) {
-                CFEdge e = read_list(CFEdge, n->pred_edges)[j];
+            for (size_t j = 0; j < shd_list_count(n->pred_edges); j++) {
+                CFEdge e = shd_read_list(CFEdge, n->pred_edges)[j];
                  if (e.type == StructuredTailEdge)
                      continue;
                 CFNode* p = e.src;
@@ -569,12 +569,12 @@ void compute_domtree(CFG* cfg) {
 
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = cfg->rpo[i];
-        n->dominates = new_list(CFNode*);
+        n->dominates = shd_new_list(CFNode*);
     }
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = cfg->rpo[i];
         if (!n->idom)
             continue;
-        append_list(CFNode*, n->idom->dominates, n);
+        shd_list_append(CFNode*, n->idom->dominates, n);
     }
 }

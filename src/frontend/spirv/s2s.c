@@ -100,7 +100,7 @@ typedef struct {
 SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
 
 SpvDef* new_def(SpvParser* parser) {
-    SpvDef* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDef));
+    SpvDef* interned = shd_arena_alloc(parser->decorations_arena, sizeof(SpvDef));
     SpvDef empty = {0};
     memcpy(interned, &empty, sizeof(SpvDef));
     return interned;
@@ -111,7 +111,7 @@ void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
     while (tgt_def->next_decoration) {
         tgt_def = &tgt_def->next_decoration->payload;
     }
-    SpvDeco* interned = arena_alloc(parser->decorations_arena, sizeof(SpvDeco));
+    SpvDeco* interned = shd_arena_alloc(parser->decorations_arena, sizeof(SpvDeco));
     memcpy(interned, &decoration, sizeof(SpvDeco));
     tgt_def->next_decoration = interned;
 }
@@ -923,7 +923,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 SpvId argument_value = instruction[3 + i * 2 + 0];
                 SpvId predecessor_block = instruction[3 + i * 2 + 1];
 
-                SpvPhiArgs* new = arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
+                SpvPhiArgs* new = shd_arena_alloc(parser->decorations_arena, sizeof(SpvPhiArgs));
                 *new = (SpvPhiArgs) {
                     .predecessor = predecessor_block,
                     .arg_i = parser->fun_arg_i,
@@ -1350,7 +1350,7 @@ S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const 
         .mod = *dst,
         .arena = get_module_arena(*dst),
 
-        .decorations_arena = new_arena(),
+        .decorations_arena = shd_new_arena(),
         .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),
     };
 
@@ -1366,7 +1366,7 @@ S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const 
     }
 
     destroy_dict(parser.phi_arguments);
-    destroy_arena(parser.decorations_arena);
+    shd_destroy_arena(parser.decorations_arena);
     free(parser.defs);
 
     return S2S_Success;

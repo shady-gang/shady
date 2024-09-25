@@ -106,7 +106,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
             int set = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorSet"))), false);
             int binding = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorBinding"))), false);
 
-            ProgramResourceInfo* res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+            ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {
                 .is_bound = true,
                 .as = as,
@@ -125,7 +125,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 member_t = get_pointee_type(member_t->arena, member_t);
                 TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
 
-                ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+                ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
                 *constant_res_info = (ProgramResourceInfo) {
                     .parent = res_info,
                     .as = as,
@@ -485,7 +485,7 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     spec_program->key = key;
     spec_program->device = device;
     spec_program->specialized_module = key.base->module;
-    spec_program->arena = new_arena();
+    spec_program->arena = shd_new_arena();
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
@@ -525,6 +525,6 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
     }
     free(spec->resources.resources);
     vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);
-    destroy_arena(spec->arena);
+    shd_destroy_arena(spec->arena);
     free(spec);
 }

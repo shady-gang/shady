@@ -339,8 +339,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         // gen_if(loop_body_builder, empty(a), bail_condition, bail_case, NULL);
     }
 
-    struct List* literals = new_list(const Node*);
-    struct List* jumps = new_list(const Node*);
+    struct List* literals = shd_new_list(const Node*);
+    struct List* jumps = shd_new_list(const Node*);
 
     // Build 'zero' case (exits the program)
     Node* zero_case_lam = case_(a, nodes(a, 0, NULL));
@@ -368,9 +368,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     }));
 
     const Node* zero_lit = uint64_literal(a, 0);
-    append_list(const Node*, literals, zero_lit);
+    shd_list_append(const Node*, literals, zero_lit);
     const Node* zero_jump = jump_helper(a, zero_case_lam, empty(a), bb_mem(loop_body_builder));
-    append_list(const Node*, jumps, zero_jump);
+    shd_list_append(const Node*, jumps, zero_jump);
 
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
@@ -405,9 +405,9 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 .false_jump = jump_helper(a, if_false, empty(a), get_abstraction_mem(fn_case)),
             }));
 
-            append_list(const Node*, literals, fn_lit);
+            shd_list_append(const Node*, literals, fn_lit);
             const Node* j = jump_helper(a, fn_case, empty(a), bb_mem(loop_body_builder));
-            append_list(const Node*, jumps, j);
+            shd_list_append(const Node*, jumps, j);
         }
     }
 
@@ -417,13 +417,13 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     set_abstraction_body(loop_inside_case, finish_body(loop_body_builder, br_switch(a, (Switch) {
         .mem = bb_mem(loop_body_builder),
         .switch_value = next_function,
-        .case_values = nodes(a, entries_count_list(literals), read_list(const Node*, literals)),
-        .case_jumps = nodes(a, entries_count_list(jumps), read_list(const Node*, jumps)),
+        .case_values = nodes(a, shd_list_count(literals), shd_read_list(const Node*, literals)),
+        .case_jumps = nodes(a, shd_list_count(jumps), shd_read_list(const Node*, jumps)),
         .default_jump = jump_helper(a, default_case, empty(a), bb_mem(loop_body_builder))
     })));
 
-    destroy_list(literals);
-    destroy_list(jumps);
+    shd_destroy_list(literals);
+    shd_destroy_list(jumps);
 
     if (ctx->config->printf_trace.god_function)
         gen_debug_printf(dispatcher_body_builder, "trace: end of top\n", empty(a));

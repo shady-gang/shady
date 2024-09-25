@@ -144,10 +144,10 @@ static const Node* process(Context* ctx, const Node* node) {
             // TODO or maybe do that in fold()
             assert(cases.count > 0);
 
-            Arena* arena = new_arena();
+            Arena* arena = shd_new_arena();
             TreeNode* root = NULL;
             for (size_t i = 0; i < literals.count; i++) {
-                TreeNode* t = arena_alloc(arena, sizeof(TreeNode));
+                TreeNode* t = shd_arena_alloc(arena, sizeof(TreeNode));
                 t->key = get_int_literal_value(*resolve_to_int_literal(literals.nodes[i]), false);
                 t->lam = cases.nodes[i];
                 root = insert(root, t);

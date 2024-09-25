@@ -2,6 +2,7 @@
 #define SHADY_LIST_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct List {
     size_t elements_count;
@@ -10,31 +11,28 @@ struct List {
     void* alloc;
 };
 
-#define new_list(T) new_list_impl(sizeof(T))
-struct List* new_list_impl(size_t elem_size);
+#define shd_new_list(T) shd_new_list_impl(sizeof(T))
+struct List* shd_new_list_impl(size_t elem_size);
 
-void destroy_list(struct List* list);
+void shd_destroy_list(struct List* list);
 
-size_t entries_count_list(struct List* list);
+size_t shd_list_count(struct List* list);
 
-#define append_list(T, list, element) append_list_impl(list, (void*) &(element))
-void append_list_impl(struct List* list, void* element);
+#define shd_list_append(T, list, element) shd_list_append_impl(list, (void*) &(element))
+void shd_list_append_impl(struct List* list, void* element);
 
-#define pop_last_list(T, list) * ((T*) pop_list_impl(list))
-#define remove_last_list(T, list) (pop_list_impl(list))
-void* pop_list_impl(struct List* list);
+#define shd_list_pop(T, list) * ((T*) shd_list_pop_impl(list))
+void* shd_list_pop_impl(struct List* list);
 
-void clear_list(struct List* list);
+void shd_clear_list(struct List* list);
 
-#define add_list(T, list, i, e) add_list_impl(list, i, (void*) &(e))
-void add_list_impl(struct List* list, size_t index, void* element);
+#define shd_list_insert(T, list, i, e) shd_list_insert_impl(list, i, (void*) &(e))
+void shd_list_insert_impl(struct List* list, size_t index, void* element);
 
-#define delete_list(T, list, i) delete_list_impl(list, index)
-void delete_list_impl(struct List* list, size_t index);
+#define shd_list_delete(T, list, i) shd_list_remove_impl(list, index, false)
+#define shd_list_remove(T, list, i) *((T*) shd_list_remove_impl(list, i, true))
+void* shd_list_remove_impl(struct List* list, size_t index, bool);
 
-#define remove_list(T, list, i) *((T*) remove_list_impl(list, i))
-void* remove_list_impl(struct List* list, size_t index);
-
-#define read_list(T, list) ((T*) (list)->alloc)
+#define shd_read_list(T, list) ((T*) (list)->alloc)
 
 #endif

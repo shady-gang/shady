@@ -140,7 +140,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
 
     const Node* nmem = rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem);
 
-    AllocaInfo* k = arena_alloc(ctx->arena, sizeof(AllocaInfo));
+    AllocaInfo* k = shd_arena_alloc(ctx->arena, sizeof(AllocaInfo));
     *k = (AllocaInfo) { .type = rewrite_node(r, old_type) };
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
@@ -242,14 +242,14 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
-        .arena = new_arena(),
+        .arena = shd_new_arena(),
         .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
         .todo = &todo
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
     destroy_dict(ctx.alloca_info);
-    destroy_arena(ctx.arena);
+    shd_destroy_arena(ctx.arena);
     *m = dst;
     return todo;
 }

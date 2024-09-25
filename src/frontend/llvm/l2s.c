@@ -77,7 +77,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
     if (get_log_level() >= DEBUG)
         LLVMDumpValue((LLVMValueRef)bb);
 
-    struct List* phis = new_list(LLVMValueRef);
+    struct List* phis = shd_new_list(LLVMValueRef);
     Nodes params = empty(a);
     LLVMValueRef instr = LLVMGetFirstInstruction(bb);
     while (instr) {
@@ -85,7 +85,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
             case LLVMPHI: {
                 const Node* nparam = param(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 insert_dict(LLVMValueRef, const Node*, p->map, instr, nparam);
-                append_list(LLVMValueRef, phis, instr);
+                shd_list_append(LLVMValueRef, phis, instr);
                 params = append_nodes(a, params, nparam);
                 break;
             }
@@ -113,7 +113,7 @@ static BBParseCtx* get_bb_ctx(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef b
     BBParseCtx** found = find_value_dict(LLVMValueRef, BBParseCtx*, fn_ctx->bbs, bb);
     if (found) return *found;
 
-    BBParseCtx* ctx = arena_alloc(p->annotations_arena, sizeof(BBParseCtx));
+    BBParseCtx* ctx = shd_arena_alloc(p->annotations_arena, sizeof(BBParseCtx));
     prepare_bb(p, fn_ctx, ctx, bb);
     insert_dict(LLVMBasicBlockRef, BBParseCtx*, fn_ctx->bbs, bb, ctx);
 
@@ -182,7 +182,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         .fn = f,
         .phis = new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
         .bbs = new_dict(LLVMBasicBlockRef, BBParseCtx*, (HashFn) hash_ptr, (CmpFn) compare_ptrs),
-        .jumps_todo = new_list(JumpTodo),
+        .jumps_todo = shd_new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
     r = prim_op_helper(a, reinterpret_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
@@ -227,12 +227,12 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         size_t i = 0;
         struct List* phis_list;
         while (dict_iter(fn_parse_ctx.phis, &i, NULL, &phis_list)) {
-            destroy_list(phis_list);
+            shd_destroy_list(phis_list);
         }
     }
     destroy_dict(fn_parse_ctx.phis);
     destroy_dict(fn_parse_ctx.bbs);
-    destroy_list(fn_parse_ctx.jumps_todo);
+    shd_destroy_list(fn_parse_ctx.jumps_todo);
 
     return r;
 }
@@ -309,7 +309,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
         .config = config,
         .map = new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
-        .annotations_arena = new_arena(),
+        .annotations_arena = shd_new_arena(),
         .src = src,
         .dst = dirty,
     };
@@ -344,7 +344,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
 
     destroy_dict(p.map);
     destroy_dict(p.annotations);
-    destroy_arena(p.annotations_arena);
+    shd_destroy_arena(p.annotations_arena);
 
     LLVMContextDispose(context);
 

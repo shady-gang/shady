@@ -26,7 +26,7 @@ BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
     BodyBuilder* bb = malloc(sizeof(BodyBuilder));
     *bb = (BodyBuilder) {
         .arena = a,
-        .stack = new_list(StackEntry),
+        .stack = shd_new_list(StackEntry),
         .mem = mem,
     };
     return bb;
@@ -92,9 +92,9 @@ Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, s
 
 static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
     IrArena* a = bb->arena;
-    size_t stack_size = entries_count_list(bb->stack);
+    size_t stack_size = shd_list_count(bb->stack);
     for (size_t i = stack_size - 1; i < stack_size; i--) {
-        StackEntry entry = read_list(StackEntry, bb->stack)[i];
+        StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
         const Node* t2 = terminator;
         switch (entry.structured.tag) {
             case NotAStructured_construct: error("")
@@ -123,7 +123,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
 const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
     assert(bb->mem && !bb->block_entry_mem);
     terminator = build_body(bb, terminator);
-    destroy_list(bb->stack);
+    shd_destroy_list(bb->stack);
     free(bb);
     return terminator;
 }
@@ -180,7 +180,7 @@ const Node* finish_body_with_jump(BodyBuilder* bb, const Node* target, Nodes arg
 
 const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
-    if (!bb->tail_block && entries_count_list(bb->stack) == 0) {
+    if (!bb->tail_block && shd_list_count(bb->stack) == 0) {
         const Node* last_mem = bb_mem(bb);
         cancel_body(bb);
         if (last_mem)
@@ -206,13 +206,13 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
 const Node* finish_block_body(BodyBuilder* bb, const Node* terminator) {
     assert(bb->block_entry_mem);
     terminator = build_body(bb, terminator);
-    destroy_list(bb->stack);
+    shd_destroy_list(bb->stack);
     free(bb);
     return terminator;
 }
 
 const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
-    size_t stack_size = entries_count_list(bb->stack);
+    size_t stack_size = shd_list_count(bb->stack);
     if (stack_size == 0) {
         cancel_body(bb);
         return instruction;
@@ -223,7 +223,7 @@ const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node*
 
 const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
-    assert(!bb->mem && !bb->block_entry_mem && entries_count_list(bb->stack) == 0);
+    assert(!bb->mem && !bb->block_entry_mem && shd_list_count(bb->stack) == 0);
     cancel_body(bb);
     return maybe_tuple_helper(arena, values);
 }
@@ -271,7 +271,7 @@ Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constru
         }
     }
     bb->mem = get_abstraction_mem(tail);
-    append_list(StackEntry , bb->stack, entry);
+    shd_list_append(StackEntry , bb->stack, entry);
     bb->tail_block = tail;
     return entry.vars;
 }
@@ -362,12 +362,12 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
 }
 
 void cancel_body(BodyBuilder* bb) {
-    for (size_t i = 0; i < entries_count_list(bb->stack); i++) {
-        StackEntry entry = read_list(StackEntry, bb->stack)[i];
+    for (size_t i = 0; i < shd_list_count(bb->stack); i++) {
+        StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
         // if (entry.structured.tag != NotAStructured_construct)
         //     destroy_list(entry.structured.stack);
     }
-    destroy_list(bb->stack);
+    shd_destroy_list(bb->stack);
     //destroy_list(bb->stack_stack);
     free(bb);
 }

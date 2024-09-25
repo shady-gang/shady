@@ -73,7 +73,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
 
 static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
     assert(name);
-    NamedBindEntry* entry = arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
+    NamedBindEntry* entry = shd_arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
     *entry = (NamedBindEntry) {
         .name = string(ctx->rewriter.dst_arena, name),
         .is_var = is_var,

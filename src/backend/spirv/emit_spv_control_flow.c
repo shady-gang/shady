@@ -18,9 +18,9 @@ BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb) {
 
 static void add_phis(Emitter* emitter, FnBuilder* fn_builder, SpvId src, BBBuilder dst_builder, Nodes args) {
     struct List* phis = spbv_get_phis(dst_builder);
-    assert(entries_count_list(phis) == args.count);
+    assert(shd_list_count(phis) == args.count);
     for (size_t i = 0; i < args.count; i++) {
-        SpvbPhi* phi = read_list(SpvbPhi*, phis)[i];
+        SpvbPhi* phi = shd_read_list(SpvbPhi*, phis)[i];
         spvb_add_phi_source(phi, src, spv_emit_value(emitter, fn_builder, args.nodes[i]));
     }
 }
@@ -109,7 +109,7 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
         spvb_add_phi_source(header_phi, get_block_builder_id(continue_builder), continue_phi_id);
 
         BBBuilder body_builder = spv_find_basic_block_builder(emitter, loop_instr.body);
-        spvb_add_phi_source(read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
+        spvb_add_phi_source(shd_read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
     }
 
     fn_builder->per_bb[cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_id = continue_id;

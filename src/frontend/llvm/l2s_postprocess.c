@@ -137,12 +137,12 @@ void postprocess(Parser* p, Module* src, Module* dst) {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = p->config,
         .p = p,
-        .arena = new_arena(),
+        .arena = shd_new_arena(),
     };
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
     rewrite_module(&ctx.rewriter);
-    destroy_arena(ctx.arena);
+    shd_destroy_arena(ctx.arena);
     destroy_rewriter(&ctx.rewriter);
 }

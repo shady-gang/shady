@@ -19,7 +19,7 @@ inline static size_t round_up(size_t a, size_t b) {
     return divided * b;
 }
 
-Arena* new_arena() {
+Arena* shd_new_arena() {
     Arena* arena = malloc(sizeof(Arena));
     *arena = (Arena) {
         .nblocks = 0,
@@ -32,7 +32,7 @@ Arena* new_arena() {
     return arena;
 }
 
-void destroy_arena(Arena* arena) {
+void shd_destroy_arena(Arena* arena) {
     for (int i = 0; i < arena->nblocks; i++) {
         free(arena->blocks[i]);
     }
@@ -54,7 +54,7 @@ static void* new_block(Arena* arena, size_t size) {
     return allocated;
 }
 
-void* arena_alloc(Arena* arena, size_t size) {
+void* shd_arena_alloc(Arena* arena, size_t size) {
     size = round_up(size, (size_t) sizeof(max_align_t));
     if (size == 0)
         return NULL;

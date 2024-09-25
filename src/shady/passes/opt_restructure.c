@@ -136,10 +136,10 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         BodyBuilder* bb = begin_body_with_mem(a, mem);
         TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
-        append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
+        shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
         struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
         TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
-        append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
+        shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
         ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = param(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
@@ -158,8 +158,8 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         // forget we rewrote all that
         destroy_dict(tmp_processed);
-        pop_list_impl(ctx->cleanup_stack);
-        pop_list_impl(ctx->cleanup_stack);
+        shd_list_pop_impl(ctx->cleanup_stack);
+        shd_list_pop_impl(ctx->cleanup_stack);
 
         if (dfs_entry.loop_header) {
             // Use the structured target as the body of a loop
@@ -337,7 +337,7 @@ static const Node* process(Context* ctx, const Node* node) {
     if (node->tag == Function_TAG) {
         Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
 
-        size_t alloc_stack_size_now = entries_count_list(ctx->cleanup_stack);
+        size_t alloc_stack_size_now = shd_list_count(ctx->cleanup_stack);
 
         Context ctx2 = *ctx;
         ctx2.dfs_stack = NULL;
@@ -355,7 +355,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.lower = true;
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
-            append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
+            shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = gen_local_alloc(bb, int32_type(a));
             set_value_name(ptr, "cf_depth");
             gen_store(bb, ptr, int32_literal(a, 0));
@@ -363,14 +363,14 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.fn = new;
             struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
             TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
-            append_list(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
+            shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
             register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new, finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
-            pop_list_impl(ctx->cleanup_stack);
-            pop_list_impl(ctx->cleanup_stack);
+            shd_list_pop_impl(ctx->cleanup_stack);
+            shd_list_pop_impl(ctx->cleanup_stack);
             destroy_dict(tmp_processed);
         }
 
@@ -378,8 +378,8 @@ static const Node* process(Context* ctx, const Node* node) {
         //    new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
 
         // if we did a longjmp, we might have orphaned a few of those
-        while (alloc_stack_size_now < entries_count_list(ctx->cleanup_stack)) {
-            TmpAllocCleanupClosure cj = pop_last_list(TmpAllocCleanupClosure, ctx->cleanup_stack);
+        while (alloc_stack_size_now < shd_list_count(ctx->cleanup_stack)) {
+            TmpAllocCleanupClosure cj = shd_list_pop(TmpAllocCleanupClosure, ctx->cleanup_stack);
             cj.fn(cj.payload);
         }
 
@@ -421,10 +421,10 @@ Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src
 
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .cleanup_stack = new_list(TmpAllocCleanupClosure),
+        .cleanup_stack = shd_new_list(TmpAllocCleanupClosure),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_list(ctx.cleanup_stack);
+    shd_destroy_list(ctx.cleanup_stack);
     return dst;
 }

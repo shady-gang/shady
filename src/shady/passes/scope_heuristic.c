@@ -25,13 +25,13 @@ static Nodes to_ids(IrArena* a, Nodes in) {
 
 static void visit_looptree_prepend(IrArena* a, Nodes* arr, LTNode* node, Nodes prefix) {
     if (node->type == LF_HEAD) {
-        for (size_t i = 0; i < entries_count_list(node->lf_children); i++) {
-            LTNode* n = read_list(LTNode*, node->lf_children)[i];
+        for (size_t i = 0; i < shd_list_count(node->lf_children); i++) {
+            LTNode* n = shd_read_list(LTNode*, node->lf_children)[i];
             visit_looptree_prepend(a, arr, n, prefix);
         }
     } else {
-        for (size_t i = 0; i < entries_count_list(node->cf_nodes); i++) {
-            CFNode* n = read_list(CFNode*, node->cf_nodes)[i];
+        for (size_t i = 0; i < shd_list_count(node->cf_nodes); i++) {
+            CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
             arr[n->rpo_index] = concat_nodes(a, prefix, arr[n->rpo_index]);
         }
         assert(node->lf_children);
@@ -52,8 +52,8 @@ static void paint_dominated_up_to_postdom(CFNode* n, IrArena* a, Nodes* arr, con
     if (n->node == postdom)
         return;
 
-    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
-        CFNode* dominated = read_list(CFNode*, n->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(n->dominates); i++) {
+        CFNode* dominated = shd_read_list(CFNode*, n->dominates)[i];
         paint_dominated_up_to_postdom(dominated, a, arr, postdom, prefix);
     }
 
@@ -65,14 +65,14 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
     if (ltn->parent != loop)
         return;
 
-    for (size_t i = 0; i < entries_count_list(n->dominates); i++) {
-        CFNode* dominated = read_list(CFNode*, n->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(n->dominates); i++) {
+        CFNode* dominated = shd_read_list(CFNode*, n->dominates)[i];
         visit_acyclic_cfg_domtree(dominated, a, arr, flipped, loop, lt);
     }
 
     CFNode* src = n;
 
-    if (entries_count_list(src->succ_edges) < 2)
+    if (shd_list_count(src->succ_edges) < 2)
         return; // no divergence, no bother
 
     CFNode* f_src = cfg_lookup(flipped, src->node);
@@ -96,19 +96,19 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
     if (node->type == LF_HEAD) {
         Nodes surrounding = empty(a);
         bool is_loop = false;
-        for (size_t i = 0; i < entries_count_list(node->cf_nodes); i++) {
-            CFNode* n = read_list(CFNode*, node->cf_nodes)[i];
+        for (size_t i = 0; i < shd_list_count(node->cf_nodes); i++) {
+            CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
             surrounding = append_nodes(a, surrounding, n->node);
             is_loop = true;
         }
 
-        for (size_t i = 0; i < entries_count_list(node->lf_children); i++) {
-            LTNode* n = read_list(LTNode*, node->lf_children)[i];
+        for (size_t i = 0; i < shd_list_count(node->lf_children); i++) {
+            LTNode* n = shd_read_list(LTNode*, node->lf_children)[i];
             visit_looptree(a, arr, fn, flipped, lt, n);
         }
 
-        assert(entries_count_list(node->cf_nodes) < 2);
-        CFG* sub_cfg = build_cfg(fn, is_loop ? read_list(CFNode*, node->cf_nodes)[0]->node : fn, (CFGBuildConfig) {
+        assert(shd_list_count(node->cf_nodes) < 2);
+        CFG* sub_cfg = build_cfg(fn, is_loop ? shd_read_list(CFNode*, node->cf_nodes)[0]->node : fn, (CFGBuildConfig) {
             .include_structured_tails = true,
             .lt = lt
         });
@@ -120,8 +120,8 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
 
         visit_looptree_prepend(a, arr, node, surrounding);
         // Remove one level of scoping for the loop headers (forcing reconvergence)
-        for (size_t i = 0; i < entries_count_list(node->cf_nodes); i++) {
-            CFNode* n = read_list(CFNode*, node->cf_nodes)[i];
+        for (size_t i = 0; i < shd_list_count(node->cf_nodes); i++) {
+            CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
             Nodes old = arr[n->rpo_index];
             assert(old.count > 1);
             arr[n->rpo_index] = nodes(a, old.count - 1, &old.nodes[0]);
@@ -134,7 +134,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
 static bool loop_depth(LTNode* a) {
     int i = 0;
     while (a) {
-        if (entries_count_list(a->cf_nodes) > 0)
+        if (shd_list_count(a->cf_nodes) > 0)
            i++;
         else {
             assert(!a->parent);

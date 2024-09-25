@@ -94,15 +94,15 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
 }
 
 ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
-    if (entries_count_list(args->input_filenames) == 0) {
+    if (shd_list_count(args->input_filenames) == 0) {
         error_print("Missing input file. See --help for proper usage");
         return MissingInputArg;
     }
 
-    size_t num_source_files = entries_count_list(args->input_filenames);
+    size_t num_source_files = shd_list_count(args->input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
         Module* m;
-        int err = driver_load_source_file_from_filename(&args->config, read_list(const char*, args->input_filenames)[i], read_list(const char*, args->input_filenames)[i], &m);
+        int err = driver_load_source_file_from_filename(&args->config, shd_read_list(const char*, args->input_filenames)[i], shd_read_list(const char*, args->input_filenames)[i], &m);
         if (err)
             return err;
         link_module(mod, m);

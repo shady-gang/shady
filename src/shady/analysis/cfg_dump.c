@@ -103,16 +103,16 @@ static void dump_cfg(FILE* output, CFG* cfg) {
     const Node* entry = cfg->entry->node;
     fprintf(output, "subgraph cluster_%d {\n", entry->id);
     fprintf(output, "label = \"%s\";\n", get_abstraction_name_safe(entry));
-    for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
-        const CFNode* n = read_list(const CFNode*, cfg->contents)[i];
+    for (size_t i = 0; i < shd_list_count(cfg->contents); i++) {
+        const CFNode* n = shd_read_list(const CFNode*, cfg->contents)[i];
         dump_cf_node(output, n);
     }
-    for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
-        const CFNode* bb_node = read_list(const CFNode*, cfg->contents)[i];
+    for (size_t i = 0; i < shd_list_count(cfg->contents); i++) {
+        const CFNode* bb_node = shd_read_list(const CFNode*, cfg->contents)[i];
         const CFNode* src_node = bb_node;
 
-        for (size_t j = 0; j < entries_count_list(bb_node->succ_edges); j++) {
-            CFEdge edge = read_list(CFEdge, bb_node->succ_edges)[j];
+        for (size_t j = 0; j < shd_list_count(bb_node->succ_edges); j++) {
+            CFEdge edge = shd_read_list(CFEdge, bb_node->succ_edges)[j];
             const CFNode* target_node = edge.dst;
             String edge_color = "black";
             String edge_style = "solid";
@@ -154,12 +154,12 @@ void dump_cfgs(FILE* output, Module* mod) {
 
     fprintf(output, "digraph G {\n");
     struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
-    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
-        CFG* cfg = read_list(CFG*, cfgs)[i];
+    for (size_t i = 0; i < shd_list_count(cfgs); i++) {
+        CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         dump_cfg(output, cfg);
         destroy_cfg(cfg);
     }
-    destroy_list(cfgs);
+    shd_destroy_list(cfgs);
     fprintf(output, "}\n");
 }
 
@@ -176,8 +176,8 @@ static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
     else
         print(p, "bb_%zu [label=\"%%%d\", shape=box];\n", (size_t) idom, idom->node->id);
 
-    for (size_t i = 0; i < entries_count_list(idom->dominates); i++) {
-        CFNode* child = read_list(CFNode*, idom->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(idom->dominates); i++) {
+        CFNode* child = shd_read_list(CFNode*, idom->dominates)[i];
         dump_domtree_cfnode(p, child);
         print(p, "bb_%zu -> bb_%zu;\n", (size_t) (idom), (size_t) (child));
     }
@@ -192,12 +192,12 @@ void dump_domtree_cfg(Printer* p, CFG* s) {
 void dump_domtree_module(Printer* p, Module* mod) {
     print(p, "digraph G {\n");
     struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
-    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
-        CFG* cfg = read_list(CFG*, cfgs)[i];
+    for (size_t i = 0; i < shd_list_count(cfgs); i++) {
+        CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         dump_domtree_cfg(p, cfg);
         destroy_cfg(cfg);
     }
-    destroy_list(cfgs);
+    shd_destroy_list(cfgs);
     print(p, "}\n");
 }
 

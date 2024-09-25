@@ -195,7 +195,7 @@ void cli_parse_input_files(struct List* list, int* pargc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if (argv[i] == NULL)
             continue;
-        append_list(const char*, list, argv[i]);
+        shd_list_append(const char*, list, argv[i]);
         argv[i] = NULL;
     }
 
@@ -207,7 +207,7 @@ DriverConfig default_driver_config() {
     return (DriverConfig) {
         .config = default_compiler_config(),
         .target = TgtAuto,
-        .input_filenames = new_list(const char*),
+        .input_filenames = shd_new_list(const char*),
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
@@ -216,7 +216,7 @@ DriverConfig default_driver_config() {
 }
 
 void destroy_driver_config(DriverConfig* config) {
-    destroy_list(config->input_filenames);
+    shd_destroy_list(config->input_filenames);
 }
 
 void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {

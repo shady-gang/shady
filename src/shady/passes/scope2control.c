@@ -66,7 +66,7 @@ static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
     if (found)
         return *found;
     IrArena* a = ctx->rewriter.dst_arena;
-    Controls* controls = arena_alloc(ctx->arena, sizeof(Controls));
+    Controls* controls = shd_arena_alloc(ctx->arena, sizeof(Controls));
     *controls = (Controls) {
         .control_destinations = new_dict(const Node*, AddControl, (HashFn) hash_node, (CmpFn) compare_node),
     };
@@ -82,10 +82,10 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         return;
 
     CFNode* n = cfg_lookup(cfg, oabs);
-    size_t num_dom = entries_count_list(n->dominates);
+    size_t num_dom = shd_list_count(n->dominates);
     LARRAY(Node*, nbbs, num_dom);
     for (size_t i = 0; i < num_dom; i++) {
-        CFNode* dominated = read_list(CFNode*, n->dominates)[i];
+        CFNode* dominated = shd_read_list(CFNode*, n->dominates)[i];
         const Node* obb = dominated->node;
         assert(obb->tag == BasicBlock_TAG);
         Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
@@ -100,7 +100,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
 
     for (size_t k = 0; k < num_dom; k++) {
-        CFNode* dominated = read_list(CFNode*, n->dominates)[k];
+        CFNode* dominated = shd_read_list(CFNode*, n->dominates)[k];
         const Node* obb = dominated->node;
         wrap_in_controls(ctx, cfg, nbbs[k], obb);
     }
@@ -258,8 +258,8 @@ static void prepare_function(Context* ctx, CFG* cfg, const Node* old_fn) {
     Scheduler* scheduler = new_scheduler(cfg);
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = cfg->rpo[i];
-        for (size_t j = 0; j < entries_count_list(n->succ_edges); j++) {
-            process_edge(ctx, cfg, scheduler, read_list(CFEdge, n->succ_edges)[j]);
+        for (size_t j = 0; j < shd_list_count(n->succ_edges); j++) {
+            process_edge(ctx, cfg, scheduler, shd_read_list(CFEdge, n->succ_edges)[j]);
         }
     }
     destroy_scheduler(scheduler);
@@ -307,7 +307,7 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
-        .arena = new_arena(),
+        .arena = shd_new_arena(),
         .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
         .jump2wrapper = new_dict(const Node*, Wrapped, (HashFn) hash_node, (CmpFn) compare_node),
     };
@@ -329,7 +329,7 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
 
     destroy_dict(ctx.controls);
     destroy_dict(ctx.jump2wrapper);
-    destroy_arena(ctx.arena);
+    shd_destroy_arena(ctx.arena);
     destroy_rewriter(&ctx.rewriter);
 
     return dst;

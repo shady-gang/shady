@@ -70,8 +70,8 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNo
 
     spv_emit_terminator(emitter, fn_builder, bb_builder, bb_node, body);
 
-    for (size_t i = 0; i < entries_count_list(cf_node->dominates); i++) {
-        CFNode* dominated = read_list(CFNode*, cf_node->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(cf_node->dominates); i++) {
+        CFNode* dominated = shd_read_list(CFNode*, cf_node->dominates)[i];
         emit_basic_block(emitter, fn_builder, dominated);
     }
 

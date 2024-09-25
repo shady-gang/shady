@@ -12,7 +12,7 @@ ParsedAnnotation* find_annotation(Parser* p, const Node* n) {
 void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
     ParsedAnnotation* found = find_value_dict(const Node*, ParsedAnnotation, p->annotations, n);
     if (found) {
-        ParsedAnnotation* data = arena_alloc(p->annotations_arena, sizeof(a));
+        ParsedAnnotation* data = shd_arena_alloc(p->annotations_arena, sizeof(a));
         *data = a;
         while (found->next)
             found = found->next;

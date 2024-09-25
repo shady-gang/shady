@@ -277,7 +277,7 @@ static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
         Printer* p2 = open_growy_as_printer(g2);
         size_t count = cfnode->dominates->elements_count;
         for (size_t i = 0; i < count; i++) {
-            const CFNode* dominated = read_list(const CFNode*, cfnode->dominates)[i];
+            const CFNode* dominated = shd_read_list(const CFNode*, cfnode->dominates)[i];
             assert(is_basic_block(dominated->node));
             PrinterCtx bb_ctx = *ctx;
             bb_ctx.printer = p2;

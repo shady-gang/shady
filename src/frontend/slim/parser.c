@@ -352,17 +352,17 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             if (curr_token(tokenizer).tag == rpar_tok) {
                 next_token(tokenizer);
             } else {
-                struct List* elements = new_list(const Node*);
-                append_list(const Node*, elements, atom);
+                struct List* elements = shd_new_list(const Node*);
+                shd_list_append(const Node*, elements, atom);
 
                 while (!accept_token(ctx, rpar_tok)) {
                     expect(accept_token(ctx, comma_tok), "','");
                     const Node* element = expect_operand(ctx, bb);
-                    append_list(const Node*, elements, element);
+                    shd_list_append(const Node*, elements, element);
                 }
 
-                Nodes tcontents = nodes(arena, entries_count_list(elements), read_list(const Node*, elements));
-                destroy_list(elements);
+                Nodes tcontents = nodes(arena, shd_list_count(elements), shd_read_list(const Node*, elements));
+                shd_destroy_list(elements);
                 atom = tuple_helper(arena, tcontents);
             }
             return atom;
@@ -448,8 +448,8 @@ static const Type* accept_unqualified_type(ctxparams) {
         });
     } else if (accept_token(ctx, struct_tok)) {
         expect(accept_token(ctx, lbracket_tok), "'{'");
-        struct List* names = new_list(String);
-        struct List* types = new_list(const Type*);
+        struct List* names = shd_new_list(String);
+        struct List* types = shd_new_list(const Type*);
         while (true) {
             if (accept_token(ctx, rbracket_tok))
                 break;
@@ -457,14 +457,14 @@ static const Type* accept_unqualified_type(ctxparams) {
             expect(elem, "struct member type");
             String id = accept_identifier(ctx);
             expect(id, "struct member name");
-            append_list(String, names, id);
-            append_list(const Type*, types, elem);
+            shd_list_append(String, names, id);
+            shd_list_append(const Type*, types, elem);
             expect(accept_token(ctx, semi_tok), "';'");
         }
-        Nodes elem_types = nodes(arena, entries_count_list(types), read_list(const Type*, types));
-        Strings names2 = strings(arena, entries_count_list(names), read_list(String, names));
-        destroy_list(names);
-        destroy_list(types);
+        Nodes elem_types = nodes(arena, shd_list_count(types), shd_read_list(const Type*, types));
+        Strings names2 = strings(arena, shd_list_count(names), shd_read_list(String, names));
+        shd_destroy_list(names);
+        shd_destroy_list(types);
         return record_type(arena, (RecordType) {
             .names = names2,
             .members = elem_types,
@@ -520,8 +520,8 @@ static const Node* expect_operand(ctxparams, BodyBuilder* bb) {
 
 static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_values, BodyBuilder* bb) {
     expect(accept_token(ctx, lpar_tok), "'('");
-    struct List* params = new_list(Node*);
-    struct List* default_vals = default_values ? new_list(Node*) : NULL;
+    struct List* params = shd_new_list(Node*);
+    struct List* default_vals = default_values ? shd_new_list(Node*) : NULL;
 
     while (true) {
         if (accept_token(ctx, rpar_tok))
@@ -534,12 +534,12 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
             expect(id, "parameter name");
 
             const Node* node = param(arena, qtype, id);
-            append_list(Node*, params, node);
+            shd_list_append(Node*, params, node);
 
             if (default_values) {
                 expect(accept_token(ctx, equal_tok), "'='");
                 const Node* default_val = accept_operand(ctx, bb);
-                append_list(const Node*, default_vals, default_val);
+                shd_list_append(const Node*, default_vals, default_val);
             }
 
             if (accept_token(ctx, comma_tok))
@@ -547,19 +547,19 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
         }
     }
 
-    size_t count = entries_count_list(params);
-    *parameters = nodes(arena, count, read_list(const Node*, params));
-    destroy_list(params);
+    size_t count = shd_list_count(params);
+    *parameters = nodes(arena, count, shd_read_list(const Node*, params));
+    shd_destroy_list(params);
     if (default_values) {
-        *default_values = nodes(arena, count, read_list(const Node*, default_vals));
-        destroy_list(default_vals);
+        *default_values = nodes(arena, count, shd_read_list(const Node*, default_vals));
+        shd_destroy_list(default_vals);
     }
 }
 
 typedef enum { MustQualified, MaybeQualified, NeverQualified } Qualified;
 
 static Nodes accept_types(ctxparams, TokenTag separator, Qualified qualified) {
-    struct List* tmp = new_list(Type*);
+    struct List* tmp = shd_new_list(Type*);
     while (true) {
         const Type* type;
         switch (qualified) {
@@ -570,14 +570,14 @@ static Nodes accept_types(ctxparams, TokenTag separator, Qualified qualified) {
         if (!type)
             break;
 
-        append_list(Type*, tmp, type);
+        shd_list_append(Type*, tmp, type);
 
         if (separator != 0)
             accept_token(ctx, separator);
     }
 
     Nodes types2 = nodes(arena, tmp->elements_count, (const Type**) tmp->alloc);
-    destroy_list(tmp);
+    shd_destroy_list(tmp);
     return types2;
 }
 
@@ -689,7 +689,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
 static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
     expect(accept_token(ctx, lpar_tok), "'('");
 
-    struct List* list = new_list(Node*);
+    struct List* list = shd_new_list(Node*);
 
     bool expect = false;
     while (true) {
@@ -703,7 +703,7 @@ static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
                 syntax_error("Expected value or ')'");
         }
 
-        append_list(Node*, list, val);
+        shd_list_append(Node*, list, val);
 
         if (accept_token(ctx, comma_tok))
             expect = true;
@@ -714,7 +714,7 @@ static Nodes expect_operands(ctxparams, BodyBuilder* bb) {
     }
 
     Nodes final = nodes(arena, list->elements_count, (const Node**) list->alloc);
-    destroy_list(list);
+    shd_destroy_list(list);
     return final;
 }
 
@@ -794,12 +794,12 @@ static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
 }
 
 static void expect_identifiers(ctxparams, Strings* out_strings) {
-    struct List* list = new_list(const char*);
+    struct List* list = shd_new_list(const char*);
     while (true) {
         const char* id = accept_identifier(ctx);
         expect(id, "identifier");
 
-        append_list(const char*, list, id);
+        shd_list_append(const char*, list, id);
 
         if (accept_token(ctx, comma_tok))
             continue;
@@ -808,12 +808,12 @@ static void expect_identifiers(ctxparams, Strings* out_strings) {
     }
 
     *out_strings = strings(arena, list->elements_count, (const char**) list->alloc);
-    destroy_list(list);
+    shd_destroy_list(list);
 }
 
 static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes* out_types) {
-    struct List* slist = new_list(const char*);
-    struct List* tlist = new_list(const char*);
+    struct List* slist = shd_new_list(const char*);
+    struct List* tlist = shd_new_list(const char*);
 
     while (true) {
         const Type* type = accept_unqualified_type(ctx);
@@ -821,8 +821,8 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
         const char* id = accept_identifier(ctx);
         expect(id, "identifier");
 
-        append_list(const char*, tlist, type);
-        append_list(const char*, slist, id);
+        shd_list_append(const char*, tlist, type);
+        shd_list_append(const char*, slist, id);
 
         if (accept_token(ctx, comma_tok))
             continue;
@@ -832,8 +832,8 @@ static void expect_types_and_identifiers(ctxparams, Strings* out_strings, Nodes*
 
     *out_strings = strings(arena, slist->elements_count, (const char**) slist->alloc);
     *out_types = nodes(arena, tlist->elements_count, (const Node**) tlist->alloc);
-    destroy_list(slist);
-    destroy_list(tlist);
+    shd_destroy_list(slist);
+    shd_destroy_list(tlist);
 }
 
 static Nodes strings2nodes(IrArena* a, Strings strings) {
@@ -1045,7 +1045,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 }
 
 static Nodes accept_annotations(ctxparams) {
-    struct List* list = new_list(const Node*);
+    struct List* list = shd_new_list(const Node*);
 
     while (true) {
         if (accept_token(ctx, at_tok)) {
@@ -1061,21 +1061,21 @@ static Nodes accept_annotations(ctxparams) {
                 // TODO: AnnotationCompound ?
                 if (curr_token(tokenizer).tag == comma_tok) {
                     next_token(tokenizer);
-                    struct List* values = new_list(const Node*);
-                    append_list(const Node*, values, first_value);
+                    struct List* values = shd_new_list(const Node*);
+                    shd_list_append(const Node*, values, first_value);
                     while (true) {
                         const Node* next_value = accept_value(ctx, NULL);
                         expect(next_value, "value");
-                        append_list(const Node*, values, next_value);
+                        shd_list_append(const Node*, values, next_value);
                         if (accept_token(ctx, comma_tok))
                             continue;
                         else break;
                     }
                     annot = annotation_values(arena, (AnnotationValues) {
                         .name = id,
-                        .values = nodes(arena, entries_count_list(values), read_list(const Node*, values))
+                        .values = nodes(arena, shd_list_count(values), shd_read_list(const Node*, values))
                     });
-                    destroy_list(values);
+                    shd_destroy_list(values);
                 } else {
                     annot = annotation_value(arena, (AnnotationValue) {
                         .name = id,
@@ -1091,14 +1091,14 @@ static Nodes accept_annotations(ctxparams) {
                 });
             }
             expect(annot, "annotation");
-            append_list(const Node*, list, annot);
+            shd_list_append(const Node*, list, annot);
             continue;
         }
         break;
     }
 
-    Nodes annotations = nodes(arena, entries_count_list(list), read_list(const Node*, list));
-    destroy_list(list);
+    Nodes annotations = nodes(arena, shd_list_count(list), shd_read_list(const Node*, list));
+    shd_destroy_list(list);
     return annotations;
 }
 

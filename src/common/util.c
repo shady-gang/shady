@@ -160,7 +160,7 @@ void format_string_internal(const char* str, va_list args, void* uptr, void call
 typedef struct { Arena* a; char** result; } InternInArenaPayload;
 
 static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
-    char* interned = (char*) arena_alloc(uptr->a, len + 1);
+    char* interned = (char*) shd_arena_alloc(uptr->a, len + 1);
     strncpy(interned, tmp, len);
     interned[len] = '\0';
     *uptr->result = interned;

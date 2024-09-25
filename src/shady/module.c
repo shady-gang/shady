@@ -6,13 +6,13 @@
 #include <string.h>
 
 Module* new_module(IrArena* arena, String name) {
-    Module* m = arena_alloc(arena->arena, sizeof(Module));
+    Module* m = shd_arena_alloc(arena->arena, sizeof(Module));
     *m = (Module) {
         .arena = arena,
         .name = string(arena, name),
-        .decls = new_list(Node*),
+        .decls = shd_new_list(Node*),
     };
-    append_list(Module*, arena->modules, m);
+    shd_list_append(Module*, arena->modules, m);
     return m;
 }
 
@@ -25,15 +25,15 @@ String get_module_name(const Module* m) {
 }
 
 Nodes get_module_declarations(const Module* m) {
-    size_t count = entries_count_list(m->decls);
-    const Node** start = read_list(const Node*, m->decls);
+    size_t count = shd_list_count(m->decls);
+    const Node** start = shd_read_list(const Node*, m->decls);
     return nodes(get_module_arena(m), count, start);
 }
 
 void register_decl_module(Module* m, Node* node) {
     assert(is_declaration(node));
     assert(!get_declaration(m, get_declaration_name(node)) && "duplicate declaration");
-    append_list(Node*, m->decls, node);
+    shd_list_append(Node*, m->decls, node);
 }
 
 Node* get_declaration(const Module* m, String name) {
@@ -46,5 +46,5 @@ Node* get_declaration(const Module* m, String name) {
 }
 
 void destroy_module(Module* m) {
-    destroy_list(m->decls);
+    shd_destroy_list(m->decls);
 }

@@ -508,7 +508,7 @@ SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId f
         .fn_type = fn_type,
         .fn_ret_type = fn_ret_type,
         .file_builder = file_builder,
-        .bbs = new_list(SpvbBasicBlockBuilder*),
+        .bbs = shd_new_list(SpvbBasicBlockBuilder*),
         .variables = new_growy(),
         .header = new_growy(),
     };
@@ -551,11 +551,11 @@ void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_buil
     // Includes stuff like OpFunctionParameters
     copy_section(fn_builder->header);
 
-    assert(entries_count_list(fn_builder->bbs) == 0 && "declared functions must be empty");
+    assert(shd_list_count(fn_builder->bbs) == 0 && "declared functions must be empty");
 
     op(SpvOpFunctionEnd, 1);
 
-    destroy_list(fn_builder->bbs);
+    shd_destroy_list(fn_builder->bbs);
     destroy_growy(fn_builder->header);
     destroy_growy(fn_builder->variables);
     free(fn_builder);
@@ -596,7 +596,7 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
     bool first = true;
     for (size_t i = 0; i < fn_builder->bbs->elements_count; i++) {
         op(SpvOpLabel, 2);
-        SpvbBasicBlockBuilder* bb = read_list(SpvbBasicBlockBuilder*, fn_builder->bbs)[i];
+        SpvbBasicBlockBuilder* bb = shd_read_list(SpvbBasicBlockBuilder*, fn_builder->bbs)[i];
         ref_id(bb->label);
 
         if (first) {
@@ -606,26 +606,26 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
         }
 
         for (size_t j = 0; j < bb->phis->elements_count; j++) {
-            SpvbPhi* phi = read_list(SpvbPhi*, bb->phis)[j];
+            SpvbPhi* phi = shd_read_list(SpvbPhi*, bb->phis)[j];
 
             op(SpvOpPhi, 3 + 2 * phi->preds->elements_count);
             ref_id(phi->type);
             ref_id(phi->value);
             assert(phi->preds->elements_count != 0);
             for (size_t k = 0; k < phi->preds->elements_count; k++) {
-                SpvbPhiSrc* pred = &read_list(SpvbPhiSrc, phi->preds)[k];
+                SpvbPhiSrc* pred = &shd_read_list(SpvbPhiSrc, phi->preds)[k];
                 ref_id(pred->value);
                 ref_id(pred->basic_block);
             }
 
-            destroy_list(phi->preds);
+            shd_destroy_list(phi->preds);
             free(phi);
         }
 
         copy_section(bb->instructions_section);
         copy_section(bb->terminator_section);
 
-        destroy_list(bb->phis);
+        shd_destroy_list(bb->phis);
         destroy_growy(bb->instructions_section);
         destroy_growy(bb->terminator_section);
         free(bb);
@@ -633,7 +633,7 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
 
     op(SpvOpFunctionEnd, 1);
 
-    destroy_list(fn_builder->bbs);
+    shd_destroy_list(fn_builder->bbs);
     destroy_growy(fn_builder->header);
     destroy_growy(fn_builder->variables);
     free(fn_builder);
@@ -645,7 +645,7 @@ SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
     *bbb = (SpvbBasicBlockBuilder) {
         .fn_builder = fn_builder,
         .label = label,
-        .phis = new_list(SpvbPhi*),
+        .phis = shd_new_list(SpvbPhi*),
         .instructions_section = new_growy(),
         .terminator_section = new_growy(),
     };
@@ -657,7 +657,7 @@ SpvbFnBuilder* spvb_get_fn_builder(SpvbBasicBlockBuilder* bb_builder) {
 }
 
 void spvb_add_bb(SpvbFnBuilder* fn_builder, SpvbBasicBlockBuilder* bb_builder) {
-    append_list(SpvbBasicBlockBuilder*, fn_builder->bbs, bb_builder);
+    shd_list_append(SpvbBasicBlockBuilder*, fn_builder->bbs, bb_builder);
 }
 
 SpvId get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
@@ -665,16 +665,16 @@ SpvId get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
 }
 SpvbPhi* spvb_add_phi(SpvbBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
     SpvbPhi* phi = malloc(sizeof(SpvbPhi));
-    phi->preds = new_list(SpvbPhiSrc);
+    phi->preds = shd_new_list(SpvbPhiSrc);
     phi->value = id;
     phi->type = type;
-    append_list(SpvbPhi*, bb_builder->phis, phi);
+    shd_list_append(SpvbPhi*, bb_builder->phis, phi);
     return phi;
 }
 
 void spvb_add_phi_source(SpvbPhi* phi, SpvId source_block, SpvId value) {
     SpvbPhiSrc op = { .value = value, .basic_block = source_block };
-    append_list(SpvbPhi, phi->preds, op);
+    shd_list_append(SpvbPhi, phi->preds, op);
 }
 
 struct List* spbv_get_phis(SpvbBasicBlockBuilder* bb_builder) {

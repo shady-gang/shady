@@ -44,8 +44,8 @@ static void verify_same_arena(Module* mod) {
 
 static void verify_scoping(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod, structured_scope_cfg_build());
-    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
-        CFG* cfg = read_list(CFG*, cfgs)[i];
+    for (size_t i = 0; i < shd_list_count(cfgs); i++) {
+        CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         Scheduler* scheduler = new_scheduler(cfg);
         struct Dict* set = free_frontier(scheduler, cfg, cfg->entry->node);
         if (entries_count_dict(set) > 0) {
@@ -68,7 +68,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
         destroy_scheduler(scheduler);
         destroy_cfg(cfg);
     }
-    destroy_list(cfgs);
+    shd_destroy_list(cfgs);
 }
 
 static void verify_nominal_node(const Node* fn, const Node* n) {
@@ -137,8 +137,8 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
 
 static void verify_bodies(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod, structured_scope_cfg_build());
-    for (size_t i = 0; i < entries_count_list(cfgs); i++) {
-        CFG* cfg = read_list(CFG*, cfgs)[i];
+    for (size_t i = 0; i < shd_list_count(cfgs); i++) {
+        CFG* cfg = shd_read_list(CFG*, cfgs)[i];
 
         for (size_t j = 0; j < cfg->size; j++) {
             CFNode* n = cfg->rpo[j];
@@ -149,7 +149,7 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
 
         destroy_cfg(cfg);
     }
-    destroy_list(cfgs);
+    shd_destroy_list(cfgs);
 
     Nodes decls = get_module_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {

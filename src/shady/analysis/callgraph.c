@@ -132,7 +132,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
     (*index)++;
-    append_list(const Node*, stack, v);
+    shd_list_append(const Node*, stack, v);
     v->tarjan.on_stack = true;
 
     // Consider successors of v
@@ -158,13 +158,13 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
 
     // If v is a root node, pop the stack and generate an SCC
     if (v->tarjan.lowlink == v->tarjan.index) {
-        LARRAY(CGNode*, scc, entries_count_list(stack));
+        LARRAY(CGNode*, scc, shd_list_count(stack));
         size_t scc_size = 0;
         {
             CGNode* w;
-            assert(entries_count_list(stack) > 0);
+            assert(shd_list_count(stack) > 0);
             do {
-                w = pop_last_list(CGNode*, stack);
+                w = shd_list_pop(CGNode*, stack);
                 w->tarjan.on_stack = false;
                 scc[scc_size++] = w;
             } while (v != w);
@@ -182,7 +182,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
 
 static void tarjan(struct Dict* verts) {
     int index = 0;
-    struct List* stack = new_list(CGNode*);
+    struct List* stack = shd_new_list(CGNode*);
 
     size_t iter = 0;
     CGNode* n;
@@ -191,7 +191,7 @@ static void tarjan(struct Dict* verts) {
             strongconnect(n, &index, stack);
     }
 
-    destroy_list(stack);
+    shd_destroy_list(stack);
 }
 
 CallGraph* new_callgraph(Module* mod) {

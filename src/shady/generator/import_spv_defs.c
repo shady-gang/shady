@@ -69,7 +69,7 @@ void apply_instruction_filter(json_object* filter, json_object* instruction, jso
                 json_object_object_foreach(filter_name, match_name, subfilter) {
                     if (strcmp(name, match_name) == 0) {
                         found = true;
-                        append_list(json_object*, pending, subfilter);
+                        shd_list_append(json_object*, pending, subfilter);
                     }
                 }
                 if (!found)
@@ -89,15 +89,15 @@ void apply_instruction_filter(json_object* filter, json_object* instruction, jso
 
 json_object* apply_instruction_filters(json_object* filter, json_object* instruction) {
     json_object* instantiated_filter = json_object_new_object();
-    struct List* pending = new_list(json_object*);
+    struct List* pending = shd_new_list(json_object*);
     apply_instruction_filter(filter, instruction, instantiated_filter, pending);
-    while(entries_count_list(pending) > 0) {
-        json_object* pending_filter = read_list(json_object*, pending)[0];
-        remove_list(json_object*, pending, 0);
+    while(shd_list_count(pending) > 0) {
+        json_object* pending_filter = shd_read_list(json_object*, pending)[0];
+        shd_list_remove(json_object*, pending, 0);
         apply_instruction_filter(pending_filter, instruction, instantiated_filter, pending);
         continue;
     }
-    destroy_list(pending);
+    shd_destroy_list(pending);
     return instantiated_filter;
 }
 
@@ -121,7 +121,7 @@ void apply_operand_filter(json_object* filter, json_object* operand, json_object
                 json_object_object_foreach(filter_name, match_name, subfilter) {
                     if (strcmp(name, match_name) == 0) {
                         found = true;
-                        append_list(json_object*, pending, subfilter);
+                        shd_list_append(json_object*, pending, subfilter);
                     }
                 }
                 if (!found)
@@ -137,7 +137,7 @@ void apply_operand_filter(json_object* filter, json_object* operand, json_object
                 json_object_object_foreach(filter_kind, match_name, subfilter) {
                     if (strcmp(kind, match_name) == 0) {
                         found = true;
-                        append_list(json_object*, pending, subfilter);
+                        shd_list_append(json_object*, pending, subfilter);
                     }
                 }
                 if (!found)
@@ -154,15 +154,15 @@ void apply_operand_filter(json_object* filter, json_object* operand, json_object
 json_object* apply_operand_filters(json_object* filter, json_object* operand) {
     //fprintf(stderr, "building filter for %s\n", json_object_to_json_string(operand));
     json_object* instantiated_filter = json_object_new_object();
-    struct List* pending = new_list(json_object*);
+    struct List* pending = shd_new_list(json_object*);
     apply_operand_filter(filter, operand, instantiated_filter, pending);
-    while(entries_count_list(pending) > 0) {
-        json_object* pending_filter = read_list(json_object*, pending)[0];
-        remove_list(json_object*, pending, 0);
+    while(shd_list_count(pending) > 0) {
+        json_object* pending_filter = shd_read_list(json_object*, pending)[0];
+        shd_list_remove(json_object*, pending, 0);
         apply_operand_filter(pending_filter, operand, instantiated_filter, pending);
         continue;
     }
-    destroy_list(pending);
+    shd_destroy_list(pending);
     //fprintf(stderr, "done: %s\n", json_object_to_json_string(instantiated_filter));
     return instantiated_filter;
 }

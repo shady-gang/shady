@@ -44,7 +44,7 @@ static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
 }
 
 static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, const Node* op, size_t i) {
-    Use* use = arena_alloc(v->map->a, sizeof(Use));
+    Use* use = shd_arena_alloc(v->map->a, sizeof(Use));
     memset(use, 0, sizeof(Use));
     *use = (Use) {
         .user = v->user,
@@ -67,7 +67,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
     UsesMap* uses = calloc(sizeof(UsesMap), 1);
     *uses = (UsesMap) {
         .map = new_dict(const Node*, Use*, (HashFn) hash_node, (CmpFn) compare_node),
-        .a = new_arena(),
+        .a = shd_new_arena(),
     };
 
     UsesMapVisitor v = {
@@ -96,7 +96,7 @@ const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude) {
 }
 
 void destroy_uses_map(const UsesMap* map) {
-    destroy_arena(map->a);
+    shd_destroy_arena(map->a);
     destroy_dict(map->map);
     free((void*) map);
 }
