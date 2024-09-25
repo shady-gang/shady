@@ -23,7 +23,7 @@ void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, Visit
 bool is_control_static(const UsesMap* map, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;
-    const Node* jp = first(get_abstraction_params(inside));
+    const Node* jp = shd_first(get_abstraction_params(inside));
 
     bool found_binding_abs = false;
     const Use* use = get_first_use(map, jp);

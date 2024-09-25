@@ -55,14 +55,14 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
             Nodes element_types = get_composite_type_element_types(t);
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {
-                const Node* e = gen_extract(bb, param, singleton(uint32_literal(a, i)));
+                const Node* e = gen_extract(bb, param, shd_singleton(uint32_literal(a, i)));
                 elements[i] = build_subgroup_first(ctx, bb, scope, e);
             }
-            return composite_helper(a, original_t, nodes(a, element_types.count, elements));
+            return composite_helper(a, original_t, shd_nodes(a, element_types.count, elements));
         }
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
-                const Node* hi = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, param, int32_literal(a, 32)));
+                const Node* hi = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, param, int32_literal(a, 32)));
                 hi = convert_int_zero_extend(bb, int32_type(a), hi);
                 const Node* lo = convert_int_zero_extend(bb, int32_type(a), param);
                 hi = build_subgroup_first(ctx, bb, scope, hi);
@@ -70,8 +70,8 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = convert_int_zero_extend(bb, it, hi);
                 lo = convert_int_zero_extend(bb, it, lo);
-                hi = gen_primop_e(bb, lshift_op, empty(a), mk_nodes(a, hi, int32_literal(a, 32)));
-                return gen_primop_e(bb, or_op, empty(a), mk_nodes(a, lo, hi));
+                hi = gen_primop_e(bb, lshift_op, shd_empty(a), mk_nodes(a, hi, int32_literal(a, 32)));
+                return gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, lo, hi));
             }
             break;
         }
@@ -90,7 +90,7 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node*
     const Node* result = generate(ctx, bb, scope, t, param);
     if (result) {
         set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
-            .args = singleton(result),
+            .args = shd_singleton(result),
             .mem = bb_mem(bb),
         })));
         return;
@@ -118,13 +118,13 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         fn = *found;
     else {
         const Node* src_param = param(a, qualified_type_helper(t, false), "src");
-        fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
-                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), singleton(qualified_type_helper(t, true)));
+        fn = function(m, shd_singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
+                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(qualified_type_helper(t, true)));
         shd_dict_insert(const Node*, Node*, ctx->fns, t, fn);
         build_fn_body(ctx, fn, scope, src_param, t);
     }
 
-    return first(gen_call(bb, fn_addr_helper(a, fn), singleton(src)));
+    return shd_first(gen_call(bb, fn_addr_helper(a, fn), shd_singleton(src)));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -135,8 +135,8 @@ static const Node* process(Context* ctx, const Node* node) {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
                 BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-                return yield_values_and_wrap_in_block(bb, singleton(
-                        build_subgroup_first(ctx, bb, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))));
+                return yield_values_and_wrap_in_block(bb, shd_singleton(
+                    build_subgroup_first(ctx, bb, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))));
             }
         }
         default: break;

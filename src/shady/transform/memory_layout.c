@@ -124,7 +124,7 @@ const Node* bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
     size_t word_width = get_type_bitwidth(word_type);
     const Node* bytes_per_word = size_t_literal(a, word_width / 8);
-    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
+    return gen_primop_e(bb, div_op, shd_empty(a), mk_nodes(a, bytes, bytes_per_word));
 }
 
 uint64_t bytes_to_words_static(const IrArena* a, uint64_t bytes) {

@@ -74,7 +74,7 @@ Nodes filter_out_annotation(IrArena* arena, Nodes annotations, const char* name)
             new_annotations[new_count++] = annotations.nodes[i];
         }
     }
-    return nodes(arena, new_count, new_annotations);
+    return shd_nodes(arena, new_count, new_annotations);
 }
 
 ExecutionModel execution_model_from_string(const char* string) {

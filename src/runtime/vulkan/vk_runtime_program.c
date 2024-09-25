@@ -141,7 +141,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 Nodes annotations = get_declaration_annotations(decl);
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* a = annotations.nodes[k];
-                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(first(get_annotation_values(a)))->value == j) {
+                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(shd_first(get_annotation_values(a)))->value == j) {
                         constant_res_info->default_data = calloc(1, layout.size_in_bytes);
                         write_value(constant_res_info->default_data, get_annotation_values(a).nodes[1]);
                         //printf("wowie");
@@ -349,7 +349,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
     size_t num_args = args_struct_type->payload.record_type.members.count;
 
     if (num_args == 0) {
-        shd_error_print("EntryPointArgs cannot be empty\n");
+        shd_error_print("EntryPointArgs cannot be shd_empty\n");
         return false;
     }
 

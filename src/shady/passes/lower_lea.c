@@ -39,7 +39,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
         case ArrType_TAG: {
             const Type* element_type = pointed_type->payload.arr_type.element_type;
 
-            const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
+            const Node* element_t_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
 
             const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, index);
             const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
@@ -66,7 +66,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             size_t n = selector_value->value;
             assert(n < member_types.count);
 
-            const Node* offset_of = gen_primop_e(bb, offset_of_op, singleton(pointed_type), singleton(uint64_literal(a, n)));
+            const Node* offset_of = gen_primop_e(bb, offset_of_op, shd_singleton(pointed_type), shd_singleton(uint64_literal(a, n)));
             ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, offset_of });
 
             pointer_type = ptr_type(a, (PtrType) {
@@ -95,7 +95,7 @@ static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* p
         // assert(arr_type->tag == ArrType_TAG);
         // const Type* element_type = arr_type->payload.arr_type.element_type;
 
-        const Node* element_t_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
+        const Node* element_t_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
 
         const Node* new_offset = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
         const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, element_t_size});
@@ -134,7 +134,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* result = lower_ptr_offset(ctx, bb, new_base_t, cast_base, rewrite_node(r, lea.offset));
             const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
             const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-            return yield_values_and_wrap_in_block(bb, singleton(cast_result));
+            return yield_values_and_wrap_in_block(bb, shd_singleton(cast_result));
         }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement lea = old->payload.ptr_composite_element;
@@ -157,7 +157,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* result = lower_ptr_index(ctx, bb, new_base_t, cast_base, rewrite_node(r, lea.index));
             const Type* new_ptr_t = rewrite_node(&ctx->rewriter, old_result_t);
             const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-            return yield_values_and_wrap_in_block(bb, singleton(cast_result));
+            return yield_values_and_wrap_in_block(bb, shd_singleton(cast_result));
         }
         default: break;
     }

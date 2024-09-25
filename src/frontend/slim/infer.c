@@ -22,7 +22,7 @@ static Nodes annotate_all_types(IrArena* a, Nodes types, bool uniform_by_default
         else
             ntypes[i] = types.nodes[i];
     }
-    return nodes(a, types.count, ntypes);
+    return shd_nodes(a, types.count, ntypes);
 }
 
 typedef struct {
@@ -102,7 +102,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             }
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
-            Node* fun = function(ctx->rewriter.dst_module, nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
+            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
             register_processed(&ctx->rewriter, node, fun);
             body_context.current_fn = fun;
             set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
@@ -253,7 +253,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 for (size_t i = 0; i < omembers.count; i++)
                     inferred[i] = infer(ctx, omembers.nodes[i], NULL);
             }
-            Nodes nmembers = nodes(a, omembers.count, inferred);
+            Nodes nmembers = shd_nodes(a, omembers.count, inferred);
 
             // Composites are tuples by default
             if (!elem_type)
@@ -306,7 +306,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
         }
     }
 
-    Node* new_case = basic_block(a, nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
+    Node* new_case = basic_block(a, shd_nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
     register_processed(r, node, new_case);
     set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
@@ -328,7 +328,7 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
         register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
     }
 
-    Node* bb = basic_block(a, nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
+    Node* bb = basic_block(a, shd_nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
     assert(bb);
     register_processed(&ctx->rewriter, node, bb);
 
@@ -352,14 +352,14 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     BodyBuilder* bb = begin_block_pure(a);
     Op op = node->payload.prim_op.op;
     LARRAY(const Node*, new_operands, old_operands.count);
-    Nodes input_types = empty(a);
+    Nodes input_types = shd_empty(a);
     switch (node->payload.prim_op.op) {
         case reinterpret_op:
         case convert_op: {
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
             const Type* src_pointer_type = get_unqualified_type(new_operands[0]->type);
-            const Type* old_dst_pointer_type = first(old_type_args);
-            const Type* dst_pointer_type = first(type_args);
+            const Type* old_dst_pointer_type = shd_first(old_type_args);
+            const Type* dst_pointer_type = shd_first(type_args);
 
             if (is_generic_ptr_type(src_pointer_type) != is_generic_ptr_type(dst_pointer_type))
                 op = convert_op;
@@ -387,7 +387,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
         const Node* new_instruction = prim_op(a, (PrimOp) {
             .op = op,
             .type_arguments = type_args,
-            .operands = nodes(a, old_operands.count, new_operands)
+            .operands = shd_nodes(a, old_operands.count, new_operands)
         });
         return bind_last_instruction_and_wrap_in_block(bb, new_instruction);
     }
@@ -419,7 +419,7 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
 
     return call(a, (Call) {
         .callee = new_callee,
-        .args = nodes(a, node->payload.call.args.count, new_args),
+        .args = shd_nodes(a, node->payload.call.args.count, new_args),
         .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
 }
@@ -434,10 +434,10 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
     Nodes expected_join_types = add_qualifiers(a, join_types, false);
 
-    const Node* true_body = infer_case(&infer_if_body_ctx, node->payload.if_instr.if_true, nodes(a, 0, NULL));
+    const Node* true_body = infer_case(&infer_if_body_ctx, node->payload.if_instr.if_true, shd_nodes(a, 0, NULL));
     // don't allow seeing the variables made available in the true branch
     infer_if_body_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = node->payload.if_instr.if_false ? infer_case(&infer_if_body_ctx, node->payload.if_instr.if_false, nodes(a, 0, NULL)) : NULL;
+    const Node* false_body = node->payload.if_instr.if_false ? infer_case(&infer_if_body_ctx, node->payload.if_instr.if_false, shd_nodes(a, 0, NULL)) : NULL;
 
     return if_instr(a, (If) {
         .yield_types = join_types,
@@ -474,7 +474,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 
     return loop_instr(a, (Loop) {
         .yield_types = loop_yield_types,
-        .initial_args = nodes(a, old_params.count, new_initial_args),
+        .initial_args = shd_nodes(a, old_params.count, new_initial_args),
         .body = nbody,
         //.tail = infer_case(ctx, node->payload.loop_instr.tail, qual_yield_types)
         .tail = infer(ctx, node->payload.loop_instr.tail, NULL),
@@ -489,7 +489,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     Nodes yield_types = infer_nodes(ctx, node->payload.control.yield_types);
 
     const Node* olam = node->payload.control.inside;
-    const Node* ojp = first(get_abstraction_params(olam));
+    const Node* ojp = shd_first(get_abstraction_params(olam));
 
     Context joinable_ctx = *ctx;
     const Type* jpt = join_point_type(a, (JoinPointType) {
@@ -499,7 +499,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     const Node* jp = param(a, jpt, ojp->payload.param.name);
     register_processed(&joinable_ctx.rewriter, ojp, jp);
 
-    Node* new_case = basic_block(a, singleton(jp), NULL);
+    Node* new_case = basic_block(a, shd_singleton(jp), NULL);
     register_processed(&joinable_ctx.rewriter, olam, new_case);
     set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
@@ -559,7 +559,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
             for (size_t i = 0; i < payload.args.count; i++)
                 nvalues[i] = infer(ctx, payload.args.nodes[i], return_types.nodes[i]);
             return fn_ret(a, (Return) {
-                .args = nodes(a, payload.args.count, nvalues),
+                .args = shd_nodes(a, payload.args.count, nvalues),
                 .mem = infer(ctx, payload.mem, NULL),
             });
         }

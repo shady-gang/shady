@@ -79,9 +79,9 @@ static const Node* process(Context* ctx, const Node* node) {
             if (req_cast) {
                 assert(is_data_type(req_cast));
                 BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.load.mem));
-                const Node* r1 = first(bind_instruction(bb, recreate_node_identity(r, node)));
-                const Node* r2 = first(gen_primop(bb, reinterpret_op, singleton(req_cast), singleton(r1)));
-                return yield_values_and_wrap_in_block(bb, singleton(r2));
+                const Node* r1 = shd_first(bind_instruction(bb, recreate_node_identity(r, node)));
+                const Node* r2 = shd_first(gen_primop(bb, reinterpret_op, shd_singleton(req_cast), shd_singleton(r1)));
+                return yield_values_and_wrap_in_block(bb, shd_singleton(r2));
             }
             break;
         }

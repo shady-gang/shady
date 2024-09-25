@@ -64,7 +64,7 @@ RewritePass lower_physical_ptrs;
 /// Replaces size_of, offset_of etc with their exact values
 RewritePass lower_memory_layout;
 RewritePass lower_memcpy;
-/// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran first!
+/// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran shd_first!
 RewritePass lower_decay_ptrs;
 RewritePass lower_generic_globals;
 RewritePass lower_logical_pointers;

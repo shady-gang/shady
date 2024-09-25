@@ -17,7 +17,7 @@ static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-    Node* fun = function(ctx->rewriter.dst_module, empty(a), node->payload.fun.name, annotations, empty(a));
+    Node* fun = function(ctx->rewriter.dst_module, shd_empty(a), node->payload.fun.name, annotations, shd_empty(a));
 
     register_processed(&ctx->rewriter, node, fun);
 
@@ -41,8 +41,8 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
     }
 
     return record_type(a, (RecordType) {
-        .members = nodes(a, params.count, types),
-        .names = strings(a, params.count, names)
+        .members = shd_nodes(a, params.count, types),
+        .names = shd_strings(a, params.count, names)
     });
 }
 
@@ -65,7 +65,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
     Nodes params = old_entry_point->payload.fun.params;
 
     for (int i = 0; i < params.count; ++i) {
-        const Node* addr = gen_lea(bb, arg_struct, int32_literal(a, 0), singleton(int32_literal(a, i)));
+        const Node* addr = gen_lea(bb, arg_struct, int32_literal(a, 0), shd_singleton(int32_literal(a, i)));
         const Node* val = gen_load(bb, addr);
         register_processed(&ctx->rewriter, params.nodes[i], val);
     }

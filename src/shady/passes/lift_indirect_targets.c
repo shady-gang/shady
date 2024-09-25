@@ -68,7 +68,7 @@ static Nodes set2nodes(IrArena* a, struct Dict* set) {
         tmp[j++] = key;
     }
     assert(j == count);
-    return nodes(a, count, tmp);
+    return shd_nodes(a, count, tmp);
 }
 
 static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
@@ -112,7 +112,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     LARRAY(const Node*, new_params_arr, ovariables.count);
     for (size_t i = 0; i < ovariables.count; i++)
         new_params_arr[i] = param(a, rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), get_value_name_unsafe(ovariables.nodes[i]));
-    Nodes new_params = nodes(a, ovariables.count, new_params_arr);
+    Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
@@ -124,9 +124,9 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
 
     // Keep annotations the same
-    Nodes annotations = singleton(annotation(a, (Annotation) { .name = "Exported" }));
-    new_params = prepend_nodes(a, new_params, payload);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
+    Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));
+    new_params = shd_nodes_prepend(a, new_params, payload);
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, shd_nodes(a, 0, NULL));
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
@@ -144,7 +144,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         //    set_value_name(recovered_value, param_name);
 
         if (is_qualified_type_uniform(ovar->type))
-            recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = singleton(recovered_value) });
+            recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = shd_singleton(recovered_value) });
 
         register_processed(r, ovar, recovered_value);
     }
@@ -206,9 +206,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 });
                 const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
-                jp = gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(jp));
+                jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
-                register_processed(r, first(get_abstraction_params(oinside)), jp);
+                register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
                 register_processed(r, get_abstraction_mem(oinside), bb_mem(bb));
                 register_processed(r, oinside, NULL);
                 return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));

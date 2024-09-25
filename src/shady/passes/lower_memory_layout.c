@@ -19,18 +19,18 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case size_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
+                    const Type* t = rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
                     TypeMemLayout layout = get_mem_layout(a, t);
                     return int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value = layout.size_in_bytes});
                 }
                 case align_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
+                    const Type* t = rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
                     TypeMemLayout layout = get_mem_layout(a, t);
                     return int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value = layout.alignment_in_bytes});
                 }
                 case offset_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    const Node* n = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
+                    const Type* t = rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
+                    const Node* n = rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.operands));
                     const IntLiteral* literal = resolve_to_int_literal(n);
                     assert(literal);
                     t = get_maybe_nominal_type_body(t);

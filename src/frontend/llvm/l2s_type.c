@@ -43,8 +43,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             else
                 ret_type = qualified_type_helper(ret_type, false);
             return fn_type(a, (FnType) {
-                .param_types = nodes(a, num_params, cparam_types),
-                .return_types = ret_type == empty_multiple_return_type(a) ? empty(a) : singleton(ret_type)
+                .param_types = shd_nodes(a, num_params, cparam_types),
+                .return_types = ret_type == empty_multiple_return_type(a) ? shd_empty(a) : shd_singleton(ret_type)
             });
         }
         case LLVMStructTypeKind: {
@@ -52,7 +52,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             Node* decl = NULL;
             const Node* result = NULL;
             if (name) {
-                decl = nominal_type(p->dst, empty(a), name);
+                decl = nominal_type(p->dst, shd_empty(a), name);
                 result = type_decl_ref_helper(a, decl);
                 shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
             }
@@ -66,7 +66,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             }
 
             const Node* product = record_type(a, (RecordType) {
-                .members = nodes(a, size, celements)
+                .members = shd_nodes(a, size, celements)
             });
             if (decl)
                 decl->payload.nom_type.body = product;

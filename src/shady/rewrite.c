@@ -102,7 +102,7 @@ Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn) 
     LARRAY(const Node*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = rewrite_node_with_fn(rewriter, values.nodes[i], fn);
-    return nodes(rewriter->dst_arena, values.count, arr);
+    return shd_nodes(rewriter->dst_arena, values.count, arr);
 }
 
 const Node* rewrite_node(Rewriter* rewriter, const Node* node) {
@@ -139,7 +139,7 @@ Nodes rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, N
     LARRAY(const Node*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = rewrite_op_with_fn(rewriter, class, op_name, values.nodes[i], fn);
-    return nodes(rewriter->dst_arena, values.count, arr);
+    return shd_nodes(rewriter->dst_arena, values.count, arr);
 }
 
 const Node* rewrite_op(Rewriter* rewriter, NodeClass class, String op_name, const Node* node) {
@@ -259,7 +259,7 @@ Nodes recreate_params(Rewriter* rewriter, Nodes oparams) {
         nparams[i] = recreate_param(rewriter, oparams.nodes[i]);
         assert(nparams[i]->tag == Param_TAG);
     }
-    return nodes(rewriter->dst_arena, oparams.count, nparams);
+    return shd_nodes(rewriter->dst_arena, oparams.count, nparams);
 }
 
 Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {

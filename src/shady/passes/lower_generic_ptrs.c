@@ -50,17 +50,17 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
-    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
+    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
     //          first_non_tag_bit &= 1
-    first_non_tag_bit = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
+    first_non_tag_bit = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          needs_sign_extension = first_non_tag_bit == 1
-    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
+    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          sign_extension_patch = needs_sign_extension ? ((1 << 2) - 1) << (64 - 2) : 0
-    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
+    const Node* sign_extension_patch = gen_primop_e(bb, select_op, shd_empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
     //          patched_ptr = nptr & 0b00111 ... 111
-    const Node* patched_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
+    const Node* patched_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
     //          patched_ptr = patched_ptr | sign_extension_patch
-                patched_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
+                patched_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
     const Node* reinterpreted_ptr = gen_reinterpret_cast(bb, dst_ptr_t, patched_ptr);
     return reinterpreted_ptr;
@@ -91,15 +91,15 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
 
     const Node* ptr_param = param(a, qualified_type_helper(ctx->generic_ptr_type, uniform_ptr), "ptr");
     const Node* value_param;
-    Nodes params = singleton(ptr_param);
-    Nodes return_ts = empty(a);
+    Nodes params = shd_singleton(ptr_param);
+    Nodes return_ts = shd_empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = singleton(qualified_type_helper(t, uniform_ptr));
+            return_ts = shd_singleton(qualified_type_helper(t, uniform_ptr));
             break;
         case StoreFn:
             value_param = param(a, qualified_type_helper(t, false), "value");
-            params = append_nodes(a, params, value_param);
+            params = shd_nodes_append(a, params, value_param);
             break;
     }
     Node* new_fn = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
@@ -110,76 +110,76 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
         case LoadFn: {
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
-            begin_control_t r = begin_control(bb, singleton(t));
-            const Node* final_loaded_value = first(r.results);
+            begin_control_t r = begin_control(bb, shd_singleton(t));
+            const Node* final_loaded_value = shd_first(r.results);
 
             LARRAY(const Node*, literals, max_tag);
             LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    Node* tag_case = case_(a, empty(a));
+                    Node* tag_case = case_(a, shd_empty(a));
                     set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(tag_case) }));
-                    jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
+                    jumps[tag] = jump_helper(a, tag_case, shd_empty(a), get_abstraction_mem(r.case_));
                     continue;
                 }
-                Node* tag_case = case_(a, empty(a));
+                Node* tag_case = case_(a, shd_empty(a));
                 BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, singleton(loaded_value)));
-                jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
+                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_singleton(loaded_value)));
+                jumps[tag] = jump_helper(a, tag_case, shd_empty(a), get_abstraction_mem(r.case_));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            Node* default_case = case_(a, empty(a));
+            Node* default_case = case_(a, shd_empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
             set_abstraction_body(r.case_, br_switch(a, (Switch) {
                 .mem = get_abstraction_mem(r.case_),
                 .switch_value = extracted_tag,
-                .case_values = nodes(a, max_tag, literals),
-                .case_jumps = nodes(a, max_tag, jumps),
-                .default_jump = jump_helper(a, default_case, empty(a), get_abstraction_mem(r.case_))
+                .case_values = shd_nodes(a, max_tag, literals),
+                .case_jumps = shd_nodes(a, max_tag, jumps),
+                .default_jump = jump_helper(a, default_case, shd_empty(a), get_abstraction_mem(r.case_))
             }));
-            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = singleton(final_loaded_value), .mem = bb_mem(bb) })));
+            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = bb_mem(bb) })));
             break;
         }
         case StoreFn: {
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
-            begin_control_t r = begin_control(bb, empty(a));
+            begin_control_t r = begin_control(bb, shd_empty(a));
 
             LARRAY(const Node*, literals, max_tag);
             LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    Node* tag_case = case_(a, empty(a));
+                    Node* tag_case = case_(a, shd_empty(a));
                     set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(tag_case) }));
-                    jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
+                    jumps[tag] = jump_helper(a, tag_case, shd_empty(a), get_abstraction_mem(r.case_));
                     continue;
                 }
-                Node* tag_case = case_(a, empty(a));
+                Node* tag_case = case_(a, shd_empty(a));
                 BodyBuilder* case_bb = begin_body_with_mem(a, get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, empty(a)));
-                jumps[tag] = jump_helper(a, tag_case, empty(a), get_abstraction_mem(r.case_));
+                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_empty(a)));
+                jumps[tag] = jump_helper(a, tag_case, shd_empty(a), get_abstraction_mem(r.case_));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            Node* default_case = case_(a, empty(a));
+            Node* default_case = case_(a, shd_empty(a));
             set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(default_case) }));
             set_abstraction_body(r.case_, br_switch(a, (Switch) {
                     .mem = get_abstraction_mem(r.case_),
                     .switch_value = extracted_tag,
-                    .case_values = nodes(a, max_tag, literals),
-                    .case_jumps = nodes(a, max_tag, jumps),
-                    .default_jump = jump_helper(a, default_case, empty(a), get_abstraction_mem(r.case_))
+                    .case_values = shd_nodes(a, max_tag, literals),
+                    .case_jumps = shd_nodes(a, max_tag, jumps),
+                    .default_jump = jump_helper(a, default_case, shd_empty(a), get_abstraction_mem(r.case_))
             }));
-            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .mem = bb_mem(bb) })));
+            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
             break;
         }
     }
@@ -212,7 +212,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
                     .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
-                    .args = singleton(rewrite_node(&ctx->rewriter, payload.ptr)),
+                    .args = shd_singleton(rewrite_node(&ctx->rewriter, payload.ptr)),
                     .mem = rewrite_node(r, payload.mem)
                 });
             }
@@ -234,10 +234,10 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case convert_op: {
-                    const Node* old_src = first(old->payload.prim_op.operands);
+                    const Node* old_src = shd_first(old->payload.prim_op.operands);
                     const Type* old_src_t = old_src->type;
                     deconstruct_qualified_type(&old_src_t);
-                    const Type* old_dst_t = first(old->payload.prim_op.type_arguments);
+                    const Type* old_dst_t = shd_first(old->payload.prim_op.type_arguments);
                     if (old_dst_t->tag == PtrType_TAG && old_dst_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _into_ generic
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
@@ -250,11 +250,11 @@ static const Node* process(Context* ctx, const Node* old) {
                         const Node* generic_ptr = gen_reinterpret_cast(bb, ctx->generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
-                                    generic_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, generic_ptr, ptr_mask));
+                                    generic_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));
                         const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr | 01000000 ... 000
-                                    generic_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, generic_ptr, shifted_tag));
-                        return yield_values_and_wrap_in_block(bb, singleton(generic_ptr));
+                                    generic_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
+                        return yield_values_and_wrap_in_block(bb, shd_singleton(generic_ptr));
                     } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _from_ generic
                         shd_error("TODO");

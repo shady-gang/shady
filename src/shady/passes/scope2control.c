@@ -58,7 +58,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
     }
-    return nodes(a, old.count, nvars);
+    return shd_nodes(a, old.count, nvars);
 }
 
 static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
@@ -95,7 +95,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     }
 
     // We introduce a dummy case now because we don't know yet whether the body of the abstraction will be wrapped
-    Node* c = case_(a, empty(a));
+    Node* c = case_(a, shd_empty(a));
     Node* oc = c;
     register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
 
@@ -113,10 +113,10 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     AddControl add_control;
     while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
-        Node* control_case = case_(a, singleton(add_control.token));
-        set_abstraction_body(control_case, jump_helper(a, c, empty(a), get_abstraction_mem(control_case)));
+        Node* control_case = case_(a, shd_singleton(add_control.token));
+        set_abstraction_body(control_case, jump_helper(a, c, shd_empty(a), get_abstraction_mem(control_case)));
 
-        Node* c2 = case_(a, empty(a));
+        Node* c2 = case_(a, shd_empty(a));
         BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
         const Type* jp_type = add_control.token->type;
         deconstruct_qualified_type(&jp_type);
@@ -126,14 +126,14 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
             if (is_qualified_type_uniform(original_params.nodes[j]->type))
-                results = change_node_at_index(a, results, j, gen_primop_e(bb, subgroup_assume_uniform_op, empty(a), singleton(results.nodes[j])));
+                results = shd_change_node_at_index(a, results, j, gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
         }
 
         c = c2;
         set_abstraction_body(c2, finish_body(bb, jump_helper(a, find_processed(r, dst), results, bb_mem(bb))));
     }
 
-    const Node* body = jump_helper(a, c, empty(a), get_abstraction_mem(nabs));
+    const Node* body = jump_helper(a, c, shd_empty(a), get_abstraction_mem(nabs));
     set_abstraction_body(nabs, body);
 }
 

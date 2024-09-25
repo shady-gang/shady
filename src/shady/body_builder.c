@@ -33,7 +33,7 @@ BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
 }
 
 BodyBuilder* begin_block_with_side_effects(IrArena* a, const Node* mem) {
-    Node* block = basic_block(a, empty(a), NULL);
+    Node* block = basic_block(a, shd_empty(a), NULL);
     BodyBuilder* builder = begin_body_with_mem(a, get_abstraction_mem(block));
     builder->tail_block = block;
     builder->block_entry_block = block;
@@ -55,11 +55,11 @@ Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size
         LARRAY(const Node*, extracted, outputs_count);
         for (size_t i = 0; i < outputs_count; i++)
             extracted[i] = gen_extract_single(bb, value, int32_literal(bb->arena, i));
-        return nodes(bb->arena, outputs_count, extracted);
+        return shd_nodes(bb->arena, outputs_count, extracted);
     } else if (outputs_count == 1)
-        return singleton(value);
+        return shd_singleton(value);
     else
-        return empty(bb->arena);
+        return shd_empty(bb->arena);
 }
 
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
@@ -73,17 +73,17 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
     assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, singleton(instruction->type).count);
+    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
 }
 
 const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
-    return first(bind_instruction_outputs_count(bb, instr, 1));
+    return shd_first(bind_instruction_outputs_count(bb, instr, 1));
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
     assert(bb->arena->config.check_types);
     assert(output_names);
-    return bind_internal(bb, instruction, singleton(instruction->type).count);
+    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
 }
 
 Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
@@ -235,7 +235,7 @@ static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
         tail_params[i] = param(a, qyield_types.nodes[i], NULL);
-    return nodes(a, yield_types.count, tail_params);
+    return shd_nodes(a, yield_types.count, tail_params);
 }
 
 Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
@@ -329,7 +329,7 @@ begin_control_t begin_control(BodyBuilder* bb, Nodes yield_types) {
             .is_uniform = true
     });
     const Node* jp = param(a, jp_type, NULL);
-    Node* c = case_(a, singleton(jp));
+    Node* c = case_(a, shd_singleton(jp));
     return (begin_control_t) {
         .results = gen_control(bb, yield_types, c),
         .case_ = c,
@@ -346,7 +346,7 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
     for (size_t i = 0; i < arg_types.count; i++) {
         params[i] = param(a, qualified_type_helper(arg_types.nodes[i], false), NULL);
     }
-    Node* loop_header = case_(a, nodes(a, arg_types.count, params));
+    Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
     set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
     BodyBuilder* loop_header_builder = begin_body_with_mem(a, get_abstraction_mem(loop_header));
     begin_control_t inner_control = begin_control(loop_header_builder, arg_types);
@@ -354,7 +354,7 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
 
     return (begin_loop_helper_t) {
         .results = outer_control.results,
-        .params = nodes(a, arg_types.count, params),
+        .params = shd_nodes(a, arg_types.count, params),
         .loop_body = inner_control.case_,
         .break_jp = outer_control.jp,
         .continue_jp = inner_control.jp,

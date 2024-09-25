@@ -35,7 +35,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
     }
-    return nodes(a, old.count, nvars);
+    return shd_nodes(a, old.count, nvars);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -49,8 +49,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* new = (Node*) recreate_node_identity(r, node);
             BodyBuilder* bb = begin_block_pure(a);
             const Node* value = new->payload.constant.value;
-            value = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value));
-            new->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(value));
+            value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
+            new->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(value));
             return new;
         }
         case Function_TAG: {
@@ -73,9 +73,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < new_params.count; i++)
-                        new_params = change_node_at_index(a, new_params, i, param(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
+                        new_params = shd_change_node_at_index(a, new_params, i, param(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
-                old_annotations = append_nodes(a, old_annotations, an->payload);
+                old_annotations = shd_nodes_append(a, old_annotations, an->payload);
                 an = an->next;
             }
             register_processed_list(r, node->payload.fun.params, new_params);
@@ -84,7 +84,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 set_abstraction_body(decl, fn_ret(a, (Return) {
-                    .args = singleton(prim_op_helper(a, primop_intrinsic, empty(a), get_abstraction_params(decl))),
+                    .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(decl))),
                     .mem = get_abstraction_mem(decl),
                 }));
             } else if (get_abstraction_body(node))
@@ -101,7 +101,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             AddressSpace old_as = as;
             while (an) {
-                annotations = append_nodes(a, annotations, rewrite_node(r, an->payload));
+                annotations = shd_nodes_append(a, annotations, rewrite_node(r, an->payload));
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
@@ -112,11 +112,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* result = decl;
             if (old_as != as) {
                 const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
-                Node* c = constant(ctx->rewriter.dst_module, singleton(annotation(a, (Annotation) {
+                Node* c = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
                     .name = "Inline"
                 })), pt, format_string_interned(a, "%s_proxy", get_declaration_name(decl)));
-                c->payload.constant.value = prim_op_helper(a, convert_op, singleton(pt), singleton(
-                        ref_decl_helper(a, decl)));
+                c->payload.constant.value = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(
+                    ref_decl_helper(a, decl)));
                 result = c;
             }
 

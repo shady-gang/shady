@@ -44,7 +44,7 @@ static const Node* process(Context* ctx, const Node* node) {
             struct Dict* frontier = free_frontier(ctx->scheduler, ctx->cfg, node);
             // insert_dict(const Node*, Dict*, ctx->lift, node, frontier);
 
-            Nodes additional_args = empty(a);
+            Nodes additional_args = shd_empty(a);
             Nodes new_params = recreate_params(r, get_abstraction_params(node));
             register_processed_list(r, get_abstraction_params(node), new_params);
             size_t i = 0;
@@ -55,10 +55,10 @@ static const Node* process(Context* ctx, const Node* node) {
 
             while (shd_dict_iter(frontier, &i, &value, NULL)) {
                 if (is_value(value)) {
-                    additional_args = append_nodes(a, additional_args, value);
+                    additional_args = shd_nodes_append(a, additional_args, value);
                     const Type* t = rewrite_node(r, value->type);
                     const Node* p = param(a, t, NULL);
-                    new_params = append_nodes(a, new_params, p);
+                    new_params = shd_nodes_append(a, new_params, p);
                     register_processed(&bb_ctx.rewriter, value, p);
                 }
             }
@@ -90,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
             return jump(a, (Jump) {
                 .mem = rewrite_node(r, payload.mem),
                 .target = rewrite_node(r, payload.target),
-                .args = concat_nodes(a, rewrite_nodes(r, payload.args), rewrite_nodes(r, *additional_args))
+                .args = shd_concat_nodes(a, rewrite_nodes(r, payload.args), rewrite_nodes(r, *additional_args))
             });
         }
         default: break;

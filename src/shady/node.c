@@ -95,8 +95,8 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                 switch (ptr->payload.prim_op.op) {
                     case convert_op: {
                         // chase generic pointers to their source
-                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
-                            ptr = first(ptr->payload.prim_op.operands);
+                        if (shd_first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = shd_first(ptr->payload.prim_op.operands);
                             continue;
                         }
                         break;
@@ -104,8 +104,8 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                     case reinterpret_op: {
                         // chase ptr casts to their source
                         // TODO: figure out round-trips through integer casts?
-                        if (first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
-                            ptr = first(ptr->payload.prim_op.operands);
+                        if (shd_first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
+                            ptr = shd_first(ptr->payload.prim_op.operands);
                             continue;
                         }
                         break;
@@ -128,7 +128,7 @@ const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
             case PrimOp_TAG: {
                 switch (ptr->payload.prim_op.op) {
                     case convert_op: { // allow address space conversions
-                        ptr = first(ptr->payload.prim_op.operands);
+                        ptr = shd_first(ptr->payload.prim_op.operands);
                         continue;
                     }
                     default: break;
@@ -177,7 +177,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
                     case convert_op:
                     case reinterpret_op: {
                         if (config.allow_incompatible_types) {
-                            node = first(node->payload.prim_op.operands);
+                            node = shd_first(node->payload.prim_op.operands);
                             continue;
                         }
                     }
@@ -312,7 +312,7 @@ void set_abstraction_body(Node* abs, const Node* body) {
                     const Node* mem = insert->block_entry_mem;
                     const Node* block = insert->block_entry_block;
                     set_abstraction_body((Node*) block, finish_block_body(insert, body));
-                    body = jump_helper(a, block, empty(a), mem);
+                    body = jump_helper(a, block, shd_empty(a), mem);
                     // mem_abs->payload.basic_block.insert = NULL;
                     continue;
                 }

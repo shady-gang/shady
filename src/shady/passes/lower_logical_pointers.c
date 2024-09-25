@@ -31,7 +31,7 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
             case RecordType_TAG:
             case ArrType_TAG:
             case PackType_TAG: {
-                ptr = gen_lea(bb, ptr, int32_literal(a, 0), singleton(int32_literal(a, 0)));
+                ptr = gen_lea(bb, ptr, int32_literal(a, 0), shd_singleton(int32_literal(a, 0)));
                 continue;
             }
             default: break;
@@ -84,7 +84,7 @@ static const Node* process(Context* ctx, const Node* old) {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
                 case reinterpret_op: {
-                    const Node* osrc = first(payload.operands);
+                    const Node* osrc = shd_first(payload.operands);
                     const Type* osrc_t = osrc->type;
                     deconstruct_qualified_type(&osrc_t);
                     if (osrc_t->tag == PtrType_TAG && !get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
@@ -126,7 +126,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (get_arena_config(a)->address_spaces[as].physical)
                 break;
             Nodes annotations = rewrite_nodes(r, old->payload.global_variable.annotations);
-            annotations = append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" }));
+            annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" }));
             Node* new = global_var(ctx->rewriter.dst_module, annotations, rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
             recreate_decl_body_identity(r, old, new);
             return new;

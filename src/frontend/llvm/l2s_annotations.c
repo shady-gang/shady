@@ -38,7 +38,7 @@ static const Node* look_past_stuff(const Node* thing) {
     if (thing->tag == PrimOp_TAG) {
         switch (thing->payload.prim_op.op) {
             case reinterpret_op:
-            case convert_op: thing = first(thing->payload.prim_op.operands); break;
+            case convert_op: thing = shd_first(thing->payload.prim_op.operands); break;
             default: assert(false);
         }
     }

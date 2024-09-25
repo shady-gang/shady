@@ -40,7 +40,7 @@ static const Node* get_ptr_source(const Node* ptr) {
                 switch (payload.op) {
                     case reinterpret_op:
                     case convert_op: {
-                        const Node* src = first(payload.operands);
+                        const Node* src = shd_first(payload.operands);
                         if (get_unqualified_type(src->type)->tag == PtrType_TAG) {
                             ptr = src;
                             continue;
@@ -109,7 +109,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 *ctx->todo = true;
                 const Node* value = rewrite_node(r, ovalue);
                 if (is_qualified_type_uniform(node->type))
-                    value = prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(value));
+                    value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
                 return mem_and_value(a, (MemAndValue) { .mem = rewrite_node(r, payload.mem), .value = value });
             }
         }

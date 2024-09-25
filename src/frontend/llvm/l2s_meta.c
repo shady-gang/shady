@@ -17,7 +17,7 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
     LARRAY(const Node*, cops, count);
     for (size_t i = 0; i < count; i++)
         cops[i] = ops[i] ? convert_value(p, ops[i]) : string_lit_helper(a, "null");
-    Nodes args = nodes(a, count, cops);
+    Nodes args = shd_nodes(a, count, cops);
     return args;
 }
 
@@ -27,12 +27,12 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
     String name = LLVMGetValueName(v);
     if (!name || strlen(name) == 0)
         name = unique_name(a, node_name);
-    Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "LLVMMetaData" })), unit_type(a), name, AsDebugInfo);
+    Node* g = global_var(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "LLVMMetaData" })), unit_type(a), name, AsDebugInfo);
     const Node* r = ref_decl_helper(a, g);
     shd_dict_insert(LLVMValueRef, const Type*, p->map, v, r);
 
     Nodes args = convert_mdnode_operands(p, v);
-    args = prepend_nodes(a, args, string_lit_helper(a, node_name));
+    args = shd_nodes_prepend(a, args, string_lit_helper(a, node_name));
     g->payload.global_variable.init = tuple_helper(a, args);
     return r;
 }
@@ -103,13 +103,13 @@ LLVM_DI_WITH_PARENT_SCOPES(N)
 
 Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
     IrArena* a = get_module_arena(p->dst);
-    Nodes str = empty(a);
+    Nodes str = shd_empty(a);
 
     LLVMMetadataRef scope = LLVMDILocationGetScope(dbgloc);
     while (true) {
         if (!scope) break;
 
-        str = prepend_nodes(a, str, uint32_literal(a, convert_metadata(p, scope)->id));
+        str = shd_nodes_prepend(a, str, uint32_literal(a, convert_metadata(p, scope)->id));
 
         // LLVMDumpValue(LLVMMetadataAsValue(p->ctx, scope));
         // printf("\n");
@@ -147,7 +147,7 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
         case LLVMLocalAsMetadataMetadataKind: {
             Nodes ops = convert_mdnode_operands(p, v);
             assert(ops.count == 1);
-            return first(ops);
+            return shd_first(ops);
         }
         case LLVMDistinctMDOperandPlaceholderMetadataKind: goto default_;
 

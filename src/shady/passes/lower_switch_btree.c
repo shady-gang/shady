@@ -90,7 +90,7 @@ static const Node* generate_default_fallback_case(Context* ctx, bool in_if, cons
     for (size_t i = 0; i < ctx->yield_types.count; i++)
         undefs[i] = undef(a, (Undef) { .type = ctx->yield_types.nodes[i] });
     Node* c = case_(a, empty(a));
-    set_abstraction_body(c, finish_body(bb, gen_yield(ctx, in_if, nodes(a, ctx->yield_types.count, undefs))));
+    set_abstraction_body(c, finish_body(bb, gen_yield(ctx, in_if, shd_nodes(a, ctx->yield_types.count, undefs))));
     return c;
 }
 

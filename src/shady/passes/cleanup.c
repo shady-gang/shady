@@ -82,7 +82,7 @@ const Node* process(Context* ctx, const Node* old) {
                 const Node* term = get_abstraction_body(control_inside);
                 if (term->tag == Join_TAG) {
                     Join payload_join = term->payload.join;
-                    if (payload_join.join_point == first(get_abstraction_params(control_inside))) {
+                    if (payload_join.join_point == shd_first(get_abstraction_params(control_inside))) {
                         // if we immediately consume the join point and it's never leaked, this control block does nothing and can be eliminated
                         register_processed(r, get_abstraction_mem(control_inside), rewrite_node(r, payload.mem));
                         register_processed(r, control_inside, NULL);

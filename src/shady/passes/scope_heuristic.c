@@ -20,7 +20,7 @@ static Nodes to_ids(IrArena* a, Nodes in) {
     LARRAY(const Node*, arr, in.count);
     for (size_t i = 0; i < in.count; i++)
         arr[i] = uint32_literal(a, in.nodes[i]->id);
-    return nodes(a, in.count, arr);
+    return shd_nodes(a, in.count, arr);
 }
 
 static void visit_looptree_prepend(IrArena* a, Nodes* arr, LTNode* node, Nodes prefix) {
@@ -32,7 +32,7 @@ static void visit_looptree_prepend(IrArena* a, Nodes* arr, LTNode* node, Nodes p
     } else {
         for (size_t i = 0; i < shd_list_count(node->cf_nodes); i++) {
             CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
-            arr[n->rpo_index] = concat_nodes(a, prefix, arr[n->rpo_index]);
+            arr[n->rpo_index] = shd_concat_nodes(a, prefix, arr[n->rpo_index]);
         }
         assert(node->lf_children);
     }
@@ -57,7 +57,7 @@ static void paint_dominated_up_to_postdom(CFNode* n, IrArena* a, Nodes* arr, con
         paint_dominated_up_to_postdom(dominated, a, arr, postdom, prefix);
     }
 
-    arr[n->rpo_index] = prepend_nodes(a, arr[n->rpo_index], prefix);
+    arr[n->rpo_index] = shd_nodes_prepend(a, arr[n->rpo_index], prefix);
 }
 
 static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* flipped, LTNode* loop, LoopTree* lt) {
@@ -94,11 +94,11 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
 
 static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped, LoopTree* lt, LTNode* node) {
     if (node->type == LF_HEAD) {
-        Nodes surrounding = empty(a);
+        Nodes surrounding = shd_empty(a);
         bool is_loop = false;
         for (size_t i = 0; i < shd_list_count(node->cf_nodes); i++) {
             CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
-            surrounding = append_nodes(a, surrounding, n->node);
+            surrounding = shd_nodes_append(a, surrounding, n->node);
             is_loop = true;
         }
 
@@ -116,7 +116,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
         visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, node, lt);
 
         if (is_loop > 0)
-            surrounding = prepend_nodes(a, surrounding, string_lit_helper(a, unique_name(a, "loop_body")));
+            surrounding = shd_nodes_prepend(a, surrounding, string_lit_helper(a, unique_name(a, "loop_body")));
 
         visit_looptree_prepend(a, arr, node, surrounding);
         // Remove one level of scoping for the loop headers (forcing reconvergence)
@@ -124,7 +124,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
             CFNode* n = shd_read_list(CFNode*, node->cf_nodes)[i];
             Nodes old = arr[n->rpo_index];
             assert(old.count > 1);
-            arr[n->rpo_index] = nodes(a, old.count - 1, &old.nodes[0]);
+            arr[n->rpo_index] = shd_nodes(a, old.count - 1, &old.nodes[0]);
         }
 
         destroy_cfg(sub_cfg);
@@ -150,7 +150,7 @@ static Nodes* compute_scope_depth(IrArena* a, CFG* cfg) {
 
     Nodes* arr = calloc(sizeof(Nodes), cfg->size);
     for (size_t i = 0; i < cfg->size; i++)
-        arr[i] = empty(a);
+        arr[i] = shd_empty(a);
 
     visit_looptree(a, arr, cfg->entry->node, flipped, lt, lt->root);
 
@@ -174,7 +174,7 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.depth_per_rpo = compute_scope_depth(a, fn_ctx.cfg);
             Node* new_fn = recreate_decl_header_identity(r, node);
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
-            gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), empty(a));
+            gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), shd_empty(a));
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_fn, finish_body(bb, rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
             destroy_cfg(fn_ctx.cfg);

@@ -158,7 +158,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         }
         case NoRet_TAG:
         case LamType_TAG:
-        case BBType_TAG: shd_error("we can't emit arrow types that aren't those of first-class functions")
+        case BBType_TAG: shd_error("we can't emit arrow types that aren't those of shd_first-class functions")
         case FnType_TAG: {
             const FnType* fnt = &type->payload.fn_type;
             LARRAY(SpvId, params, fnt->param_types.count);

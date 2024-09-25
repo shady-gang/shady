@@ -78,7 +78,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
         LLVMDumpValue((LLVMValueRef)bb);
 
     struct List* phis = shd_new_list(LLVMValueRef);
-    Nodes params = empty(a);
+    Nodes params = shd_empty(a);
     LLVMValueRef instr = LLVMGetFirstInstruction(bb);
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
@@ -86,7 +86,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
                 const Node* nparam = param(a, qualified_type_helper(convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, nparam);
                 shd_list_append(LLVMValueRef, phis, instr);
-                params = append_nodes(a, params, nparam);
+                params = shd_nodes_append(a, params, nparam);
                 break;
             }
             default: goto after_phis;
@@ -154,24 +154,24 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     IrArena* a = get_module_arena(p->dst);
     shd_debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
-    Nodes params = empty(a);
+    Nodes params = shd_empty(a);
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = convert_type(p, ot);
         const Node* nparam = param(a, qualified_type_helper(t, false), LLVMGetValueName(oparam));
         shd_dict_insert(LLVMValueRef, const Node*, p->map, oparam, nparam);
-        params = append_nodes(a, params, nparam);
+        params = shd_nodes_append(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))
             break;
     }
     const Type* fn_type = convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
-    Nodes annotations = empty(a);
+    Nodes annotations = shd_empty(a);
     switch (LLVMGetLinkage(fn)) {
         case LLVMExternalLinkage:
         case LLVMExternalWeakLinkage: {
-            annotations = append_nodes(a, annotations, annotation(a, (Annotation) {.name = "Exported"}));
+            annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Exported" }));
             break;
         }
         default:
@@ -185,7 +185,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
         .jumps_todo = shd_new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
-    r = prim_op_helper(a, reinterpret_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
+    r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), shd_singleton(r));
     //r = prim_op_helper(a, convert_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
     shd_dict_insert(LLVMValueRef, const Node*, p->map, fn, r);
 
@@ -262,19 +262,19 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
         const Type* ptr_t = convert_type(p, LLVMTypeOf(global));
         assert(ptr_t->tag == PtrType_TAG);
         AddressSpace as = ptr_t->payload.ptr_type.address_space;
-        decl = global_var(p->dst, empty(a), type, name, as);
+        decl = global_var(p->dst, shd_empty(a), type, name, as);
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = convert_value(p, value);
 
         if (UNTYPED_POINTERS) {
-            Node* untyped_wrapper = constant(p->dst, singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
+            Node* untyped_wrapper = constant(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
             untyped_wrapper->payload.constant.value = ref_decl_helper(a, decl);
-            untyped_wrapper->payload.constant.value = prim_op_helper(a, reinterpret_op, singleton(ptr_t), singleton(ref_decl_helper(a, decl)));
+            untyped_wrapper->payload.constant.value = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(ref_decl_helper(a, decl)));
             decl = untyped_wrapper;
         }
     } else {
         const Type* type = convert_type(p, LLVMTypeOf(global));
-        decl = constant(p->dst, empty(a), type, name);
+        decl = constant(p->dst, shd_empty(a), type, name);
         decl->payload.constant.value = convert_value(p, global);
     }
 

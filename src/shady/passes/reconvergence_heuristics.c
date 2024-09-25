@@ -151,7 +151,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 exit_destination_alloca = gen_stack_alloc(outer_bb, int32_type(arena));
 
             const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                .yield_types = empty(arena)
+                .yield_types = shd_empty(arena)
             }), true), "jp_exit");
 
             const Node* join_token_continue = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
@@ -200,7 +200,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             rewriter->map = shd_clone_dict(rewriter->map);
             Nodes inner_loop_params = recreate_params(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
-            Node* inner_control_case = case_(arena, singleton(join_token_continue));
+            Node* inner_control_case = case_(arena, shd_singleton(join_token_continue));
             register_processed(rewriter, get_abstraction_mem(node), get_abstraction_mem(inner_control_case));
             const Node* loop_body = rewrite_node(rewriter, get_abstraction_body(node));
 
@@ -217,7 +217,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 if (exiting_nodes_count > 1)
                     gen_store(exit_wrapper_bb, exit_destination_alloca, int32_literal(arena, i));
 
-                set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, empty(arena)));
+                set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
             }
 
             set_abstraction_body(inner_control_case, loop_body);
@@ -242,23 +242,23 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
                 if (is_qualified_type_uniform(nparams.nodes[j]->type))
-                    inner_control_results = change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, empty(arena), singleton(inner_control_results.nodes[j])));
+                    inner_control_results = shd_change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(inner_control_results.nodes[j])));
             }
             set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
-            Node* outer_control_case = case_(arena, singleton(join_token_exit));
+            Node* outer_control_case = case_(arena, shd_singleton(join_token_exit));
             set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
                 .args = nparams,
                 .mem = get_abstraction_mem(outer_control_case),
             }));
-            gen_control(outer_bb, empty(arena), outer_control_case);
+            gen_control(outer_bb, shd_empty(arena), outer_control_case);
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
-                Node* exit_bb = basic_block(arena, empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, shd_empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, get_abstraction_mem(exit_bb));
 
                 const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
@@ -267,12 +267,12 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 for (size_t j = 0; j < exits[i].params_count; j++) {
                     recovered_args[j] = gen_load(exit_recover_bb, exits[i].params[j].alloca);
                     if (exits[i].params[j].uniform)
-                        recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, empty(arena), singleton(recovered_args[j]));
+                        recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(recovered_args[j]));
                 }
 
                 exit_numbers[i] = int32_literal(arena, i);
-                set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, nodes(arena, exits[i].params_count, recovered_args)));
-                exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena), bb_mem(outer_bb));
+                set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
+                exit_jumps[i] = jump_helper(arena, exit_bb, shd_empty(arena), bb_mem(outer_bb));
             }
 
             const Node* outer_body;
@@ -283,8 +283,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 outer_body = finish_body(outer_bb, br_switch(arena, (Switch) {
                     .switch_value = loaded_destination,
                     .default_jump = exit_jumps[0],
-                    .case_values = nodes(arena, exiting_nodes_count, exit_numbers),
-                    .case_jumps = nodes(arena, exiting_nodes_count, exit_jumps),
+                    .case_values = shd_nodes(arena, exiting_nodes_count, exit_numbers),
+                    .case_jumps = shd_nodes(arena, exiting_nodes_count, exit_jumps),
                     .mem = bb_mem(outer_bb)
                 }));
             }
@@ -404,8 +404,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             LARRAY(bool, uniform_param, old_params.count);
 
             if (old_params.count == 0) {
-                yield_types = empty(a);
-                exit_args = empty(a);
+                yield_types = shd_empty(a);
+                exit_args = shd_empty(a);
             } else {
                 LARRAY(const Node*, types, old_params.count);
                 LARRAY(const Node*, inner_args,old_params.count);
@@ -423,8 +423,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     inner_args[j] = param(a, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
-                yield_types = nodes(a, old_params.count, types);
-                exit_args = nodes(a, old_params.count, inner_args);
+                yield_types = shd_nodes(a, old_params.count, types);
+                exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
             const Node* join_token = param(a, qualified_type_helper(join_point_type(a, (JoinPointType) {
@@ -447,7 +447,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             register_processed(r, post_dominator, pre_join);
 
-            Node* control_case = case_(a, singleton(join_token));
+            Node* control_case = case_(a, shd_singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = get_abstraction_mem(control_case),
                 .condition = rewrite_node(r, payload.condition),
@@ -467,7 +467,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             // make sure what was uniform still is
             for (size_t j = 0; j < old_params.count; j++) {
                 if (uniform_param[j])
-                    results = change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, empty(a), singleton(results.nodes[j])));
+                    results = shd_change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
             }
             return finish_body_with_jump(bb, join_target, results);
         }

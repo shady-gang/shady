@@ -52,7 +52,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .is_uniform = false,
             });
             const Node* jp = param(a, jp_type, "if_join");
-            Nodes jps = singleton(jp);
+            Nodes jps = shd_singleton(jp);
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
             const Node* true_block = rewrite_node(r, payload.if_true);
@@ -62,15 +62,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 false_block = rewrite_node(r, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
-                false_block = basic_block(a, nodes(a, 0, NULL), unique_name(a, "if_false"));
-                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = nodes(a, 0, NULL), .mem = get_abstraction_mem(false_block) }));
+                false_block = basic_block(a, shd_nodes(a, 0, NULL), unique_name(a, "if_false"));
+                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = get_abstraction_mem(false_block) }));
             }
 
-            Node* control_case = basic_block(a, singleton(jp), NULL);
+            Node* control_case = basic_block(a, shd_singleton(jp), NULL);
             const Node* control_body = branch(a, (Branch) {
                 .condition = rewrite_node(r, node->payload.if_instr.condition),
-                .true_jump = jump_helper(a, true_block, empty(a), get_abstraction_mem(control_case)),
-                .false_jump = jump_helper(a, false_block, empty(a), get_abstraction_mem(control_case)),
+                .true_jump = jump_helper(a, true_block, shd_empty(a), get_abstraction_mem(control_case)),
+                .false_jump = jump_helper(a, false_block, shd_empty(a), get_abstraction_mem(control_case)),
                 .mem = get_abstraction_mem(control_case),
             });
             set_abstraction_body(control_case, control_body);
@@ -105,13 +105,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
 
             BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(loop_header_block));
-            Node* inner_control_case = case_(a, singleton(continue_point));
+            Node* inner_control_case = case_(a, shd_singleton(continue_point));
             set_abstraction_body(inner_control_case, jump_helper(a, rewrite_node(r, old_loop_block), new_params, get_abstraction_mem(inner_control_case)));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
             set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
 
-            Node* outer_control_case = case_(a, singleton(break_point));
+            Node* outer_control_case = case_(a, shd_singleton(break_point));
             const Node* first_iteration_jump = jump(a, (Jump) {
                 .target = loop_header_block,
                 .args = rewrite_nodes(r, payload.initial_args),
@@ -148,7 +148,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
             assert(jps && jps->count == 1);
-            const Node* jp = first(*jps);
+            const Node* jp = shd_first(*jps);
             assert(jp);
             const Node* nmem = rewrite_node(r, payload.mem);
             return join(a, (Join) {
@@ -216,7 +216,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
             assert(jps && jps->count == 2);
-            const Node* jp = first(*jps);
+            const Node* jp = shd_first(*jps);
             assert(jp);
             const Node* nmem = rewrite_node(r, payload.mem);
             return join(a, (Join) {

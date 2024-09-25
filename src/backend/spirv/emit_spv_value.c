@@ -146,10 +146,10 @@ static const IselTableEntry isel_table[] = {
 
 static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.result_kind) {
-        case Same:      return get_unqualified_type(first(args)->type);
-        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, get_unqualified_type(first(args)->type), get_unqualified_type(first(args)->type)) });
+        case Same:      return get_unqualified_type(shd_first(args)->type);
+        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, get_unqualified_type(shd_first(args)->type), get_unqualified_type(shd_first(args)->type)) });
         case Bool:      return bool_type(emitter->arena);
-        case TyOperand: return first(type_arguments);
+        case TyOperand: return shd_first(type_arguments);
         case Void:      return unit_type(emitter->arena);
     }
 }
@@ -160,14 +160,14 @@ static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nod
         case Monomorphic: return entry.op;
         case FirstOp: {
             assert(args.count >= 1);
-            OperandClass op_class = classify_operand_type(get_unqualified_type(first(args)->type));
+            OperandClass op_class = classify_operand_type(get_unqualified_type(shd_first(args)->type));
             return entry.fo[op_class];
         }
         case FirstAndResult: {
             assert(args.count >= 1);
             assert(type_arguments.count == 1);
-            OperandClass op_class = classify_operand_type(get_unqualified_type(first(args)->type));
-            OperandClass return_t_class = classify_operand_type(first(type_arguments));
+            OperandClass op_class = classify_operand_type(get_unqualified_type(shd_first(args)->type));
+            OperandClass return_t_class = classify_operand_type(shd_first(type_arguments));
             return entry.foar[op_class][return_t_class];
         }
     }
@@ -211,18 +211,18 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
     custom:
     switch (the_op.op) {
         case reinterpret_op: {
-            const Type* dst = first(the_op.type_arguments);
-            const Type* src = get_unqualified_type(first(the_op.operands)->type);
+            const Type* dst = shd_first(the_op.type_arguments);
+            const Type* src = get_unqualified_type(shd_first(the_op.operands)->type);
             assert(dst->tag == PtrType_TAG && src->tag == PtrType_TAG);
             assert(src != dst);
-            return spvb_op(bb_builder, SpvOpBitcast, spv_emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, first(the_op.operands)) });
+            return spvb_op(bb_builder, SpvOpBitcast, spv_emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, shd_first(the_op.operands)) });
         }
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
             bool insert = the_op.op == insert_op;
 
-            const Node* src_value = first(args);
+            const Node* src_value = shd_first(args);
             const Type* result_t = instr->type;
             size_t indices_start = insert ? 2 : 1;
             size_t indices_count = args.count - indices_start;
@@ -264,7 +264,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
             return spvb_vecshuffle(bb_builder, spv_emit_type(emitter, result_t), a, b, args.count - 2, indices);
         }
         case select_op: {
-            SpvId cond = spv_emit_value(emitter, fn_builder, first(args));
+            SpvId cond = spv_emit_value(emitter, fn_builder, shd_first(args));
             SpvId truv = spv_emit_value(emitter, fn_builder, args.nodes[1]);
             SpvId flsv = spv_emit_value(emitter, fn_builder, args.nodes[2]);
 
@@ -286,7 +286,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
-                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, first(instr.operands)), local_id);
+                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(instr.operands)), local_id);
                 }
                 break;
             }
@@ -297,7 +297,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 // ad-hoc extension for my sanity
                 if (get_unqualified_type(instr.result_t) == get_actual_mask_type(emitter->arena)) {
                     const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = uint32_type(emitter->arena) });
-                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, first(instr.operands)));
+                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(instr.operands)));
                     // TODO: why are we doing this in SPIR-V and not the IR ?
                     SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
                     SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
@@ -311,7 +311,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             }
             case SpvOpGroupNonUniformIAdd: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
-                SpvId scope = spv_emit_value(emitter, fn_builder, first(instr.operands));
+                SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(instr.operands));
                 SpvGroupOperation group_op = get_int_literal_value(*resolve_to_int_literal(instr.operands.nodes[2]), false);
                 return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), NULL);
             }

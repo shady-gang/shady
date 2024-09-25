@@ -74,7 +74,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
                     continue;
                 }
                 case convert_op: {
-                    if (first(payload.type_arguments)->tag == PtrType_TAG) {
+                    if (shd_first(payload.type_arguments)->tag == PtrType_TAG) {
                         k->non_logical_use = true;
                         visit_ptr_uses(use->user, slice_type, k, map);
                     } else {
@@ -118,7 +118,7 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
                 switch (payload.op) {
                     case convert_op:
                     case reinterpret_op: {
-                        ptr = first(payload.operands);
+                        ptr = shd_first(payload.operands);
                         continue;
                     }
                     // TODO: lea and co
@@ -219,7 +219,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
                     const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.value));
                     gen_store(bb, k.src_alloca->new, data);
-                    return yield_values_and_wrap_in_block(bb, empty(a));
+                    return yield_values_and_wrap_in_block(bb, shd_empty(a));
                 }
             }
             break;

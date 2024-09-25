@@ -30,7 +30,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 register_processed(&ctx->rewriter, node, new_global);
 
                 const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
-                const Node* converted = prim_op_helper(a, convert_op, singleton(dst_t), singleton(ref_decl_helper(a, new_global)));
+                const Node* converted = prim_op_helper(a, convert_op, shd_singleton(dst_t), shd_singleton(ref_decl_helper(a, new_global)));
                 register_processed(&ctx->rewriter, ref_decl_helper(node->arena, node), converted);
                 return new_global;
             }

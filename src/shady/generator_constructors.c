@@ -59,7 +59,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
                     if (list) {
                         shd_growy_append_formatted(g, "\t\t\t}\n");
-                        shd_growy_append_formatted(g, "\t\t\tnode->payload.%s.%s = nodes(arena, ops_count, ops);\n", snake_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t\tnode->payload.%s.%s = shd_nodes(arena, ops_count, ops);\n", snake_name, op_name);
                     }
                     free((void*) cap);
                     shd_growy_append_formatted(g, "\t\t}\n");

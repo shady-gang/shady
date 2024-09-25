@@ -27,7 +27,7 @@ String get_module_name(const Module* m) {
 Nodes get_module_declarations(const Module* m) {
     size_t count = shd_list_count(m->decls);
     const Node** start = shd_read_list(const Node*, m->decls);
-    return nodes(get_module_arena(m), count, start);
+    return shd_nodes(get_module_arena(m), count, start);
 }
 
 void register_decl_module(Module* m, Node* node) {

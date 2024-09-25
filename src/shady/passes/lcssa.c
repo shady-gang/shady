@@ -54,9 +54,9 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
 
     const LTNode* bb_loop = get_loop(looptree_lookup(ctx->loop_tree, old));
 
-    *nparams = empty(a);
-    *lparams = empty(a);
-    *nargs = empty(a);
+    *nparams = shd_empty(a);
+    *lparams = shd_empty(a);
+    *nargs = shd_empty(a);
 
     struct Dict* fvs = free_frontier(ctx->scheduler, ctx->cfg, old);
     const Node* fv;
@@ -71,9 +71,9 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
             const Node* narg = rewrite_node(&ctx->rewriter, fv);
             const Node* nparam = param(a, narg->type, "lcssa_phi");
-            *nparams = append_nodes(a, *nparams, nparam);
-            *lparams = append_nodes(a, *lparams, fv);
-            *nargs = append_nodes(a, *nargs, narg);
+            *nparams = shd_nodes_append(a, *nparams, nparam);
+            *lparams = shd_nodes_append(a, *lparams, fv);
+            *nargs = shd_nodes_append(a, *nargs, narg);
         }
     }
     shd_destroy_dict(fvs);
@@ -110,7 +110,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
         Nodes nargs;
         find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted_params[i], &nargs);
         Nodes nparams = recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
-        new_children[i] = basic_block(a, concat_nodes(a, nparams, new_params[i]), get_abstraction_name(old_children[i]));
+        new_children[i] = basic_block(a, shd_concat_nodes(a, nparams, new_params[i]), get_abstraction_name(old_children[i]));
         register_processed(&ctx->rewriter, old_children[i], new_children[i]);
         register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
         shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
@@ -168,7 +168,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
             Nodes* lifted_args = shd_dict_find_value(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
             if (lifted_args) {
-                nargs = concat_nodes(a, nargs, *lifted_args);
+                nargs = shd_concat_nodes(a, nargs, *lifted_args);
             }
             return jump(a, (Jump) {
                 .target = rewrite_node(&ctx->rewriter, old->payload.jump.target),

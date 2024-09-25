@@ -50,29 +50,29 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num_in_bytes));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(uint32_type(a)), shd_singleton(uint32_literal(a, 0)));
 
-            const Node* index = first(l.params);
+            const Node* index = shd_first(l.params);
             set_value_name(index, "memcpy_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
-            const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, empty(a)));
-            gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), loaded_word);
-            const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
+            const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, shd_empty(a)));
+            gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), loaded_word);
+            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
 
-            Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = singleton(next_index) }));
-            Node* false_case = case_(a, empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = empty(a) }));
+            Node* true_case = case_(a, shd_empty(a));
+            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            Node* false_case = case_(a, shd_empty(a));
+            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                 .mem = bb_mem(loop_bb),
-                .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)),
-                .true_jump = jump_helper(a, true_case, empty(a), bb_mem(loop_bb)),
-                .false_jump = jump_helper(a, false_case, empty(a), bb_mem(loop_bb)),
+                .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
+                .true_jump = jump_helper(a, true_case, shd_empty(a), bb_mem(loop_bb)),
+                .false_jump = jump_helper(a, false_case, shd_empty(a), bb_mem(loop_bb)),
             })));
 
-            return yield_values_and_wrap_in_block(bb, empty(a));
+            return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
         case FillBytes_TAG: {
             FillBytes payload = old->payload.fill_bytes;
@@ -97,27 +97,27 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num = rewrite_node(&ctx->rewriter, payload.count);
             const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, empty(a), singleton(uint32_type(a)), singleton( uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(uint32_type(a)), shd_singleton(uint32_literal(a, 0)));
 
-            const Node* index = first(l.params);
+            const Node* index = shd_first(l.params);
             set_value_name(index, "memset_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
-            gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, empty(a)), src_value);
-            const Node* next_index = gen_primop_e(loop_bb, add_op, empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
+            gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), src_value);
+            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
 
-            Node* true_case = case_(a, empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = singleton(next_index) }));
-            Node* false_case = case_(a, empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = empty(a) }));
+            Node* true_case = case_(a, shd_empty(a));
+            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            Node* false_case = case_(a, shd_empty(a));
+            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                     .mem = bb_mem(loop_bb),
-                    .condition = gen_primop_e(loop_bb, lt_op, empty(a), mk_nodes(a, next_index, num_in_words)),
-                    .true_jump = jump_helper(a, true_case, empty(a), bb_mem(loop_bb)),
-                    .false_jump = jump_helper(a, false_case, empty(a), bb_mem(loop_bb)),
+                    .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
+                    .true_jump = jump_helper(a, true_case, shd_empty(a), bb_mem(loop_bb)),
+                    .false_jump = jump_helper(a, false_case, shd_empty(a), bb_mem(loop_bb)),
             })));
-            return yield_values_and_wrap_in_block(bb, empty(a));
+            return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
         default: break;
     }

@@ -270,7 +270,7 @@ const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem
 
 const Node* unit_type(IrArena* arena) {
      return record_type(arena, (RecordType) {
-         .members = empty(arena),
+         .members = shd_empty(arena),
      });
 }
 
@@ -331,11 +331,11 @@ const Node* fp_literal_helper(IrArena* a, FloatSizes size, double value) {
 
 const Node* extract_helper(const Node* composite, const Node* index) {
     IrArena* a = composite->arena;
-    return prim_op_helper(a, extract_op, empty(a), mk_nodes(a, composite, index));
+    return prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, composite, index));
 }
 
 const Node* maybe_tuple_helper(IrArena* a, Nodes values) {
     if (values.count == 1)
-        return first(values);
+        return shd_first(values);
     return tuple_helper(a, values);
 }

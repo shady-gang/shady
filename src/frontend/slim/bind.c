@@ -95,7 +95,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
             if (strcmp(payload.set, "shady.frontend") == 0) {
                 if (payload.opcode == SlimOpSubscript) {
                     assert(payload.operands.count == 2);
-                    const Node* src_ptr = get_node_address_maybe(ctx, first(payload.operands));
+                    const Node* src_ptr = get_node_address_maybe(ctx, shd_first(payload.operands));
                     if (src_ptr == NULL)
                         return NULL;
                     const Node* index = rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
@@ -107,12 +107,12 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
                     assert(payload.operands.count == 1);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = rewrite_node(r, payload.mem),
-                        .value = rewrite_node(&ctx->rewriter, first(payload.operands)),
+                        .value = rewrite_node(&ctx->rewriter, shd_first(payload.operands)),
                     });
                 } else if (payload.opcode == SlimOpUnbound) {
                     if (payload.mem)
                         rewrite_node(&ctx->rewriter, payload.mem);
-                    Resolved entry = resolve_using_name(ctx, get_string_literal(a, first(payload.operands)));
+                    Resolved entry = resolve_using_name(ctx, get_string_literal(a, shd_first(payload.operands)));
                     // can't take the address if it's not a var!
                     if (!entry.is_var)
                         return NULL;
@@ -141,7 +141,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
         case SlimOpBindVal: {
             size_t names_count = instr.operands.count - 1;
             const Node** names = &instr.operands.nodes[1];
-            const Node* value = rewrite_node(r, first(instr.operands));
+            const Node* value = rewrite_node(r, shd_first(instr.operands));
             Nodes results = deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = get_string_literal(a, names[i]);
@@ -154,7 +154,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             size_t names_count = (instr.operands.count - 1) / 2;
             const Node** names = &instr.operands.nodes[1];
             const Node** types = &instr.operands.nodes[1 + names_count];
-            const Node* value = rewrite_node(r, first(instr.operands));
+            const Node* value = rewrite_node(r, shd_first(instr.operands));
             Nodes results = deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = get_string_literal(a, names[i]);
@@ -198,7 +198,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
         }
     }
 
-    return yield_values_and_wrap_in_block(bb, empty(a));
+    return yield_values_and_wrap_in_block(bb, shd_empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {
@@ -313,7 +313,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                         if (!is_used_as_value(ctx, node))
                             return rewrite_node(r, payload.mem);
                         return load(a, (Load) {
-                            .ptr = rewrite_node(r, first(payload.operands)),
+                            .ptr = rewrite_node(r, shd_first(payload.operands)),
                             .mem = rewrite_node(r, payload.mem),
                         });
                     case SlimOpAssign: {
@@ -348,7 +348,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                                 return rewrite_node(r, payload.mem);
                             mem = rewrite_node(r, payload.mem);
                         }
-                        Resolved entry = resolve_using_name(ctx, get_string_literal(a, first(payload.operands)));
+                        Resolved entry = resolve_using_name(ctx, get_string_literal(a, shd_first(payload.operands)));
                         if (entry.is_var) {
                             return load(a, (Load) { .ptr = entry.node, .mem = mem });
                         } else if (mem) {

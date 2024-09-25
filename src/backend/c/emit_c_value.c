@@ -245,7 +245,7 @@ CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CT
 }
 
 static const Type* get_first_op_scalar_type(Nodes ops) {
-    const Type* t = first(ops)->type;
+    const Type* t = shd_first(ops)->type;
     deconstruct_qualified_type(&t);
     deconstruct_maybe_packed_type(&t);
     return t;
@@ -455,19 +455,19 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case min_op: {
-            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, first(prim_op->operands)));
+            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             CValue b = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, b, a));
             break;
         }
         case max_op: {
-            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, first(prim_op->operands)));
+            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             CValue b = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, a, b));
             break;
         }
         case sign_op: {
-            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, first(prim_op->operands)));
+            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
@@ -491,7 +491,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
-            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, first(prim_op->operands)));
+            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             const Node* offset = prim_op->operands.nodes[1];
             CValue c_offset = to_cvalue(emitter, c_emit_value(emitter, fn, offset));
             if (emitter->config.dialect == CDialect_GLSL) {
@@ -502,17 +502,17 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case size_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
+            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
             break;
         case align_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", c_emit_type(emitter, first(prim_op->type_arguments), NULL)));
+            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
             break;
         case offset_of_op: {
-            const Type* t = first(prim_op->type_arguments);
+            const Type* t = shd_first(prim_op->type_arguments);
             while (t->tag == TypeDeclRef_TAG) {
                 t = get_nominal_type_body(t);
             }
-            const Node* index = first(prim_op->operands);
+            const Node* index = shd_first(prim_op->operands);
             uint64_t index_literal = get_int_literal_value(*resolve_to_int_literal(index), false);
             String member_name = c_get_record_field_name(t, index_literal);
             term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, t, NULL), member_name));
@@ -526,9 +526,9 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case convert_op: {
-            CTerm src = c_emit_value(emitter, fn, first(prim_op->operands));
-            const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
-            const Type* dst_type = first(prim_op->type_arguments);
+            CTerm src = c_emit_value(emitter, fn, shd_first(prim_op->operands));
+            const Type* src_type = get_unqualified_type(shd_first(prim_op->operands)->type);
+            const Type* dst_type = shd_first(prim_op->type_arguments);
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
                     CType t = c_emit_type(emitter, dst_type, NULL);
@@ -542,9 +542,9 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case reinterpret_op: {
-            CTerm src_value = c_emit_value(emitter, fn, first(prim_op->operands));
-            const Type* src_type = get_unqualified_type(first(prim_op->operands)->type);
-            const Type* dst_type = first(prim_op->type_arguments);
+            CTerm src_value = c_emit_value(emitter, fn, shd_first(prim_op->operands));
+            const Type* src_type = get_unqualified_type(shd_first(prim_op->operands)->type);
+            const Type* dst_type = shd_first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
                 case CDialect_CUDA:
                 case CDialect_C11: {
@@ -615,7 +615,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
-            CValue acc = to_cvalue(emitter, c_emit_value(emitter, fn, first(prim_op->operands)));
+            CValue acc = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             bool insert = prim_op->op == insert_op;
 
             if (insert) {
@@ -625,7 +625,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 term = term_from_cvalue(dst);
             }
 
-            const Type* t = get_unqualified_type(first(prim_op->operands)->type);
+            const Type* t = get_unqualified_type(shd_first(prim_op->operands)->type);
             for (size_t i = (insert ? 2 : 1); i < prim_op->operands.count; i++) {
                 const Node* index = prim_op->operands.nodes[i];
                 const IntLiteral* static_index = resolve_to_int_literal(index);
@@ -719,7 +719,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
     if (strcmp(instr.set, "spirv.core") == 0) {
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
-                CValue value = to_cvalue(emitter, c_emit_value(emitter, fn, first(instr.operands)));
+                CValue value = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(instr.operands)));
                 switch (emitter->config.dialect) {
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
@@ -730,7 +730,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
             }
             case SpvOpGroupNonUniformElect: {
                 assert(instr.operands.count == 1);
-                const IntLiteral* scope = resolve_to_int_literal(first(instr.operands));
+                const IntLiteral* scope = resolve_to_int_literal(shd_first(instr.operands));
                 assert(scope && scope->value == SpvScopeSubgroup);
                 switch (emitter->config.dialect) {
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_elect_first()"));

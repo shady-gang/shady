@@ -28,10 +28,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_dict_clear(functx.rewriter.map);
                 register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
                 functx.bb = begin_body_with_mem(a, get_abstraction_mem(newfun));
-                Node* post_prelude = basic_block(a, empty(a), "post-prelude");
+                Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
                 register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
                 set_abstraction_body(post_prelude, rewrite_node(&functx.rewriter, get_abstraction_body(node)));
-                set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, post_prelude, empty(a), bb_mem(functx.bb))));
+                set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, post_prelude, shd_empty(a), bb_mem(functx.bb))));
                 shd_destroy_dict(functx.rewriter.map);
             }
             return newfun;
@@ -41,7 +41,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
-            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), singleton(rewrite_node(&ctx->rewriter, odecl)));
+            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), int32_literal(a, 0), shd_singleton(rewrite_node(&ctx->rewriter, odecl)));
             const Node* ptr = gen_load(ctx->bb, ptr_addr);
             return ptr;
         }
@@ -76,11 +76,11 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     LARRAY(String, member_names, old_decls.count);
 
     Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
-    annotations = empty(a);
+    annotations = shd_empty(a);
 
-    annotations = append_nodes(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = int32_literal(a, 0) }));
-    annotations = append_nodes(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = int32_literal(a, 0) }));
-    annotations = append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Constants" }));
+    annotations = shd_nodes_append(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = int32_literal(a, 0) }));
+    annotations = shd_nodes_append(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = int32_literal(a, 0) }));
+    annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Constants" }));
 
     size_t lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
@@ -97,8 +97,8 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
 
     if (lifted_globals_count > 0) {
         const Type* lifted_globals_struct_t = record_type(a, (RecordType) {
-            .members = nodes(a, lifted_globals_count, member_tys),
-            .names = strings(a, lifted_globals_count, member_names),
+            .members = shd_nodes(a, lifted_globals_count, member_tys),
+            .names = shd_strings(a, lifted_globals_count, member_names),
             .special = DecorateBlock
         });
         ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
@@ -112,9 +112,9 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
-            ctx.lifted_globals_decl->payload.global_variable.annotations = append_nodes(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "InitialValue",
-                    .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
+            ctx.lifted_globals_decl->payload.global_variable.annotations = shd_nodes_append(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
+                .name = "InitialValue",
+                .values = mk_nodes(a, int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
             }));
 
         lifted_globals_count++;

@@ -11,7 +11,7 @@ const Type* maybe_multiple_return(IrArena* arena, Nodes types) {
         case 1: return types.nodes[0];
         default: return record_type(arena, (RecordType) {
                 .members = types,
-                .names = strings(arena, 0, NULL),
+                .names = shd_strings(arena, 0, NULL),
                 .special = MultipleReturn,
             });
     }
@@ -26,7 +26,7 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
             // fallthrough
         default:
             assert(is_value_type(type));
-            return singleton(type);
+            return shd_singleton(type);
     }
 }
 
@@ -111,7 +111,7 @@ Nodes get_param_types(IrArena* arena, Nodes variables) {
         assert(variables.nodes[i]->tag == Param_TAG);
         arr[i] = variables.nodes[i]->payload.param.type;
     }
-    return nodes(arena, variables.count, arr);
+    return shd_nodes(arena, variables.count, arr);
 }
 
 Nodes get_values_types(IrArena* arena, Nodes values) {
@@ -119,7 +119,7 @@ Nodes get_values_types(IrArena* arena, Nodes values) {
     LARRAY(const Type*, arr, values.count);
     for (size_t i = 0; i < values.count; i++)
         arr[i] = values.nodes[i]->type;
-    return nodes(arena, values.count, arr);
+    return shd_nodes(arena, values.count, arr);
 }
 
 bool is_qualified_type_uniform(const Type* type) {
@@ -151,14 +151,14 @@ Nodes strip_qualifiers(IrArena* arena, Nodes tys) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
         arr[i] = get_unqualified_type(tys.nodes[i]);
-    return nodes(arena, tys.count, arr);
+    return shd_nodes(arena, tys.count, arr);
 }
 
 Nodes add_qualifiers(IrArena* arena, Nodes tys, bool uniform) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
         arr[i] = qualified_type_helper(tys.nodes[i], uniform || !arena->config.is_simt /* SIMD arenas ban varying value types */);
-    return nodes(arena, tys.count, arr);
+    return shd_nodes(arena, tys.count, arr);
 }
 
 const Type* get_packed_type_element(const Type* type) {
@@ -268,7 +268,7 @@ Nodes get_composite_type_element_types(const Type* type) {
             for (size_t i = 0; i < size; i++) {
                 types[i] = element_type;
             }
-            return nodes(type->arena, size, types);
+            return shd_nodes(type->arena, size, types);
         }
         default: shd_error("Not a composite type !")
     }

@@ -69,7 +69,7 @@ NodeId allocate_node_id(IrArena* arena, const Node* n) {
     return shd_growy_size(arena->ids) / sizeof(const Node*);
 }
 
-Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
+Nodes shd_nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
     Nodes tmp = {
         .count = count,
         .nodes = in_nodes
@@ -88,7 +88,7 @@ Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
     return nodes;
 }
 
-Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
+Strings shd_strings(IrArena* arena, size_t count, const char* in_strs[]) {
     Strings tmp = {
         .count = count,
         .strings = in_strs,
@@ -107,38 +107,38 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
     return strings;
 }
 
-Nodes empty(IrArena* a) {
-    return nodes(a, 0, NULL);
+Nodes shd_empty(IrArena* a) {
+    return shd_nodes(a, 0, NULL);
 }
 
-Nodes singleton(const Type* type) {
-    IrArena* arena = type->arena;
-    const Type* arr[] = { type };
-    return nodes(arena, 1, arr);
+Nodes shd_singleton(const Node* n) {
+    IrArena* arena = n->arena;
+    const Type* arr[] = { n };
+    return shd_nodes(arena, 1, arr);
 }
 
-const Node* first(Nodes nodes) {
+const Node* shd_first(Nodes nodes) {
     assert(nodes.count > 0);
     return nodes.nodes[0];
 }
 
-Nodes append_nodes(IrArena* arena, Nodes old, const Node* new) {
+Nodes shd_nodes_append(IrArena* arena, Nodes old, const Node* new) {
     LARRAY(const Node*, tmp, old.count + 1);
     for (size_t i = 0; i < old.count; i++)
         tmp[i] = old.nodes[i];
     tmp[old.count] = new;
-    return nodes(arena, old.count + 1, tmp);
+    return shd_nodes(arena, old.count + 1, tmp);
 }
 
-Nodes prepend_nodes(IrArena* arena, Nodes old, const Node* new) {
+Nodes shd_nodes_prepend(IrArena* arena, Nodes old, const Node* new) {
     LARRAY(const Node*, tmp, old.count + 1);
     for (size_t i = 0; i < old.count; i++)
         tmp[i + 1] = old.nodes[i];
     tmp[0] = new;
-    return nodes(arena, old.count + 1, tmp);
+    return shd_nodes(arena, old.count + 1, tmp);
 }
 
-Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
+Nodes shd_concat_nodes(IrArena* arena, Nodes a, Nodes b) {
     LARRAY(const Node*, tmp, a.count + b.count);
     size_t j = 0;
     for (size_t i = 0; i < a.count; i++)
@@ -146,18 +146,18 @@ Nodes concat_nodes(IrArena* arena, Nodes a, Nodes b) {
     for (size_t i = 0; i < b.count; i++)
         tmp[j++] = b.nodes[i];
     assert(j == a.count + b.count);
-    return nodes(arena, j, tmp);
+    return shd_nodes(arena, j, tmp);
 }
 
-Nodes change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
+Nodes shd_change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
     LARRAY(const Node*, tmp, old.count);
     for (size_t j = 0; j < old.count; j++)
         tmp[j] = old.nodes[j];
     tmp[i] = n;
-    return nodes(arena, old.count, tmp);
+    return shd_nodes(arena, old.count, tmp);
 }
 
-bool find_in_nodes(Nodes nodes, const Node* n) {
+bool shd_find_in_nodes(Nodes nodes, const Node* n) {
     for (size_t i = 0; i < nodes.count; i++)
         if (nodes.nodes[i] == n)
             return true;
@@ -202,7 +202,7 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
     LARRAY(String, arr, count);
     for (size_t i = 0; i < count; i++)
         arr[i] = string(dst_arena, old_strings.strings[i]);
-    return strings(dst_arena, count, arr);
+    return shd_strings(dst_arena, count, arr);
 }
 
 void shd_format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
@@ -266,5 +266,5 @@ bool compare_string(const char** a, const char** b) {
 }
 
 Nodes list_to_nodes(IrArena* arena, struct List* list) {
-    return nodes(arena, shd_list_count(list), shd_read_list(const Node*, list));
+    return shd_nodes(arena, shd_list_count(list), shd_read_list(const Node*, list));
 }

@@ -111,8 +111,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
             if (fn_ctx.is_leaf) {
                 shd_debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
-                new->payload.fun.annotations = append_nodes(a, annotations, annotation(a, (Annotation) {
-                        .name = "Leaf",
+                new->payload.fun.annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) {
+                    .name = "Leaf",
                 }));
             }
 
@@ -123,7 +123,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Control_TAG: {
             if (!is_control_static(ctx->uses, node)) {
                 shd_debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
-                shd_log_node(DEBUGV, first(get_abstraction_params(node->payload.control.inside)));
+                shd_log_node(DEBUGV, shd_first(get_abstraction_params(node->payload.control.inside)));
                 shd_debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
             }

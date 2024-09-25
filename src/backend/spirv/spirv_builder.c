@@ -551,7 +551,7 @@ void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_buil
     // Includes stuff like OpFunctionParameters
     copy_section(fn_builder->header);
 
-    assert(shd_list_count(fn_builder->bbs) == 0 && "declared functions must be empty");
+    assert(shd_list_count(fn_builder->bbs) == 0 && "declared functions must be shd_empty");
 
     op(SpvOpFunctionEnd, 1);
 

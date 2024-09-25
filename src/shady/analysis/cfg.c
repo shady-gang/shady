@@ -208,7 +208,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 add_structural_edge(&loop_ctx, node, terminator->payload.loop_instr.body, StructuredEnterBodyEdge, terminator);
                 return;
             } case Control_TAG: {
-                const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
+                const Node* param = shd_first(get_abstraction_params(terminator->payload.control.inside));
                 //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 const Node* tail = get_structured_construct_tail(terminator);
                 shd_dict_insert(const Node*, const Node*, ctx->join_point_values, param, tail);

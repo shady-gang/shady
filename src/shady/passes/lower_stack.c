@@ -38,15 +38,15 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     const Type* qualified_t = qualified_type(a, (QualifiedType) { .is_uniform = false, .type = element_type });
 
     const Node* value_param = push ? param(a, qualified_t, "value") : NULL;
-    Nodes params = push ? singleton(value_param) : empty(a);
-    Nodes return_ts = push ? empty(a) : singleton(qualified_t);
+    Nodes params = push ? shd_singleton(value_param) : shd_empty(a);
+    Nodes return_ts = push ? shd_empty(a) : shd_singleton(qualified_t);
     String name = shd_format_string_arena(a->arena, "generated_%s_%s", push ? "push" : "pop", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
 
-    const Node* element_size = gen_primop_e(bb, size_of_op, singleton(element_type), empty(a));
+    const Node* element_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
     element_size = gen_conversion(bb, uint32_type(a), element_size);
 
     // TODO somehow annotate the uniform guys as uniform
@@ -58,7 +58,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-    const Node* addr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
+    const Node* addr = gen_lea(bb, ctx->stack, int32_literal(a, 0), shd_singleton(stack_size));
     assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
@@ -76,15 +76,15 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     // store updated stack size
     gen_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
-        gen_debug_printf(bb, name, empty(a));
-        gen_debug_printf(bb, "stack size after: %d\n", singleton(stack_size));
+        gen_debug_printf(bb, name, shd_empty(a));
+        gen_debug_printf(bb, "stack size after: %d\n", shd_singleton(stack_size));
     }
 
     if (push) {
-        set_abstraction_body(fun, finish_body_with_return(bb, empty(a)));
+        set_abstraction_body(fun, finish_body_with_return(bb, shd_empty(a)));
     } else {
         assert(popped_value);
-        set_abstraction_body(fun, finish_body_with_return(bb, singleton(popped_value)));
+        set_abstraction_body(fun, finish_body_with_return(bb, shd_singleton(popped_value)));
     }
     return fun;
 }
@@ -115,7 +115,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             GetStackSize payload = old->payload.get_stack_size;
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* sp = gen_load(bb, ctx->stack_pointer);
-            return yield_values_and_wrap_in_block(bb, singleton(sp));
+            return yield_values_and_wrap_in_block(bb, shd_singleton(sp));
         }
         case SetStackSize_TAG: {
             assert(ctx->stack);
@@ -123,7 +123,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* val = rewrite_node(r, old->payload.set_stack_size.value);
             gen_store(bb, ctx->stack_pointer, val);
-            return yield_values_and_wrap_in_block(bb, empty(a));
+            return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
             assert(ctx->stack);
@@ -131,11 +131,11 @@ static const Node* process_node(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
-            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), singleton(stack_size));
+            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
-                gen_debug_printf(bb, "trace: stack_size=%d\n", singleton(stack_size));
+                gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
             }
-            return yield_values_and_wrap_in_block(bb, singleton(stack_base_ptr));
+            return yield_values_and_wrap_in_block(bb, shd_singleton(stack_base_ptr));
         }
         case PushStack_TAG:{
             assert(ctx->stack);
@@ -146,10 +146,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
             bool push = true;
 
             const Node* fn = gen_fn(ctx, element_type, push);
-            Nodes args = singleton(rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
+            Nodes args = shd_singleton(rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
             gen_call(bb, fn_addr_helper(a, fn), args);
 
-            return yield_values_and_wrap_in_block(bb, empty(a));
+            return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
         case PopStack_TAG: {
             assert(ctx->stack);
@@ -160,7 +160,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             bool push = false;
 
             const Node* fn = gen_fn(ctx, element_type, push);
-            Nodes results = gen_call(bb, fn_addr_helper(a, fn), empty(a));
+            Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_empty(a));
 
             assert(results.count == 1);
             return yield_values_and_wrap_in_block(bb, results);
@@ -202,7 +202,7 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivate);
 
         // Pointers into those arrays
-        Node* stack_ptr_decl = global_var(dst, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
+        Node* stack_ptr_decl = global_var(dst, shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
         stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
 
         ctx.stack = ref_decl_helper(a, stack_decl);

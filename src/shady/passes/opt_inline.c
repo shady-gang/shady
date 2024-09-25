@@ -178,7 +178,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
                     const Node* join_point = param(a, qualified_type_helper(jp_type, true), shd_format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
 
-                    Node* control_case = case_(a, singleton(join_point));
+                    Node* control_case = case_(a, shd_singleton(join_point));
                     const Node* nbody = inline_call(ctx, ocallee, get_abstraction_mem(control_case), nargs, join_point);
                     set_abstraction_body(control_case, nbody);
 
