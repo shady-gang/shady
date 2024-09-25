@@ -11,7 +11,7 @@ struct Growy_ {
     size_t used, size;
 };
 
-Growy* shd_new_growy() {
+Growy* shd_new_growy(void) {
     Growy* g = calloc(1, sizeof(Growy));
     *g = (Growy) {
         .buffer = calloc(1, init_size),

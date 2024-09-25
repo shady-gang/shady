@@ -17,7 +17,7 @@ void shd_printer_deindent(Printer* p);
 void shd_printer_flush(Printer* p);
 
 const char* shd_printer_growy_unwrap(Printer* p);
-Growy* shd_new_growy();
+Growy* shd_new_growy(void);
 #define shd_helper_format_string(f, ...) printer_growy_unwrap(cunk_print(cunk_open_growy_as_printer(cunk_new_growy()), (f), __VA_ARGS__))
 
 #endif

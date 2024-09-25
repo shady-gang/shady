@@ -19,7 +19,7 @@ inline static size_t round_up(size_t a, size_t b) {
     return divided * b;
 }
 
-Arena* shd_new_arena() {
+Arena* shd_new_arena(void) {
     Arena* arena = malloc(sizeof(Arena));
     *arena = (Arena) {
         .nblocks = 0,

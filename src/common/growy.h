@@ -7,7 +7,7 @@
 /// Addresses not guaranteed to be stable.
 typedef struct Growy_ Growy;
 
-Growy* shd_new_growy();
+Growy* shd_new_growy(void);
 void shd_growy_append_bytes(Growy*, size_t, const char*);
 void shd_growy_append_string(Growy* g, const char* str);
 void shd_growy_append_formatted(Growy* g, const char* str, ...);
