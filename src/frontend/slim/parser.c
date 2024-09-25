@@ -166,27 +166,27 @@ static const Type* accept_qualified_type(ctxparams);
 
 static const Type* accept_numerical_type(ctxparams) {
     if (accept_token(ctx, i8_tok)) {
-        return int8_type(arena);
+        return shd_int8_type(arena);
     } else if (accept_token(ctx, i16_tok)) {
-        return int16_type(arena);
+        return shd_int16_type(arena);
     } else if (accept_token(ctx, i32_tok)) {
-        return int32_type(arena);
+        return shd_int32_type(arena);
     } else if (accept_token(ctx, i64_tok)) {
-        return int64_type(arena);
+        return shd_int64_type(arena);
     } else if (accept_token(ctx, u8_tok)) {
-        return uint8_type(arena);
+        return shd_uint8_type(arena);
     } else if (accept_token(ctx, u16_tok)) {
-        return uint16_type(arena);
+        return shd_uint16_type(arena);
     } else if (accept_token(ctx, u32_tok)) {
-        return uint32_type(arena);
+        return shd_uint32_type(arena);
     } else if (accept_token(ctx, u64_tok)) {
-        return uint64_type(arena);
+        return shd_uint64_type(arena);
     } else if (accept_token(ctx, f16_tok)) {
-        return fp16_type(arena);
+        return shd_fp16_type(arena);
     } else if (accept_token(ctx, f32_tok)) {
-        return fp32_type(arena);
+        return shd_fp32_type(arena);
     } else if (accept_token(ctx, f64_tok)) {
-        return fp64_type(arena);
+        return shd_fp64_type(arena);
     }
     return NULL;
 }

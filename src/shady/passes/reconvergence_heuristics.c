@@ -148,7 +148,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = gen_stack_alloc(outer_bb, int32_type(arena));
+                exit_destination_alloca = gen_stack_alloc(outer_bb, shd_int32_type(arena));
 
             const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
                 .yield_types = shd_empty(arena)
@@ -215,7 +215,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     gen_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
                 // Set the destination if there's more than one option
                 if (exiting_nodes_count > 1)
-                    gen_store(exit_wrapper_bb, exit_destination_alloca, int32_literal(arena, i));
+                    gen_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
 
                 set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
             }
@@ -270,7 +270,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                         recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(recovered_args[j]));
                 }
 
-                exit_numbers[i] = int32_literal(arena, i);
+                exit_numbers[i] = shd_int32_literal(arena, i);
                 set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
                 exit_jumps[i] = jump_helper(arena, exit_bb, shd_empty(arena), bb_mem(outer_bb));
             }

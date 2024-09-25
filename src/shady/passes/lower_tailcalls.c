@@ -38,7 +38,7 @@ static const Node* process(Context* ctx, const Node* old);
 
 static const Type* lowered_fn_type(Context* ctx) {
     IrArena* a = ctx->rewriter.dst_arena;
-    return int_type_helper(a, false, ctx->config->target.memory.ptr_size);
+    return shd_int_type_helper(a, false, ctx->config->target.memory.ptr_size);
 }
 
 static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
@@ -88,7 +88,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     // Initialise next_fn/next_mask to the entry function
     const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
-    const Node* fn_addr = uint32_literal(a, get_fn_ptr(ctx, old));
+    const Node* fn_addr = shd_uint32_literal(a, get_fn_ptr(ctx, old));
     // fn_addr = gen_conversion(bb, lowered_fn_type(ctx), fn_addr);
     gen_call(bb, jump_fn, shd_singleton(fn_addr));
 
@@ -191,7 +191,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                     case ShadyOpCreateJoinPoint:
                         callee_name = "builtin_create_control_point";
-                        args = shd_change_node_at_index(a, args, 0, prim_op_helper(a, convert_op, shd_singleton(uint32_type(a)), shd_singleton(args.nodes[0])));
+                        args = shd_change_node_at_index(a, args, 0, prim_op_helper(a, convert_op, shd_singleton(shd_uint32_type(a)), shd_singleton(args.nodes[0])));
                         break;
                 }
                 return call(a, (Call) {
@@ -209,7 +209,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = rewrite_node(&ctx->rewriter, payload.callee);
-            target = gen_conversion(bb, uint32_type(a), target);
+            target = gen_conversion(bb, shd_uint32_type(a), target);
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) }));
@@ -227,10 +227,10 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-            const Node* jp_payload = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, int32_literal(a, 2)));
+            const Node* jp_payload = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
             gen_push_value_stack(bb, jp_payload);
-            const Node* dst = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, int32_literal(a, 1)));
-            const Node* tree_node = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, int32_literal(a, 0)));
+            const Node* dst = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
+            const Node* tree_node = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) }));
@@ -238,7 +238,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
-                const Type* emulated_fn_ptr_type = uint64_type(a);
+                const Type* emulated_fn_ptr_type = shd_uint64_type(a);
                 return emulated_fn_ptr_type;
             }
             break;
@@ -294,7 +294,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     // Node* loop_inside_case = case_(a, count_iterations ? singleton(iterations_count_param) : shd_nodes(a, 0, NULL));
     // gen_loop(dispatcher_body_builder, empty(a), count_iterations ? singleton(int32_literal(a, 0)) : empty(a), loop_inside_case);
-    begin_loop_helper_t l = begin_loop_helper(dispatcher_body_builder, shd_empty(a), count_iterations ? shd_singleton(int32_type(a)) : shd_empty(a), count_iterations ? shd_singleton(int32_literal(a, 0)) : shd_empty(a));
+    begin_loop_helper_t l = begin_loop_helper(dispatcher_body_builder, shd_empty(a), count_iterations ? shd_singleton(shd_int32_type(a)) : shd_empty(a), count_iterations ? shd_singleton(shd_int32_literal(a, 0)) : shd_empty(a));
     Node* loop_inside_case = l.loop_body;
     if (count_iterations)
         iterations_count_param = shd_first(l.params);
@@ -316,11 +316,11 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* iteration_count_plus_one = NULL;
     if (count_iterations)
-        iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, shd_empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, 1)));
+        iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, 1)));
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         begin_control_t c = begin_control(loop_body_builder, shd_empty(a));
-        const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, shd_empty(a), mk_nodes(a, iterations_count_param, int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
+        const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         Node* bail_case = case_(a, shd_empty(a));
         const Node* break_terminator = join(a, (Join) { .args = shd_empty(a), .join_point = l.break_jp, .mem = get_abstraction_mem(bail_case) });
         set_abstraction_body(bail_case, break_terminator);
@@ -367,7 +367,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             .false_jump = jump_helper(a, zero_if_false, shd_empty(a), get_abstraction_mem(zero_case_lam)),
     }));
 
-    const Node* zero_lit = uint64_literal(a, 0);
+    const Node* zero_lit = shd_uint64_literal(a, 0);
     shd_list_append(const Node*, literals, zero_lit);
     const Node* zero_jump = jump_helper(a, zero_case_lam, shd_empty(a), bb_mem(loop_body_builder));
     shd_list_append(const Node*, jumps, zero_jump);
@@ -379,7 +379,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             if (lookup_annotation(decl, "Leaf"))
                 continue;
 
-            const Node* fn_lit = uint32_literal(a, get_fn_ptr(ctx, decl));
+            const Node* fn_lit = shd_uint32_literal(a, get_fn_ptr(ctx, decl));
 
             Node* if_true_case = case_(a, shd_empty(a));
             BodyBuilder* if_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_case));

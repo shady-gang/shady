@@ -285,7 +285,7 @@ const Node* get_fill_type_element_type(const Type* composite_t) {
 const Node* get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.size;
-        case PackType_TAG: return int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
+        case PackType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
         default: shd_error("fill values need to be either array or pack types")
     }
 }

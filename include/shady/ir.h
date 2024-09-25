@@ -221,33 +221,33 @@ const Node* unit_type(IrArena*);
 /// For typing instructions that return nothing (equivalent to C's void f())
 const Node* empty_multiple_return_type(IrArena*);
 
-const Type* int_type_helper(IrArena*, bool, IntSizes);
+const Type* shd_int_type_helper(IrArena* a, bool s, IntSizes w);
 
-const Type* int8_type(IrArena*);
-const Type* int16_type(IrArena*);
-const Type* int32_type(IrArena*);
-const Type* int64_type(IrArena*);
+const Type* shd_int8_type(IrArena* arena);
+const Type* shd_int16_type(IrArena* arena);
+const Type* shd_int32_type(IrArena* arena);
+const Type* shd_int64_type(IrArena* arena);
 
-const Type* uint8_type(IrArena*);
-const Type* uint16_type(IrArena*);
-const Type* uint32_type(IrArena*);
-const Type* uint64_type(IrArena*);
+const Type* shd_uint8_type(IrArena* arena);
+const Type* shd_uint16_type(IrArena* arena);
+const Type* shd_uint32_type(IrArena* arena);
+const Type* shd_uint64_type(IrArena* arena);
 
-const Type* int8_literal(IrArena*,  int8_t i);
-const Type* int16_literal(IrArena*, int16_t i);
-const Type* int32_literal(IrArena*, int32_t i);
-const Type* int64_literal(IrArena*, int64_t i);
+const Type* shd_int8_literal(IrArena* arena, int8_t i);
+const Type* shd_int16_literal(IrArena* arena, int16_t i);
+const Type* shd_int32_literal(IrArena* arena, int32_t i);
+const Type* shd_int64_literal(IrArena* arena, int64_t i);
 
-const Type* uint8_literal(IrArena*,  uint8_t i);
-const Type* uint16_literal(IrArena*, uint16_t i);
-const Type* uint32_literal(IrArena*, uint32_t i);
-const Type* uint64_literal(IrArena*, uint64_t i);
+const Type* shd_uint8_literal(IrArena* arena, uint8_t i);
+const Type* shd_uint16_literal(IrArena* arena, uint16_t i);
+const Type* shd_uint32_literal(IrArena* arena, uint32_t i);
+const Type* shd_uint64_literal(IrArena* arena, uint64_t i);
 
-const Type* fp16_type(IrArena*);
-const Type* fp32_type(IrArena*);
-const Type* fp64_type(IrArena*);
+const Type* shd_fp16_type(IrArena* arena);
+const Type* shd_fp32_type(IrArena* arena);
+const Type* shd_fp64_type(IrArena* arena);
 
-const Node* fp_literal_helper(IrArena*, FloatSizes, double);
+const Node* shd_fp_literal_helper(IrArena* a, FloatSizes size, double value);
 
 const Node* type_decl_ref_helper(IrArena*, const Node* decl);
 

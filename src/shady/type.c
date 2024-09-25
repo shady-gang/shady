@@ -182,7 +182,7 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 const Type* get_actual_mask_type(IrArena* arena) {
     switch (arena->config.specializations.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
-        case SubgroupMaskInt64: return uint64_type(arena);
+        case SubgroupMaskInt64: return shd_uint64_type(arena);
         default: assert(false);
     }
 }
@@ -429,8 +429,8 @@ const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, 
 
 const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     const Type* t = arr_type(arena, (ArrType) {
-        .element_type = int8_type(arena),
-        .size = int32_literal(arena, strlen(str_lit.string))
+        .element_type = shd_int8_type(arena),
+        .size = shd_int32_literal(arena, strlen(str_lit.string))
     });
     return qualified_type(arena, (QualifiedType) {
         .type = t,
@@ -1126,16 +1126,16 @@ const Type* check_type_pop_stack(IrArena* a, PopStack payload) {
 }
 
 const Type* check_type_set_stack_size(IrArena* a, SetStackSize payload) {
-    assert(get_unqualified_type(payload.value->type) == uint32_type(a));
+    assert(get_unqualified_type(payload.value->type) == shd_uint32_type(a));
     return qualified_type_helper(unit_type(a), true);
 }
 
 const Type* check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
-    return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = uint32_type(a) });
+    return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = shd_uint32_type(a) });
 }
 
 const Type* check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBaseAddr gsba) {
-    const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = uint8_type(a), .address_space = AsPrivate});
+    const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = shd_uint8_type(a), .address_space = AsPrivate});
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = ptr });
 }
 

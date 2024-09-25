@@ -190,7 +190,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             int64_t i = strtoll(node->payload.untyped_number.plaintext, &endptr, 10);
             if (!expected_type) {
                 bool valid_int = *endptr == '\0';
-                expected_type = valid_int ? int32_type(a) : fp32_type(a);
+                expected_type = valid_int ? shd_int32_type(a) : shd_fp32_type(a);
             }
             expected_type = remove_uniformity_qualifier(expected_type);
             if (expected_type->tag == Int_TAG) {
@@ -368,7 +368,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
         }
         case empty_mask_op:
         case mask_is_thread_active_op: {
-            input_types = mk_nodes(a, qualified_type_helper(mask_type(a), false), qualified_type_helper(uint32_type(a), false));
+            input_types = mk_nodes(a, qualified_type_helper(mask_type(a), false), qualified_type_helper(shd_uint32_type(a), false));
             break;
         }
         default: {

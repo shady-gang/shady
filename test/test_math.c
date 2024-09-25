@@ -48,25 +48,25 @@ static void test_int_literals(IrArena* a) {
         .is_signed = false,
         .value = 0
     };
-    check_int_literal_against_reference(a, uint8_literal(a, 0), ref_zero_u8);
+    check_int_literal_against_reference(a, shd_uint8_literal(a, 0), ref_zero_u8);
     IntLiteral ref_one_u8 = {
         .width = IntTy8,
         .is_signed = false,
         .value = 1
     };
-    check_int_literal_against_reference(a, uint8_literal(a, 1), ref_one_u8);
+    check_int_literal_against_reference(a, shd_uint8_literal(a, 1), ref_one_u8);
     IntLiteral ref_one_i8 = {
         .width = IntTy8,
         .is_signed = true,
         .value = 1
     };
-    check_int_literal_against_reference(a, int8_literal(a, 1), ref_one_i8);
+    check_int_literal_against_reference(a, shd_int8_literal(a, 1), ref_one_i8);
     IntLiteral ref_minus_one_i8 = {
         .width = IntTy8,
         .is_signed = true,
         .value = 255
     };
-    check_int_literal_against_reference(a, int8_literal(a, -1), ref_minus_one_i8);
+    check_int_literal_against_reference(a, shd_int8_literal(a, -1), ref_minus_one_i8);
     // Check sign extension works right
     int64_t i64_test_values[] = { 0, 1, 255, 256, -1, 65536, 65535, INT64_MAX, INT64_MIN };
     for (size_t i = 0; i < sizeof(i64_test_values) / sizeof(i64_test_values[0]); i++) {

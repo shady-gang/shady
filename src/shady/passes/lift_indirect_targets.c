@@ -121,7 +121,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param(a, qualified_type_helper(uint32_type(a), false), "sp");
+    const Node* payload = param(a, qualified_type_helper(shd_uint32_type(a), false), "sp");
 
     // Keep annotations the same
     Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));

@@ -281,11 +281,11 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
-                SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
+                SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, shd_int32_literal(emitter->arena, SpvScopeSubgroup));
                 if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
-                    SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
+                    SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
                     return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(instr.operands)), local_id);
                 }
                 break;
@@ -296,15 +296,15 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
                 if (get_unqualified_type(instr.result_t) == get_actual_mask_type(emitter->arena)) {
-                    const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = uint32_type(emitter->arena) });
+                    const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
                     SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(instr.operands)));
                     // TODO: why are we doing this in SPIR-V and not the IR ?
-                    SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
-                    SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
-                    SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, uint64_type(emitter->arena)), 1, &low32);
-                    SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, uint64_type(emitter->arena)), 1, &hi32);
-                    hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, spv_emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, int64_literal(emitter->arena, 32)) });
-                    SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, spv_emit_type(emitter, uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
+                    SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
+                    SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+                    SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &low32);
+                    SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &hi32);
+                    hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, shd_int64_literal(emitter->arena, 32)) });
+                    SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
                     return final_result;
                 }
                 break;

@@ -23,12 +23,12 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     for (size_t i = 0; i < width; i++) {
         LARRAY(const Node*, nops, noperands.count);
         for (size_t j = 0; j < noperands.count; j++)
-            nops[j] = gen_extract(bb, noperands.nodes[j], shd_singleton(int32_literal(a, i)));
+            nops[j] = gen_extract(bb, noperands.nodes[j], shd_singleton(shd_int32_literal(a, i)));
         elements[i] = gen_primop_e(bb, old->payload.prim_op.op, shd_empty(a), shd_nodes(a, noperands.count, nops));
     }
     const Type* t = arr_type(a, (ArrType) {
         .element_type = rewrite_node(&ctx->rewriter, dst_type),
-        .size = int32_literal(a, width)
+        .size = shd_int32_literal(a, width)
     });
     return yield_values_and_wrap_in_block(bb, shd_singleton(composite_helper(a, t, shd_nodes(a, width, elements))));
 }
@@ -40,7 +40,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case PackType_TAG: {
             return arr_type(a, (ArrType) {
                 .element_type = rewrite_node(&ctx->rewriter, node->payload.pack_type.element_type),
-                .size = int32_literal(a, node->payload.pack_type.width)
+                .size = shd_int32_literal(a, node->payload.pack_type.width)
             });
         }
         case PrimOp_TAG: {

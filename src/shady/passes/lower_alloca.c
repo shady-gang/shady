@@ -54,7 +54,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
 
             const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(is_data_type(element_type));
-            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(int32_literal(a, shd_list_count(vctx->members))));
+            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
             shd_list_append(const Type*, vctx->members, element_type);
 
             StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };

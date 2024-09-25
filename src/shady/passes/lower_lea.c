@@ -66,7 +66,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             size_t n = selector_value->value;
             assert(n < member_types.count);
 
-            const Node* offset_of = gen_primop_e(bb, offset_of_op, shd_singleton(pointed_type), shd_singleton(uint64_literal(a, n)));
+            const Node* offset_of = gen_primop_e(bb, offset_of_op, shd_singleton(pointed_type), shd_singleton(shd_uint64_literal(a, n)));
             ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, offset_of });
 
             pointer_type = ptr_type(a, (PtrType) {

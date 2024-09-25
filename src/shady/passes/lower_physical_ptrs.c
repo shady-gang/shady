@@ -95,7 +95,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 String template = format_string_interned(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
-                    widened = gen_conversion(bb, uint32_type(a), acc);
+                    widened = gen_conversion(bb, shd_uint32_type(a), acc);
                 gen_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             acc = gen_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
@@ -198,7 +198,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 String template = format_string_interned(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
-                    widened = gen_conversion(bb, uint32_type(a), value);
+                    widened = gen_conversion(bb, shd_uint32_type(a), value);
                 gen_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             return;
@@ -211,7 +211,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* extracted_value = prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, value, int32_literal(a, i)), .type_arguments = shd_empty(a) });
+                const Node* extracted_value = prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, value, shd_int32_literal(a, i)), .type_arguments = shd_empty(a) });
                 const Node* field_offset = gen_primop_e(bb, offset_of_op, shd_singleton(element_type), shd_singleton(size_t_literal(a, i)));
                 const Node* adjusted_offset = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, address, field_offset));
                 gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
@@ -236,7 +236,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Type* component_type = get_fill_type_element_type(element_type);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
-                gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, shd_singleton(int32_literal(a, i))));
+                gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, shd_singleton(shd_int32_literal(a, i))));
                 offset = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, shd_singleton(component_type), shd_empty(a))));
             }
             return;

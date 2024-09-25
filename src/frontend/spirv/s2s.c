@@ -799,9 +799,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
                         .name = "WorkgroupSize",
                         .values = mk_nodes(parser->arena,
-                                           int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
-                                           int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
-                                           int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                     }));
                 } else if (strcmp(entry_point_type->payload.str, "Fragment") == 0) {
 
@@ -996,7 +996,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             if (has_element)
                 offset = get_def_ssa_value(parser, instruction[4]);
             else
-                offset = int32_literal(parser->arena, 0);
+                offset = shd_int32_literal(parser->arena, 0);
             for (size_t i = 0; i < num_indices; i++)
                 indices[i] = get_def_ssa_value(parser, instruction[indices_start + i]);
             parser->defs[result].type = Value;
@@ -1008,7 +1008,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             LARRAY(const Node*, ops, 1 + num_indices);
             ops[0] = get_def_ssa_value(parser, instruction[3]);
             for (size_t i = 0; i < num_indices; i++)
-                ops[1 + i] = int32_literal(parser->arena, instruction[4 + i]);
+                ops[1 + i] = shd_int32_literal(parser->arena, instruction[4 + i]);
             parser->defs[result].type = Value;
             parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = extract_op,
@@ -1023,7 +1023,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             ops[0] = get_def_ssa_value(parser, instruction[4]);
             ops[1] = get_def_ssa_value(parser, instruction[3]);
             for (size_t i = 0; i < num_indices; i++)
-                ops[2 + i] = int32_literal(parser->arena, instruction[5 + i]);
+                ops[2 + i] = shd_int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
             parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = insert_op,
@@ -1053,7 +1053,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 components[i] = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = extract_op,
                     .type_arguments = shd_empty(parser->arena),
-                    .operands = mk_nodes(parser->arena, src, int32_literal(parser->arena, index))
+                    .operands = mk_nodes(parser->arena, src, shd_int32_literal(parser->arena, index))
                 }), 1));
             }
 

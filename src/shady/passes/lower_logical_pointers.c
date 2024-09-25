@@ -31,7 +31,7 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
             case RecordType_TAG:
             case ArrType_TAG:
             case PackType_TAG: {
-                ptr = gen_lea(bb, ptr, int32_literal(a, 0), shd_singleton(int32_literal(a, 0)));
+                ptr = gen_lea(bb, ptr, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, 0)));
                 continue;
             }
             default: break;

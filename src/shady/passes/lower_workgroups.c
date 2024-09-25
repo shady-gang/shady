@@ -83,8 +83,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* workgroup_id[3];
                 const Node* num_workgroups[3];
                 for (int dim = 0; dim < 3; dim++) {
-                    workgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names[dim]);
-                    num_workgroups[dim] = gen_extract(bb, workgroup_num_vec3, shd_singleton(uint32_literal(a, dim)));
+                    workgroup_id[dim] = param(a, qualified_type_helper(shd_uint32_type(a), false), names[dim]);
+                    num_workgroups[dim] = gen_extract(bb, workgroup_num_vec3, shd_singleton(shd_uint32_literal(a, dim)));
                 }
 
                 // Prepare variables for iterating inside workgroups
@@ -98,8 +98,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 num_subgroups[2] = a->config.specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
                 for (int dim = 0; dim < 3; dim++) {
-                    subgroup_id[dim] = param(a, qualified_type_helper(uint32_type(a), false), names2[dim]);
-                    num_subgroups_literals[dim] = uint32_literal(a, num_subgroups[dim]);
+                    subgroup_id[dim] = param(a, qualified_type_helper(shd_uint32_type(a), false), names2[dim]);
+                    num_subgroups_literals[dim] = shd_uint32_literal(a, num_subgroups[dim]);
                 }
 
                 Node* cases[6];
@@ -127,19 +127,19 @@ static const Node* process(Context* ctx, const Node* node) {
                 // BodyBuilder* bb2 = begin_block_with_side_effects(a, bb_mem(builders[5]));
                 BodyBuilder* bb2 = builders[5];
                 // write the workgroup ID
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
-                local_id[0] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
+                local_id[0] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
-                    global_id[dim] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
+                    global_id[dim] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
+                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
                 gen_call(bb2, fn_addr_helper(a, inner), wparams);
 
@@ -158,10 +158,10 @@ static const Node* process(Context* ctx, const Node* node) {
                         BodyBuilder* body_bb = builders[depth];
 
                         set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {
-                            .args = shd_singleton(gen_primop_e(body_bb, add_op, shd_empty(a), mk_nodes(a, params[dim], uint32_literal(a, 1)))),
+                            .args = shd_singleton(gen_primop_e(body_bb, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
                             .mem = bb_mem(body_bb)
                         })));
-                        gen_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(uint32_literal(a, 0)), loop_body);
+                        gen_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(shd_uint32_literal(a, 0)), loop_body);
                     }
                 }
 

@@ -55,29 +55,29 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
             Nodes element_types = get_composite_type_element_types(t);
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {
-                const Node* e = gen_extract(bb, param, shd_singleton(uint32_literal(a, i)));
+                const Node* e = gen_extract(bb, param, shd_singleton(shd_uint32_literal(a, i)));
                 elements[i] = build_subgroup_first(ctx, bb, scope, e);
             }
             return composite_helper(a, original_t, shd_nodes(a, element_types.count, elements));
         }
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
-                const Node* hi = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, param, int32_literal(a, 32)));
-                hi = convert_int_zero_extend(bb, int32_type(a), hi);
-                const Node* lo = convert_int_zero_extend(bb, int32_type(a), param);
+                const Node* hi = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, param, shd_int32_literal(a, 32)));
+                hi = convert_int_zero_extend(bb, shd_int32_type(a), hi);
+                const Node* lo = convert_int_zero_extend(bb, shd_int32_type(a), param);
                 hi = build_subgroup_first(ctx, bb, scope, hi);
                 lo = build_subgroup_first(ctx, bb, scope, lo);
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = convert_int_zero_extend(bb, it, hi);
                 lo = convert_int_zero_extend(bb, it, lo);
-                hi = gen_primop_e(bb, lshift_op, shd_empty(a), mk_nodes(a, hi, int32_literal(a, 32)));
+                hi = gen_primop_e(bb, lshift_op, shd_empty(a), mk_nodes(a, hi, shd_int32_literal(a, 32)));
                 return gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, lo, hi));
             }
             break;
         }
         case Type_PtrType_TAG: {
-            param = gen_reinterpret_cast(bb, uint64_type(a), param);
-            return gen_reinterpret_cast(bb, t, generate(ctx, bb, scope, uint64_type(a), param));
+            param = gen_reinterpret_cast(bb, shd_uint64_type(a), param);
+            return gen_reinterpret_cast(bb, t, generate(ctx, bb, scope, shd_uint64_type(a), param));
         }
         default: break;
     }

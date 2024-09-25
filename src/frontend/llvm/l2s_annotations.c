@@ -107,7 +107,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 add_annotation(p, target,  (ParsedAnnotation) {
                     .payload = annotation_values(a, (AnnotationValues) {
                         .name = "WorkgroupSize",
-                        .values = mk_nodes(a, int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)))
+                        .values = mk_nodes(a, shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)), shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10)))
                     })
                 });
             } else if (strcmp(keyword, "builtin") == 0) {
@@ -123,7 +123,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "Location",
-                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                        .value = shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
             } else if (strcmp(keyword, "descriptor_set") == 0) {
@@ -131,7 +131,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "DescriptorSet",
-                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                        .value = shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
             } else if (strcmp(keyword, "descriptor_binding") == 0) {
@@ -139,7 +139,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "DescriptorBinding",
-                        .value = int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
+                        .value = shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
             } else if (strcmp(keyword, "extern") == 0) {
@@ -150,7 +150,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "AddressSpace",
-                        .value = int32_literal(a, as)
+                        .value = shd_int32_literal(a, as)
                     })
                 });
             } else {

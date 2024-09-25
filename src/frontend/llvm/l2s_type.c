@@ -13,9 +13,9 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
 
     switch (LLVMGetTypeKind(t)) {
         case LLVMVoidTypeKind: return unit_type(a);
-        case LLVMHalfTypeKind: return fp16_type(a);
-        case LLVMFloatTypeKind: return fp32_type(a);
-        case LLVMDoubleTypeKind: return fp64_type(a);
+        case LLVMHalfTypeKind: return shd_fp16_type(a);
+        case LLVMFloatTypeKind: return shd_fp32_type(a);
+        case LLVMDoubleTypeKind: return shd_fp64_type(a);
         case LLVMX86_FP80TypeKind:
         case LLVMFP128TypeKind:
             break;
@@ -24,10 +24,10 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMIntegerTypeKind:
             switch(LLVMGetIntTypeWidth(t)) {
                 case 1: return bool_type(a);
-                case 8: return uint8_type(a);
-                case 16: return uint16_type(a);
-                case 32: return uint32_type(a);
-                case 64: return uint64_type(a);
+                case 8: return shd_uint8_type(a);
+                case 16: return shd_uint16_type(a);
+                case 32: return shd_uint32_type(a);
+                case 64: return shd_uint64_type(a);
                 default: shd_error("Unsupported integer width: %d\n", LLVMGetIntTypeWidth(t)); break;
             }
         case LLVMFunctionTypeKind: {
@@ -77,7 +77,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMArrayTypeKind: {
             unsigned length = LLVMGetArrayLength(t);
             const Type* elem_t = convert_type(p, LLVMGetElementType(t));
-            return arr_type(a, (ArrType) { .element_type = elem_t, .size = uint32_literal(a, length)});
+            return arr_type(a, (ArrType) { .element_type = elem_t, .size = shd_uint32_literal(a, length)});
         }
         case LLVMPointerTypeKind: {
             unsigned int llvm_as = LLVMGetPointerAddressSpace(t);
@@ -88,8 +88,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                 const Type* sampled_type = NULL;
                 switch (type_id) {
                     case 0x0: sampled_type = float_type(a, (Float) {.width = FloatTy32}); break;
-                    case 0x1: sampled_type = int32_type(a); break;
-                    case 0x2: sampled_type = uint32_type(a); break;
+                    case 0x1: sampled_type = shd_int32_type(a); break;
+                    case 0x2: sampled_type = shd_uint32_type(a); break;
                     default: assert(false);
                 }
                 bool arrayed = (offset >> 6) & 1;

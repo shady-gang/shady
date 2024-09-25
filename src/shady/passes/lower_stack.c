@@ -47,7 +47,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
 
     const Node* element_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
-    element_size = gen_conversion(bb, uint32_type(a), element_size);
+    element_size = gen_conversion(bb, shd_uint32_type(a), element_size);
 
     // TODO somehow annotate the uniform guys as uniform
     const Node* stack_pointer = ctx->stack_pointer;
@@ -58,7 +58,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-    const Node* addr = gen_lea(bb, ctx->stack, int32_literal(a, 0), shd_singleton(stack_size));
+    const Node* addr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
     assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
@@ -102,7 +102,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         // is this an old forgotten workaround ?
         if (ctx->stack) {
             const Node* stack_pointer = ctx->stack_pointer;
-            gen_store(bb, stack_pointer, uint32_literal(a, 0));
+            gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
         register_processed(r, get_abstraction_mem(old), bb_mem(bb));
         set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body)));
@@ -131,7 +131,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
-            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, int32_literal(a, 0), shd_singleton(stack_size));
+            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
                 gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
             }
@@ -189,12 +189,12 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     };
 
     if (config->per_thread_stack_size > 0) {
-        const Type* stack_base_element = uint8_type(a);
+        const Type* stack_base_element = shd_uint8_type(a);
         const Type* stack_arr_type = arr_type(a, (ArrType) {
                 .element_type = stack_base_element,
-                .size = uint32_literal(a, config->per_thread_stack_size),
+                .size = shd_uint32_literal(a, config->per_thread_stack_size),
         });
-        const Type* stack_counter_t = uint32_type(a);
+        const Type* stack_counter_t = shd_uint32_type(a);
 
         Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
 
@@ -203,7 +203,7 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
         // Pointers into those arrays
         Node* stack_ptr_decl = global_var(dst, shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
-        stack_ptr_decl->payload.global_variable.init = uint32_literal(a, 0);
+        stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
 
         ctx.stack = ref_decl_helper(a, stack_decl);
         ctx.stack_pointer = ref_decl_helper(a, stack_ptr_decl);

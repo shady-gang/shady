@@ -617,7 +617,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             unsigned num_indices = LLVMGetNumMaskElements(instr);
             LARRAY(const Node*, cindices, num_indices);
             for (size_t i = 0; i < num_indices; i++)
-                cindices[i] = uint32_literal(a, LLVMGetMaskValue(instr, i));
+                cindices[i] = shd_uint32_literal(a, LLVMGetMaskValue(instr, i));
             ops = shd_concat_nodes(a, ops, shd_nodes(a, num_indices, cindices));
             return prim_op_helper(a, shuffle_op, shd_empty(a), ops);
         }

@@ -16,10 +16,10 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
         switch (et->tag) {
             case Int_TAG: {
                 switch (et->payload.int_type.width) {
-                    case IntTy8:  elements[i] =  uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
-                    case IntTy16: elements[i] = uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
-                    case IntTy32: elements[i] = uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
-                    case IntTy64: elements[i] = uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
+                    case IntTy8:  elements[i] = shd_uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
+                    case IntTy16: elements[i] = shd_uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
+                    case IntTy32: elements[i] = shd_uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
+                    case IntTy64: elements[i] = shd_uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
                 }
                 break;
             }
@@ -146,10 +146,10 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             assert(t->tag == Int_TAG);
             unsigned long long value = LLVMConstIntGetZExtValue(v);
             switch (t->payload.int_type.width) {
-                case IntTy8: return uint8_literal(a, value);
-                case IntTy16: return uint16_literal(a, value);
-                case IntTy32: return uint32_literal(a, value);
-                case IntTy64: return uint64_literal(a, value);
+                case IntTy8: return shd_uint8_literal(a, value);
+                case IntTy16: return shd_uint16_literal(a, value);
+                case IntTy32: return shd_uint32_literal(a, value);
+                case IntTy64: return shd_uint64_literal(a, value);
             }
         }
         case LLVMConstantFPValueKind: {

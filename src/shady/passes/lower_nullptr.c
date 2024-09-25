@@ -20,7 +20,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
         return *found;
 
     BodyBuilder* bb = begin_block_pure(a);
-    const Node* nul = gen_reinterpret_cast(bb, t, uint64_literal(a, 0));
+    const Node* nul = gen_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
     Node* decl = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
         .name = "Generated",
     })), t, format_string_interned(a, "nullptr_%s", name_type_safe(a, t)));

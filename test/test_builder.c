@@ -16,7 +16,7 @@
 
 static void test_body_builder_constants(IrArena* a) {
     BodyBuilder* bb = begin_block_pure(a);
-    const Node* sum = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, int32_literal(a, 4), int32_literal(a, 38)));
+    const Node* sum = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, shd_int32_literal(a, 4), shd_int32_literal(a, 38)));
     const Node* result = yield_value_and_wrap_in_block(bb, sum);
     CHECK(sum == result, exit(-1));
     CHECK(result->tag == IntLiteral_TAG, exit(-1));
@@ -27,11 +27,11 @@ static void test_body_builder_fun_body(IrArena* a) {
     Module* m = new_module(a, "test_module");
     const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
         .address_space = AsGeneric,
-        .pointed_type = uint32_type(a),
+        .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     const Node* p2 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
         .address_space = AsGeneric,
-        .pointed_type = uint32_type(a),
+        .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     // const Node* p3 = param(a, qualified_type_helper(bool_type(a), false), NULL);
     // const Node* p4 = param(a, qualified_type_helper(uint32_type(a), false), NULL);
@@ -42,9 +42,9 @@ static void test_body_builder_fun_body(IrArena* a) {
     CHECK(p1_value->tag == Load_TAG, exit(-1));
     Node* true_case = case_(a, shd_empty(a));
     BodyBuilder* tc_builder = begin_body_with_mem(a, get_abstraction_mem(true_case));
-    gen_store(tc_builder, p1, uint32_literal(a, 0));
+    gen_store(tc_builder, p1, shd_uint32_literal(a, 0));
     set_abstraction_body(true_case, finish_body_with_selection_merge(tc_builder, shd_empty(a)));
-    gen_if(bb, shd_empty(a), gen_primop_e(bb, gt_op, shd_empty(a), mk_nodes(a, p1_value, uint32_literal(a, 0))), true_case, NULL);
+    gen_if(bb, shd_empty(a), gen_primop_e(bb, gt_op, shd_empty(a), mk_nodes(a, p1_value, shd_uint32_literal(a, 0))), true_case, NULL);
 
     const Node* p2_value = gen_load(bb, p2);
 
@@ -89,7 +89,7 @@ static void test_body_builder_impure_block(IrArena* a) {
     Module* m = new_module(a, "test_module");
     const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
         .address_space = AsGeneric,
-        .pointed_type = uint32_type(a),
+        .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
@@ -97,7 +97,7 @@ static void test_body_builder_impure_block(IrArena* a) {
     const Node* first_load = gen_load(bb, p1);
 
     BodyBuilder* block_builder = begin_block_with_side_effects(a, bb_mem(bb));
-    gen_store(block_builder, p1, uint32_literal(a, 0));
+    gen_store(block_builder, p1, shd_uint32_literal(a, 0));
     bind_instruction(bb, yield_values_and_wrap_in_block(block_builder, shd_empty(a)));
 
     const Node* second_load = gen_load(bb, p1);
@@ -128,7 +128,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Module* m = new_module(a, "test_module");
     const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
         .address_space = AsGeneric,
-        .pointed_type = uint32_type(a),
+        .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
@@ -138,9 +138,9 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     BodyBuilder* block_builder = begin_block_with_side_effects(a, bb_mem(bb));
     Node* if_true_case = case_(a, shd_empty(a));
     BodyBuilder* if_true_builder = begin_body_with_mem(a, get_abstraction_mem(if_true_case));
-    gen_store(if_true_builder, p1, uint32_literal(a, 0));
+    gen_store(if_true_builder, p1, shd_uint32_literal(a, 0));
     set_abstraction_body(if_true_case, finish_body_with_selection_merge(if_true_builder, shd_empty(a)));
-    gen_if(block_builder, shd_empty(a), gen_primop_e(block_builder, neq_op, shd_empty(a), mk_nodes(a, first_load, uint32_literal(a, 0))), if_true_case, NULL);
+    gen_if(block_builder, shd_empty(a), gen_primop_e(block_builder, neq_op, shd_empty(a), mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
     bind_instruction(bb, yield_values_and_wrap_in_block(block_builder, shd_empty(a)));
 
     const Node* second_load = gen_load(bb, p1);

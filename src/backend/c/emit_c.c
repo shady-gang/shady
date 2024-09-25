@@ -447,8 +447,8 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[1];
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[2];
         shd_print(emitter.type_decls, "\ntypedef %s;\n", c_emit_type(&emitter, arr_type(arena, (ArrType) {
-                .size = int32_literal(arena, 3),
-                .element_type = uint32_type(arena)
+                .size = shd_int32_literal(arena, 3),
+                .element_type = shd_uint32_type(arena)
         }), "uvec3"));
         shd_print(emitter.fn_defs, shady_cuda_builtins_src);
 

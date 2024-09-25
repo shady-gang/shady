@@ -3,35 +3,35 @@
 
 #include "shady/ir.h"
 
-#define u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = uint32_type(arena) })
-#define i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = int32_type(arena) })
-#define i32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = int32_type(arena) })
+#define shd_u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_uint32_type(arena) })
+#define shd_i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_int32_type(arena) })
+#define shd_i32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = shd_int32_type(arena) })
 
-#define f32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = fp32_type(arena) })
+#define shd_f32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = shd_fp32_type(arena) })
 
 #define SHADY_BUILTINS() \
-BUILTIN(BaseInstance,              AsInput,  uint32_type(arena)   )\
-BUILTIN(BaseVertex,                AsInput,  uint32_type(arena)   )\
-BUILTIN(DeviceIndex,               AsInput,  uint32_type(arena)   )\
-BUILTIN(DrawIndex,                 AsInput,  uint32_type(arena)   )\
-BUILTIN(VertexIndex,               AsInput,  uint32_type(arena)   )\
-BUILTIN(FragCoord,                 AsInput,  f32vec4_type(arena) )\
-BUILTIN(FragDepth,                 AsOutput, fp32_type(arena)    )\
-BUILTIN(InstanceId,                AsInput,  uint32_type(arena)   )\
-BUILTIN(InvocationId,              AsInput,  uint32_type(arena)   )\
-BUILTIN(InstanceIndex,             AsInput,  uint32_type(arena)   )\
-BUILTIN(LocalInvocationId,         AsInput,  u32vec3_type(arena) )\
-BUILTIN(LocalInvocationIndex,      AsInput,  uint32_type(arena)   )\
-BUILTIN(GlobalInvocationId,        AsInput,  u32vec3_type(arena) )\
-BUILTIN(WorkgroupId,               AsUInput, u32vec3_type(arena) )\
-BUILTIN(WorkgroupSize,             AsUInput, u32vec3_type(arena) )\
-BUILTIN(NumSubgroups,              AsUInput, uint32_type(arena)   )\
-BUILTIN(NumWorkgroups,             AsUInput, u32vec3_type(arena) )\
-BUILTIN(Position,                  AsOutput, f32vec4_type(arena) )\
-BUILTIN(PrimitiveId,               AsInput,  uint32_type(arena)   )\
-BUILTIN(SubgroupLocalInvocationId, AsInput,  uint32_type(arena)  )\
-BUILTIN(SubgroupId,                AsUInput, uint32_type(arena)  )\
-BUILTIN(SubgroupSize,              AsInput,  uint32_type(arena)  )\
+BUILTIN(BaseInstance,              AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(BaseVertex,                AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(DeviceIndex,               AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(DrawIndex,                 AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(VertexIndex,               AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(FragCoord,                 AsInput,  shd_f32vec4_type(arena) )\
+BUILTIN(FragDepth,                 AsOutput, shd_fp32_type(arena)    )\
+BUILTIN(InstanceId,                AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(InvocationId,              AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(InstanceIndex,             AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(LocalInvocationId,         AsInput,  shd_u32vec3_type(arena) )\
+BUILTIN(LocalInvocationIndex,      AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(GlobalInvocationId,        AsInput,  shd_u32vec3_type(arena) )\
+BUILTIN(WorkgroupId,               AsUInput, shd_u32vec3_type(arena) )\
+BUILTIN(WorkgroupSize,             AsUInput, shd_u32vec3_type(arena) )\
+BUILTIN(NumSubgroups,              AsUInput, shd_uint32_type(arena)   )\
+BUILTIN(NumWorkgroups,             AsUInput, shd_u32vec3_type(arena) )\
+BUILTIN(Position,                  AsOutput, shd_f32vec4_type(arena) )\
+BUILTIN(PrimitiveId,               AsInput,  shd_uint32_type(arena)   )\
+BUILTIN(SubgroupLocalInvocationId, AsInput,  shd_uint32_type(arena)  )\
+BUILTIN(SubgroupId,                AsUInput, shd_uint32_type(arena)  )\
+BUILTIN(SubgroupSize,              AsInput,  shd_uint32_type(arena)  )\
 
 typedef enum {
 #define BUILTIN(name, as, datatype) Builtin##name,

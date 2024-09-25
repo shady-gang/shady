@@ -54,7 +54,7 @@ Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size
     if (outputs_count > 1) {
         LARRAY(const Node*, extracted, outputs_count);
         for (size_t i = 0; i < outputs_count; i++)
-            extracted[i] = gen_extract_single(bb, value, int32_literal(bb->arena, i));
+            extracted[i] = gen_extract_single(bb, value, shd_int32_literal(bb->arena, i));
         return shd_nodes(bb->arena, outputs_count, extracted);
     } else if (outputs_count == 1)
         return shd_singleton(value);

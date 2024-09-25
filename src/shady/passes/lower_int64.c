@@ -19,9 +19,9 @@ static bool should_convert(Context* ctx, const Type* t) {
 
 static void extract_low_hi_halves(BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
     *lo = shd_first(bind_instruction(bb, prim_op(bb->arena,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, int32_literal(bb->arena, 0)) })));
+                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, shd_int32_literal(bb->arena, 0)) })));
     *hi = shd_first(bind_instruction(bb, prim_op(bb->arena,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, int32_literal(bb->arena, 1)) })));
+                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, shd_int32_literal(bb->arena, 1)) })));
 }
 
 static void extract_low_hi_halves_list(BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
@@ -39,14 +39,14 @@ static const Node* process(Context* ctx, const Node* node) {
         case Int_TAG:
             if (node->payload.int_type.width == IntTy64 && ctx->config->lower.int64)
                 return record_type(a, (RecordType) {
-                    .members = mk_nodes(a, int32_type(a), int32_type(a))
+                    .members = mk_nodes(a, shd_int32_type(a), shd_int32_type(a))
                 });
             break;
         case IntLiteral_TAG:
             if (node->payload.int_literal.width == IntTy64 && ctx->config->lower.int64) {
                 uint64_t raw = node->payload.int_literal.value;
-                const Node* lower = uint32_literal(a, (uint32_t) raw);
-                const Node* upper = uint32_literal(a, (uint32_t) (raw >> 32));
+                const Node* lower = shd_uint32_literal(a, (uint32_t) raw);
+                const Node* upper = shd_uint32_literal(a, (uint32_t) (raw >> 32));
                 return tuple_helper(a, mk_nodes(a, lower, upper));
             }
             break;

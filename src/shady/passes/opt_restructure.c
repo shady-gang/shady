@@ -265,7 +265,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             control_ctx.control_stack = &control_entry;
 
             // Set the depth for threads entering the control body
-            gen_store(bb_prelude, ctx->level_ptr, int32_literal(a, control_entry.depth));
+            gen_store(bb_prelude, ctx->level_ptr, shd_int32_literal(a, control_entry.depth));
 
             // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
             Node* tail = case_(a, shd_empty(a));
@@ -278,7 +278,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
             // Wrap the tail in a guarded if, to handle 'far' joins
             const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
-            const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
+            const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, shd_int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
             Node* true_case = case_(a, shd_empty(a));
             register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
             set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));
@@ -295,7 +295,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
                 longjmp(ctx->bail, 1);
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            gen_store(bb, ctx->level_ptr, int32_literal(a, control->depth - 1));
+            gen_store(bb, ctx->level_ptr, shd_int32_literal(a, control->depth - 1));
 
             Nodes args = rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
@@ -356,9 +356,9 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-            const Node* ptr = gen_local_alloc(bb, int32_type(a));
+            const Node* ptr = gen_local_alloc(bb, shd_int32_type(a));
             set_value_name(ptr, "cf_depth");
-            gen_store(bb, ptr, int32_literal(a, 0));
+            gen_store(bb, ptr, shd_int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);

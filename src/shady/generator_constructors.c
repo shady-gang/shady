@@ -49,7 +49,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
 
                     if (!(json_object_get_boolean(json_object_object_get(op, "nullable")) || json_object_get_boolean(json_object_object_get(op, "ignore")))) {
                         shd_growy_append_formatted(g, "%s\t\t\tif (!*pop) {\n", extra);
-                        shd_growy_append_formatted(g, "%s\t\t\t\terror(\"operand '%s' of node '%s' cannot be null\");\n", extra, op_name, name);
+                        shd_growy_append_formatted(g, "%s\t\t\t\tshd_error(\"operand '%s' of node '%s' cannot be null\");\n", extra, op_name, name);
                         shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
                     }
 

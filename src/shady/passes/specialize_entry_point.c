@@ -21,12 +21,12 @@ static const Node* process(Context* ctx, const Node* node) {
         case PrimOp_TAG: {
             Builtin b;
             if (is_builtin_load_op(node, &b) && b == BuiltinWorkgroupSize) {
-                const Type* t = pack_type(a, (PackType) { .element_type = uint32_type(a), .width = 3 });
+                const Type* t = pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 });
                 uint32_t wg_size[3];
                 wg_size[0] = a->config.specializations.workgroup_size[0];
                 wg_size[1] = a->config.specializations.workgroup_size[1];
                 wg_size[2] = a->config.specializations.workgroup_size[2];
-                return composite_helper(a, t, mk_nodes(a, uint32_literal(a, wg_size[0]), uint32_literal(a, wg_size[1]), uint32_literal(a, wg_size[2]) ));
+                return composite_helper(a, t, mk_nodes(a, shd_uint32_literal(a, wg_size[0]), shd_uint32_literal(a, wg_size[1]), shd_uint32_literal(a, wg_size[2]) ));
             }
             break;
         }
@@ -55,7 +55,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->specialization.subgroup_size;
                 if (subgroups_per_wg == 0)
                     subgroups_per_wg = 1; // uh-oh
-                ncnst->payload.constant.value = uint32_literal(a, subgroups_per_wg);
+                ncnst->payload.constant.value = shd_uint32_literal(a, subgroups_per_wg);
             }
             return ncnst;
         }

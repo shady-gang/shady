@@ -19,7 +19,7 @@ typedef struct {
 static Nodes to_ids(IrArena* a, Nodes in) {
     LARRAY(const Node*, arr, in.count);
     for (size_t i = 0; i < in.count; i++)
-        arr[i] = uint32_literal(a, in.nodes[i]->id);
+        arr[i] = shd_uint32_literal(a, in.nodes[i]->id);
     return shd_nodes(a, in.count, arr);
 }
 

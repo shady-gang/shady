@@ -48,9 +48,9 @@ static const Node* process(Context* ctx, const Node* old) {
             src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, payload.count));
-            const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num_in_bytes));
+            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), bytes_to_words(bb, num_in_bytes));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(uint32_type(a)), shd_singleton(uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
             set_value_name(index, "memcpy_i");
@@ -58,7 +58,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
             const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, shd_empty(a)));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), loaded_word);
-            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
+            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
             set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
@@ -95,16 +95,16 @@ static const Node* process(Context* ctx, const Node* old) {
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
             const Node* num = rewrite_node(&ctx->rewriter, payload.count);
-            const Node* num_in_words = gen_conversion(bb, uint32_type(a), bytes_to_words(bb, num));
+            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), bytes_to_words(bb, num));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(uint32_type(a)), shd_singleton(uint32_literal(a, 0)));
+            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
             set_value_name(index, "memset_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), src_value);
-            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, uint32_literal(a, 1)));
+            const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
             set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
