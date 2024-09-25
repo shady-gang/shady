@@ -55,7 +55,7 @@ double get_float_literal_value(FloatLiteral literal) {
     double r;
     switch (literal.width) {
         case FloatTy16:
-            error_print("TODO: fp16 literals");
+            shd_error_print("TODO: fp16 literals");
             shd_error_die();
             SHADY_UNREACHABLE;
             break;

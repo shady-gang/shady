@@ -134,12 +134,12 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     switch (is_type(type)) {
         case NotAType: assert(false); break;
         case LamType_TAG:
-        case BBType_TAG: error("these types do not exist in C");
-        case MaskType_TAG: error("should be lowered away");
+        case BBType_TAG: shd_error("these types do not exist in C");
+        case MaskType_TAG: shd_error("should be lowered away");
         case Type_SampledImageType_TAG:
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
-        case JoinPointType_TAG: error("TODO")
+        case JoinPointType_TAG: shd_error("TODO")
         case NoRet_TAG:
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
@@ -178,16 +178,16 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                         break;
                     }
                     switch (type->payload.int_type.width) {
-                        case IntTy8:  warn_print("vanilla GLSL does not support 8-bit integers\n");
+                        case IntTy8:  shd_warn_print("vanilla GLSL does not support 8-bit integers\n");
                             emitted = sign ? "byte" : "ubyte";
                             break;
-                        case IntTy16: warn_print("vanilla GLSL does not support 16-bit integers\n");
+                        case IntTy16: shd_warn_print("vanilla GLSL does not support 16-bit integers\n");
                             emitted = sign ? "short" : "ushort";
                             break;
                         case IntTy32: emitted = sign ? "int" : "uint"; break;
                         case IntTy64:
                             emitter->need_64b_ext = true;
-                            warn_print("vanilla GLSL does not support 64-bit integers\n");
+                            shd_warn_print("vanilla GLSL does not support 64-bit integers\n");
                             emitted = sign ? "int64_t" : "uint64_t";
                             break;
                     }
@@ -287,7 +287,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: error("TODO")
+                case CDialect_CUDA: shd_error("TODO")
                 case CDialect_GLSL: {
                     assert(is_glsl_scalar_type(element_type));
                     assert(width > 1);
@@ -296,12 +296,12 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                         case Bool_TAG: base = "bvec"; break;
                         case Int_TAG: base = "uvec";  break; // TODO not every int is 32-bit
                         case Float_TAG: base = "vec"; break;
-                        default: error("not a valid GLSL vector type");
+                        default: shd_error("not a valid GLSL vector type");
                     }
                     emitted = shd_format_string_arena(emitter->arena->arena, "%s%d", base, width);
                     break;
                 }
-                case CDialect_ISPC: error("Please lower to something else")
+                case CDialect_ISPC: shd_error("Please lower to something else")
                 case CDialect_C11: {
                     emitted = c_emit_type(emitter, element_type, NULL);
                     emitted = shd_format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);

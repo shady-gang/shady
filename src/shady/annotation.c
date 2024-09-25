@@ -36,14 +36,14 @@ const Node* lookup_annotation_list(Nodes annotations, const char* name) {
 const Node* get_annotation_value(const Node* annotation) {
     assert(annotation);
     if (annotation->tag != AnnotationValue_TAG)
-        error("This annotation does not have a single payload");
+        shd_error("This annotation does not have a single payload");
     return annotation->payload.annotation_value.value;
 }
 
 Nodes get_annotation_values(const Node* annotation) {
     assert(annotation);
     if (annotation->tag != AnnotationValues_TAG)
-        error("This annotation does not have multiple payloads");
+        shd_error("This annotation does not have multiple payloads");
     return annotation->payload.annotation_values.values;
 }
 
@@ -52,7 +52,7 @@ const char* get_annotation_string_payload(const Node* annotation) {
     const Node* payload = get_annotation_value(annotation);
     if (!payload) return NULL;
     if (payload->tag != StringLiteral_TAG)
-        error("Wrong annotation payload tag, expected a string literal")
+        shd_error("Wrong annotation payload tag, expected a string literal")
     return payload->payload.string_lit.string;
 }
 

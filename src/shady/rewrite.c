@@ -207,17 +207,17 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
         // as long as there is no conflict, this is correct, but this might hide perf hazards if we fail to cache things
         if (*found == new)
             return;
-        error_print("Trying to replace ");
-        log_node(ERROR, old);
-        error_print(" with ");
-        log_node(ERROR, new);
-        error_print(" but there was already ");
+        shd_error_print("Trying to replace ");
+        shd_log_node(ERROR, old);
+        shd_error_print(" with ");
+        shd_log_node(ERROR, new);
+        shd_error_print(" but there was already ");
         if (*found)
-            log_node(ERROR, *found);
+            shd_log_node(ERROR, *found);
         else
-            log_string(ERROR, "NULL");
-        error_print("\n");
-        error("The same node got processed twice !");
+            shd_log_fmt(ERROR, "NULL");
+        shd_error_print("\n");
+        shd_error("The same node got processed twice !");
     }
 #endif
     struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
@@ -298,7 +298,7 @@ Node* recreate_decl_header_identity(Rewriter* rewriter, const Node* old) {
             new = nominal_type(rewriter->dst_module, new_annotations, old->payload.nom_type.name);
             break;
         }
-        case NotADeclaration: error("not a decl");
+        case NotADeclaration: shd_error("not a decl");
     }
     assert(new);
     register_processed(rewriter, old, new);
@@ -326,7 +326,7 @@ void recreate_decl_body_identity(Rewriter* rewriter, const Node* old, Node* new)
             new->payload.nom_type.body = rewrite_op_helper(rewriter, NcType, "body", old->payload.nom_type.body);
             break;
         }
-        case NotADeclaration: error("not a decl");
+        case NotADeclaration: shd_error("not a decl");
     }
 }
 
@@ -350,9 +350,9 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             return new;
         }
         case Param_TAG:
-            log_string(ERROR, "Can't rewrite: ");
-            log_node(ERROR, node);
-            log_string(ERROR, ", params should be rewritten by the abstraction rewrite logic");
+            shd_log_fmt(ERROR, "Can't rewrite: ");
+            shd_log_node(ERROR, node);
+            shd_log_fmt(ERROR, ", params should be rewritten by the abstraction rewrite logic");
             shd_error_die();
         case BasicBlock_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.basic_block.params);
@@ -371,9 +371,9 @@ void dump_rewriter_map(Rewriter* r) {
     size_t i = 0;
     const Node* src, *dst;
     while (shd_dict_iter(r->map, &i, &src, &dst)) {
-        log_node(ERROR, src);
-        log_string(ERROR, " -> ");
-        log_node(ERROR, dst);
-        log_string(ERROR, "\n");
+        shd_log_node(ERROR, src);
+        shd_log_fmt(ERROR, " -> ");
+        shd_log_node(ERROR, dst);
+        shd_log_fmt(ERROR, "\n");
     }
 }

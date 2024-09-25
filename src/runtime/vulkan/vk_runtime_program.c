@@ -41,7 +41,7 @@ VkDescriptorType as_to_descriptor_type(AddressSpace as) {
     switch (as) {
         case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        default: error("No mapping to a descriptor type");
+        default: shd_error("No mapping to a descriptor type");
     }
 }
 
@@ -184,7 +184,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
 
 static bool extract_layout(VkrSpecProgram* program) {
     if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
-        error_print("EntryPointArgs exceed available push constant space\n");
+        shd_error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
     VkPushConstantRange push_constant_ranges[1] = {
@@ -262,13 +262,13 @@ static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const Co
     config.lower.int64 = !device->caps.features.base.features.shaderInt64;
 
     if (device->caps.implementation.is_moltenvk) {
-        warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
+        shd_warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
-        warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
+        shd_warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
         config.lower.decay_ptrs = true;
     }
     if (device->caps.properties.driver_properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
-        warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
+        shd_warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
 
@@ -290,12 +290,12 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
                 const Node* entry_point_args_annotation = lookup_annotation(node, "EntryPointArgs");
                 if (entry_point_args_annotation) {
                     if (node->payload.global_variable.type->tag != RecordType_TAG) {
-                        error_print("EntryPointArgs must be a struct\n");
+                        shd_error_print("EntryPointArgs must be a struct\n");
                         return false;
                     }
 
                     if (args_struct_type) {
-                        error_print("there cannot be more than one EntryPointArgs\n");
+                        shd_error_print("there cannot be more than one EntryPointArgs\n");
                         return false;
                     }
 
@@ -307,12 +307,12 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
             case Function_TAG: {
                 if (lookup_annotation(node, "EntryPoint")) {
                     if (node->payload.fun.params.count != 0) {
-                        error_print("EntryPoint cannot have parameters\n");
+                        shd_error_print("EntryPoint cannot have parameters\n");
                         return false;
                     }
 
                     if (entry_point_function) {
-                        error_print("there cannot be more than one EntryPoint\n");
+                        shd_error_print("there cannot be more than one EntryPoint\n");
                         return false;
                     }
 
@@ -325,7 +325,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
     }
 
     if (!entry_point_function) {
-        error_print("could not find EntryPoint\n");
+        shd_error_print("could not find EntryPoint\n");
         return false;
     }
 
@@ -335,21 +335,21 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
     }
 
     if (args_struct_annotation->tag != AnnotationValue_TAG) {
-        error_print("EntryPointArgs annotation must contain exactly one value\n");
+        shd_error_print("EntryPointArgs annotation must contain exactly one value\n");
         return false;
     }
 
     const Node* annotation_fn = args_struct_annotation->payload.annotation_value.value;
     assert(annotation_fn->tag == FnAddr_TAG);
     if (annotation_fn->payload.fn_addr.fn != entry_point_function) {
-        error_print("EntryPointArgs annotation refers to different EntryPoint\n");
+        shd_error_print("EntryPointArgs annotation refers to different EntryPoint\n");
         return false;
     }
 
     size_t num_args = args_struct_type->payload.record_type.members.count;
 
     if (num_args == 0) {
-        error_print("EntryPointArgs cannot be empty\n");
+        shd_error_print("EntryPointArgs cannot be empty\n");
         return false;
     }
 
@@ -360,7 +360,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
 
     size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
     if (!offset_size_buffer) {
-        error_print("failed to allocate EntryPointArgs offsets and sizes array\n");
+        shd_error_print("failed to allocate EntryPointArgs offsets and sizes array\n");
         return false;
     }
     size_t* offsets = offset_size_buffer;

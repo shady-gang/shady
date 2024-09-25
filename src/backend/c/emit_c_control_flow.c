@@ -177,15 +177,15 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
     c_emit_mem(emitter, fn, get_terminator_mem(terminator));
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
-        case Join_TAG: error("this must be lowered away!");
+        case Join_TAG: shd_error("this must be lowered away!");
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
-        case TailCall_TAG: error("TODO");
+        case TailCall_TAG: shd_error("TODO");
         case If_TAG: return emit_if(emitter, fn, block_printer, terminator->payload.if_instr);
         case Match_TAG: return emit_match(emitter, fn, block_printer, terminator->payload.match_instr);
         case Loop_TAG: return emit_loop(emitter, fn, block_printer, terminator->payload.loop_instr);
-        case Control_TAG:      error("TODO")
+        case Control_TAG:      shd_error("TODO")
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {

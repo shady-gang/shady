@@ -16,27 +16,27 @@ typedef enum LogLevel_ {
     DEBUGVV,
 } LogLevel;
 
-LogLevel get_log_level();
-void set_log_level(LogLevel);
-void log_fmtv(LogLevel level, const char* format, va_list args);
-void log_string(LogLevel level, const char* format, ...);
-void log_node(LogLevel level, const Node* node);
+LogLevel shd_log_get_level(void);
+void shd_log_set_level(LogLevel l);
+void shd_log_fmt_va_list(LogLevel level, const char* format, va_list args);
+void shd_log_fmt(LogLevel level, const char* format, ...);
+void shd_log_node(LogLevel level, const Node* node);
 typedef struct CompilerConfig_ CompilerConfig;
-void log_module(LogLevel level, const CompilerConfig*, Module*);
+void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod);
 
-#define debugvv_print(...) log_string(DEBUGVV, __VA_ARGS__)
-#define debugv_print(...) log_string(DEBUGV, __VA_ARGS__)
-#define debug_print(...) log_string(DEBUG, __VA_ARGS__)
-#define info_print(...)  log_string(INFO, __VA_ARGS__)
-#define warn_print(...)  log_string(WARN, __VA_ARGS__)
-#define error_print(...) log_string(ERROR, __VA_ARGS__)
+#define shd_debugvv_print(...) shd_log_fmt(DEBUGVV, __VA_ARGS__)
+#define shd_debugv_print(...)  shd_log_fmt(DEBUGV, __VA_ARGS__)
+#define shd_debug_print(...)   shd_log_fmt(DEBUG, __VA_ARGS__)
+#define shd_info_print(...)    shd_log_fmt(INFO, __VA_ARGS__)
+#define shd_warn_print(...)    shd_log_fmt(WARN, __VA_ARGS__)
+#define shd_error_print(...)   shd_log_fmt(ERROR, __VA_ARGS__)
 
-#define debugvv_print_once(flag, ...) { static bool flag = false; if (!flag) { flag = true; debugvv_print(__VA_ARGS__ ); } }
-#define debugv_print_once(flag, ...)  { static bool flag = false; if (!flag) { flag = true; debugv_print(__VA_ARGS__ );  } }
-#define debug_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; debug_print(__VA_ARGS__ );   } }
-#define info_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; info_print(__VA_ARGS__ );    } }
-#define warn_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; warn_print(__VA_ARGS__ );    } }
-#define error_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; error_print(__VA_ARGS__ );   } }
+#define shd_debugvv_print_once(flag, ...) { static bool flag = false; if (!flag) { flag = true; shd_debugvv_print(__VA_ARGS__ ); } }
+#define shd_debugv_print_once(flag, ...)  { static bool flag = false; if (!flag) { flag = true; shd_debugv_print(__VA_ARGS__ );  } }
+#define shd_debug_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; shd_debug_print(__VA_ARGS__ );   } }
+#define shd_info_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; shd_info_print(__VA_ARGS__ );    } }
+#define shd_warn_print_once(flag, ...)    { static bool flag = false; if (!flag) { flag = true; shd_warn_print(__VA_ARGS__ );    } }
+#define shd_error_print_once(flag, ...)   { static bool flag = false; if (!flag) { flag = true; shd_error_print(__VA_ARGS__ );   } }
 
 #ifdef _MSC_VER
 #define SHADY_UNREACHABLE __assume(0)
@@ -49,7 +49,7 @@ void log_module(LogLevel level, const CompilerConfig*, Module*);
   SHADY_UNREACHABLE;          \
 }
 
-#define error(...) {                                        \
+#define shd_error(...) {                                    \
   fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
   fprintf (stderr, __VA_ARGS__);                            \
   fprintf (stderr, "\n");                                   \
@@ -57,6 +57,6 @@ void log_module(LogLevel level, const CompilerConfig*, Module*);
 }
 
 #include <stdnoreturn.h>
-noreturn void shd_error_die();
+noreturn void shd_error_die(void);
 
 #endif

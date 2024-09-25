@@ -61,7 +61,7 @@ static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
             continue;
         shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, emitted);
     }
-    log_string(ERROR, "Reached end of LLVM basic block without encountering a terminator!");
+    shd_log_fmt(ERROR, "Reached end of LLVM basic block without encountering a terminator!");
     SHADY_UNREACHABLE;
 }
 
@@ -73,8 +73,8 @@ static void write_bb_tail(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
 
 static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasicBlockRef bb) {
     IrArena* a = get_module_arena(p->dst);
-    debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
-    if (get_log_level() >= DEBUG)
+    shd_debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
+    if (shd_log_get_level() >= DEBUG)
         LLVMDumpValue((LLVMValueRef)bb);
 
     struct List* phis = shd_new_list(LLVMValueRef);
@@ -141,18 +141,18 @@ const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlo
 
 const Node* convert_function(Parser* p, LLVMValueRef fn) {
     if (is_llvm_intrinsic(fn)) {
-        warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
+        shd_warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
     }
     if (is_shady_intrinsic(fn)) {
-        warn_print("Skipping shady intrinsic function: %s\n", LLVMGetValueName(fn));
+        shd_warn_print("Skipping shady intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
     }
 
     const Node** found = shd_dict_find_value(LLVMValueRef, const Node*, p->map, fn);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
-    debug_print("Converting function: %s\n", LLVMGetValueName(fn));
+    shd_debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
     Nodes params = empty(a);
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
@@ -248,10 +248,10 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
         if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
             return NULL;
         }
-        warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
+        shd_warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
         return NULL;
     }
-    debug_print("Converting global: %s\n", name);
+    shd_debug_print("Converting global: %s\n", name);
 
     Node* decl = NULL;
 
@@ -291,11 +291,11 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
     char* parsing_diagnostic = "";
     if (LLVMParseIRInContext(context, mem, &src, &parsing_diagnostic)) {
-        error_print("Failed to parse LLVM IR\n");
-        error_print(parsing_diagnostic);
+        shd_error_print("Failed to parse LLVM IR\n");
+        shd_error_print(parsing_diagnostic);
         shd_error_die();
     }
-    info_print("LLVM IR parsed successfully\n");
+    shd_info_print("LLVM IR parsed successfully\n");
 
     ArenaConfig aconfig = default_arena_config(&config->target);
     aconfig.check_types = false;
@@ -329,16 +329,16 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
             break;
         global = LLVMGetNextGlobal(global);
     }
-    log_string(DEBUGVV, "Shady module parsed from LLVM:");
-    log_module(DEBUGVV, config, dirty);
+    shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM:");
+    shd_log_module(DEBUGVV, config, dirty);
 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* arena2 = new_ir_arena(&aconfig);
     *dst = new_module(arena2, name);
     postprocess(&p, dirty, *dst);
-    log_string(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
-    log_module(DEBUGVV, config, *dst);
+    shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
+    shd_log_module(DEBUGVV, config, *dst);
     verify_module(config, *dst);
     destroy_ir_arena(arena);
 

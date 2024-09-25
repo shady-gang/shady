@@ -19,7 +19,7 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
         .front_end = true,
     };
     Module* builtin_scheduler_mod = parse_slim_module(config, pconfig, shady_scheduler_src, "builtin_scheduler");
-    debug_print("Adding builtin scheduler code");
+    shd_debug_print("Adding builtin scheduler code");
     link_module(dst, builtin_scheduler_mod);
     destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
@@ -35,7 +35,7 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
     old_mod = *pmod;
     *pmod = pass(config, *pmod);
     (*pmod)->sealed = true;
-    debugvv_print("After pass %s: \n", pass_name);
+    shd_debugvv_print("After pass %s: \n", pass_name);
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
     if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
@@ -43,7 +43,7 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
         *pmod = cleanup(config, *pmod);
-    log_module(DEBUGVV, config, *pmod);
+    shd_log_module(DEBUGVV, config, *pmod);
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
     if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
@@ -57,8 +57,8 @@ void apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPas
     *todo |= changed;
 
     if (getenv("SHADY_DUMP_CLEAN_ROUNDS") && changed) {
-        log_string(DEBUGVV, "%s changed something:\n", pass_name);
-        log_module(DEBUGVV, config, *m);
+        shd_log_fmt(DEBUGVV, "%s changed something:\n", pass_name);
+        shd_log_module(DEBUGVV, config, *m);
     }
 }
 
@@ -67,8 +67,8 @@ CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
 
     // we don't want to mess with the original module
     *pmod = import(config, *pmod);
-    log_string(DEBUG, "After import:\n");
-    log_module(DEBUG, config, *pmod);
+    shd_log_fmt(DEBUG, "After import:\n");
+    shd_log_module(DEBUG, config, *pmod);
 
     if (config->input_cf.has_scope_annotations) {
         // RUN_PASS(scope_heuristic)

@@ -75,7 +75,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             });
             break;
         }
-        default: error("cannot index into this")
+        default: shd_error("cannot index into this")
     }
 
     return ptr;

@@ -96,9 +96,9 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node*
         return;
     }
 
-    log_string(ERROR, "subgroup_first emulation is not supported for ");
-    log_node(ERROR, t);
-    log_string(ERROR, ".\n");
+    shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");
+    shd_log_node(ERROR, t);
+    shd_log_fmt(ERROR, ".\n");
     shd_error_die();
 }
 
@@ -110,7 +110,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, qualified_type_helper(t, true), mk_nodes(a, scope, src));
 
     if (resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
-        error("TODO")
+        shd_error("TODO")
 
     Node* fn = NULL;
     Node** found = shd_dict_find_value(const Node*, Node*, ctx->fns, t);

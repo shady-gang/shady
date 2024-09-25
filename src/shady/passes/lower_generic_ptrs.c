@@ -41,7 +41,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
         if (generic_ptr_tags[i] == as)
             return (uint64_t) i;
     }
-    error("address space '%s' can't be converted to generic", get_address_space_name(as));
+    shd_error("address space '%s' can't be converted to generic", get_address_space_name(as));
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -257,7 +257,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         return yield_values_and_wrap_in_block(bb, singleton(generic_ptr));
                     } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _from_ generic
-                        error("TODO");
+                        shd_error("TODO");
                     }
                     break;
                 }

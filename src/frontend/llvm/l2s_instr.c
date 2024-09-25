@@ -118,14 +118,14 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             //if (!found) {
                 Nodes str = scope_to_string(p, dbgloc);
                 //insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
-                debugv_print("Found a debug location for ");
-                log_node(DEBUGV, fn_or_bb);
-                debugv_print(" ");
+                shd_debugv_print("Found a debug location for ");
+            shd_log_node(DEBUGV, fn_or_bb);
+                shd_debugv_print(" ");
                 for (size_t i = 0; i < str.count; i++) {
-                    log_node(DEBUGV, str.nodes[i]);
-                    debugv_print(" -> ");
+                    shd_log_node(DEBUGV, str.nodes[i]);
+                    shd_debugv_print(" -> ");
                 }
-                debugv_print(" (depth= %zu)\n", str.count);
+                shd_debugv_print(" (depth= %zu)\n", str.count);
                 bind_instruction_single(b, ext_instr(a, (ExtInstr) {
                     .set = "shady.scope",
                     .opcode = 0,
@@ -568,21 +568,21 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                         Nodes ops = convert_operands(p, num_args, instr);
                         if (strcmp(instructionname, "DebugPrintf") == 0) {
                             if (ops.count == 0)
-                                error("DebugPrintf called without arguments");
+                                shd_error("DebugPrintf called without arguments");
                             size_t whocares;
                             gen_debug_printf(b, LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares), nodes(a, ops.count - 1, &ops.nodes[1]));
                             return tuple_helper(a, empty(a));
                         }
 
-                        error_print("Unrecognised shady instruction '%s'\n", instructionname);
+                        shd_error_print("Unrecognised shady instruction '%s'\n", instructionname);
                         shd_error_die();
                     } else {
-                        error_print("Unrecognised shady intrinsic '%s'\n", keyword);
+                        shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();
                     }
                 }
 
-                error_print("Unhandled intrinsic '%s'\n", intrinsic);
+                shd_error_print("Unhandled intrinsic '%s'\n", intrinsic);
                 shd_error_die();
             }
             finish:
@@ -660,8 +660,8 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
     }*/
 
     unimplemented:
-    error_print("Shady: unimplemented LLVM instruction ");
+    shd_error_print("Shady: unimplemented LLVM instruction ");
     LLVMDumpValue(instr);
-    error_print(" (opcode=%d)\n", opcode);
+    shd_error_print(" (opcode=%d)\n", opcode);
     shd_error_die();
 }

@@ -312,10 +312,10 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
         case If_TAG:
         case Match_TAG:
-        case Loop_TAG: error("not supposed to exist in IR at this stage");
+        case Loop_TAG: shd_error("not supposed to exist in IR at this stage");
         case Terminator_MergeBreak_TAG:
         case Terminator_MergeContinue_TAG:
-        case Terminator_MergeSelection_TAG: error("Only control nodes are tolerated here.")
+        case Terminator_MergeSelection_TAG: shd_error("Only control nodes are tolerated here.")
     }
 }
 
@@ -408,7 +408,7 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(false); // actually that should not come up.
             longjmp(ctx->bail, 1);
         }
-        case BasicBlock_TAG: error("All basic blocks should be processed explicitly")
+        case BasicBlock_TAG: shd_error("All basic blocks should be processed explicitly")
         default: break;
     }
     return recreate_node_identity(&ctx->rewriter, node);

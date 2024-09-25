@@ -65,11 +65,11 @@ static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, 
         if (shd_dict_find_key(const Node*, bound_set, v))
             continue;
 
-        log_string(DEBUGVV, "Found variable used outside it's control scope: ");
-        log_node(DEBUGVV, v);
-        log_string(DEBUGVV, " (exiting_node:");
-        log_node(DEBUGVV, exiting_node);
-        log_string(DEBUGVV, " )\n");
+        shd_log_fmt(DEBUGVV, "Found variable used outside it's control scope: ");
+        shd_log_node(DEBUGVV, v);
+        shd_log_fmt(DEBUGVV, " (exiting_node:");
+        shd_log_node(DEBUGVV, exiting_node);
+        shd_log_fmt(DEBUGVV, " )\n");
 
         shd_list_append(const Node*, leaking, v);
     }
@@ -120,7 +120,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
         for (size_t i = 0; i < shd_list_count(exiting_nodes); i++) {
-            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(shd_read_list(CFNode *, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
+            shd_debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(shd_read_list(CFNode *, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
         }
 
         size_t exiting_nodes_count = shd_list_count(exiting_nodes);

@@ -68,7 +68,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    error("could not resolve node %s", name)
+    shd_error("could not resolve node %s", name)
 }
 
 static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
@@ -128,7 +128,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
 
 static const Node* get_node_address(Context* ctx, const Node* node) {
     const Node* got = get_node_address_maybe(ctx, node);
-    if (!got) error("This doesn't really look like a place expression...")
+    if (!got) shd_error("This doesn't really look like a place expression...")
     return got;
 }
 
@@ -145,7 +145,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             Nodes results = deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = get_string_literal(a, names[i]);
-                log_string(DEBUGV, "Bound immutable variable '%s'\n", name);
+                shd_log_fmt(DEBUGV, "Bound immutable variable '%s'\n", name);
                 add_binding(ctx, false, name, results.nodes[i]);
             }
             break;
@@ -166,7 +166,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
 
                 add_binding(ctx, true, name, ptr);
-                log_string(DEBUGV, "Bound mutable variable '%s'\n", name);
+                shd_log_fmt(DEBUGV, "Bound mutable variable '%s'\n", name);
             }
             break;
         }
@@ -181,7 +181,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 bbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(conts[i]));
                 register_processed(r, conts[i], bbs[i]);
                 add_binding(ctx, false, name, bbs[i]);
-                log_string(DEBUGV, "Bound continuation '%s'\n", name);
+                shd_log_fmt(DEBUGV, "Bound continuation '%s'\n", name);
             }
             for (size_t i = 0; i < names_count; i++) {
                 Context cont_ctx = *ctx;
@@ -240,10 +240,10 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             bound->payload.nom_type.body = rewrite_node(&ctx->rewriter, decl->payload.nom_type.body);
             return bound;
         }
-        default: error("unknown declaration kind");
+        default: shd_error("unknown declaration kind");
     }
 
-    error("unreachable")
+    shd_error("unreachable")
     //register_processed(&ctx->rewriter, decl, bound);
     //return bound;
 }
@@ -285,7 +285,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(is_declaration(node));
             return rewrite_decl(ctx, node);
         }
-        case Param_TAG: error("the binders should be handled such that this node is never reached");
+        case Param_TAG: shd_error("the binders should be handled such that this node is never reached");
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_params = recreate_params(&ctx->rewriter, node->payload.basic_block.params);

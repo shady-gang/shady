@@ -44,7 +44,7 @@ static OperandClass classify_operand_type(const Type* type) {
         case Bool_TAG:    return Logical;
         case PtrType_TAG: return Ptr;
         case Float_TAG:   return FP;
-        default: error("we don't know what to do with this")
+        default: shd_error("we don't know what to do with this")
     }
 }
 
@@ -270,9 +270,9 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
 
             return spvb_select(bb_builder, spv_emit_type(emitter, args.nodes[1]->type), cond, truv, flsv);
         }
-        default: error("TODO: unhandled op");
+        default: shd_error("TODO: unhandled op");
     }
-    error("unreachable");
+    shd_error("unreachable");
 }
 
 static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, ExtInstr instr) {
@@ -358,15 +358,15 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
     assert(is_instruction(instruction));
 
     switch (is_instruction(instruction)) {
-        case NotAnInstruction: error("");
+        case NotAnInstruction: shd_error("");
         case Instruction_PushStack_TAG:
         case Instruction_PopStack_TAG:
         case Instruction_GetStackSize_TAG:
         case Instruction_SetStackSize_TAG:
-        case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
+        case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
-        case Instruction_StackAlloc_TAG: error("Should be lowered elsewhere")
+        case Instruction_StackAlloc_TAG: shd_error("Should be lowered elsewhere")
         case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
         case Instruction_Call_TAG: return emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call);
         case PrimOp_TAG: return emit_primop(emitter, fn_builder, bb_builder, instruction);
@@ -462,11 +462,11 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
 
     SpvId new;
     switch (is_value(node)) {
-        case NotAValue: error("");
-        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case NotAValue: shd_error("");
+        case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
-        case Value_FnAddr_TAG: error("Should be lowered away earlier!");
+        case Value_FnAddr_TAG: shd_error("Should be lowered away earlier!");
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = spv_emit_type(emitter, node->type);
@@ -538,7 +538,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             new = spvb_undef(emitter->file_builder, spv_emit_type(emitter, node->payload.undef.type));
             break;
         }
-        case Value_Fill_TAG: error("lower me")
+        case Value_Fill_TAG: shd_error("lower me")
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
             switch (decl->tag) {
@@ -550,12 +550,12 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
                     new = spv_emit_value(emitter, fn_builder, decl->payload.constant.value);
                     break;
                 }
-                default: error("RefDecl must reference a constant or global");
+                default: shd_error("RefDecl must reference a constant or global");
             }
             break;
         }
         default: {
-            error("Unhandled value for code generation: %s", node_tags[node->tag]);
+            shd_error("Unhandled value for code generation: %s", node_tags[node->tag]);
         }
     }
 
@@ -589,8 +589,8 @@ SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) 
         return emitted;
     } else if (!can_appear_at_top_level(node)) {
         if (!fn_builder) {
-            log_node(ERROR, node);
-            log_string(ERROR, "cannot appear at top-level");
+            shd_log_node(ERROR, node);
+            shd_log_fmt(ERROR, "cannot appear at top-level");
             exit(-1);
         }
         // Pick the entry block of the current fn
@@ -612,5 +612,5 @@ SpvId spv_emit_mem(Emitter* e, FnBuilder* b, const Node* mem) {
         return 0;
     if (is_instruction(mem))
         return spv_emit_value(e, b, mem);
-    error("What sort of mem is this ?");
+    shd_error("What sort of mem is this ?");
 }

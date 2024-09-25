@@ -232,7 +232,7 @@ AddressSpace convert_storage_class(SpvStorageClass class) {
         default:
             break;
     }
-    error("s2s: Unsupported storage class: %d\n", class);
+    shd_error("s2s: Unsupported storage class: %d\n", class);
 }
 
 typedef struct {
@@ -355,7 +355,7 @@ SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
             result = instruction[1];
         return result;
     }
-    error("no result defined at offset %zu", instruction_offset);
+    shd_error("no result defined at offset %zu", instruction_offset);
 }
 
 void scan_definitions(SpvParser* parser) {
@@ -518,7 +518,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     type = "Vertex";
                     break;
                 default:
-                    error("Unsupported execution model %d", instruction[1])
+                    shd_error("Unsupported execution model %d", instruction[1])
             }
             add_decoration(parser, instruction[2], (SpvDeco) {
                 .decoration = ShdDecorationEntryPointType,
@@ -573,7 +573,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 case 16: w = IntTy16; break;
                 case 32: w = IntTy32; break;
                 case 64: w = IntTy64; break;
-                default: error("unhandled int width");
+                default: shd_error("unhandled int width");
             }
             parser->defs[result].type = Typ;
             parser->defs[result].node = int_type(parser->arena, (Int) {
@@ -589,7 +589,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 case 16: w = FloatTy16; break;
                 case 32: w = FloatTy32; break;
                 case 64: w = FloatTy64; break;
-                default: error("unhandled float width");
+                default: shd_error("unhandled float width");
             }
             parser->defs[result].type = Typ;
             parser->defs[result].node = float_type(parser->arena, (Float) {
@@ -700,7 +700,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     });
                     break;
                 }
-                default: error("OpConstant must produce an int or a float");
+                default: shd_error("OpConstant must produce an int or a float");
             }
             break;
         }
@@ -808,7 +808,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 } else if (strcmp(entry_point_type->payload.str, "Vertex") == 0) {
 
                 } else {
-                    warn_print("Unknown entry point type '%s' for '%s'\n", entry_point_type->payload.str, name);
+                    shd_warn_print("Unknown entry point type '%s' for '%s'\n", entry_point_type->payload.str, name);
                 }
             }
 
@@ -942,7 +942,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     shd_dict_insert(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, new);
                 }
 
-                debugv_print("s2s: recorded argument %d (value id=%d) for block %d with predecessor %d\n", parser->fun_arg_i, argument_value, parser->current_block.id, predecessor_block);
+                shd_debugv_print("s2s: recorded argument %d (value id=%d) for block %d with predecessor %d\n", parser->fun_arg_i, argument_value, parser->current_block.id, predecessor_block);
             }
             parser->fun_arg_i++;
             break;
@@ -1210,7 +1210,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                             .operands = singleton(args[0])
                         });
                         break;
-                    default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                    default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else if (strcmp(set, "GLSL.std.450") == 0) {
                 switch (ext_instr) {
@@ -1263,10 +1263,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     case GLSLstd450UMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
                     case GLSLstd450Exp: instr = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = singleton(args[0]) }); break;
                     case GLSLstd450Pow: instr = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    default: error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                    default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else {
-                error("Unknown extended instruction set '%s'", set);
+                shd_error("Unknown extended instruction set '%s'", set);
             }
 
             parser->defs[result].type = Value;
@@ -1308,7 +1308,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->current_block.builder = NULL;
             break;
         }
-        default: error("Unsupported op: %d, size: %d", op, size);
+        default: shd_error("Unsupported op: %d, size: %d", op, size);
     }
 
     if (has_result) {
@@ -1321,7 +1321,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
     assert(id > 0 && id < parser->header.bound);
     if (parser->defs[id].type == Nothing)
-    error("there is no Op that defines result %zu", id);
+    shd_error("there is no Op that defines result %zu", id);
     if (parser->defs[id].type == Forward)
         parse_spv_instruction_at(parser, parser->defs[id].instruction_offset);
     assert(parser->defs[id].type != Forward);

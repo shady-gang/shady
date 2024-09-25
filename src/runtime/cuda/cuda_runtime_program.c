@@ -60,7 +60,7 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
 
     nvrtcResult compile_result = nvrtcCompileProgram(program, sizeof(options)/sizeof(*options), options);
     if (compile_result != NVRTC_SUCCESS) {
-        error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
+        shd_error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
         debug_print("Dumping source:\n%s", kernel->cuda_code);
     }
 
@@ -68,7 +68,7 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     CHECK_NVRTC(nvrtcGetProgramLogSize(program, &log_size), return false);
     char* log_buffer = calloc(log_size, 1);
     CHECK_NVRTC(nvrtcGetProgramLog(program, log_buffer), return false);
-    log_string(compile_result == NVRTC_SUCCESS ? DEBUG : ERROR, "NVRTC compilation log: %s\n", log_buffer);
+    shd_log_fmt(compile_result == NVRTC_SUCCESS ? DEBUG : ERROR, "NVRTC compilation log: %s\n", log_buffer);
     free(log_buffer);
 
     CHECK_NVRTC(nvrtcGetPTXSize(program, &kernel->ptx_size), return false);
@@ -125,7 +125,7 @@ err_post_linker_create:
     if (*info_log)
         info_print("CUDA JIT info: %s\n", info_log);
     if (*error_log)
-        error_print("CUDA JIT failed: %s\n", error_log);
+        shd_error_print("CUDA JIT failed: %s\n", error_log);
 err_linker_create:
     return false;
 }

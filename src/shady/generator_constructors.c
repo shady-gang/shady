@@ -54,7 +54,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     }
 
                     shd_growy_append_formatted(g, "%s\t\t\tif (arena->config.check_op_classes && *pop != NULL && !is_%s(*pop)) {\n", extra, class);
-                    shd_growy_append_formatted(g, "%s\t\t\t\terror_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
+                    shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
                     shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_die();\n", extra);
                     shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
                     if (list) {

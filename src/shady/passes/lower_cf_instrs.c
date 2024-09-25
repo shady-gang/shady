@@ -140,9 +140,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
 
             if (!selection_instr) {
-                error_print("Scoping error: Failed to find a dominating selection construct for ");
-                log_node(ERROR, node);
-                error_print(".\n");
+                shd_error_print("Scoping error: Failed to find a dominating selection construct for ");
+                shd_log_node(ERROR, node);
+                shd_error_print(".\n");
                 shd_error_die();
             }
 
@@ -174,9 +174,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
 
             if (!loop_start) {
-                error_print("Scoping error: Failed to find a dominating loop construct for ");
-                log_node(ERROR, node);
-                error_print(".\n");
+                shd_error_print("Scoping error: Failed to find a dominating loop construct for ");
+                shd_log_node(ERROR, node);
+                shd_error_print(".\n");
                 shd_error_die();
             }
 
@@ -208,9 +208,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
 
             if (!loop_start) {
-                error_print("Scoping error: Failed to find a dominating loop construct for ");
-                log_node(ERROR, node);
-                error_print(".\n");
+                shd_error_print("Scoping error: Failed to find a dominating loop construct for ");
+                shd_log_node(ERROR, node);
+                shd_error_print(".\n");
                 shd_error_die();
             }
 

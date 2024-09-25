@@ -30,7 +30,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
             argv[i] = NULL;
             i++;
             if (i == argc)
-                error("Missing subgroup size name");
+                shd_error("Missing subgroup size name");
             if (options->include_path)
                 free((void*) options->include_path);
             options->include_path = shd_format_string_new("%s", argv[i]);
@@ -48,7 +48,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
 void vcc_check_clang(void) {
     int clang_retval = system(VCC_CLANG" --version");
     if (clang_retval != 0)
-        error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
+        shd_error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 }
 
 VccConfig vcc_init_config(CompilerConfig* compiler_config) {
@@ -89,7 +89,7 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
 
     if (!vcc_options->tmp_filename) {
         if (vcc_options->only_run_clang) {
-            error_print("Please provide an output filename.\n");
+            shd_error_print("Please provide an output filename.\n");
             shd_error_die();
         }
         char* tmp_alloc;
@@ -118,7 +118,7 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
     shd_growy_append_bytes(g, 1, "\0");
     char* arg_string = shd_growy_deconstruct(g);
 
-    info_print("built command: %s\n", arg_string);
+    shd_info_print("built command: %s\n", arg_string);
 
     FILE* stream = popen(arg_string, "r");
     free(arg_string);
@@ -134,7 +134,7 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
     shd_growy_append_string(json_bytes, "\0");
     char* llvm_result = shd_growy_deconstruct(json_bytes);
     int clang_returned = pclose(stream);
-    info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
+    shd_info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
     free(llvm_result);
     if (clang_returned)
         exit(ClangInvocationFailed);

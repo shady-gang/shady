@@ -48,25 +48,25 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
-        debugv_print("Function %s can't be a leaf function because", get_abstraction_name(fn_node->fn));
+        shd_debugv_print("Function %s can't be a leaf function because", get_abstraction_name(fn_node->fn));
         bool and = false;
         if (fn_node->is_address_captured) {
-            debugv_print("its address is captured");
+            shd_debugv_print("its address is captured");
             and = true;
         }
         if (fn_node->is_recursive) {
             if (and)
-                debugv_print(" and ");
-            debugv_print("it is recursive");
+                shd_debugv_print(" and ");
+            shd_debugv_print("it is recursive");
             and = true;
         }
         if (fn_node->calls_indirect) {
             if (and)
-                debugv_print(" and ");
-            debugv_print("it makes indirect calls");
+                shd_debugv_print(" and ");
+            shd_debugv_print("it makes indirect calls");
             and = true;
         }
-        debugv_print(".\n");
+        shd_debugv_print(".\n");
         return false;
     }
 
@@ -74,7 +74,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     CGEdge e;
     while (shd_dict_iter(fn_node->callees, &iter, &e, NULL)) {
         if (!is_leaf_fn(ctx, e.dst_fn)) {
-            debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", get_abstraction_name(fn_node->fn), get_abstraction_name(e.dst_fn->fn));
+            shd_debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", get_abstraction_name(fn_node->fn), get_abstraction_name(e.dst_fn->fn));
             info->is_leaf = false;
             info->done = true;
         }
@@ -110,7 +110,7 @@ static const Node* process(Context* ctx, const Node* node) {
             recreate_decl_body_identity(&ctx->rewriter, node, new);
 
             if (fn_ctx.is_leaf) {
-                debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
+                shd_debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
                 new->payload.fun.annotations = append_nodes(a, annotations, annotation(a, (Annotation) {
                         .name = "Leaf",
                 }));
@@ -122,9 +122,9 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Control_TAG: {
             if (!is_control_static(ctx->uses, node)) {
-                debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
-                log_node(DEBUGV, first(get_abstraction_params(node->payload.control.inside)));
-                debugv_print("escapes its control block, preventing restructuring.\n");
+                shd_debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
+                shd_log_node(DEBUGV, first(get_abstraction_params(node->payload.control.inside)));
+                shd_debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
             }
             break;
@@ -136,9 +136,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (control && is_control_static(ctx->uses, control))
                     break;
             }
-            debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
-            log_node(DEBUGV, old_jp);
-            debugv_print("which is not bound by a control node within that function.\n");
+            shd_debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
+            shd_log_node(DEBUGV, old_jp);
+            shd_debugv_print("which is not bound by a control node within that function.\n");
             ctx->is_leaf = false;
             break;
         }

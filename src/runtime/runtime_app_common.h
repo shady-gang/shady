@@ -27,7 +27,7 @@ static void cli_parse_common_app_arguments(CommonAppArgs* args, int* pargc, char
             argv[i] = NULL;
             i++;
             if (i >= argc) {
-                error_print("Missing device number for --device\n");
+                shd_error_print("Missing device number for --device\n");
                 exit(1);
             }
             args->device = strtol(argv[i], NULL, 10);
@@ -38,12 +38,12 @@ static void cli_parse_common_app_arguments(CommonAppArgs* args, int* pargc, char
     }
 
     if (help) {
-        error_print("Usage: runtime_test [source.slim]\n");
-        error_print("Available arguments: \n");
-        error_print("  --log-level debug[v[v]], info, warn, error]\n");
-        error_print("  --shd_print-builtin\n");
-        error_print("  --shd_print-generated\n");
-        error_print("  --device n\n");
+        shd_error_print("Usage: runtime_test [source.slim]\n");
+        shd_error_print("Available arguments: \n");
+        shd_error_print("  --log-level debug[v[v]], info, warn, error]\n");
+        shd_error_print("  --shd_print-builtin\n");
+        shd_error_print("  --shd_print-generated\n");
+        shd_error_print("  --device n\n");
         exit(0);
     }
 

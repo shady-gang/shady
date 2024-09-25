@@ -50,7 +50,7 @@ static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
         case AsPrivate:  return &ctx->fake_private_memory;
         case AsSubgroup: return &ctx->fake_subgroup_memory;
         case AsShared:   return &ctx->fake_shared_memory;
-        default: error("Emulation of this AS is not supported");
+        default: shd_error("Emulation of this AS is not supported");
     }
 }
 
@@ -71,7 +71,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
                 return gen_reinterpret_cast(bb, element_type, unsigned_int);
             }
-            default: error("TODO")
+            default: shd_error("TODO")
         }
         case Int_TAG: ser_int: {
             assert(element_type->tag == Int_TAG);
@@ -124,9 +124,9 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case PackType_TAG: {
             const Node* size = get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
-                error_print("Size of type ");
-                log_node(ERROR, element_type);
-                error_print(" is not known a compile-time!\n");
+                shd_error_print("Size of type ");
+                shd_log_node(ERROR, element_type);
+                shd_error_print(" is not known a compile-time!\n");
             }
             size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
@@ -138,7 +138,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             }
             return composite_helper(a, element_type, nodes(a, components_count, components));
         }
-        default: error("TODO");
+        default: shd_error("TODO");
     }
 }
 
@@ -161,7 +161,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, singleton(ptr_int_t), singleton(value));
                 return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
             }
-            default: error("TODO")
+            default: shd_error("TODO")
         }
         case Int_TAG: des_int: {
             assert(element_type->tag == Int_TAG);
@@ -181,7 +181,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* original_word = NULL;
                 if (needs_patch) {
                     original_word = gen_load(bb, gen_lea(bb, arr, zero, singleton(base_offset)));
-                    error_print("TODO");
+                    shd_error_print("TODO");
                     shd_error_die();
                     // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 }*/
@@ -228,9 +228,9 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case PackType_TAG: {
             const Node* size = get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
-                error_print("Size of type ");
-                log_node(ERROR, element_type);
-                error_print(" is not known a compile-time!\n");
+                shd_error_print("Size of type ");
+                shd_log_node(ERROR, element_type);
+                shd_error_print(" is not known a compile-time!\n");
             }
             size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
@@ -241,7 +241,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             }
             return;
         }
-        default: error("TODO");
+        default: shd_error("TODO");
     }
 }
 
@@ -323,7 +323,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
             return yield_values_and_wrap_in_block(bb, empty(a));
         }
-        case StackAlloc_TAG: error("This needs to be lowered (see setup_stack_frames.c)")
+        case StackAlloc_TAG: shd_error("This needs to be lowered (see setup_stack_frames.c)")
         case PtrType_TAG: {
             if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });

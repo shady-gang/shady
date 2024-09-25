@@ -244,7 +244,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
             case Unreachable_TAG:
                 return;
             case NotATerminator:
-                error("Grammar problem");
+                shd_error("Grammar problem");
                 return;
         }
         SHADY_UNREACHABLE;
@@ -344,15 +344,15 @@ static void validate_cfg(CFG* cfg) {
         if (node != cfg->entry /* this exception exists since we might build CFGs rooted in cases */) {
             if (structured_body_uses > 0) {
                 if (structured_body_uses > 1) {
-                    error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", get_abstraction_name_safe(node->node), structured_body_uses);
+                    shd_error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", get_abstraction_name_safe(node->node), structured_body_uses);
                     shd_error_die();
                 }
                 if (num_jumps > 0) {
-                    error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", get_abstraction_name_safe(node->node), num_jumps);
+                    shd_error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", get_abstraction_name_safe(node->node), num_jumps);
                     shd_error_die();
                 }
                 if (!is_tail && num_exits > 0) {
-                    error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", get_abstraction_name_safe(node->node), num_exits);
+                    shd_error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", get_abstraction_name_safe(node->node), num_exits);
                     shd_error_die();
                 }
             }
@@ -540,7 +540,7 @@ void compute_domtree(CFG* cfg) {
         if (structured_idom) {
             continue;
         }
-        error("no idom found");
+        shd_error("no idom found");
         outer_loop:;
     }
 

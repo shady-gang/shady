@@ -76,7 +76,7 @@ String class_to_type(json_object* src, String class, bool list) {
     }
     // check the class is valid
     if (!lookup_node_class(src, class)) {
-        error_print("invalid node class '%s'\n", class);
+        shd_error_print("invalid node class '%s'\n", class);
         shd_error_die();
     }
     return list ? "Nodes" : "const Node*";
@@ -157,7 +157,7 @@ void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_nam
             case json_type_double:
             case json_type_int:
             case json_type_object:
-                error_print("Invalid datatype for a node's 'class' attribute");
+                shd_error_print("Invalid datatype for a node's 'class' attribute");
                 break;
         }
     }

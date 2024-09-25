@@ -25,11 +25,11 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
                 const Type* expected_t = get_builtin_type(a, b);
                 const Type* actual_t = rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
                 if (expected_t != actual_t) {
-                    log_string(INFO, "normalize_builtins: found builtin decl '%s' not matching expected type: '", global_variable.name);
-                    log_node(INFO, expected_t);
-                    log_string(INFO, "', got '");
-                    log_node(INFO, actual_t);
-                    log_string(INFO, "'.");
+                    shd_log_fmt(INFO, "normalize_builtins: found builtin decl '%s' not matching expected type: '", global_variable.name);
+                    shd_log_node(INFO, expected_t);
+                    shd_log_fmt(INFO, "', got '");
+                    shd_log_node(INFO, actual_t);
+                    shd_log_fmt(INFO, "'.");
                     return actual_t;
                 }
             }

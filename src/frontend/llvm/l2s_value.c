@@ -159,7 +159,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             uint64_t u = 0;
             static_assert(sizeof(u) == sizeof(d), "");
             switch (t->payload.float_type.width) {
-                case FloatTy16: error("todo")
+                case FloatTy16: shd_error("todo")
                 case FloatTy32: {
                     float f = (float) d;
                     static_assert(sizeof(f) == sizeof(uint32_t), "");
@@ -194,8 +194,8 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         return r;
     }
 
-    error_print("Failed to find value ");
+    shd_error_print("Failed to find value ");
     LLVMDumpValue(v);
-    error_print(" in the already emitted map (kind=%d)\n", LLVMGetValueKind(v));
+    shd_error_print(" in the already emitted map (kind=%d)\n", LLVMGetValueKind(v));
     shd_error_die();
 }

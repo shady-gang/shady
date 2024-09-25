@@ -29,7 +29,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
     if (type == supertype)
         return true;
     switch (is_type(supertype)) {
-        case NotAType: error("supplied not a type to is_subtype");
+        case NotAType: shd_error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {
             // uniform T <: varying T
             if (supertype->payload.qualified_type.is_uniform && !type->payload.qualified_type.is_uniform)
@@ -146,11 +146,11 @@ bool is_subtype(const Type* supertype, const Type* type) {
 
 void check_subtype(const Type* supertype, const Type* type) {
     if (!is_subtype(supertype, type)) {
-        log_node(ERROR, type);
-        error_print(" isn't a subtype of ");
-        log_node(ERROR, supertype);
-        error_print("\n");
-        error("failed check_subtype")
+        shd_log_node(ERROR, type);
+        shd_error_print(" isn't a subtype of ");
+        shd_log_node(ERROR, supertype);
+        shd_error_print("\n");
+        shd_error("failed check_subtype")
     }
 }
 
@@ -377,7 +377,7 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
-        error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
+        shd_error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
         shd_error_die();
     }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
@@ -407,7 +407,7 @@ const Type* check_type_param(IrArena* arena, Param variable) {
 }
 
 const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
-    error("should never happen");
+    shd_error("should never happen");
 }
 
 const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
@@ -516,7 +516,7 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     switch (ref_decl.decl->tag) {
         case GlobalVariable_TAG:
         case Constant_TAG: break;
-        default: error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
+        default: shd_error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
     }
     assert(t->tag != QualifiedType_TAG && "decl types may not be qualified");
     return qualified_type(arena, (QualifiedType) {
@@ -895,7 +895,7 @@ const Type* check_type_ext_instr(IrArena* arena, ExtInstr payload) {
 
 static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
     if (param_types.count != arg_types.count)
-        error("Mismatched number of arguments/parameters");
+        shd_error("Mismatched number of arguments/parameters");
     for (size_t i = 0; i < param_types.count; i++)
         check_subtype(param_types.nodes[i], arg_types.nodes[i]);
 }
@@ -943,7 +943,7 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     assert(if_instr.tail && is_abstraction(if_instr.tail));
     ensure_types_are_data_types(&if_instr.yield_types);
     if (get_unqualified_type(if_instr.condition->type) != bool_type(arena))
-        error("condition of an if should be bool");
+        shd_error("condition of an if should be bool");
     // TODO check the contained Merge instrs
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
@@ -1248,11 +1248,11 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
         assert(b != BuiltinsCount);
         const Type* t = get_builtin_type(arena, b);
         if (t != global_variable.type) {
-            error_print("Creating a @Builtin global variable '%s' with the incorrect type: ", global_variable.name);
-            log_node(ERROR, global_variable.type);
-            error_print(" instead of the expected ");
-            log_node(ERROR, t);
-            error_print(".\n");
+            shd_error_print("Creating a @Builtin global variable '%s' with the incorrect type: ", global_variable.name);
+            shd_log_node(ERROR, global_variable.type);
+            shd_error_print(" instead of the expected ");
+            shd_log_node(ERROR, t);
+            shd_error_print(".\n");
             shd_error_die();
         }
     }

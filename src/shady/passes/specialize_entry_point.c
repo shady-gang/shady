@@ -82,14 +82,14 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
 static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
     const Node* old_entry_point_decl = find_entry_point(src, config);
     if (!old_entry_point_decl)
-        error("Entry point not found")
+        shd_error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
-        error("%s is not a function", config->specialization.entry_point);
+        shd_error("%s is not a function", config->specialization.entry_point);
     const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
     if (!ep)
-        error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
+        shd_error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
     switch (execution_model_from_string(get_annotation_string_payload(ep))) {
-        case EmNone: error("Unknown entry point type: %s", get_annotation_string_payload(ep))
+        case EmNone: shd_error("Unknown entry point type: %s", get_annotation_string_payload(ep))
         case EmCompute: {
             const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
             assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);

@@ -28,7 +28,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                 case 16: return uint16_type(a);
                 case 32: return uint32_type(a);
                 case 64: return uint64_type(a);
-                default: error("Unsupported integer width: %d\n", LLVMGetIntTypeWidth(t)); break;
+                default: shd_error("Unsupported integer width: %d\n", LLVMGetIntTypeWidth(t)); break;
             }
         case LLVMFunctionTypeKind: {
             unsigned num_params = LLVMCountParamTypes(t);
@@ -138,7 +138,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             break;
     }
 
-    error_print("Unsupported type: ");
+    shd_error_print("Unsupported type: ");
     LLVMDumpType(t);
     shd_error_die();
 }

@@ -36,13 +36,13 @@ void cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv) {
     }
 
     if (help) {
-        // error_print("Usage: slim source.slim\n");
-        // error_print("Available arguments: \n");
-        error_print("  --target <c, glsl, ispc, spirv>           \n");
-        error_print("  --output <filename>, -o <filename>        \n");
-        error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
-        error_print("  --dump-loop-tree <filename>\n");
-        error_print("  --dump-ir <filename>                      Dumps the final IR\n");
+        // shd_error_print("Usage: slim source.slim\n");
+        // shd_error_print("Available arguments: \n");
+        shd_error_print("  --target <c, glsl, ispc, spirv>           \n");
+        shd_error_print("  --output <filename>, -o <filename>        \n");
+        shd_error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");
+        shd_error_print("  --dump-loop-tree <filename>\n");
+        shd_error_print("  --dump-ir <filename>                      Dumps the final IR\n");
     }
 
     cli_pack_remaining_args(pargc, argv);

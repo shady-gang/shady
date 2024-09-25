@@ -29,8 +29,8 @@ Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, co
     Module** pmod = &m;
     Module* old_mod = NULL;
 
-    debugv_print("Parsed slim module:\n");
-    log_module(DEBUGV, config, *pmod);
+    shd_debugv_print("Parsed slim module:\n");
+    shd_log_module(DEBUGV, config, *pmod);
 
     generate_dummy_constants(config, *pmod);
 

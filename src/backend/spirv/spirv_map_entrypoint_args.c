@@ -16,7 +16,7 @@ static const Node* rewrite_args_type(Rewriter* rewriter, const Node* old_type) {
     IrArena* a = rewriter->dst_arena;
 
     if (old_type->tag != RecordType_TAG || old_type->payload.record_type.special != NotSpecial)
-        error("EntryPointArgs type must be a plain record type");
+        shd_error("EntryPointArgs type must be a plain record type");
 
     const Node* new_type = record_type(a, (RecordType) {
         .members = rewrite_nodes(rewriter, old_type->payload.record_type.members),
@@ -34,7 +34,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case GlobalVariable_TAG:
             if (lookup_annotation(node, "EntryPointArgs")) {
                 if (node->payload.global_variable.address_space != AsExternal)
-                    error("EntryPointArgs address space must be extern");
+                    shd_error("EntryPointArgs address space must be extern");
 
                 Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
                 const Node* type = rewrite_args_type(&ctx->rewriter, node->payload.global_variable.type);

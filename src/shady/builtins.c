@@ -26,7 +26,7 @@ const Type* get_builtin_type(IrArena* arena, Builtin builtin) {
 #define BUILTIN(name, _, datatype) case Builtin##name: return datatype;
 SHADY_BUILTINS()
 #undef BUILTIN
-        default: error("Unhandled builtin")
+        default: shd_error("Unhandled builtin")
     }
 }
 

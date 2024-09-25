@@ -7,8 +7,8 @@
 #include <cuda_runtime.h>
 #include <nvrtc.h>
 
-#define CHECK_NVRTC(x, failure_handler) { nvrtcResult the_result_ = x; if (the_result_ != NVRTC_SUCCESS) { const char* msg = nvrtcGetErrorString(the_result_); error_print(#x " failed (%s)\n", msg); failure_handler; } }
-#define CHECK_CUDA(x, failure_handler) { CUresult the_result_ = x; if (the_result_ != CUDA_SUCCESS) { const char* msg; cuGetErrorName(the_result_, &msg); error_print(#x " failed (%s)\n", msg); failure_handler; } }
+#define CHECK_NVRTC(x, failure_handler) { nvrtcResult the_result_ = x; if (the_result_ != NVRTC_SUCCESS) { const char* msg = nvrtcGetErrorString(the_result_); shd_error_print(#x " failed (%s)\n", msg); failure_handler; } }
+#define CHECK_CUDA(x, failure_handler) { CUresult the_result_ = x; if (the_result_ != CUDA_SUCCESS) { const char* msg; cuGetErrorName(the_result_, &msg); shd_error_print(#x " failed (%s)\n", msg); failure_handler; } }
 
 typedef struct {
     Program* base;

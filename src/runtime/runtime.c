@@ -25,11 +25,11 @@ Runtime* initialize_runtime(RuntimeConfig config) {
     append_list(Backend*, runtime->backends, cuda_backend);
 #endif
 
-    info_print("Shady runtime successfully initialized !\n");
+    shd_info_print("Shady runtime successfully initialized !\n");
     return runtime;
 
     init_fail_free:
-    error_print("Failed to initialise the runtime.\n");
+    shd_error_print("Failed to initialise the runtime.\n");
     free(runtime);
     return NULL;
 }

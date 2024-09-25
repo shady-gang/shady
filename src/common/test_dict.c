@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < TEST_ENTRIES; i++) {
         bool unique = shd_set_insert_get_result(int, d, arr[i]);
         if (!unique) {
-            error("Entry %d was thought to be already in the dict", arr[i]);
+            shd_error("Entry %d was thought to be already in the dict", arr[i]);
         }
         contained[arr[i]] = true;
     }
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
         if (!contained[arr[i]]) {
             bool unique = shd_set_insert_get_result(int, d, arr[i]);
             if (!unique) {
-                error("Entry %d was thought to be already in the dict", arr[i]);
+                shd_error("Entry %d was thought to be already in the dict", arr[i]);
             }
             contained[arr[i]] = true;
         }

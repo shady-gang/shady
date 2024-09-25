@@ -36,7 +36,7 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
             }
             default: break;
         }
-        error("Cannot fix pointer")
+        shd_error("Cannot fix pointer")
     }
     return ptr;
 }

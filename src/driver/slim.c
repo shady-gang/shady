@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     err = driver_compile(&args, mod);
     if (err)
         exit(err);
-    info_print("Compilation successful\n");
+    shd_info_print("Compilation successful\n");
 
     destroy_ir_arena(arena);
     destroy_driver_config(&args);

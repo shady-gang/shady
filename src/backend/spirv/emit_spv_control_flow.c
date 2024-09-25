@@ -254,8 +254,8 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
         }
         case Terminator_Control_TAG:
         case TailCall_TAG:
-        case Join_TAG: error("Lower me");
-        case NotATerminator: error("TODO: emit terminator %s", node_tags[terminator->tag]);
+        case Join_TAG: shd_error("Lower me");
+        case NotATerminator: shd_error("TODO: emit terminator %s", node_tags[terminator->tag]);
     }
     SHADY_UNREACHABLE;
 }

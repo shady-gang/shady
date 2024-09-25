@@ -23,19 +23,19 @@ const Node* import_node(Rewriter* r, const Node* node) {
         if (existing) {
             const Node* imported_t = rewrite_node(r, node->type);
             if (imported_t != existing->type) {
-                error_print("Incompatible types for to-be-merged declaration: %s ", get_declaration_name(node));
-                log_node(ERROR, existing->type);
-                error_print(" vs ");
-                log_node(ERROR, imported_t);
-                error_print(".\n");
+                shd_error_print("Incompatible types for to-be-merged declaration: %s ", get_declaration_name(node));
+                shd_log_node(ERROR, existing->type);
+                shd_error_print(" vs ");
+                shd_log_node(ERROR, imported_t);
+                shd_error_print(".\n");
                 shd_error_die();
             }
             if (node->tag != existing->tag) {
-                error_print("Incompatible node types for to-be-merged declaration: %s ", get_declaration_name(node));
-                error_print("%s", node_tags[existing->tag]);
-                error_print(" vs ");
-                error_print("%s", node_tags[node->tag]);
-                error_print(".\n");
+                shd_error_print("Incompatible node types for to-be-merged declaration: %s ", get_declaration_name(node));
+                shd_error_print("%s", node_tags[existing->tag]);
+                shd_error_print(" vs ");
+                shd_error_print("%s", node_tags[node->tag]);
+                shd_error_print(".\n");
                 shd_error_die();
             }
             switch (is_declaration(node)) {

@@ -87,7 +87,7 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
     LTNode* pst_lt = looptree_lookup(lt, f_src_ipostdom->node);
     assert(src_lt->type == LF_LEAF && pst_lt->type == LF_LEAF);
     if (src_lt->parent == pst_lt->parent) {
-        log_string(DEBUGVV, "We have a candidate for reconvergence: a branch starts at %d and ends at %d\n", src->node->id, f_src_ipostdom->node->id);
+        shd_log_fmt(DEBUGVV, "We have a candidate for reconvergence: a branch starts at %d and ends at %d\n", src->node->id, f_src_ipostdom->node->id);
         paint_dominated_up_to_postdom(n, a, arr, f_src_ipostdom->node, n->node);
     }
 }

@@ -32,14 +32,14 @@ static uint32_t find_suitable_memory_type(VkrDevice* device, uint32_t memory_typ
             }
         }
     }
-    error("Unable to find a suitable memory type")
+    shd_error("Unable to find a suitable memory type")
 }
 
 static Buffer make_base_buffer(VkrDevice*);
 
 VkrBuffer* vkr_allocate_buffer_device_(VkrDevice* device, size_t size, AllocHeap heap) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
-        error_print("device buffers require VK_KHR_buffer_device_address\n");
+        shd_error_print("device buffers require VK_KHR_buffer_device_address\n");
         return NULL;
     }
 
@@ -109,12 +109,12 @@ VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
 static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
     if (!device->caps.supported_extensions[ShadySupportsEXT_external_memory_host]) {
         if (log)
-            error_print("host imported buffers require VK_EXT_external_memory_host\n");
+            shd_error_print("host imported buffers require VK_EXT_external_memory_host\n");
         return false;
     }
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         if (log)
-            error_print("host imported buffers require VK_KHR_buffer_device_address\n");
+            shd_error_print("host imported buffers require VK_KHR_buffer_device_address\n");
         return false;
     }
     return true;
@@ -140,7 +140,7 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     size_t aligned_addr = (unaligned_addr / desired_alignment) * desired_alignment;
     assert(unaligned_addr >= aligned_addr);
     buffer->offset = unaligned_addr - aligned_addr;
-    debug_print("desired alignment = %zu, offset = %zu\n", desired_alignment, buffer->offset);
+    shd_debug_print("desired alignment = %zu, offset = %zu\n", desired_alignment, buffer->offset);
 
     size_t unaligned_end = unaligned_addr + size;
     assert(unaligned_end >= aligned_addr);
@@ -149,8 +149,8 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     size_t aligned_size = aligned_end - aligned_addr;
     assert(aligned_size >= size);
     assert(aligned_size % desired_alignment == 0);
-    debug_print("unaligned start %zu end %zu\n", unaligned_addr, unaligned_end);
-    debug_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
+    shd_debug_print("unaligned start %zu end %zu\n", unaligned_addr, unaligned_end);
+    shd_debug_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
 
     buffer->host_ptr = (void*) aligned_addr;
     buffer->size = aligned_size;
@@ -180,7 +180,7 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
     VkPhysicalDeviceMemoryProperties device_memory_properties;
     vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
-    debug_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
+    shd_debug_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
 
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,

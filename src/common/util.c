@@ -233,6 +233,6 @@ char* shd_strip_path(const char* path) {
     return new;
 }
 
-void shd_error_die() {
+void shd_error_die(void) {
     abort();
 }

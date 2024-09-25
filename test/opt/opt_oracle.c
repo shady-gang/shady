@@ -36,10 +36,10 @@ static void check_module(Module* mod) {
     Visitor v = { .visit_node_fn = search_for_memstuff };
     visit_module(&v, mod);
     if (expect_memstuff != found_memstuff) {
-        error_print("Expected ");
+        shd_error_print("Expected ");
         if (!expect_memstuff)
-            error_print("no more ");
-        error_print("memory primops in the output.\n");
+            shd_error_print("no more ");
+        shd_error_print("memory primops in the output.\n");
         dump_module(mod);
         exit(-1);
     }
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 
     if (err)
         exit(err);
-    info_print("Compilation successful\n");
+    shd_info_print("Compilation successful\n");
 
     destroy_ir_arena(arena);
     destroy_driver_config(&args);

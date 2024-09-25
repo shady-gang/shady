@@ -274,7 +274,7 @@ const Node* convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type,  cons
 
 const Node* get_default_zero_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
-        case NotAType: error("")
+        case NotAType: shd_error("")
         case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value = 0 });
         case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = 0 });
         case Type_Bool_TAG: return false_lit(a);
@@ -286,7 +286,7 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         case Type_TypeDeclRef_TAG: {
             Nodes elem_tys = get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {
-                warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
+                shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
             }
             LARRAY(const Node*, elems, elem_tys.count);
             for (size_t i = 0; i < elem_tys.count; i++)

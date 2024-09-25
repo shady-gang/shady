@@ -32,7 +32,7 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
         case AsUniformConstant:              return SpvStorageClassUniformConstant;
 
         default: {
-            error_print("Cannot emit address space %s.\n", get_address_space_name(address_space));
+            shd_error_print("Cannot emit address space %s.\n", get_address_space_name(address_space));
             shd_error_die();
             SHADY_UNREACHABLE;
         }
@@ -87,7 +87,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
             }
             break;
         }
-        default: error("not a suitable nominal type body (tag=%s)", node_tags[type->tag]);
+        default: shd_error("not a suitable nominal type body (tag=%s)", node_tags[type->tag]);
     }
 }
 
@@ -102,7 +102,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
 
     SpvId new;
     switch (is_type(type)) {
-        case NotAType: error("Not a type");
+        case NotAType: shd_error("Not a type");
         case Int_TAG: {
             int width;
             switch (type->payload.int_type.width) {
@@ -158,7 +158,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         }
         case NoRet_TAG:
         case LamType_TAG:
-        case BBType_TAG: error("we can't emit arrow types that aren't those of first-class functions")
+        case BBType_TAG: shd_error("we can't emit arrow types that aren't those of first-class functions")
         case FnType_TAG: {
             const FnType* fnt = &type->payload.fn_type;
             LARRAY(SpvId, params, fnt->param_types.count);
@@ -212,7 +212,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case Type_MaskType_TAG:
-        case Type_JoinPointType_TAG: error("These must be lowered beforehand")
+        case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
     }
 
     if (is_data_type(type)) {

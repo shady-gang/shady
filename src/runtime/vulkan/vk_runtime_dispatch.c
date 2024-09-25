@@ -62,7 +62,7 @@ VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_
 
     VkrSpecProgram* prog = get_specialized_program(program, entry_point, device);
 
-    debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
+    shd_debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 
     VkrCommand* cmd = vkr_begin_command(device);
     if (!cmd)

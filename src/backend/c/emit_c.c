@@ -163,7 +163,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
         case CDialect_C11: {
-            if (as != AsGeneric) warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
+            if (as != AsGeneric) shd_warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
             prefix = "";
             if (constant)
                 name = shd_format_string_arena(emitter->arena->arena, "const %s", name);
@@ -191,7 +191,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                 }
                 default: {
                     prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
-                    warn_print("warning: address space %s not supported in CUDA for global variables\n", get_address_space_name(as));
+                    shd_warn_print("warning: address space %s not supported in CUDA for global variables\n", get_address_space_name(as));
                     break;
                 }
             }
@@ -211,7 +211,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                 }
                 default: {
                     prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
-                    warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
+                    shd_warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
                     break;
                 }
             }
@@ -369,7 +369,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             }
             return;
         }
-        default: error("not a decl");
+        default: shd_error("not a decl");
     }
 }
 

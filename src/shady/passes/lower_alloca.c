@@ -130,10 +130,10 @@ static const Node* process(Context* ctx, const Node* node) {
             if (!ctx->disable_lowering) {
                 StackSlot* found_slot = shd_dict_find_value(const Node*, StackSlot, ctx->prepared_offsets, node);
                 if (!found_slot) {
-                    error_print("lower_alloca: failed to find a stack offset for ");
-                    log_node(ERROR, node);
-                    error_print(", most likely this means this alloca was not found in the first block of a function.\n");
-                    log_module(DEBUG, ctx->config, ctx->rewriter.src_module);
+                    shd_error_print("lower_alloca: failed to find a stack offset for ");
+                    shd_log_node(ERROR, node);
+                    shd_error_print(", most likely this means this alloca was not found in the first block of a function.\n");
+                    shd_log_module(DEBUG, ctx->config, ctx->rewriter.src_module);
                     shd_error_die();
                 }
 

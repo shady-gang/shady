@@ -111,7 +111,7 @@ static void generate_node_tags_for_class(Growy* g, json_object* nodes, String cl
             case json_type_double:
             case json_type_int:
             case json_type_object:
-                error_print("Invalid datatype for a node's 'class' attribute");
+                shd_error_print("Invalid datatype for a node's 'class' attribute");
         }
 
     }

@@ -122,7 +122,7 @@ Backend* initialize_cuda_backend(Runtime* base) {
     return &backend->base;
 
     init_fail_free:
-    error_print("Failed to initialise the CUDA back-end.\n");
+    shd_error_print("Failed to initialise the CUDA back-end.\n");
     free(backend);
     return NULL;
 }

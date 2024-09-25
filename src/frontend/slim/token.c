@@ -107,7 +107,7 @@ static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
 Token next_token(Tokenizer* tokenizer) {
     eat_whitespace_and_comments(tokenizer);
     if (tokenizer->pos == tokenizer->source_size) {
-        debugvv_print("EOF\n");
+        shd_debugvv_print("EOF\n");
         Token token = {
             .tag = EOF_tok
         };
@@ -192,7 +192,7 @@ Token next_token(Tokenizer* tokenizer) {
         goto parsed_successfully;
     }
 
-    error_print("We don't know how to tokenize %.16s...\n", slice);
+    shd_error_print("We don't know how to tokenize %.16s...\n", slice);
     exit(-2);
 
     parsed_successfully:

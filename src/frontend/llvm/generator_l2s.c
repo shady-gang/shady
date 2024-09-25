@@ -14,7 +14,7 @@ void generate_llvm_shady_address_space_conversion(Growy* g, json_object* address
     }
     shd_growy_append_formatted(g, "\t\tdefault:\n");
     shd_growy_append_formatted(g, "\t\t\tif (!warned)\n");
-    shd_growy_append_string(g, "\t\t\t\twarn_print(\"Warning: unrecognised address space %d\", as);\n");
+    shd_growy_append_string(g, "\t\t\t\tshd_warn_print(\"Warning: unrecognised address space %d\", as);\n");
     shd_growy_append_formatted(g, "\t\t\twarned = true;\n");
     shd_growy_append_formatted(g, "\t\t\treturn AsGeneric;\n");
     shd_growy_append_formatted(g, "\t}\n");

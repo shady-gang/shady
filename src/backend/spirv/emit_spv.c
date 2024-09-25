@@ -228,9 +228,9 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             spv_emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
-        case NotADeclaration: error("");
+        case NotADeclaration: shd_error("");
     }
-    error("unreachable");
+    shd_error("unreachable");
 }
 
 static SpvExecutionModel emit_exec_model(ExecutionModel model) {
@@ -238,7 +238,7 @@ static SpvExecutionModel emit_exec_model(ExecutionModel model) {
         case EmCompute:  return SpvExecutionModelGLCompute;
         case EmVertex:   return SpvExecutionModelVertex;
         case EmFragment: return SpvExecutionModelFragment;
-        case EmNone: error("No execution model but we were asked to emit it anyways");
+        case EmNone: shd_error("No execution model but we were asked to emit it anyways");
     }
 }
 

@@ -66,9 +66,9 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
         const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
-            log_string(DEBUGV, "lcssa: ");
-            log_node(DEBUGV, fv);
-            log_string(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
+            shd_log_fmt(DEBUGV, "lcssa: ");
+            shd_log_node(DEBUGV, fv);
+            shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
             const Node* narg = rewrite_node(&ctx->rewriter, fv);
             const Node* nparam = param(a, narg->type, "lcssa_phi");
             *nparams = append_nodes(a, *nparams, nparam);
@@ -88,8 +88,8 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     ctx = &ctx2;
 
     if (!ctx->cfg) {
-        error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", get_abstraction_name(old));
-        log_module(ERROR, ctx->config, ctx->rewriter.src_module);
+        shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", get_abstraction_name(old));
+        shd_log_module(ERROR, ctx->config, ctx->rewriter.src_module);
         shd_error_die();
     }
     const CFNode* n = cfg_lookup(ctx->cfg, old);

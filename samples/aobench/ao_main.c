@@ -53,7 +53,7 @@ void render_host(TEXEL_T* img, int w, int h, int nsubsamples) {
         }
     }
     uint64_t tpn = shd_get_time_nano();
-    info_print("reference rendering took %d us\n", (tpn - tsn) / 1000);
+    shd_info_print("reference rendering took %d us\n", (tpn - tsn) / 1000);
 }
 
 #ifdef ENABLE_ISPC
@@ -83,7 +83,7 @@ void render_ispc(TEXEL_T* img, int w, int h, int nsubsamples) {
 
     aobench_kernel(img);
     uint64_t tpn = shd_get_time_nano();
-    info_print("ispc rendering took %d us\n", (tpn - tsn) / 1000);
+    shd_info_print("ispc rendering took %d us\n", (tpn - tsn) / 1000);
 }
 #endif
 
@@ -96,14 +96,14 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
         }
     }
 
-    info_print("Shady checkerboard test starting...\n");
+    shd_info_print("Shady checkerboard test starting...\n");
 
     Runtime* runtime = initialize_runtime(args->runtime_config);
     Device* device = get_device(runtime, args->common_app_args.device);
     assert(device);
 
     img[0] = 69;
-    info_print("malloc'd address is: %zu\n", (size_t) img);
+    shd_info_print("malloc'd address is: %zu\n", (size_t) img);
 
     Buffer* buf;
     if (import_memory)
@@ -113,7 +113,7 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     uint64_t buf_addr = get_buffer_device_pointer(buf);
 
-    info_print("Device-side address is: %zu\n", buf_addr);
+    shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     Module* m;
     CHECK(driver_load_source_file_from_filename(&args->compiler_config, path, "aobench", &m) == NoError, return);
@@ -128,18 +128,18 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
     };
     wait_completion(launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void*[]) { &buf_addr }, &extra_kernel_options));
     uint64_t tpn = shd_get_time_nano();
-    info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
+    shd_info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
 
     if (!import_memory)
         copy_from_buffer(buf, 0, img, sizeof(*img) * WIDTH * HEIGHT * 3);
-    debug_print("data %d\n", (int) img[0]);
+    shd_debug_print("data %d\n", (int) img[0]);
     destroy_buffer(buf);
 
     shutdown_runtime(runtime);
 }
 
 int main(int argc, char **argv) {
-    set_log_level(INFO);
+    shd_log_set_level(INFO);
     Args args = {
         .compiler_config = default_compiler_config(),
         .runtime_config = default_runtime_config(),
@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
             do_ispc = true;
             do_all = false;
         } else {
-            error_print("Unrecognised argument: %s\n", argv[i]);
+            shd_error_print("Unrecognised argument: %s\n", argv[i]);
             shd_error_die();
         }
     }

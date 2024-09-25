@@ -95,18 +95,18 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
-    debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
+    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = frontier.nodes[i];
         if (!is_value(item)) {
             //lambda_lift()
             continue;
         }
-        debugv_print("%%%d", item->id);
+        shd_debugv_print("%%%d", item->id);
         if (i + 1 < recover_context_size)
-            debugv_print(", ");
+            shd_debugv_print(", ");
     }
-    debugv_print("\n");
+    shd_debugv_print("\n");
 
     // Create and register new parameters for the lifted continuation
     LARRAY(const Node*, new_params_arr, ovariables.count);
@@ -227,7 +227,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
 
     int round = 0;
     while (true) {
-        debugv_print("lift_indirect_target: round %d\n", round++);
+        shd_debugv_print("lift_indirect_target: round %d\n", round++);
         IrArena* oa = a;
         a = new_ir_arena(&aconfig);
         dst = new_module(a, get_module_name(src));

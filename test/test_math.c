@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CHECK(x, failure_handler) { if (!(x)) { error_print(#x " failed\n"); failure_handler; } }
+#define CHECK(x, failure_handler) { if (!(x)) { shd_error_print(#x " failed\n"); failure_handler; } }
 
 static bool check_same_bytes(char* a, char* b, size_t size) {
     if (memcmp(a, b, size) == 0)

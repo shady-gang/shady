@@ -65,11 +65,11 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
     switch (is_value(value)) {
         case NotAValue: assert(false);
         case Value_ConstrainedValue_TAG:
-        case Value_UntypedNumber_TAG: error("lower me");
-        case Param_TAG: error("tried to emit a param: all params should be emitted by their binding abstraction !");
+        case Value_UntypedNumber_TAG: shd_error("lower me");
+        case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
         default: {
             assert(!is_instruction(value));
-            error("Unhandled value for code generation: %s", node_tags[value->tag]);
+            shd_error("Unhandled value for code generation: %s", node_tags[value->tag]);
         }
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)
@@ -185,7 +185,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_destroy_printer(p);
             break;
         }
-        case Value_Fill_TAG: error("lower me")
+        case Value_Fill_TAG: shd_error("lower me")
         case Value_StringLiteral_TAG: {
             Growy* g = shd_new_growy();
             Printer* p = shd_new_printer_from_growy(g);
@@ -439,7 +439,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case add_carry_op:
         case sub_borrow_op:
         case mul_extended_op:
-            error("TODO: implement extended arithm ops in C");
+            shd_error("TODO: implement extended arithm ops in C");
             break;
         // MATH OPS
         case fract_op: {
@@ -581,11 +581,11 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                     if (conv_fn) {
                         return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
                     }
-                    error_print("glsl: unsupported bit cast from ");
-                    log_node(ERROR, src_type);
-                    error_print(" to ");
-                    log_node(ERROR, dst_type);
-                    error_print(".\n");
+                    shd_error_print("glsl: unsupported bit cast from ");
+                    shd_log_node(ERROR, src_type);
+                    shd_error_print(" to ");
+                    shd_log_node(ERROR, dst_type);
+                    shd_error_print(".\n");
                     shd_error_die();
                 }
                 case CDialect_ISPC: {
@@ -658,7 +658,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                         break;
                     }
                     default:
-                    case NotAType: error("Must be a type");
+                    case NotAType: shd_error("Must be a type");
                 }
             }
 
@@ -703,7 +703,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             }
         }
         case empty_mask_op:
-        case mask_is_thread_active_op: error("lower_me");
+        case mask_is_thread_active_op: shd_error("lower_me");
         default: break;
         case PRIMOPS_COUNT: assert(false); break;
     }
@@ -724,7 +724,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
                     case CDialect_C11:
-                    case CDialect_GLSL: error("TODO")
+                    case CDialect_GLSL: shd_error("TODO")
                 }
                 break;
             }
@@ -736,17 +736,17 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_elect_first()"));
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))"));
                     case CDialect_C11:
-                    case CDialect_GLSL: error("TODO")
+                    case CDialect_GLSL: shd_error("TODO")
                 }
                 break;
             }
             // [subgroup_active_mask_op] = { IsMono, OsCall, "lanemask" },
             // [subgroup_ballot_op] = { IsMono, OsCall, "packmask" },
             // [subgroup_reduce_sum_op] = { IsMono, OsCall, "reduce_add" },
-            default: error("Unsupported core spir-v instruction: %d", instr.opcode);
+            default: shd_error("Unsupported core spir-v instruction: %d", instr.opcode);
         }
     } else {
-        error("Unsupported extended instruction set: %s", instr.set);
+        shd_error("Unsupported extended instruction set: %s", instr.set);
     }
 }
 
@@ -845,7 +845,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             });
             break;
         }
-        default: error("lea can't work on this");
+        default: shd_error("lea can't work on this");
     }
 
     // if (emitter->config.dialect == CDialect_ISPC)
@@ -908,7 +908,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_PopStack_TAG:
         case Instruction_GetStackSize_TAG:
         case Instruction_SetStackSize_TAG:
-        case Instruction_GetStackBaseAddr_TAG: error("Stack operations need to be lowered.");
+        case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
         case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
@@ -969,7 +969,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                 case CDialect_CUDA:
                 case CDialect_C11:shd_print(p, "\nprintf(%s);", args_list);
                     break;
-                case CDialect_GLSL: warn_print("printf is not supported in GLSL");
+                case CDialect_GLSL: shd_warn_print("printf is not supported in GLSL");
                     break;
             }
 
@@ -1006,8 +1006,8 @@ CTerm c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
         return emitted;
     } else if (!can_appear_at_top_level(emitter, node)) {
         if (!fn_builder) {
-            log_node(ERROR, node);
-            log_string(ERROR, "cannot appear at top-level");
+            shd_log_node(ERROR, node);
+            shd_log_fmt(ERROR, "cannot appear at top-level");
             exit(-1);
         }
         // Pick the entry block of the current fn
@@ -1028,5 +1028,5 @@ CTerm c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem) {
         return empty_term();
     if (is_instruction(mem))
         return c_emit_value(e, b, mem);
-    error("What sort of mem is this ?");
+    shd_error("What sort of mem is this ?");
 }

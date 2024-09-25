@@ -154,11 +154,11 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                     })
                 });
             } else {
-                error_print("Unrecognised shady annotation '%s'\n", keyword);
+                shd_error_print("Unrecognised shady annotation '%s'\n", keyword);
                 shd_error_die();
             }
         } else {
-            warn_print("Ignoring annotation '%s'\n", ostr);
+            shd_warn_print("Ignoring annotation '%s'\n", ostr);
         }
         free(str);
         //dump_node(annotation_payload);

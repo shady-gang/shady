@@ -57,7 +57,7 @@ const Node* process(Context* ctx, const Node* old) {
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1 && a->config.optimisations.inline_single_use_bbs) {
-                log_string(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
+                shd_log_fmt(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
                 *ctx->todo = true;
                 return NULL;
             }
@@ -145,7 +145,7 @@ Module* cleanup(const CompilerConfig* config, Module* const src) {
     bool changed_at_all = false;
     do {
         todo = false;
-        debugv_print("Cleanup round %d\n", r);
+        shd_debugv_print("Cleanup round %d\n", r);
 
         APPLY_OPT(opt_demote_alloca);
         APPLY_OPT(opt_mem2reg);
@@ -156,6 +156,6 @@ Module* cleanup(const CompilerConfig* config, Module* const src) {
         r++;
     } while (todo);
     if (changed_at_all)
-        debugv_print("After %d rounds of cleanup:\n", r);
+        shd_debugv_print("After %d rounds of cleanup:\n", r);
     return import(config, m);
 }

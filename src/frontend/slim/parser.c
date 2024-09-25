@@ -30,7 +30,7 @@ static int get_precedence(InfixOperators op) {
 #define INFIX_OPERATOR(name, token, primop_op, precedence) case Infix##name: return precedence;
 INFIX_OPERATORS()
 #undef INFIX_OPERATOR
-        default: error("unknown operator");
+        default: shd_error("unknown operator");
     }
 }
 static bool is_primop_op(InfixOperators op, Op* out) {
@@ -38,7 +38,7 @@ static bool is_primop_op(InfixOperators op, Op* out) {
 #define INFIX_OPERATOR(name, token, primop_op, precedence) case Infix##name: if (primop_op != -1) { *out = primop_op; return true; } else return false;
 INFIX_OPERATORS()
 #undef INFIX_OPERATOR
-        default: error("unknown operator");
+        default: shd_error("unknown operator");
     }
 }
 
@@ -74,19 +74,19 @@ static void error_with_loc(ctxparams) {
     size_t len = strlen(contents);
     for (size_t i = 0; i < len; i++) {
         if (line >= startline && line <= endline) {
-            log_string(ERROR, "%c", contents[i]);
+            shd_log_fmt(ERROR, "%c", contents[i]);
         }
         if (contents[i] == '\n') {
             if (line == loc.line) {
                 for (size_t digit = 0; digit < numdigits; digit++) {
-                    log_string(ERROR, " ");
+                    shd_log_fmt(ERROR, " ");
                 }
-                log_string(ERROR, "  ");
+                shd_log_fmt(ERROR, "  ");
                 for (size_t j = 1; j < loc.column; j++) {
-                    log_string(ERROR, " ");
+                    shd_log_fmt(ERROR, " ");
                 }
-                log_string(ERROR, "^");
-                log_string(ERROR, "\n");
+                shd_log_fmt(ERROR, "^");
+                shd_log_fmt(ERROR, "\n");
             }
             line++;
 
@@ -102,13 +102,13 @@ static void error_with_loc(ctxparams) {
                     digits[numdigits - 1 - digit] = (char) ' ';
                 }
                 for (digit = 0; digit < numdigits; digit++) {
-                    log_string(ERROR, "%c", digits[numdigits - 1 - digit]);
+                    shd_log_fmt(ERROR, "%c", digits[numdigits - 1 - digit]);
                 }
-                log_string(ERROR, ": ");
+                shd_log_fmt(ERROR, ": ");
             }
         }
     }
-    log_string(ERROR, "At %d:%d, ", loc.line, loc.column);
+    shd_log_fmt(ERROR, "At %d:%d, ", loc.line, loc.column);
 }
 
 #define syntax_error(condition) syntax_error_impl(ctx, condition)
@@ -117,8 +117,8 @@ static void syntax_error_impl(ctxparams, const char* format, ...) {
     va_list args;
     va_start(args, format);
     error_with_loc(ctx);
-    log_fmtv(ERROR, format, args);
-    log_string(ERROR, "\n");
+    shd_log_fmt_va_list(ERROR, format, args);
+    shd_log_fmt(ERROR, "\n");
     exit(-4);
     va_end(args);
 }
@@ -130,9 +130,9 @@ static void expect_impl(ctxparams, bool condition, const char* format, ...) {
         va_list args;
         va_start(args, format);
         error_with_loc(ctx);
-        log_string(ERROR, "expected ");
-        log_fmtv(ERROR, format, args);
-        log_string(ERROR, "\n");
+        shd_log_fmt(ERROR, "expected ");
+        shd_log_fmt_va_list(ERROR, format, args);
+        shd_log_fmt(ERROR, "\n");
         exit(-4);
         va_end(args);
     }
@@ -1240,9 +1240,9 @@ void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
         if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
 
         if (decl) {
-            log_string(DEBUGVV, "decl parsed : ");
-            log_node(DEBUGVV, decl);
-            log_string(DEBUGVV, "\n");
+            shd_log_fmt(DEBUGVV, "decl parsed : ");
+            shd_log_node(DEBUGVV, decl);
+            shd_log_fmt(DEBUGVV, "\n");
             continue;
         }
 

@@ -29,7 +29,7 @@ static const char* default_shader =
 "}";
 
 int main(int argc, char* argv[]) {
-    set_log_level(INFO);
+    shd_log_set_level(INFO);
     Args args = {
         .driver_config = default_driver_config(),
         .runtime_config = default_runtime_config(),
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
-    info_print("Shady runtime test starting...\n");
+    shd_info_print("Shady runtime test starting...\n");
 
     Runtime* runtime = initialize_runtime(args.runtime_config);
     Device* device = get_device(runtime, args.common_app_args.device);

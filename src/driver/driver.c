@@ -35,7 +35,7 @@ SourceLanguage guess_source_language(const char* filename) {
     else if (shd_string_ends_with(filename, ".slim"))
         return SrcShadyIR;
 
-    warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.", filename);
+    shd_warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.", filename);
     return SrcSlim;
 }
 
@@ -63,7 +63,7 @@ ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLang
             ParserConfig pconfig = {
                 .front_end = lang == SrcSlim,
             };
-            debugvv_print("Parsing: \n%s\n", file_contents);
+            shd_debugvv_print("Parsing: \n%s\n", file_contents);
             *mod = parse_slim_module(config, pconfig, (const char*) file_contents, name);
         }
     }
@@ -78,12 +78,12 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
     assert(filename);
     bool ok = shd_read_file(filename, &len, &contents);
     if (!ok) {
-        error_print("Failed to read file '%s'\n", filename);
+        shd_error_print("Failed to read file '%s'\n", filename);
         err = InputFileIOError;
         goto exit;
     }
     if (contents == NULL) {
-        error_print("file does not exist\n");
+        shd_error_print("file does not exist\n");
         err = InputFileDoesNotExist;
         goto exit;
     }
@@ -95,7 +95,7 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
 
 ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
     if (shd_list_count(args->input_filenames) == 0) {
-        error_print("Missing input file. See --help for proper usage");
+        shd_error_print("Missing input file. See --help for proper usage");
         return MissingInputArg;
     }
 
@@ -113,23 +113,23 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
 }
 
 ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
-    debugv_print("Parsed program successfully: \n");
-    log_module(DEBUGV, &args->config, mod);
+    shd_debugv_print("Parsed program successfully: \n");
+    shd_log_module(DEBUGV, &args->config, mod);
 
     CompilationResult result = run_compiler_passes(&args->config, &mod);
     if (result != CompilationNoError) {
-        error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
+        shd_error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
     }
-    debug_print("Ran all passes successfully\n");
-    log_module(DEBUG, &args->config, mod);
+    shd_debug_print("Ran all passes successfully\n");
+    shd_log_module(DEBUG, &args->config, mod);
 
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");
         assert(f);
         dump_cfgs(f, mod);
         fclose(f);
-        debug_print("CFG dumped\n");
+        shd_debug_print("CFG dumped\n");
     }
 
     if (args->loop_tree_output_filename) {
@@ -137,7 +137,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
         assert(f);
         dump_loop_trees(f, mod);
         fclose(f);
-        debug_print("Loop tree dumped\n");
+        shd_debug_print("Loop tree dumped\n");
     }
 
     if (args->shd_output_filename) {
@@ -149,7 +149,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);
-        debug_print("IR dumped\n");
+        shd_debug_print("IR dumped\n");
     }
 
     if (args->output_filename) {
@@ -174,7 +174,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
                 emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
-        debug_print("Wrote result to %s\n", args->output_filename);
+        shd_debug_print("Wrote result to %s\n", args->output_filename);
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);

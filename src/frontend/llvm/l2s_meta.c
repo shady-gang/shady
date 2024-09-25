@@ -155,9 +155,9 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
 LLVM_DI_METADATA_NODES(N)
 #undef N
         default: default_:
-            error_print("Unknown metadata kind %d for ", kind);
+            shd_error_print("Unknown metadata kind %d for ", kind);
             LLVMDumpValue(v);
-            error_print(".\n");
+            shd_error_print(".\n");
             shd_error_die();
     }
 }

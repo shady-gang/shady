@@ -117,22 +117,22 @@ void dump_module(Module* mod) {
     printf("\n");
 }
 
-void log_node(LogLevel level, const Node* node) {
-    if (level <= get_log_level()) {
+void shd_log_node(LogLevel level, const Node* node) {
+    if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
         print_node(p, (NodePrintConfig) {.color = true}, node);
         shd_destroy_printer(p);
     }
 }
 
-void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
+void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
     NodePrintConfig config = { .color = true };
     if (compiler_cfg) {
         config.print_generated = compiler_cfg->logging.print_generated;
         config.print_builtin = compiler_cfg->logging.print_builtin;
         config.print_internal = compiler_cfg->logging.print_internal;
     }
-    if (level <= get_log_level()) {
+    if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
         print_module(p, config, mod);
         shd_destroy_printer(p);
@@ -363,7 +363,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case FloatTy16: printf("16"); break;
                 case FloatTy32: printf("32"); break;
                 case FloatTy64: printf("64"); break;
-                default: error("Not a known valid float width")
+                default: shd_error("Not a known valid float width")
             }
             break;
         case MaskType_TAG: printf("mask"); break;
@@ -380,7 +380,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case IntTy16: printf("16"); break;
                 case IntTy32: printf("32"); break;
                 case IntTy64: printf("64"); break;
-                default: error("Not a known valid int width")
+                default: shd_error("Not a known valid int width")
             }
             break;
         case RecordType_TAG:
@@ -546,7 +546,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
                 case IntTy16: printf("%" PRIu16, (uint16_t) v); break;
                 case IntTy32: printf("%" PRIu32, (uint32_t) v); break;
                 case IntTy64: printf("%" PRIu64, v); break;
-                default: error("Not a known valid int width")
+                default: shd_error("Not a known valid int width")
             }
             printf(RESET);
             return true;
@@ -565,7 +565,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
                     memcpy(&d, &node->payload.float_literal.value, sizeof(uint64_t));
                     printf("%.17g", d); break;
                 }
-                default: error("Not a known valid float width")
+                default: shd_error("Not a known valid float width")
             }
             printf(RESET);
             return true;
@@ -969,7 +969,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(";\n\n");
             break;
         }
-        default: error("Not a decl");
+        default: shd_error("Not a decl");
     }
 }
 
@@ -1008,7 +1008,7 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, annotation->values);
             break;
         }
-        case NotAnAnnotation: error("");
+        case NotAnAnnotation: shd_error("");
     }
 }
 

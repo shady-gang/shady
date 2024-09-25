@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     cli_parse_input_files(args.input_filenames, &argc, argv);
 
     if (shd_list_count(args.input_filenames) == 0) {
-        error_print("Missing input file. See --help for proper usage");
+        shd_error_print("Missing input file. See --help for proper usage");
         exit(MissingInputArg);
     }
 
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
         destroy_ir_arena(get_module_arena(mod));
     }
 
-    info_print("Done\n");
+    shd_info_print("Done\n");
 
     destroy_vcc_options(vcc_options);
     destroy_ir_arena(arena);

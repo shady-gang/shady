@@ -33,10 +33,10 @@ int main(int argc, char** argv) {
         json_files[i].root = json_tokener_parse_ex(tokener, json_files[i].contents, json_files[i].size);
         json_err = json_tokener_get_error(tokener);
         if (json_err != json_tokener_success) {
-            error("Json tokener error while parsing %s:\n %s\n", path, json_tokener_error_desc(json_err));
+            shd_error("Json tokener error while parsing %s:\n %s\n", path, json_tokener_error_desc(json_err));
         }
 
-        info_print("Correctly opened json file: %s\n", path);
+        shd_info_print("Correctly opened json file: %s\n", path);
     }
     Growy* g = shd_new_growy();
 
@@ -52,9 +52,9 @@ int main(int argc, char** argv) {
     size_t final_size = shd_growy_size(g);
     shd_growy_append_bytes(g, 1, (char[]) { 0 });
     char* generated = shd_growy_deconstruct(g);
-    debug_print("debug: %s\n", generated);
+    shd_debug_print("debug: %s\n", generated);
     if (!shd_write_file(dst_file, final_size, generated)) {
-        error_print("Failed to write file '%s'\n", dst_file);
+        shd_error_print("Failed to write file '%s'\n", dst_file);
         shd_error_die();
     }
     free(generated);

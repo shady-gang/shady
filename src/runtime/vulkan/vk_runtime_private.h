@@ -62,7 +62,7 @@ SHADY_UNUSED static const bool is_instance_ext_required[] = { INSTANCE_EXTENSION
 SHADY_UNUSED static const bool is_device_ext_required[] = { DEVICE_EXTENSIONS(R) };
 #undef R
 
-#define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
+#define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { shd_error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
 
 typedef struct VkrSpecProgram_ VkrSpecProgram;
 

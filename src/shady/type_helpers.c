@@ -87,12 +87,12 @@ void enter_composite(const Type** datatype, bool* uniform, const Node* selector,
         }
             // also remember to assert literals for the selectors !
         default: {
-            log_string(ERROR, "Trying to enter non-composite type '");
-            log_node(ERROR, current_type);
-            log_string(ERROR, "' with selector '");
-            log_node(ERROR, selector);
-            log_string(ERROR, "'.");
-            error("");
+            shd_log_fmt(ERROR, "Trying to enter non-composite type '");
+            shd_log_node(ERROR, current_type);
+            shd_log_fmt(ERROR, "' with selector '");
+            shd_log_node(ERROR, selector);
+            shd_log_fmt(ERROR, "'.");
+            shd_error("");
         }
     }
     *datatype = current_type;
@@ -140,7 +140,7 @@ bool deconstruct_qualified_type(const Type** type_out) {
     if (type->tag == QualifiedType_TAG) {
         *type_out = type->payload.qualified_type.type;
         return type->payload.qualified_type.is_uniform;
-    } else error("Expected a value type (annotated with qual_type)")
+    } else shd_error("Expected a value type (annotated with qual_type)")
 }
 
 const Type* qualified_type_helper(const Type* type, bool uniform) {
@@ -261,7 +261,7 @@ Nodes get_composite_type_element_types(const Type* type) {
         case Type_PackType_TAG: {
             size_t size = get_int_literal_value(*resolve_to_int_literal(get_fill_type_size(type)), false);
             if (size >= 1024) {
-                warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
+                shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
             }
             const Type* element_type = get_fill_type_element_type(type);
             LARRAY(const Type*, types, size);
@@ -270,7 +270,7 @@ Nodes get_composite_type_element_types(const Type* type) {
             }
             return nodes(type->arena, size, types);
         }
-        default: error("Not a composite type !")
+        default: shd_error("Not a composite type !")
     }
 }
 
@@ -278,7 +278,7 @@ const Node* get_fill_type_element_type(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.element_type;
         case PackType_TAG: return composite_t->payload.pack_type.element_type;
-        default: error("fill values need to be either array or pack types")
+        default: shd_error("fill values need to be either array or pack types")
     }
 }
 
@@ -286,6 +286,6 @@ const Node* get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.size;
         case PackType_TAG: return int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
-        default: error("fill values need to be either array or pack types")
+        default: shd_error("fill values need to be either array or pack types")
     }
 }

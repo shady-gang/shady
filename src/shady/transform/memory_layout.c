@@ -60,14 +60,14 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
     size_t base_word_size = int_size_in_bytes(a->config.memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
-        case FnType_TAG:  error("Functions have an opaque memory representation");
+        case FnType_TAG:  shd_error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
             case AsPrivate:
             case AsSubgroup:
             case AsShared:
             case AsGlobal:
             case AsGeneric: return get_mem_layout(a, int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
-            default: error("Pointers in address space '%s' does not have a defined memory layout", get_address_space_name(type->payload.ptr_type.address_space));
+            default: shd_error("Pointers in address space '%s' does not have a defined memory layout", get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
@@ -107,7 +107,7 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         case QualifiedType_TAG: return get_mem_layout(a, type->payload.qualified_type.type);
         case TypeDeclRef_TAG: return get_mem_layout(a, type->payload.type_decl_ref.decl->payload.nom_type.body);
         case RecordType_TAG: return get_record_layout(a, type, NULL);
-        default: error("not a known type");
+        default: shd_error("not a known type");
     }
 }
 

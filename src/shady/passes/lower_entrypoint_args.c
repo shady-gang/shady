@@ -34,7 +34,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
         const Type* type = rewrite_node(rewriter, params.nodes[i]->type);
 
         if (!deconstruct_qualified_type(&type))
-            error("EntryPoint parameters must be uniform");
+            shd_error("EntryPoint parameters must be uniform");
 
         types[i] = type;
         names[i] = get_value_name_safe(params.nodes[i]);

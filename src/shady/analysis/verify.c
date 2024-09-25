@@ -49,19 +49,19 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
         Scheduler* scheduler = new_scheduler(cfg);
         struct Dict* set = free_frontier(scheduler, cfg, cfg->entry->node);
         if (shd_dict_count(set) > 0) {
-            log_string(ERROR, "Leaking variables in ");
-            log_node(ERROR, cfg->entry->node);
-            log_string(ERROR, ":\n");
+            shd_log_fmt(ERROR, "Leaking variables in ");
+            shd_log_node(ERROR, cfg->entry->node);
+            shd_log_fmt(ERROR, ":\n");
 
             size_t j = 0;
             const Node* leaking;
             while (shd_dict_iter(set, &j, &leaking, NULL)) {
-                log_node(ERROR, leaking);
-                error_print("\n");
+                shd_log_node(ERROR, leaking);
+                shd_error_print("\n");
             }
 
-            log_string(ERROR, "Problematic module:\n");
-            log_module(ERROR, config, mod);
+            shd_log_fmt(ERROR, "Problematic module:\n");
+            shd_log_module(ERROR, config, mod);
             shd_error_die();
         }
         shd_destroy_dict(set);
@@ -124,11 +124,11 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
             search = search->parent;
         }
         if (!search) {
-            log_string(ERROR, "Scheduling problem: ");
-            log_node(ERROR, node);
-            log_string(ERROR, "was encountered before we saw it be bound by a let!\n");
-            log_string(ERROR, "Problematic module:\n");
-            log_module(ERROR, ctx->config, ctx->mod);
+            shd_log_fmt(ERROR, "Scheduling problem: ");
+            shd_log_node(ERROR, node);
+            shd_log_fmt(ERROR, "was encountered before we saw it be bound by a let!\n");
+            shd_log_fmt(ERROR, "Problematic module:\n");
+            shd_log_module(ERROR, ctx->config, ctx->mod);
             shd_error_die();
         }
     }

@@ -83,7 +83,7 @@ void apply_instruction_filter(json_object* filter, json_object* instruction, jso
             }*/
             break;
         }
-        default: error("Filters need to be arrays or objects");
+        default: shd_error("Filters need to be arrays or objects");
     }
 }
 
@@ -147,7 +147,7 @@ void apply_operand_filter(json_object* filter, json_object* operand, json_object
             json_apply_object(instantiated_filter, filter);
             break;
         }
-        default: error("Filters need to be arrays or objects");
+        default: shd_error("Filters need to be arrays or objects");
     }
 }
 
@@ -183,7 +183,7 @@ json_object* import_operand(json_object* operand, json_object* instruction_filte
         json_object_put(filter);
         return NULL;
     } else if (strcmp(import_property, "yes") != 0) {
-        error("a filter's 'import' property needs to be 'yes' or 'no'")
+        shd_error("a filter's 'import' property needs to be 'yes' or 'no'")
     }
 
     json_object* field = json_object_new_object();
@@ -209,7 +209,7 @@ json_object* import_filtered_instruction(json_object* instruction, json_object* 
     if (!import_property || (strcmp(import_property, "no") == 0)) {
         return NULL;
     } else if (strcmp(import_property, "yes") != 0) {
-        error("a filter's 'import' property needs to be 'yes' or 'no'")
+        shd_error("a filter's 'import' property needs to be 'yes' or 'no'")
     }
     String node_name = sanitize_node_name(name);
 
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
     char* spv_core_json_path = NULL;
     for (size_t i = ArgSpirvGrammarSearchPathBegins; i < argc; i++) {
         char* path = shd_format_string_new("%s/spirv/unified1/spirv.core.grammar.json", argv[i]);
-        info_print("trying path %s\n", path);
+        shd_info_print("trying path %s\n", path);
         FILE* f = fopen(path, "rb");
         if (f) {
             spv_core_json_path = path;
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
     imports.root = json_tokener_parse_ex(tokener, imports.contents, imports.size);
     json_err = json_tokener_get_error(tokener);
     if (json_err != json_tokener_success) {
-        error("Json tokener error while parsing %s:\n %s\n", argv[ArgImportsFile], json_tokener_error_desc(json_err));
+        shd_error("Json tokener error while parsing %s:\n %s\n", argv[ArgImportsFile], json_tokener_error_desc(json_err));
     }
 
     JsonFile spirv;
@@ -309,10 +309,10 @@ int main(int argc, char** argv) {
     spirv.root = json_tokener_parse_ex(tokener, spirv.contents, spirv.size);
     json_err = json_tokener_get_error(tokener);
     if (json_err != json_tokener_success) {
-        error("Json tokener error while parsing %s:\n %s\n", spv_core_json_path, json_tokener_error_desc(json_err));
+        shd_error("Json tokener error while parsing %s:\n %s\n", spv_core_json_path, json_tokener_error_desc(json_err));
     }
 
-    info_print("Correctly opened json file: %s\n", spv_core_json_path);
+    shd_info_print("Correctly opened json file: %s\n", spv_core_json_path);
 
     json_object* output = json_object_new_object();
 
@@ -325,9 +325,9 @@ int main(int argc, char** argv) {
     size_t final_size = shd_growy_size(g);
     shd_growy_append_bytes(g, 1, (char[]) { 0 });
     char* generated = shd_growy_deconstruct(g);
-    debug_print("debug: %s\n", generated);
+    shd_debug_print("debug: %s\n", generated);
     if (!shd_write_file(dst_file, final_size, generated)) {
-        error_print("Failed to write file '%s'\n", dst_file);
+        shd_error_print("Failed to write file '%s'\n", dst_file);
         shd_error_die();
     }
     free(generated);

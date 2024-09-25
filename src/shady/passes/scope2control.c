@@ -176,15 +176,15 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
     const Nodes* src_lexical_scope = find_scope_info(src);
     const Nodes* dst_lexical_scope = find_scope_info(dst);
     if (!src_lexical_scope) {
-        warn_print("Failed to find jump source node ");
-        log_node(WARN, src);
-        warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
+        shd_warn_print("Failed to find jump source node ");
+        shd_log_node(WARN, src);
+        shd_warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
     } else if (!dst_lexical_scope) {
-        warn_print("Failed to find jump target node ");
-        log_node(WARN, dst);
-        warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
+        shd_warn_print("Failed to find jump target node ");
+        shd_log_node(WARN, dst);
+        shd_warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
     } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
-        debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
+        shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
 
         CFNode* src_cfnode = cfg_lookup(cfg, src);
         assert(src_cfnode->node);
@@ -196,21 +196,21 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
 
         CFNode* dom = src_cfnode->idom;
         while (dom) {
-            debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
+            shd_debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
             Nodes* dom_lexical_scope = find_scope_info(dom->node);
             if (!dom_lexical_scope) {
-                warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
+                shd_warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
                 dom = dom->idom;
                 continue;
             } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
-                error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
+                shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
             } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                 // if (cfg_is_dominated(target_cfnode, dom)) {
                 if (!cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
                     // assert(false);
                 }
 
-                debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
+                shd_debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
 
                 Controls* controls = get_or_create_controls(ctx, dom->node);
                 AddControl* found = shd_dict_find_value(const Node, AddControl, controls->control_destinations, dst);

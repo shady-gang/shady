@@ -97,7 +97,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
         StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
         const Node* t2 = terminator;
         switch (entry.structured.tag) {
-            case NotAStructured_construct: error("")
+            case NotAStructured_construct: shd_error("")
             case Structured_construct_If_TAG: {
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
@@ -248,7 +248,7 @@ Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constru
         .vars = params,
     };
     switch (entry.structured.tag) {
-        case NotAStructured_construct: error("")
+        case NotAStructured_construct: shd_error("")
         case Structured_construct_If_TAG: {
             entry.structured.payload.if_instr.tail = tail;
             entry.structured.payload.if_instr.mem = bb_mem(bb);

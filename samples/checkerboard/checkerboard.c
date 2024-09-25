@@ -40,7 +40,7 @@ int main(int argc, char **argv)
         }
     }
 
-    set_log_level(INFO);
+    shd_log_set_level(INFO);
     CompilerConfig compiler_config = default_compiler_config();
 
     RuntimeConfig runtime_config = default_runtime_config();
@@ -49,33 +49,33 @@ int main(int argc, char **argv)
     cli_parse_compiler_config_args(&compiler_config, &argc, argv);
     cli_parse_runtime_config(&runtime_config, &argc, argv);
 
-    info_print("Shady checkerboard test starting...\n");
+    shd_info_print("Shady checkerboard test starting...\n");
 
     Runtime* runtime = initialize_runtime(runtime_config);
     Device* device = get_device(runtime, 0);
     assert(device);
 
     img[0] = 69;
-    info_print("malloc'd address is: %zu\n", (size_t) img);
+    shd_info_print("malloc'd address is: %zu\n", (size_t) img);
 
     int buf_size = sizeof(uint8_t) * WIDTH * HEIGHT * 3;
     Buffer* buf = allocate_buffer_device(device, buf_size);
     copy_to_buffer(buf, 0, img, buf_size);
     uint64_t buf_addr = get_buffer_device_pointer(buf);
 
-    info_print("Device-side address is: %zu\n", buf_addr);
+    shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     ArenaConfig aconfig = default_arena_config(&compiler_config.target);
     IrArena* a = new_ir_arena(&aconfig);
     Module* m;
     if (driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)
-        error("Failed to load checkerboard module");
+        shd_error("Failed to load checkerboard module");
     Program* program = new_program_from_module(runtime, &compiler_config, m);
 
     wait_completion(launch_kernel(program, device, "checkerboard", 16, 16, 1, 1, (void*[]) { &buf_addr }, NULL));
 
     copy_from_buffer(buf, 0, img, buf_size);
-    info_print("data %d\n", (int) img[0]);
+    shd_info_print("data %d\n", (int) img[0]);
 
     destroy_buffer(buf);
 

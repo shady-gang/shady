@@ -62,7 +62,7 @@ static void figure_out_spirv_version(VkrDeviceCaps* caps) {
         caps->spirv_version.minor = 6;
     }
 
-    debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", caps->spirv_version.major, caps->spirv_version.minor, major, minor);
+    shd_debug_print("Using SPIR-V version %d.%d, on Vulkan %d.%d\n", caps->spirv_version.major, caps->spirv_version.minor, major, minor);
 }
 
 static bool fill_device_properties(VkrDeviceCaps* caps) {
@@ -70,13 +70,13 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->properties.base.properties.apiVersion < VK_MAKE_API_VERSION(0, 1, 1, 0)) {
-        info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", caps->properties.base.properties.deviceName);
+        shd_info_print("Rejecting device '%s' because it does not support Vulkan 1.1 or later\n", caps->properties.base.properties.deviceName);
         return false;
     }
 
     String missing_ext;
     if (!fill_available_extensions(caps->physical_device, NULL, &missing_ext, caps->supported_extensions)) {
-        info_print("Rejecting device %s because it lacks support for '%s'\n", caps->properties.base.properties.deviceName, missing_ext);
+        shd_info_print("Rejecting device %s because it lacks support for '%s'\n", caps->properties.base.properties.deviceName, missing_ext);
         return false;
     }
 
@@ -114,7 +114,7 @@ static bool fill_device_properties(VkrDeviceCaps* caps) {
         caps->subgroup_size.max = caps->properties.subgroup.subgroupSize;
         caps->subgroup_size.min = caps->properties.subgroup.subgroupSize;
     }
-    debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->properties.base.properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
+    shd_debug_print("Subgroup size range for device '%s' is [%d; %d]\n", caps->properties.base.properties.deviceName, caps->subgroup_size.min, caps->subgroup_size.max);
     return true;
 }
 
@@ -157,7 +157,7 @@ static bool fill_device_features(VkrDeviceCaps* caps) {
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
 
     if (!caps->features.subgroup_size_control.computeFullSubgroups) {
-        warn_print("Potentially broken behaviour on device %s because it does not support computeFullSubgroups", caps->properties.base.properties.deviceName);
+        shd_warn_print("Potentially broken behaviour on device %s because it does not support computeFullSubgroups", caps->properties.base.properties.deviceName);
         // TODO just outright reject such devices ?
     }
 
@@ -183,7 +183,7 @@ static bool fill_queue_properties(VkrDeviceCaps* caps) {
         }
     }
     if (compute_queue_family >= queue_families_count) {
-        info_print("Rejecting device %s because it lacks a compute queue family\n", caps->properties.base.properties.deviceName);
+        shd_info_print("Rejecting device %s because it lacks a compute queue family\n", caps->properties.base.properties.deviceName);
         return false;
     }
     caps->compute_queue_family = compute_queue_family;
@@ -237,7 +237,7 @@ static VkrDevice* create_vkr_device(SHADY_UNUSED VkrBackend* runtime, VkPhysical
     VkrDevice* device = calloc(1, sizeof(VkrDevice));
     device->runtime = runtime;
     CHECK(get_physical_device_caps(runtime, physical_device, &device->caps), assert(false));
-    info_print("Initialising device %s\n", device->caps.properties.base.properties.deviceName);
+    shd_info_print("Initialising device %s\n", device->caps.properties.base.properties.deviceName);
 
     LARRAY(const char*, enabled_device_exts, ShadySupportedDeviceExtensionsCount);
     size_t enabled_device_exts_count;
@@ -308,8 +308,8 @@ bool probe_vkr_devices(VkrBackend* runtime) {
     CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, available_devices), return false)
 
     if (devices_count == 0 && !runtime->base.runtime->config.allow_no_devices) {
-        error_print("No vulkan devices found!\n");
-        error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
+        shd_error_print("No vulkan devices found!\n");
+        shd_error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
         return false;
     }
 
@@ -331,12 +331,12 @@ bool probe_vkr_devices(VkrBackend* runtime) {
     }
 
     if (shd_list_count(runtime->base.runtime->devices) == 0 && !runtime->base.runtime->config.allow_no_devices) {
-        error_print("No __suitable__ vulkan devices found!\n");
-        error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
+        shd_error_print("No __suitable__ vulkan devices found!\n");
+        shd_error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
         return false;
     }
 
-    info_print("Found %d usable devices\n", shd_list_count(runtime->base.runtime->devices));
+    shd_info_print("Found %d usable devices\n", shd_list_count(runtime->base.runtime->devices));
 
     return true;
 }

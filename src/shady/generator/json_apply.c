@@ -29,7 +29,7 @@ void json_apply_object(json_object* target, json_object* src) {
             }
         } else {
             if (existing)
-                warn_print("json-apply: overwriting key '%s'\n", name);
+                shd_warn_print("json-apply: overwriting key '%s'\n", name);
             // json_object* copy = NULL;
             // json_object_deep_copy(value, &copy, NULL);
             // json_object_object_add(target, name, copy);

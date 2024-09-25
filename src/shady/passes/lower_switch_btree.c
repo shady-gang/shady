@@ -171,7 +171,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             destroy_arena(arena);
             return finish_body(bb, rewrite_node(r, get_abstraction_body(get_structured_construct_tail(node))));*/
-            error("TODO")
+            shd_error("TODO")
             // return yield_values_and_wrap_in_block(bb, final_results);
         }
         default: break;

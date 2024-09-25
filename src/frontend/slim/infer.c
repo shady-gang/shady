@@ -47,7 +47,7 @@ static Nodes infer_nodes(Context* ctx, Nodes nodes) {
     return rewrite_nodes(&ctx->rewriter, nodes);
 }
 
-#define rewrite_node error("don't use this directly, use the 'infer' and 'infer_node' helpers")
+#define rewrite_node shd_error("don't use this directly, use the 'infer' and 'infer_node' helpers")
 #define rewrite_nodes rewrite_node
 
 static const Node* infer_annotation(Context* ctx, const Node* node) {
@@ -58,7 +58,7 @@ static const Node* infer_annotation(Context* ctx, const Node* node) {
         case AnnotationValue_TAG: return annotation_value(a, (AnnotationValue) { .name = node->payload.annotation_value.name, .value = infer(ctx, node->payload.annotation_value.value, NULL) });
         case AnnotationValues_TAG: return annotation_values(a, (AnnotationValues) { .name = node->payload.annotation_values.name, .values = infer_nodes(ctx, node->payload.annotation_values.values) });
         case AnnotationCompound_TAG: return annotation_compound(a, (AnnotationCompound) { .name = node->payload.annotation_compound.name, .entries = infer_nodes(ctx, node->payload.annotation_compound.entries) });
-        default: error("Not an annotation");
+        default: shd_error("Not an annotation");
     }
 }
 
@@ -146,7 +146,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             nnominal_type->payload.nom_type.body = infer(ctx, onom_type->body, NULL);
             return nnominal_type;
         }
-        case NotADeclaration: error("not a decl");
+        case NotADeclaration: shd_error("not a decl");
     }
 }
 
@@ -163,7 +163,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
     switch (is_value(node)) {
-        case NotAValue: error("");
+        case NotAValue: shd_error("");
         case Param_TAG:
         case Value_ConstrainedValue_TAG: {
             const Type* type = infer(ctx, node->payload.constrained.type, NULL);
@@ -204,7 +204,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 uint64_t v;
                 switch (expected_type->payload.float_type.width) {
                     case FloatTy16:
-                        error("TODO: implement fp16 parsing");
+                        shd_error("TODO: implement fp16 parsing");
                     case FloatTy32:
                         assert(sizeof(float) == sizeof(uint32_t));
                         float f = strtof(node->payload.untyped_number.plaintext, NULL);
@@ -403,13 +403,13 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
 
     const Type* callee_type = get_unqualified_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
-        error("functions are called through function pointers");
+        shd_error("functions are called through function pointers");
     callee_type = callee_type->payload.ptr_type.pointed_type;
 
     if (callee_type->tag != FnType_TAG)
-        error("Callees must have a function type");
+        shd_error("Callees must have a function type");
     if (callee_type->payload.fn_type.param_types.count != node->payload.call.args.count)
-        error("Mismatched argument counts");
+        shd_error("Mismatched argument counts");
     for (size_t i = 0; i < node->payload.call.args.count; i++) {
         const Node* arg = node->payload.call.args.nodes[i];
         assert(arg);
@@ -537,7 +537,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             return stack_alloc(a, (StackAlloc) { .type = infer_type(ctx, element_type), .mem = infer(ctx, node->payload.stack_alloc.mem, NULL) });
         }
         default: break;
-        case NotAnInstruction: error("not an instruction");
+        case NotAnInstruction: shd_error("not an instruction");
     }
     return recreate_node_identity(&ctx->rewriter, node);
 }
@@ -547,7 +547,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
     switch (is_terminator(node)) {
         case NotATerminator: assert(false);
         case If_TAG:           return infer_if    (ctx, node);
-        case Match_TAG:        error("TODO")
+        case Match_TAG:        shd_error("TODO")
         case Loop_TAG:         return infer_loop  (ctx, node);
         case Control_TAG:      return infer_control(ctx, node);
         case Return_TAG: {

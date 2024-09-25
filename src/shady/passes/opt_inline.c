@@ -89,15 +89,15 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
     if (!is_call_safely_removable(fn_node->fn))
         crit.can_be_eliminated = false;
 
-    debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d safely_removable=%d address_leaks=%d recursive=%d inlineable=%d can_be_eliminated=%d\n",
-                 get_abstraction_name(fn_node->fn),
-                 crit.num_calls,
-                 crit.num_inlineable_calls,
-                 is_call_safely_removable(fn_node->fn),
-                 fn_node->is_address_captured,
-                 fn_node->is_recursive,
-                 crit.can_be_inlined,
-                 crit.can_be_eliminated);
+    shd_debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d safely_removable=%d address_leaks=%d recursive=%d inlineable=%d can_be_eliminated=%d\n",
+                     get_abstraction_name(fn_node->fn),
+                     crit.num_calls,
+                     crit.num_inlineable_calls,
+                     is_call_safely_removable(fn_node->fn),
+                     fn_node->is_address_captured,
+                     fn_node->is_recursive,
+                     crit.can_be_inlined,
+                     crit.can_be_eliminated);
 
     return crit;
 }
@@ -106,7 +106,7 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
 static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nmem, Nodes nargs, const Node* return_to) {
     assert(is_abstraction(ocallee));
 
-    log_string(DEBUG, "Inlining '%s' inside '%s'\n", get_abstraction_name(ocallee), get_abstraction_name(ctx->fun));
+    shd_log_fmt(DEBUG, "Inlining '%s' inside '%s'\n", get_abstraction_name(ocallee), get_abstraction_name(ctx->fun));
     Context inline_context = *ctx;
     inline_context.rewriter.map = shd_clone_dict(inline_context.rewriter.map);
 
@@ -140,7 +140,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ctx->graph) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_eliminated) {
-                    debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
+                    shd_debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
                     return NULL;
                 }
             }
@@ -170,7 +170,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
-                    debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
+                    shd_debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
 
                     // Prepare a join point to replace the old function return
@@ -210,7 +210,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
-                    debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
+                    shd_debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
                     return inline_call(ctx, ocallee, rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
                 }
