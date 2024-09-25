@@ -15,10 +15,10 @@ void generate_node_print_fns(Growy* g, json_object* src) {
             alloc = (void*) snake_name;
         }
         shd_growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
-        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, GREEN);\n");
-        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \"%s\");\n", name);
-        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, RESET);\n");
-        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \"(\");\n");
+        shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, GREEN);\n");
+        shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \"%s\");\n", name);
+        shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, RESET);\n");
+        shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \"(\");\n");
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
@@ -66,10 +66,10 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                 }
 
                 if (j + 1 < json_object_array_length(ops))
-                    shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \", \");\n");
+                    shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \", \");\n");
             }
         }
-        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \")\");\n");
+        shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \")\");\n");
         shd_growy_append_formatted(g, "\t\tbreak;\n");
         shd_growy_append_formatted(g, "\t}\n", name);
         if (alloc)

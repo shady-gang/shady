@@ -112,7 +112,7 @@ CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Ty
     const Type* ut = qualified_type_helper(ptr_type, true);
     const Type* vt = qualified_type_helper(ptr_type, false);
     String lhs = c_emit_type(emitter, vt, interm);
-    print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, c_emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
+    shd_print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, c_emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
     return term_from_cvalue(interm);
 }
 
@@ -139,20 +139,20 @@ void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const
 
     String decl = c_emit_type(emitter, t, center);
     if (initializer)
-        print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
+        shd_print(block_printer, "\n%s%s = %s;", prefix, decl, to_cvalue(emitter, *initializer));
     else
-        print(block_printer, "\n%s%s;", prefix, decl);
+        shd_print(block_printer, "\n%s%s;", prefix, decl);
 }
 
 void c_emit_pack_code(Printer* p, Strings src, String dst) {
     for (size_t i = 0; i < src.count; i++) {
-        print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
+        shd_print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
     }
 }
 
 void c_emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
-        print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
+        shd_print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
     }
 }
 
@@ -230,15 +230,15 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
     }
 
     if (init)
-        print(emitter->fn_decls, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, name), init);
+        shd_print(emitter->fn_decls, "\n%s%s = %s;", prefix, c_emit_type(emitter, type, name), init);
     else
-        print(emitter->fn_decls, "\n%s%s;", prefix, c_emit_type(emitter, type, name));
+        shd_print(emitter->fn_decls, "\n%s%s;", prefix, c_emit_type(emitter, type, name));
 
     //if (!has_forward_declarations(emitter->config.dialect) || !init)
     //    return;
     //
     //String declaration = c_emit_type(emitter, type, decl_center);
-    //print(emitter->fn_decls, "\n%s;", declaration);
+    //shd_print(emitter->fn_decls, "\n%s;", declaration);
 }
 
 void c_emit_decl(Emitter* emitter, const Node* decl) {
@@ -336,11 +336,11 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                         fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
                     }
                 }
-                print(emitter->fn_defs, "\n%s { ", head);
-                indent(emitter->fn_defs);
-                print(emitter->fn_defs, " %s", fn_body);
-                deindent(emitter->fn_defs);
-                print(emitter->fn_defs, "\n}");
+                shd_print(emitter->fn_defs, "\n%s { ", head);
+                shd_printer_indent(emitter->fn_defs);
+                shd_print(emitter->fn_defs, " %s", fn_body);
+                shd_printer_deindent(emitter->fn_defs);
+                shd_print(emitter->fn_defs, "\n}");
 
                 destroy_scheduler(fn.scheduler);
                 destroy_cfg(fn.cfg);
@@ -348,7 +348,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 free(fn.instruction_printers);
             }
 
-            print(emitter->fn_decls, "\n%s;", head);
+            shd_print(emitter->fn_decls, "\n%s;", head);
             return;
         }
         case Constant_TAG: {
@@ -364,7 +364,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             register_emitted_type(emitter, decl, emitted);
             switch (emitter->config.dialect) {
                 case CDialect_ISPC:
-                default: print(emitter->type_decls, "\ntypedef %s;", c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+                default: shd_print(emitter->type_decls, "\ntypedef %s;", c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
                 case CDialect_GLSL: c_emit_nominal_type_body(emitter, shd_format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
@@ -390,9 +390,9 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitte
 
 static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
 
-    print(p, "typedef struct __shady_PrivateGlobals {\n");
+    shd_print(p, "typedef struct __shady_PrivateGlobals {\n");
     Nodes decls = get_module_declarations(m);
     size_t count = 0;
     for (size_t i = 0; i < decls.count; i++) {
@@ -402,17 +402,17 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
         AddressSpace as = decl->payload.global_variable.address_space;
         if (as != AsPrivate)
             continue;
-        print(p, "%s;\n", c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
+        shd_print(p, "%s;\n", c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
         count++;
     }
-    print(p, "} __shady_PrivateGlobals;\n");
+    shd_print(p, "} __shady_PrivateGlobals;\n");
 
     if (count == 0) {
-        destroy_printer(p);
+        shd_destroy_printer(p);
         shd_destroy_growy(g);
         return NULL;
     }
-    return printer_growy_unwrap(p);
+    return shd_printer_growy_unwrap(p);
 }
 
 CEmitterConfig default_c_emitter_config(void) {
@@ -434,9 +434,9 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
         .compiler_config = compiler_config,
         .config = config,
         .arena = arena,
-        .type_decls = open_growy_as_printer(type_decls_g),
-        .fn_decls = open_growy_as_printer(fn_decls_g),
-        .fn_defs = open_growy_as_printer(fn_defs_g),
+        .type_decls = shd_new_printer_from_growy(type_decls_g),
+        .fn_decls = shd_new_printer_from_growy(fn_decls_g),
+        .fn_defs = shd_new_printer_from_growy(fn_defs_g),
         .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
         .emitted_types = shd_new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
     };
@@ -446,16 +446,16 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
         emitter.total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[1];
         emitter.total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[2];
-        print(emitter.type_decls, "\ntypedef %s;\n", c_emit_type(&emitter, arr_type(arena, (ArrType) {
+        shd_print(emitter.type_decls, "\ntypedef %s;\n", c_emit_type(&emitter, arr_type(arena, (ArrType) {
                 .size = int32_literal(arena, 3),
                 .element_type = uint32_type(arena)
         }), "uvec3"));
-        print(emitter.fn_defs, shady_cuda_builtins_src);
+        shd_print(emitter.fn_defs, shady_cuda_builtins_src);
 
         String private_globals = collect_private_globals_in_struct(&emitter, mod);
         if (private_globals) {
             emitter.use_private_globals = true;
-            print(emitter.type_decls, private_globals);
+            shd_print(emitter.type_decls, private_globals);
             free((void*)private_globals);
         }
     }
@@ -464,61 +464,61 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
     for (size_t i = 0; i < decls.count; i++)
         c_emit_decl(&emitter, decls.nodes[i]);
 
-    destroy_printer(emitter.type_decls);
-    destroy_printer(emitter.fn_decls);
-    destroy_printer(emitter.fn_defs);
+    shd_destroy_printer(emitter.type_decls);
+    shd_destroy_printer(emitter.fn_decls);
+    shd_destroy_printer(emitter.fn_defs);
 
     Growy* final = shd_new_growy();
-    Printer* finalp = open_growy_as_printer(final);
+    Printer* finalp = shd_new_printer_from_growy(final);
 
     if (emitter.config.dialect == CDialect_GLSL) {
-        print(finalp, "#version %d\n", emitter.config.glsl_version);
+        shd_print(finalp, "#version %d\n", emitter.config.glsl_version);
     }
 
-    print(finalp, "/* file generated by shady */\n");
+    shd_print(finalp, "/* file generated by shady */\n");
 
     switch (emitter.config.dialect) {
         case CDialect_ISPC:
             break;
         case CDialect_CUDA: {
-            print(finalp, "#define __shady_workgroup_size %d\n", emitter.total_workgroup_size);
-            print(finalp, "#define __shady_replicate_thread_local(v) { ");
+            shd_print(finalp, "#define __shady_workgroup_size %d\n", emitter.total_workgroup_size);
+            shd_print(finalp, "#define __shady_replicate_thread_local(v) { ");
             for (size_t i = 0; i < emitter.total_workgroup_size; i++)
-                print(finalp, "v, ");
-            print(finalp, "}\n");
-            print(finalp, shady_cuda_prelude_src);
+                shd_print(finalp, "v, ");
+            shd_print(finalp, "}\n");
+            shd_print(finalp, shady_cuda_prelude_src);
             break;
         }
         case CDialect_C11:
-            print(finalp, "\n#include <stdbool.h>");
-            print(finalp, "\n#include <stdint.h>");
-            print(finalp, "\n#include <stddef.h>");
-            print(finalp, "\n#include <stdio.h>");
-            print(finalp, "\n#include <math.h>");
+            shd_print(finalp, "\n#include <stdbool.h>");
+            shd_print(finalp, "\n#include <stdint.h>");
+            shd_print(finalp, "\n#include <stddef.h>");
+            shd_print(finalp, "\n#include <stdio.h>");
+            shd_print(finalp, "\n#include <math.h>");
             break;
         case CDialect_GLSL:
             if (emitter.need_64b_ext)
-                print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
-            print(finalp, "#define ubyte uint\n");
-            print(finalp, "#define uchar uint\n");
-            print(finalp, "#define ulong uint\n");
+                shd_print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
+            shd_print(finalp, "#define ubyte uint\n");
+            shd_print(finalp, "#define uchar uint\n");
+            shd_print(finalp, "#define ulong uint\n");
             if (emitter.config.glsl_version <= 120)
-                print(finalp, shady_glsl_120_polyfills_src);
+                shd_print(finalp, shady_glsl_120_polyfills_src);
             break;
     }
 
-    print(finalp, "\n/* types: */\n");
+    shd_print(finalp, "\n/* types: */\n");
     shd_growy_append_bytes(final, shd_growy_size(type_decls_g), shd_growy_data(type_decls_g));
 
-    print(finalp, "\n/* declarations: */\n");
+    shd_print(finalp, "\n/* declarations: */\n");
     shd_growy_append_bytes(final, shd_growy_size(fn_decls_g), shd_growy_data(fn_decls_g));
 
-    print(finalp, "\n/* definitions: */\n");
+    shd_print(finalp, "\n/* definitions: */\n");
     shd_growy_append_bytes(final, shd_growy_size(fn_defs_g), shd_growy_data(fn_defs_g));
 
-    print(finalp, "\n");
-    print(finalp, "\n");
-    print(finalp, "\n");
+    shd_print(finalp, "\n");
+    shd_print(finalp, "\n");
+    shd_print(finalp, "\n");
     shd_growy_append_bytes(final, 1, "\0");
 
     shd_destroy_growy(type_decls_g);
@@ -530,7 +530,7 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
 
     *output_size = shd_growy_size(final) - 1;
     *output = shd_growy_deconstruct(final);
-    destroy_printer(finalp);
+    shd_destroy_printer(finalp);
 
     if (new_mod)
         *new_mod = mod;

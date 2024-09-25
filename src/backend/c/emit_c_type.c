@@ -26,21 +26,21 @@ String c_get_record_field_name(const Type* t, size_t i) {
 void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     assert(type->tag == RecordType_TAG);
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
 
-    print(p, "\n%s {", name);
-    indent(p);
+    shd_print(p, "\n%s {", name);
+    shd_printer_indent(p);
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
         String member_identifier = c_get_record_field_name(type, i);
-        print(p, "\n%s;", c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
+        shd_print(p, "\n%s;", c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
     }
-    deindent(p);
-    print(p, "\n};\n");
+    shd_printer_deindent(p);
+    shd_print(p, "\n};\n");
     shd_growy_append_bytes(g, 1, (char[]) { '\0' });
 
-    print(emitter->type_decls, shd_growy_data(g));
+    shd_print(emitter->type_decls, shd_growy_data(g));
     shd_destroy_growy(g);
-    destroy_printer(p);
+    shd_destroy_printer(p);
 }
 
 String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
@@ -51,42 +51,42 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
 
     Growy* paramg = shd_new_growy();
-    Printer* paramp = open_growy_as_printer(paramg);
+    Printer* paramp = shd_new_printer_from_growy(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
     if (dom.count == 0 && emitter->config.dialect == CDialect_C11)
-        print(paramp, "void");
+        shd_print(paramp, "void");
     else if (fn) {
         Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
         if (emitter->use_private_globals && !entry_point) {
-            print(paramp, "__shady_PrivateGlobals* __shady_private_globals");
+            shd_print(paramp, "__shady_PrivateGlobals* __shady_private_globals");
             if (params.count > 0)
-                print(paramp, ", ");
+                shd_print(paramp, ", ");
         }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = get_value_name_unsafe(fn->payload.fun.params.nodes[i]);
             param_name = format_string_interned(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
-            print(paramp, c_emit_type(emitter, params.nodes[i]->type, param_name));
+            shd_print(paramp, c_emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
-                print(paramp, ", ");
+                shd_print(paramp, ", ");
             }
         }
     } else {
         if (emitter->use_private_globals) {
-            print(paramp, "__shady_PrivateGlobals*");
+            shd_print(paramp, "__shady_PrivateGlobals*");
             if (dom.count > 0)
-                print(paramp, ", ");
+                shd_print(paramp, ", ");
         }
         for (size_t i = 0; i < dom.count; i++) {
-            print(paramp, c_emit_type(emitter, dom.nodes[i], ""));
+            shd_print(paramp, c_emit_type(emitter, dom.nodes[i], ""));
             if (i + 1 < dom.count) {
-                print(paramp, ", ");
+                shd_print(paramp, ", ");
             }
         }
     }
     shd_growy_append_bytes(paramg, 1, (char[]) { 0 });
-    const char* parameters = printer_growy_unwrap(paramp);
+    const char* parameters = shd_printer_growy_unwrap(paramp);
     switch (emitter->config.dialect) {
         default:
             center = shd_format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
@@ -251,26 +251,26 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             emitted = unique_name(emitter->arena, "Array");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             Growy* g = shd_new_growy();
-            Printer* p = open_growy_as_printer(g);
+            Printer* p = shd_new_printer_from_growy(g);
 
             const Node* size = type->payload.arr_type.size;
             if (!size && emitter->config.decay_unsized_arrays)
                 return c_emit_type(emitter, type->payload.arr_type.element_type, center);
 
-            print(p, "\n%s {", prefixed);
-            indent(p);
+            shd_print(p, "\n%s {", prefixed);
+            shd_printer_indent(p);
             String inner_decl_rhs;
             if (size)
                 inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
             else
                 inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[0]");
-            print(p, "\n%s;", c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
-            deindent(p);
-            print(p, "\n};\n");
+            shd_print(p, "\n%s;", c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
+            shd_printer_deindent(p);
+            shd_print(p, "\n};\n");
             shd_growy_append_bytes(g, 1, (char[]) { '\0' });
 
-            String subdecl = printer_growy_unwrap(p);
-            print(emitter->type_decls, subdecl);
+            String subdecl = shd_printer_growy_unwrap(p);
+            shd_print(emitter->type_decls, subdecl);
             free_tmp_str(subdecl);
 
             // ditto from RecordType

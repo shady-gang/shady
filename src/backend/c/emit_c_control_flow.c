@@ -15,7 +15,7 @@ String c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
     const Node* body = get_abstraction_body(abs);
     assert(body && is_terminator(body));
     CFNode* cf_node = cfg_lookup(fn->cfg, abs);
-    Printer* p = open_growy_as_printer(shd_new_growy());
+    Printer* p = shd_new_printer_from_growy(shd_new_growy());
     fn->instruction_printers[cf_node->rpo_index] = p;
     //indent(p);
 
@@ -27,10 +27,10 @@ String c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
     }*/
 
     //deindent(p);
-    // print(p, "\n");
+    // shd_print(p, "\n");
 
     fn->instruction_printers[cf_node->rpo_index] = NULL;
-    String s2 = printer_growy_unwrap(p);
+    String s2 = shd_printer_growy_unwrap(p);
     String s = string(emitter->arena, s2);
     free((void*)s2);
     return s;
@@ -65,18 +65,18 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
     String false_body = if_.if_false ? c_emit_body(&sub_emiter, fn, if_.if_false) : NULL;
     String tail = c_emit_body(emitter, fn, if_.tail);
     CValue condition = to_cvalue(emitter, c_emit_value(emitter, fn, if_.condition));
-    print(p, "\nif (%s) { ", condition);
-    indent(p);
-    print(p, "%s", true_body);
-    deindent(p);
-    print(p, "\n}");
+    shd_print(p, "\nif (%s) { ", condition);
+    shd_printer_indent(p);
+    shd_print(p, "%s", true_body);
+    shd_printer_deindent(p);
+    shd_print(p, "\n}");
     if (if_.if_false) {
         assert(get_abstraction_params(if_.if_false).count == 0);
-        print(p, " else {");
-        indent(p);
-        print(p, "%s", false_body);
-        deindent(p);
-        print(p, "\n}");
+        shd_print(p, " else {");
+        shd_printer_indent(p);
+        shd_print(p, "%s", false_body);
+        shd_printer_deindent(p);
+        shd_print(p, "\n}");
     }
 
     Nodes results = get_abstraction_params(if_.tail);
@@ -84,7 +84,7 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", tail);
+    shd_print(p, "%s", tail);
 }
 
 static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match) {
@@ -112,22 +112,22 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
         bodies[i] = c_emit_body(&sub_emiter, fn, match.cases.nodes[i]);
     }
     for (size_t i = 0; i < match.cases.count; i++) {
-        print(p, "\n");
+        shd_print(p, "\n");
         if (!first)
-            print(p, "else ");
-        print(p, "if (%s == %s) { ", inspectee, literals[i]);
-        indent(p);
-        print(p, "%s", bodies[i]);
-        deindent(p);
-        print(p, "\n}");
+            shd_print(p, "else ");
+        shd_print(p, "if (%s == %s) { ", inspectee, literals[i]);
+        shd_printer_indent(p);
+        shd_print(p, "%s", bodies[i]);
+        shd_printer_deindent(p);
+        shd_print(p, "\n}");
         first = false;
     }
     if (match.default_case) {
-        print(p, "\nelse { ");
-        indent(p);
-        print(p, "%s", default_case_body);
-        deindent(p);
-        print(p, "\n}");
+        shd_print(p, "\nelse { ");
+        shd_printer_indent(p);
+        shd_print(p, "%s", default_case_body);
+        shd_printer_deindent(p);
+        shd_print(p, "\n}");
     }
 
     Nodes results = get_abstraction_params(match.tail);
@@ -135,7 +135,7 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", tail);
+    shd_print(p, "%s", tail);
 }
 
 static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
@@ -159,18 +159,18 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
 
     String body = c_emit_body(&sub_emiter, fn, loop.body);
     String tail = c_emit_body(emitter, fn, loop.tail);
-    print(p, "\nwhile(true) { ");
-    indent(p);
-    print(p, "%s", body);
-    deindent(p);
-    print(p, "\n}");
+    shd_print(p, "\nwhile(true) { ");
+    shd_printer_indent(p);
+    shd_print(p, "%s", body);
+    shd_printer_deindent(p);
+    shd_print(p, "\n}");
 
     Nodes results = get_abstraction_params(loop.tail);
     for (size_t i = 0; i < ephis.count; i++) {
         register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
-    print(p, "%s", tail);
+    shd_print(p, "%s", tail);
 }
 
 static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_printer, const Node* terminator) {
@@ -189,16 +189,16 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
         case Terminator_Return_TAG: {
             Nodes args = terminator->payload.fn_ret.args;
             if (args.count == 0) {
-                print(block_printer, "\nreturn;");
+                shd_print(block_printer, "\nreturn;");
             } else if (args.count == 1) {
-                print(block_printer, "\nreturn %s;", to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[0])));
+                shd_print(block_printer, "\nreturn %s;", to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[0])));
             } else {
                 String packed = unique_name(emitter->arena, "pack_return");
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
                     values[i] = to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i]));
                 c_emit_pack_code(block_printer, strings(emitter->arena, args.count, values), packed);
-                print(block_printer, "\nreturn %s;", packed);
+                shd_print(block_printer, "\nreturn %s;", packed);
             }
             break;
         }
@@ -207,7 +207,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
 
             break;
         }
@@ -216,8 +216,8 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.loop_continue;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
-            print(block_printer, "\ncontinue;");
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+            shd_print(block_printer, "\ncontinue;");
             break;
         }
         case MergeBreak_TAG: {
@@ -225,21 +225,21 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.loop_break;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
-            print(block_printer, "\nbreak;");
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+            shd_print(block_printer, "\nbreak;");
             break;
         }
         case Terminator_Unreachable_TAG: {
             switch (emitter->config.dialect) {
                 case CDialect_CUDA:
                 case CDialect_C11:
-                    print(block_printer, "\n__builtin_unreachable();");
+                    shd_print(block_printer, "\n__builtin_unreachable();");
                     break;
                 case CDialect_ISPC:
-                    print(block_printer, "\nassert(false);");
+                    shd_print(block_printer, "\nassert(false);");
                     break;
                 case CDialect_GLSL:
-                    print(block_printer, "\n//unreachable");
+                    shd_print(block_printer, "\n//unreachable");
                     break;
             }
             break;

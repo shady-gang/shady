@@ -23,25 +23,25 @@ struct Printer_ {
     int indent;
 };
 
-Printer* open_file_as_printer(void* f) {
+Printer* shd_new_printer_from_file(void* f) {
     Printer* p = calloc(1, sizeof(Printer));
     p->output = PoFile;
     p->file = (FILE*) f;
     return p;
 }
 
-Printer* open_growy_as_printer(Growy* g) {
+Printer* shd_new_printer_from_growy(Growy* g) {
     Printer* p = calloc(1, sizeof(Printer));
     p->output = PoGrowy;
     p->growy = g;
     return p;
 }
 
-void destroy_printer(Printer* p) {
+void shd_destroy_printer(Printer* p) {
     free(p);
 }
 
-static void print_bare(Printer* p, size_t len, const char* str) {
+static void shd_printer_print_raw(Printer* p, size_t len, const char* str) {
     assert(strlen(str) >= len);
     switch(p->output) {
         case PoFile: fwrite(str, sizeof(char), len, p->file); break;
@@ -49,30 +49,30 @@ static void print_bare(Printer* p, size_t len, const char* str) {
     }
 }
 
-void flush(Printer* p) {
+void shd_printer_flush(Printer* p) {
     switch(p->output) {
         case PoFile: fflush(p->file); break;
         case PoGrowy: break;
     }
 }
 
-void indent(Printer* p) {
+void shd_printer_indent(Printer* p) {
     p->indent++;
 }
 
-void deindent(Printer* p) {
+void shd_printer_deindent(Printer* p) {
     p->indent--;
 }
 
-void newline(Printer* p) {
-    print_bare(p, 1, "\n");
+void shd_newline(Printer* p) {
+    shd_printer_print_raw(p, 1, "\n");
     for (int i = 0; i < p->indent; i++)
-        print_bare(p, 4, "    ");
+        shd_printer_print_raw(p, 4, "    ");
 }
 
 #define LOCAL_BUFFER_SIZE 32
 
-Printer* print(Printer* p, const char* f, ...) {
+Printer* shd_print(Printer* p, const char* f, ...) {
     size_t len = strlen(f) + 1;
     if (len == 1)
         return p;
@@ -116,42 +116,24 @@ Printer* print(Printer* p, const char* f, ...) {
     size_t i = 0;
     while(i < written) {
         if (tmp[i] == '\n') {
-            print_bare(p, i - start, &tmp[start]);
-            newline(p);
+            shd_printer_print_raw(p, i - start, &tmp[start]);
+            shd_newline(p);
             start = i + 1;
         }
         i++;
     }
 
     if (start < i)
-        print_bare(p, i - start, &tmp[start]);
+        shd_printer_print_raw(p, i - start, &tmp[start]);
 
     free(alloc);
     return p;
 }
 
-const char* printer_growy_unwrap(Printer* p) {
+const char* shd_printer_growy_unwrap(Printer* p) {
     assert(p->output == PoGrowy);
     shd_growy_append_bytes(p->growy, 1, "\0");
     const char* insides = shd_growy_deconstruct(p->growy);
     free(p);
     return insides;
-}
-
-const char* replace_string(const char* source, const char* match, const char* replace_with) {
-    Growy* g = shd_new_growy();
-    size_t match_len = strlen(match);
-    size_t replace_len = strlen(replace_with);
-    const char* next_match = strstr(source, match);
-    while (next_match != NULL) {
-        size_t diff = next_match - source;
-        shd_growy_append_bytes(g, diff, (char*) source);
-        shd_growy_append_bytes(g, replace_len, (char*) replace_with);
-        source = next_match + match_len;
-        next_match = strstr(source, match);
-    }
-    shd_growy_append_bytes(g, strlen(source), (char*) source);
-    char zero = '\0';
-    shd_growy_append_bytes(g, 1, &zero);
-    return shd_growy_deconstruct(g);
 }

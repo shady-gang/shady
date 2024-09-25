@@ -54,7 +54,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
         .emitted = shd_new_dict(const Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
         .root_growy = shd_new_growy(),
     };
-    ctx.root_printer = open_growy_as_printer(ctx.root_growy);
+    ctx.root_printer = shd_new_printer_from_growy(ctx.root_growy);
     return ctx;
 }
 
@@ -65,63 +65,63 @@ static void destroy_printer_ctx(PrinterCtx ctx) {
 void print_module(Printer* printer, NodePrintConfig config, Module* mod) {
     PrinterCtx ctx = make_printer_ctx(printer, config);
     print_mod_impl(&ctx, mod);
-    String s = printer_growy_unwrap(ctx.root_printer);
-    print(ctx.printer, "%s", s);
+    String s = shd_printer_growy_unwrap(ctx.root_printer);
+    shd_print(ctx.printer, "%s", s);
     free((void*)s);
-    flush(ctx.printer);
+    shd_printer_flush(ctx.printer);
     destroy_printer_ctx(ctx);
 }
 
 void print_node(Printer* printer, NodePrintConfig config, const Node* node) {
     PrinterCtx ctx = make_printer_ctx(printer, config);
     String emitted = emit_node(&ctx, node);
-    String s = printer_growy_unwrap(ctx.root_printer);
-    print(ctx.printer, "%s%s", s, emitted);
+    String s = shd_printer_growy_unwrap(ctx.root_printer);
+    shd_print(ctx.printer, "%s%s", s, emitted);
     free((void*)s);
-    flush(ctx.printer);
+    shd_printer_flush(ctx.printer);
     destroy_printer_ctx(ctx);
 }
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
     if (node)
-        print(p, "%%%d ", node->id);
+        shd_print(p, "%%%d ", node->id);
     print_node(p, (NodePrintConfig) {.reparseable = true}, node);
-    destroy_printer(p);
+    shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
     print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
-    destroy_printer(p);
+    shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
-    Printer* p = open_file_as_printer(stdout);
+    Printer* p = shd_new_printer_from_file(stdout);
     if (node)
-        print(p, "%%%d ", node->id);
+        shd_print(p, "%%%d ", node->id);
     print_node(p, (NodePrintConfig) {.color = true}, node);
     printf("\n");
 }
 
 void dump_module(Module* mod) {
-    Printer* p = open_file_as_printer(stdout);
+    Printer* p = shd_new_printer_from_file(stdout);
     print_module(p, (NodePrintConfig) {.color = true}, mod);
-    destroy_printer(p);
+    shd_destroy_printer(p);
     printf("\n");
 }
 
 void log_node(LogLevel level, const Node* node) {
     if (level <= get_log_level()) {
-        Printer* p = open_file_as_printer(stderr);
+        Printer* p = shd_new_printer_from_file(stderr);
         print_node(p, (NodePrintConfig) {.color = true}, node);
-        destroy_printer(p);
+        shd_destroy_printer(p);
     }
 }
 
@@ -133,9 +133,9 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
         config.print_internal = compiler_cfg->logging.print_internal;
     }
     if (level <= get_log_level()) {
-        Printer* p = open_file_as_printer(stderr);
+        Printer* p = shd_new_printer_from_file(stderr);
         print_module(p, config, mod);
-        destroy_printer(p);
+        shd_destroy_printer(p);
     }
 }
 
@@ -159,7 +159,7 @@ void log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod)
 #define BCYAN    COLOR("\033[0;96m")
 #define BWHITE   COLOR("\033[0;97m")
 
-#define printf(...) print(ctx->printer, __VA_ARGS__)
+#define printf(...) shd_print(ctx->printer, __VA_ARGS__)
 #define print_node(n) print_operand_helper(ctx, 0, n)
 #define print_operand(nc, n) print_operand_helper(ctx, nc, n)
 
@@ -256,16 +256,16 @@ static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
     print_param_list(ctx, bb->payload.basic_block.params, NULL);
 
     printf(" {");
-    indent(ctx->printer);
+    shd_printer_indent(ctx->printer);
     printf("\n");
     printf("%s", emit_abs_body(ctx, bb));
-    deindent(ctx->printer);
+    shd_printer_deindent(ctx->printer);
     printf("\n}");
 }
 
 static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
     CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, abs) : NULL;
     if (cfnode)
         ctx->bb_printers[cfnode->rpo_index] = p;
@@ -274,7 +274,7 @@ static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
 
     if (cfnode) {
         Growy* g2 = shd_new_growy();
-        Printer* p2 = open_growy_as_printer(g2);
+        Printer* p2 = shd_new_printer_from_growy(g2);
         size_t count = cfnode->dominates->elements_count;
         for (size_t i = 0; i < count; i++) {
             const CFNode* dominated = shd_read_list(const CFNode*, cfnode->dominates)[i];
@@ -283,15 +283,15 @@ static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
             bb_ctx.printer = p2;
             print_basic_block(&bb_ctx, dominated);
             if (i + 1 < count)
-                newline(bb_ctx.printer);
+                shd_newline(bb_ctx.printer);
         }
 
-        String bbs = printer_growy_unwrap(p2);
-        print(p, "%s", bbs);
+        String bbs = shd_printer_growy_unwrap(p2);
+        shd_print(p, "%s", bbs);
         free((void*) bbs);
     }
 
-    String s = printer_growy_unwrap(p);
+    String s = shd_printer_growy_unwrap(p);
     String s2 = string(ctx->fn->arena, s);
     if (cfnode)
         ctx->bb_printers[cfnode->rpo_index] = NULL;
@@ -323,12 +323,12 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         printf(";");
     } else {
         printf(" {");
-        indent(ctx->printer);
+        shd_printer_indent(ctx->printer);
         printf("\n");
 
         printf("%s", emit_abs_body(ctx, node));
 
-        deindent(ctx->printer);
+        shd_printer_deindent(ctx->printer);
         printf("\n}");
     }
 
@@ -1036,10 +1036,10 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     Growy* g = shd_new_growy();
     PrinterCtx ctx2 = *ctx;
-    ctx2.printer = open_growy_as_printer(g);
+    ctx2.printer = shd_new_printer_from_growy(g);
     bool print_inline = print_node_impl(&ctx2, node);
 
-    String s = printer_growy_unwrap(ctx2.printer);
+    String s = shd_printer_growy_unwrap(ctx2.printer);
     Printer* p = ctx->root_printer;
     if (ctx->scheduler) {
         CFNode* dst = schedule_instruction(ctx->scheduler, node);
@@ -1048,7 +1048,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     }
 
     if (print_def)
-        print(p, "%%%d = %s\n", node->id, s);
+        shd_print(p, "%%%d = %s\n", node->id, s);
 
     if (print_inline) {
         String is = string(node->arena, s);
@@ -1135,108 +1135,108 @@ static void print_mem(PrinterCtx* ctx, const Node* mem) {
 }
 
 static void print_operand_name_helper(PrinterCtx* ctx, String name) {
-    print(ctx->printer, GREY);
-    print(ctx->printer, "%s", name);
-    print(ctx->printer, RESET);
-    print(ctx->printer, ": ", name);
+    shd_print(ctx->printer, GREY);
+    shd_print(ctx->printer, "%s", name);
+    shd_print(ctx->printer, RESET);
+    shd_print(ctx->printer, ": ", name);
 }
 
 static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op) {
     if (getenv("SHADY_SUPER_VERBOSE_NODE_DEBUG")) {
         if (op && (is_value(op) || is_instruction(op)))
-            print(ctx->printer, "%%%d ", op->id);
-        print(ctx->printer, "%s", emit_node(ctx, op));
+            shd_print(ctx->printer, "%%%d ", op->id);
+        shd_print(ctx->printer, "%s", emit_node(ctx, op));
     } else {
-        print(ctx->printer, "%s", emit_node(ctx, op));
+        shd_print(ctx->printer, "%s", emit_node(ctx, op));
     }
 }
 
 void print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
     print_operand_name_helper(ctx, name);
     if (op_class == NcBasic_block)
-        print(ctx->printer, BYELLOW);
+        shd_print(ctx->printer, BYELLOW);
     print_operand_helper(ctx, op_class, op);
-    print(ctx->printer, RESET);
+    shd_print(ctx->printer, RESET);
 }
 
 void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "[");
+    shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
         print_operand_helper(ctx, op_class, ops.nodes[i]);
         if (i + 1 < ops.count)
-            print(ctx->printer, ", ");
+            shd_print(ctx->printer, ", ");
     }
-    print(ctx->printer, "]");
+    shd_print(ctx->printer, "]");
 }
 
 void print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "%s", get_address_space_name(as));
+    shd_print(ctx->printer, "%s", get_address_space_name(as));
 }
 
 void print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "%s", get_primop_name(op));
+    shd_print(ctx->printer, "%s", get_primop_name(op));
 }
 
 void print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, const Node* n, String name, RecordSpecialFlag flags) {
     print_operand_name_helper(ctx, name);
     if (flags & DecorateBlock)
-        print(ctx->printer, "DecorateBlock");
+        shd_print(ctx->printer, "DecorateBlock");
 }
 
 void print_node_operand_uint32_t(PrinterCtx* ctx, const Node* n, String name, uint32_t i) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "%u", i);
+    shd_print(ctx->printer, "%u", i);
 }
 
 void print_node_operand_uint64_t(PrinterCtx* ctx, const Node* n, String name, uint64_t i) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "%zu", i);
+    shd_print(ctx->printer, "%zu", i);
 }
 
 void print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String name, IntSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
-        case IntTy8:  print(ctx->printer, "8");  break;
-        case IntTy16: print(ctx->printer, "16"); break;
-        case IntTy32: print(ctx->printer, "32"); break;
-        case IntTy64: print(ctx->printer, "64"); break;
+        case IntTy8: shd_print(ctx->printer, "8");  break;
+        case IntTy16: shd_print(ctx->printer, "16"); break;
+        case IntTy32: shd_print(ctx->printer, "32"); break;
+        case IntTy64: shd_print(ctx->printer, "64"); break;
     }
 }
 
 void print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String name, FloatSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
-        case FloatTy16: print(ctx->printer, "16"); break;
-        case FloatTy32: print(ctx->printer, "32"); break;
-        case FloatTy64: print(ctx->printer, "64"); break;
+        case FloatTy16: shd_print(ctx->printer, "16"); break;
+        case FloatTy32: shd_print(ctx->printer, "32"); break;
+        case FloatTy64: shd_print(ctx->printer, "64"); break;
     }
 }
 
 void print_node_operand_String(PrinterCtx* ctx, const Node* n, String name, String s ){
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "\"%s\"", s);
+    shd_print(ctx->printer, "\"%s\"", s);
 }
 
 void print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name, Strings ops) {
     print_operand_name_helper(ctx, name);
-    print(ctx->printer, "[");
+    shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
-        print(ctx->printer, "\"%s\"", (size_t) ops.strings[i]);
+        shd_print(ctx->printer, "\"%s\"", (size_t) ops.strings[i]);
         if (i + 1 < ops.count)
-            print(ctx->printer, ", ");
+            shd_print(ctx->printer, ", ");
     }
-    print(ctx->printer, "]");
+    shd_print(ctx->printer, "]");
 }
 
 void print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, bool b) {
     print_operand_name_helper(ctx, name);
     if (b)
-        print(ctx->printer, "true");
+        shd_print(ctx->printer, "true");
     else
-        print(ctx->printer, "false");
+        shd_print(ctx->printer, "false");
 }
 
 #include "print_generated.c"

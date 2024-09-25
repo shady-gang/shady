@@ -15,7 +15,7 @@ static int extra_uniqueness = 0;
 
 static void print_node_helper(Printer* p, const Node* n) {
     Growy* tmp_g = shd_new_growy();
-    Printer* tmp_p = open_growy_as_printer(tmp_g);
+    Printer* tmp_p = shd_new_printer_from_growy(tmp_g);
 
     NodePrintConfig config = {
         .color = false,
@@ -24,11 +24,11 @@ static void print_node_helper(Printer* p, const Node* n) {
 
     print_node(tmp_p, config, n);
 
-    String label = printer_growy_unwrap(tmp_p);
+    String label = shd_printer_growy_unwrap(tmp_p);
     char* escaped_label = calloc(strlen(label) * 2, 1);
     shd_unapply_escape_codes(label, strlen(label), escaped_label);
 
-    print(p, "%s", escaped_label);
+    shd_print(p, "%s", escaped_label);
     free(escaped_label);
     free((void*)label);
 }
@@ -65,28 +65,28 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     }
 
     Growy* g = shd_new_growy();
-    Printer* p = open_growy_as_printer(g);
+    Printer* p = shd_new_printer_from_growy(g);
 
     String abs_name = get_abstraction_name_safe(bb);
 
-    print(p, "%s: \n%d: ", abs_name, bb->id);
+    shd_print(p, "%s: \n%d: ", abs_name, bb->id);
 
     if (getenv("SHADY_CFG_SCOPE_ONLY")) {
         const Nodes* scope = find_scope_info(bb);
         if (scope) {
             for (size_t i = 0; i < scope->count; i++) {
-                print(p, "%d", scope->nodes[i]->id);
+                shd_print(p, "%d", scope->nodes[i]->id);
                 if (i + 1 < scope->count)
-                    print(p, ", ");
+                    shd_print(p, ", ");
             }
         }
     } else {
         print_node_helper(p, body);
-        print(p, "\\l");
+        shd_print(p, "\\l");
     }
-    print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? get_abstraction_name_safe(n->structured_idom->node) : "null");
+    shd_print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? get_abstraction_name_safe(n->structured_idom->node) : "null");
 
-    String label = printer_growy_unwrap(p);
+    String label = shd_printer_growy_unwrap(p);
     fprintf(output, "bb_%zu [nojustify=true, label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
     free((void*) label);
 
@@ -172,25 +172,25 @@ void dump_cfgs_auto(Module* mod) {
 static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
     String name = get_abstraction_name_safe(idom->node);
     if (name)
-        print(p, "bb_%zu [label=\"%s\", shape=box];\n", (size_t) idom, name);
+        shd_print(p, "bb_%zu [label=\"%s\", shape=box];\n", (size_t) idom, name);
     else
-        print(p, "bb_%zu [label=\"%%%d\", shape=box];\n", (size_t) idom, idom->node->id);
+        shd_print(p, "bb_%zu [label=\"%%%d\", shape=box];\n", (size_t) idom, idom->node->id);
 
     for (size_t i = 0; i < shd_list_count(idom->dominates); i++) {
         CFNode* child = shd_read_list(CFNode*, idom->dominates)[i];
         dump_domtree_cfnode(p, child);
-        print(p, "bb_%zu -> bb_%zu;\n", (size_t) (idom), (size_t) (child));
+        shd_print(p, "bb_%zu -> bb_%zu;\n", (size_t) (idom), (size_t) (child));
     }
 }
 
 void dump_domtree_cfg(Printer* p, CFG* s) {
-    print(p, "subgraph cluster_%s {\n", get_abstraction_name_safe(s->entry->node));
+    shd_print(p, "subgraph cluster_%s {\n", get_abstraction_name_safe(s->entry->node));
     dump_domtree_cfnode(p, s->entry);
-    print(p, "}\n");
+    shd_print(p, "}\n");
 }
 
 void dump_domtree_module(Printer* p, Module* mod) {
-    print(p, "digraph G {\n");
+    shd_print(p, "digraph G {\n");
     struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
@@ -198,13 +198,13 @@ void dump_domtree_module(Printer* p, Module* mod) {
         destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
-    print(p, "}\n");
+    shd_print(p, "}\n");
 }
 
 void dump_domtree_auto(Module* mod) {
     FILE* f = fopen("domtree.dot", "wb");
-    Printer* p = open_file_as_printer(f);
+    Printer* p = shd_new_printer_from_file(f);
     dump_domtree_module(p, mod);
-    destroy_printer(p);
+    shd_destroy_printer(p);
     fclose(f);
 }

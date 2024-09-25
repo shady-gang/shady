@@ -39,17 +39,17 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
             if (is_stringy && i == c.count - 1)
                 break;
             if (isprint(tmp[i]))
-                print(p, "%c", tmp[i]);
+                shd_print(p, "%c", tmp[i]);
             else
-                print(p, "\\x%02x", tmp[i]);
+                shd_print(p, "\\x%02x", tmp[i]);
         }
         free(tmp);
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            print(p, to_cvalue(e, c_emit_value(e, fn, c.nodes[i])));
+            shd_print(p, to_cvalue(e, c_emit_value(e, fn, c.nodes[i])));
             if (i + 1 < c.count)
-                print(p, ", ");
+                shd_print(p, ", ");
         }
         shd_growy_append_bytes(g, 1, "\0");
         return ObjectsList;
@@ -125,7 +125,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
             Growy* g = shd_new_growy();
             Printer* p2 = p;
-            Printer* p = open_growy_as_printer(g);
+            Printer* p = shd_new_printer_from_growy(g);
 
             if (type->tag == ArrType_TAG) {
                 switch (array_insides_helper(emitter, fn, p, g, type, elements)) {
@@ -141,9 +141,9 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                 }
             } else {
                 for (size_t i = 0; i < elements.count; i++) {
-                    print(p, "%s", to_cvalue(emitter, c_emit_value(emitter, fn, elements.nodes[i])));
+                    shd_print(p, "%s", to_cvalue(emitter, c_emit_value(emitter, fn, elements.nodes[i])));
                     if (i + 1 < elements.count)
-                        print(p, ", ");
+                        shd_print(p, ", ");
                 }
                 emitted = shd_growy_data(g);
             }
@@ -158,7 +158,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
                     if (p2) {
                         String tmp = unique_name(emitter->arena, "composite");
-                        print(p2, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
+                        shd_print(p2, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
@@ -182,20 +182,20 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             }
 
             shd_destroy_growy(g);
-            destroy_printer(p);
+            shd_destroy_printer(p);
             break;
         }
         case Value_Fill_TAG: error("lower me")
         case Value_StringLiteral_TAG: {
             Growy* g = shd_new_growy();
-            Printer* p = open_growy_as_printer(g);
+            Printer* p = shd_new_printer_from_growy(g);
 
             String str = value->payload.string_lit.string;
             size_t len = strlen(str);
             for (size_t i = 0; i < len; i++) {
                 char c = str[i];
                 switch (c) {
-                    case '\n': print(p, "\\n");
+                    case '\n': shd_print(p, "\\n");
                         break;
                     default:
                         shd_growy_append_bytes(g, 1, &c);
@@ -205,7 +205,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
             emitted = shd_format_string_arena(emitter->arena->arena, "\"%s\"", shd_growy_data(g));
             shd_destroy_growy(g);
-            destroy_printer(p);
+            shd_destroy_printer(p);
             break;
         }
         case Value_FnAddr_TAG: {
@@ -236,7 +236,7 @@ CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CT
     if (is_term_empty(term))
         return term;
     if (t == empty_multiple_return_type(emitter->arena)) {
-        print(p, "%s;", to_cvalue(emitter, term));
+        shd_print(p, "%s;", to_cvalue(emitter, term));
         return empty_term();
     }
     String bind_to = unique_name(emitter->arena, "");
@@ -550,9 +550,9 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 case CDialect_C11: {
                     String src = unique_name(arena, "bitcast_src");
                     String dst = unique_name(arena, "bitcast_result");
-                    print(p, "\n%s = %s;", c_emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
-                    print(p, "\n%s;", c_emit_type(emitter, dst_type, dst));
-                    print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
+                    shd_print(p, "\n%s = %s;", c_emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
+                    shd_print(p, "\n%s;", c_emit_type(emitter, dst_type, dst));
+                    shd_print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
                     return term_from_cvalue(dst);
                 }
                 // GLSL does not feature arbitrary casts, instead we need to run specialized conversion functions...
@@ -620,7 +620,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
 
             if (insert) {
                 String dst = unique_name(arena, "modified");
-                print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
+                shd_print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
                 acc = dst;
                 term = term_from_cvalue(dst);
             }
@@ -663,7 +663,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             }
 
             if (insert) {
-                print(p, "\n%s = %s;", acc, to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1])));
+                shd_print(p, "\n%s = %s;", acc, to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1])));
                 break;
             }
 
@@ -683,17 +683,17 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             size_t left_size = lhs_t->payload.pack_type.width;
             // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             String suffixes = "xyzw";
-            print(p, "\n%s = vec%d(", c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
+            shd_print(p, "\n%s = vec%d(", c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 const IntLiteral* selector = resolve_to_int_literal(prim_op->operands.nodes[i]);
                 if (selector->value < left_size)
-                    print(p, "%s.%c\n", lhs_e, suffixes[selector->value]);
+                    shd_print(p, "%s.%c\n", lhs_e, suffixes[selector->value]);
                 else
-                    print(p, "%s.%c\n", rhs_e, suffixes[selector->value - left_size]);
+                    shd_print(p, "%s.%c\n", rhs_e, suffixes[selector->value - left_size]);
                 if (i + 1 < prim_op->operands.count)
-                    print(p, ", ");
+                    shd_print(p, ", ");
             }
-            print(p, ");\n");
+            shd_print(p, ");\n");
             term = term_from_cvalue(dst);
             break;
         }
@@ -760,16 +760,16 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
         assert(false);
 
     Growy* g = shd_new_growy();
-    Printer* paramsp = open_growy_as_printer(g);
+    Printer* paramsp = shd_new_printer_from_growy(g);
     if (emitter->use_private_globals) {
-        print(paramsp, "__shady_private_globals");
+        shd_print(paramsp, "__shady_private_globals");
         if (args.count > 0)
-            print(paramsp, ", ");
+            shd_print(paramsp, ", ");
     }
     for (size_t i = 0; i < args.count; i++) {
-        print(paramsp, to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+        shd_print(paramsp, to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
         if (i + 1 < args.count)
-            print(paramsp, ", ");
+            shd_print(paramsp, ", ");
     }
 
     CValue e_callee;
@@ -779,7 +779,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     else
         e_callee = to_cvalue(emitter, c_emit_value(emitter, fn, callee));
 
-    String params = printer_growy_unwrap(paramsp);
+    String params = shd_printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
     called = c_bind_intermediary_result(emitter, p, call->type, called);
@@ -821,7 +821,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // See https://github.com/ispc/ispc/issues/2496
             if (emitter->config.dialect == CDialect_ISPC) {
                 String interm = unique_name(arena, "lea_intermediary_ptr_value");
-                print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
+                shd_print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                 acc = term_from_cvalue(interm);
             }
 
@@ -912,7 +912,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
         case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
-        case Instruction_Comment_TAG: print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
+        case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
         case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_LocalAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);
@@ -936,19 +936,19 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             if (emitter->config.dialect == CDialect_ISPC && addr_uniform && is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
                 cvalue = shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
-            print(p, "\n%s = %s;", dereferenced, cvalue);
+            shd_print(p, "\n%s = %s;", dereferenced, cvalue);
             return empty_term();
         }
         case Instruction_CopyBytes_TAG: {
             CopyBytes payload = instruction->payload.copy_bytes;
             c_emit_mem(emitter, fn, payload.mem);
-            print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
+            shd_print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
             return empty_term();
         }
         case Instruction_FillBytes_TAG:{
             FillBytes payload = instruction->payload.fill_bytes;
             c_emit_mem(emitter, fn, payload.mem);
-            print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
+            shd_print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
             return empty_term();
         }
         case Instruction_DebugPrintf_TAG: {
@@ -964,12 +964,10 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                 args_list = shd_format_string_arena(emitter->arena->arena, "%s, %s", args_list, str);
             }
             switch (emitter->config.dialect) {
-                case CDialect_ISPC:
-                    print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
+                case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { shd_print(%s); }", args_list);
                     break;
                 case CDialect_CUDA:
-                case CDialect_C11:
-                    print(p, "\nprintf(%s);", args_list);
+                case CDialect_C11:shd_print(p, "\nprintf(%s);", args_list);
                     break;
                 case CDialect_GLSL: warn_print("printf is not supported in GLSL");
                     break;

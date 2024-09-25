@@ -172,8 +172,8 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
     }
 
     if (help) {
-        error_print("  --print-internal                          Includes internal functions in the debug output\n");
-        error_print("  --print-generated                         Includes generated functions in the debug output\n");
+        error_print("  --shd_print-internal                          Includes internal functions in the debug output\n");
+        error_print("  --shd_print-generated                         Includes generated functions in the debug output\n");
         error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
         error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
