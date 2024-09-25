@@ -27,7 +27,7 @@ typedef struct {
 } FnInfo;
 
 static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
-    FnInfo* info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
+    FnInfo* info = shd_dict_find_value(const Node*, FnInfo, ctx->fns, fn_node->fn);
     if (info) {
         // if we encounter a function before 'done' is set, it must be part of a recursive chain
         if (!info->done) {
@@ -41,8 +41,8 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
         .node = fn_node,
         .done = false,
     };
-    insert_dict(const Node*, FnInfo, ctx->fns, fn_node->fn, initial_info);
-    info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
+    shd_dict_insert(const Node*, FnInfo, ctx->fns, fn_node->fn, initial_info);
+    info = shd_dict_find_value(const Node*, FnInfo, ctx->fns, fn_node->fn);
     assert(info);
 
     if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
@@ -72,7 +72,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
 
     size_t iter = 0;
     CGEdge e;
-    while (dict_iter(fn_node->callees, &iter, &e, NULL)) {
+    while (shd_dict_iter(fn_node->callees, &iter, &e, NULL)) {
         if (!is_leaf_fn(ctx, e.dst_fn)) {
             debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", get_abstraction_name(fn_node->fn), get_abstraction_name(e.dst_fn->fn));
             info->is_leaf = false;
@@ -81,7 +81,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     }
 
     // by analysing the callees, the dict might have been regrown so we must refetch this to update the ptr if needed
-    info = find_value_dict(const Node*, FnInfo, ctx->fns, fn_node->fn);
+    info = shd_dict_find_value(const Node*, FnInfo, ctx->fns, fn_node->fn);
 
     if (!info->done) {
         info->is_leaf = true;
@@ -96,7 +96,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
-            CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+            CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
@@ -157,11 +157,11 @@ Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* s
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .fns = new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
+        .fns = shd_new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
         .graph = new_callgraph(src)
     };
     rewrite_module(&ctx.rewriter);
-    destroy_dict(ctx.fns);
+    shd_destroy_dict(ctx.fns);
     destroy_callgraph(ctx.graph);
     destroy_rewriter(&ctx.rewriter);
     return dst;

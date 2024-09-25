@@ -178,7 +178,7 @@ static void build_map_recursive(struct Dict* map, LTNode* n) {
     if (n->type == LF_LEAF) {
         assert(shd_list_count(n->cf_nodes) == 1);
         const Node* node = shd_read_list(CFNode*, n->cf_nodes)[0]->node;
-        insert_dict(const Node*, LTNode*, map, node, n);
+        shd_dict_insert(const Node*, LTNode*, map, node, n);
     } else {
         for (size_t i = 0; i < shd_list_count(n->lf_children); i++) {
             LTNode* child = shd_read_list(LTNode*, n->lf_children)[i];
@@ -188,7 +188,7 @@ static void build_map_recursive(struct Dict* map, LTNode* n) {
 }
 
 LTNode* looptree_lookup(LoopTree* lt, const Node* block) {
-    LTNode** found = find_value_dict(const Node*, LTNode*, lt->map, block);
+    LTNode** found = shd_dict_find_value(const Node*, LTNode*, lt->map, block);
     if (found) return *found;
     assert(false);
 }
@@ -221,7 +221,7 @@ LoopTree* build_loop_tree(CFG* s) {
     shd_destroy_list(global_heads);
     shd_destroy_list(ltb.stack);
 
-    lt->map = new_dict(const Node*, LTNode*, (HashFn) hash_node, (CmpFn) compare_node);
+    lt->map = shd_new_dict(const Node*, LTNode*, (HashFn) hash_node, (CmpFn) compare_node);
     build_map_recursive(lt->map, lt->root);
 
     return lt;
@@ -238,7 +238,7 @@ static void destroy_lt_node(LTNode* n) {
 
 void destroy_loop_tree(LoopTree* lt) {
     destroy_lt_node(lt->root);
-    destroy_dict(lt->map);
+    shd_destroy_dict(lt->map);
     free(lt);
 }
 

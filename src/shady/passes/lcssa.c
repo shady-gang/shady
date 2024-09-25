@@ -60,7 +60,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
 
     struct Dict* fvs = free_frontier(ctx->scheduler, ctx->cfg, old);
     const Node* fv;
-    for (size_t i = 0; dict_iter(fvs, &i, &fv, NULL);) {
+    for (size_t i = 0; shd_dict_iter(fvs, &i, &fv, NULL);) {
         const CFNode* defining_cf_node = schedule_instruction(ctx->scheduler, fv);
         assert(defining_cf_node);
         const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));
@@ -76,10 +76,10 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             *nargs = append_nodes(a, *nargs, narg);
         }
     }
-    destroy_dict(fvs);
+    shd_destroy_dict(fvs);
 
     if (nparams->count > 0)
-        insert_dict(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
+        shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
 }
 
 const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
@@ -113,22 +113,22 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
         new_children[i] = basic_block(a, concat_nodes(a, nparams, new_params[i]), get_abstraction_name(old_children[i]));
         register_processed(&ctx->rewriter, old_children[i], new_children[i]);
         register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
-        insert_dict(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
+        shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
     }
 
     const Node* new = rewrite_node(&ctx->rewriter, body);
 
-    ctx->rewriter.map = clone_dict(ctx->rewriter.map);
+    ctx->rewriter.map = shd_clone_dict(ctx->rewriter.map);
 
     for (size_t i = 0; i < children_count; i++) {
         for (size_t j = 0; j < lifted_params[i].count; j++) {
-            remove_dict(const Node*, ctx->rewriter.map, lifted_params[i].nodes[j]);
+            shd_dict_remove(const Node*, ctx->rewriter.map, lifted_params[i].nodes[j]);
         }
         register_processed_list(&ctx->rewriter, lifted_params[i], new_params[i]);
         new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
     }
 
-    destroy_dict(ctx->rewriter.map);
+    shd_destroy_dict(ctx->rewriter.map);
 
     return new;
 }
@@ -166,7 +166,7 @@ const Node* process_node(Context* ctx, const Node* old) {
         case Jump_TAG: {
             Jump payload = old->payload.jump;
             Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
-            Nodes* lifted_args = find_value_dict(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
+            Nodes* lifted_args = shd_dict_find_value(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
             if (lifted_args) {
                 nargs = concat_nodes(a, nargs, *lifted_args);
             }
@@ -197,11 +197,11 @@ Module* lcssa(const CompilerConfig* config, Module* src) {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .current_fn = NULL,
-        .lifted_arguments = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
+        .lifted_arguments = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.lifted_arguments);
+    shd_destroy_dict(ctx.lifted_arguments);
     return dst;
 }

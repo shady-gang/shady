@@ -16,7 +16,7 @@ KeyHash hash_node(const Node**);
 bool compare_node(const Node**, const Node**);
 
 KeyHash hash_cgedge(CGEdge* n) {
-    return hash_murmur(n, sizeof(CGEdge));
+    return shd_hash_murmur(n, sizeof(CGEdge));
 
 }
 bool compare_cgedge(CGEdge* a, CGEdge* b) {
@@ -52,8 +52,8 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
         .dst_fn = target,
         .instr = instr,
     };
-    insert_set_get_result(CGEdge, visitor->root->callees, edge);
-    insert_set_get_result(CGEdge, target->callers, edge);
+    shd_set_insert_get_result(CGEdge, visitor->root->callees, edge);
+    shd_set_insert_get_result(CGEdge, target->callers, edge);
 }
 
 static void search_for_callsites(CGVisitor* visitor, const Node* node) {
@@ -87,15 +87,15 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     assert(fn && fn->tag == Function_TAG);
-    CGNode** found = find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn);
+    CGNode** found = shd_dict_find_value(const Node*, CGNode*, graph->fn2cgn, fn);
     if (found)
         return *found;
     CGNode* new = calloc(1, sizeof(CGNode));
     new->fn = fn;
-    new->callees = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
-    new->callers = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callees = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callers = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
     new->tarjan.index = -1;
-    insert_dict_and_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
+    shd_dict_insert_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
     CGVisitor v = {
         .visitor = {
@@ -139,8 +139,8 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
     {
         size_t iter = 0;
         CGEdge e;
-        debugv_print(" has %d successors\n", entries_count_dict(v->callees));
-        while (dict_iter(v->callees, &iter, &e, NULL)) {
+        debugv_print(" has %d successors\n", shd_dict_count(v->callees));
+        while (shd_dict_iter(v->callees, &iter, &e, NULL)) {
             debugv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
             if (e.dst_fn->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
@@ -186,7 +186,7 @@ static void tarjan(struct Dict* verts) {
 
     size_t iter = 0;
     CGNode* n;
-    while (dict_iter(verts, &iter, NULL, &n)) {
+    while (shd_dict_iter(verts, &iter, NULL, &n)) {
         if (n->tarjan.index == -1)
             strongconnect(n, &index, stack);
     }
@@ -197,7 +197,7 @@ static void tarjan(struct Dict* verts) {
 CallGraph* new_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
-        .fn2cgn = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
+        .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
     const UsesMap* uses = create_module_uses_map(mod, NcType);
@@ -239,7 +239,7 @@ CallGraph* new_callgraph(Module* mod) {
 
     destroy_uses_map(uses);
 
-    debugv_print("CallGraph: done with CFG build, contains %d nodes\n", entries_count_dict(graph->fn2cgn));
+    debugv_print("CallGraph: done with CFG build, contains %d nodes\n", shd_dict_count(graph->fn2cgn));
 
     tarjan(graph->fn2cgn);
 
@@ -249,12 +249,12 @@ CallGraph* new_callgraph(Module* mod) {
 void destroy_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
-    while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
+    while (shd_dict_iter(graph->fn2cgn, &i, NULL, &node)) {
         debugv_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
-        destroy_dict(node->callers);
-        destroy_dict(node->callees);
+        shd_destroy_dict(node->callers);
+        shd_destroy_dict(node->callees);
         free(node);
     }
-    destroy_dict(graph->fn2cgn);
+    shd_destroy_dict(graph->fn2cgn);
     free(graph);
 }

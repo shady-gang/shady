@@ -7,7 +7,7 @@
 #include "util.h"
 
 const Type* convert_type(Parser* p, LLVMTypeRef t) {
-    const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, t);
+    const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, t);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
 
@@ -54,7 +54,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             if (name) {
                 decl = nominal_type(p->dst, empty(a), name);
                 result = type_decl_ref_helper(a, decl);
-                insert_dict(LLVMTypeRef, const Type*, p->map, t, result);
+                shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
             }
 
             unsigned size = LLVMCountStructElementTypes(t);

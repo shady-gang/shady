@@ -60,11 +60,11 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
 }
 
 static Nodes set2nodes(IrArena* a, struct Dict* set) {
-    size_t count = entries_count_dict(set);
+    size_t count = shd_dict_count(set);
     LARRAY(const Node*, tmp, count);
     size_t i = 0, j = 0;
     const Node* key;
-    while (dict_iter(set, &i, &key, NULL)) {
+    while (shd_dict_iter(set, &i, &key, NULL)) {
         tmp[j++] = key;
     }
     assert(j == count);
@@ -73,7 +73,7 @@ static Nodes set2nodes(IrArena* a, struct Dict* set) {
 
 static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     assert(is_basic_block(liftee));
-    LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, liftee);
+    LiftedCont** found = shd_dict_find_value(const Node*, LiftedCont*, ctx->lifted, liftee);
     if (found)
         return *found;
 
@@ -84,7 +84,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     Scheduler* scheduler = new_scheduler(cfg);
     struct Dict* frontier_set = free_frontier(scheduler, cfg, liftee);
     Nodes frontier = set2nodes(a, frontier_set);
-    destroy_dict(frontier_set);
+    shd_destroy_dict(frontier_set);
 
     size_t recover_context_size = frontier.count;
 
@@ -117,7 +117,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
     lifted_cont->save_values = frontier;
-    insert_dict(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
+    shd_dict_insert(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
 
     register_processed_list(r, ovariables, new_params);
 
@@ -234,7 +234,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         bool todo = false;
         Context ctx = {
             .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-            .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
+            .lifted = shd_new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
             .config = config,
 
             .todo = &todo
@@ -244,10 +244,10 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
 
         size_t iter = 0;
         LiftedCont* lifted_cont;
-        while (dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
+        while (shd_dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
             free(lifted_cont);
         }
-        destroy_dict(ctx.lifted);
+        shd_destroy_dict(ctx.lifted);
         destroy_rewriter(&ctx.rewriter);
         verify_module(config, dst);
         src = dst;

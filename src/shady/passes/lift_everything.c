@@ -53,7 +53,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context bb_ctx = *ctx;
             bb_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
 
-            while (dict_iter(frontier, &i, &value, NULL)) {
+            while (shd_dict_iter(frontier, &i, &value, NULL)) {
                 if (is_value(value)) {
                     additional_args = append_nodes(a, additional_args, value);
                     const Type* t = rewrite_node(r, value->type);
@@ -63,8 +63,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
             }
 
-            destroy_dict(frontier);
-            insert_dict(const Node*, Nodes, ctx->lift, node, additional_args);
+            shd_destroy_dict(frontier);
+            shd_dict_insert(const Node*, Nodes, ctx->lift, node, additional_args);
             Node* new_bb = basic_block(a, new_params, get_abstraction_name_unsafe(node));
 
             Context* fn_ctx = ctx;
@@ -85,7 +85,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Jump payload = node->payload.jump;
             rewrite_node(r, payload.target);
 
-            Nodes* additional_args = find_value_dict(const Node*, Nodes, ctx->lift, payload.target);
+            Nodes* additional_args = shd_dict_find_value(const Node*, Nodes, ctx->lift, payload.target);
             assert(additional_args);
             return jump(a, (Jump) {
                 .mem = rewrite_node(r, payload.mem),
@@ -109,10 +109,10 @@ Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) 
         dst = new_module(a, get_module_name(src));
         Context ctx = {
             .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-            .lift = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+            .lift = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
         };
         rewrite_module(&ctx.rewriter);
-        destroy_dict(ctx.lift);
+        shd_destroy_dict(ctx.lift);
         destroy_rewriter(&ctx.rewriter);
         src = dst;
     }

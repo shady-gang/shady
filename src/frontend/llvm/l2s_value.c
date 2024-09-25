@@ -44,7 +44,7 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
 }
 
 const Node* convert_value(Parser* p, LLVMValueRef v) {
-    const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
+    const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, v);
     if (found) return *found;
     IrArena* a = get_module_arena(p->dst);
 
@@ -82,7 +82,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             assert(t);
             Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);
-            insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
+            shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = begin_block_pure(a);
             decl->payload.constant.value = yield_value_and_wrap_in_block(bb, convert_instruction(p, NULL, NULL, bb, v));
             return r;
@@ -190,7 +190,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
     }
 
     if (r) {
-        insert_dict(LLVMTypeRef, const Type*, p->map, v, r);
+        shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
         return r;
     }
 

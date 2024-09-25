@@ -212,7 +212,7 @@ KeyHash hash_string(const char** string);
 bool compare_string(const char** a, const char** b);
 
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return hash_murmur(ptr->base, sizeof(Program*)) ^ hash_string(&ptr->entry_point);
+    return shd_hash_murmur(ptr->base, sizeof(Program*)) ^ hash_string(&ptr->entry_point);
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
@@ -271,7 +271,7 @@ static VkrDevice* create_vkr_device(SHADY_UNUSED VkrBackend* runtime, VkPhysical
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
     }, NULL, &device->cmd_pool), goto delete_device);
 
-    device->specialized_programs = new_dict(SpecProgramKey, VkrSpecProgram*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys);
+    device->specialized_programs = shd_new_dict(SpecProgramKey, VkrSpecProgram*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys);
 
     vkGetDeviceQueue(device->device, device->caps.compute_queue_family, 0, &device->compute_queue);
 
@@ -290,10 +290,10 @@ static void shutdown_vkr_device(VkrDevice* device) {
     size_t i = 0;
     SpecProgramKey k;
     VkrSpecProgram* sp;
-    while (dict_iter(device->specialized_programs, &i, &k, &sp)) {
+    while (shd_dict_iter(device->specialized_programs, &i, &k, &sp)) {
         destroy_specialized_program(sp);
     }
-    destroy_dict(device->specialized_programs);
+    shd_destroy_dict(device->specialized_programs);
     vkDestroyCommandPool(device->device, device->cmd_pool, NULL);
     vkDestroyDevice(device->device, NULL);
     free(device);

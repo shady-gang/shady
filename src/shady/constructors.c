@@ -28,7 +28,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         *pfresh = false;
 
     Node* ptr = &node;
-    Node** found = find_key_dict(Node*, arena->node_set, ptr);
+    Node** found = shd_dict_find_key(Node*, arena->node_set, ptr);
     // sanity check nominal nodes to be unique, check for duplicates in structural nodes
     if (is_nominal(&node))
         assert(!found);
@@ -42,7 +42,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         Node* folded = (Node*) fold_node(arena, ptr);
         if (folded != ptr) {
             // The folding process simplified the node, we store a mapping to that simplified node and bail out !
-            insert_set_get_result(Node*, arena->node_set, folded);
+            shd_set_insert_get_result(Node*, arena->node_set, folded);
             return folded;
         }
     }
@@ -54,7 +54,7 @@ static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     Node* alloc = (Node*) shd_arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
     alloc->id = allocate_node_id(arena, alloc);
-    insert_set_get_result(const Node*, arena->node_set, alloc);
+    shd_set_insert_get_result(const Node*, arena->node_set, alloc);
 
     return alloc;
 }

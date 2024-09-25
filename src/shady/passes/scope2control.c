@@ -62,15 +62,15 @@ static Nodes remake_params(Context* ctx, Nodes old) {
 }
 
 static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
-    Controls** found = find_value_dict(const Node, Controls*, ctx->controls, fn_or_bb);
+    Controls** found = shd_dict_find_value(const Node, Controls*, ctx->controls, fn_or_bb);
     if (found)
         return *found;
     IrArena* a = ctx->rewriter.dst_arena;
     Controls* controls = shd_arena_alloc(ctx->arena, sizeof(Controls));
     *controls = (Controls) {
-        .control_destinations = new_dict(const Node*, AddControl, (HashFn) hash_node, (CmpFn) compare_node),
+        .control_destinations = shd_new_dict(const Node*, AddControl, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    insert_dict(const Node*, Controls*, ctx->controls, fn_or_bb, controls);
+    shd_dict_insert(const Node*, Controls*, ctx->controls, fn_or_bb, controls);
     return controls;
 }
 
@@ -111,7 +111,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
 
     size_t i = 0;
     AddControl add_control;
-    while(dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
+    while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
         Node* control_case = case_(a, singleton(add_control.token));
         set_abstraction_body(control_case, jump_helper(a, c, empty(a), get_abstraction_mem(control_case)));
@@ -213,7 +213,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                 debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
 
                 Controls* controls = get_or_create_controls(ctx, dom->node);
-                AddControl* found = find_value_dict(const Node, AddControl, controls->control_destinations, dst);
+                AddControl* found = shd_dict_find_value(const Node, AddControl, controls->control_destinations, dst);
                 Wrapped wrapped;
                 if (found) {
                     wrapped.wrapper = found->wrapper;
@@ -240,10 +240,10 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                         .wrapper = wrapper,
                     };
                     wrapped.wrapper = wrapper;
-                    insert_dict(const Node*, AddControl, controls->control_destinations, dst, add_control);
+                    shd_dict_insert(const Node*, AddControl, controls->control_destinations, dst, add_control);
                 }
 
-                insert_dict(const Node*, Wrapped, ctx->jump2wrapper, edge.jump, wrapped);
+                shd_dict_insert(const Node*, Wrapped, ctx->jump2wrapper, edge.jump, wrapped);
                 // return jump_helper(a, wrapper, rewrite_nodes(&ctx->rewriter, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
             } else {
                 dom = dom->idom;
@@ -288,7 +288,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             break;
         }
         case Jump_TAG: {
-            Wrapped* found = find_value_dict(const Node*, Wrapped, ctx->jump2wrapper, node);
+            Wrapped* found = shd_dict_find_value(const Node*, Wrapped, ctx->jump2wrapper, node);
             if (found)
                 return jump_helper(a, found->wrapper, rewrite_nodes(r, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
             break;
@@ -308,8 +308,8 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .arena = shd_new_arena(),
-        .controls = new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
-        .jump2wrapper = new_dict(const Node*, Wrapped, (HashFn) hash_node, (CmpFn) compare_node),
+        .controls = shd_new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
+        .jump2wrapper = shd_new_dict(const Node*, Wrapped, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
@@ -318,17 +318,17 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
 
     size_t i = 0;
     Controls* controls;
-    while (dict_iter(ctx.controls, &i, NULL, &controls)) {
+    while (shd_dict_iter(ctx.controls, &i, NULL, &controls)) {
         //size_t j = 0;
         //AddControl add_control;
         // while (dict_iter(controls.control_destinations, &j, NULL, &add_control)) {
         //     destroy_list(add_control.lift);
         // }
-        destroy_dict(controls->control_destinations);
+        shd_destroy_dict(controls->control_destinations);
     }
 
-    destroy_dict(ctx.controls);
-    destroy_dict(ctx.jump2wrapper);
+    shd_destroy_dict(ctx.controls);
+    shd_destroy_dict(ctx.jump2wrapper);
     shd_destroy_arena(ctx.arena);
     destroy_rewriter(&ctx.rewriter);
 

@@ -29,7 +29,7 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
         name = unique_name(a, node_name);
     Node* g = global_var(p->dst, singleton(annotation(a, (Annotation) { .name = "LLVMMetaData" })), unit_type(a), name, AsDebugInfo);
     const Node* r = ref_decl_helper(a, g);
-    insert_dict(LLVMValueRef, const Type*, p->map, v, r);
+    shd_dict_insert(LLVMValueRef, const Type*, p->map, v, r);
 
     Nodes args = convert_mdnode_operands(p, v);
     args = prepend_nodes(a, args, string_lit_helper(a, node_name));
@@ -128,7 +128,7 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
     LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
 
     if (v) {
-        const Type** found = find_value_dict(LLVMTypeRef, const Type*, p->map, v);
+        const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, v);
         if (found) return *found;
     }
 

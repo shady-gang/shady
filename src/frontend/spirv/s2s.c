@@ -398,7 +398,7 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
     if (params_count == 0)
         return empty(parser->arena);
 
-    SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, block);
+    SpvPhiArgs** found = shd_dict_find_value(SpvId, SpvPhiArgs*, parser->phi_arguments, block);
     assert(found);
     SpvPhiArgs* arg = *found;
     while (true) {
@@ -931,7 +931,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     .next_ = NULL,
                 };
 
-                SpvPhiArgs** found = find_value_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id);
+                SpvPhiArgs** found = shd_dict_find_value(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id);
                 if (found) {
                     SpvPhiArgs* arg = *found;
                     while (arg->next_) {
@@ -939,7 +939,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     }
                     arg->next_ = new;
                 } else {
-                    insert_dict(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, new);
+                    shd_dict_insert(SpvId, SpvPhiArgs*, parser->phi_arguments, parser->current_block.id, new);
                 }
 
                 debugv_print("s2s: recorded argument %d (value id=%d) for block %d with predecessor %d\n", parser->fun_arg_i, argument_value, parser->current_block.id, predecessor_block);
@@ -1329,7 +1329,7 @@ SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
 }
 
 KeyHash hash_spvid(SpvId* p) {
-    return hash_murmur(p, sizeof(SpvId));
+    return shd_hash_murmur(p, sizeof(SpvId));
 }
 
 bool compare_spvid(SpvId* pa, SpvId* pb) {
@@ -1351,7 +1351,7 @@ S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const 
         .arena = get_module_arena(*dst),
 
         .decorations_arena = shd_new_arena(),
-        .phi_arguments = new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),
+        .phi_arguments = shd_new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),
     };
 
     if (!parse_spv_header(&parser))
@@ -1365,7 +1365,7 @@ S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const 
         parser.cursor += parse_spv_instruction_at(&parser, parser.cursor);
     }
 
-    destroy_dict(parser.phi_arguments);
+    shd_destroy_dict(parser.phi_arguments);
     shd_destroy_arena(parser.decorations_arena);
     free(parser.defs);
 

@@ -51,14 +51,14 @@ Scheduler* new_scheduler(CFG* cfg) {
             .visit_op_fn = (VisitOpFn) visit_operand,
         },
         .cfg = cfg,
-        .scheduled = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
+        .scheduled = shd_new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     return s;
 }
 
 CFNode* schedule_instruction(Scheduler* s, const Node* n) {
     //assert(n && is_instruction(n));
-    CFNode** found = find_value_dict(const Node*, CFNode*, s->scheduled, n);
+    CFNode** found = shd_dict_find_value(const Node*, CFNode*, s->scheduled, n);
     if (found)
         return *found;
 
@@ -74,11 +74,11 @@ CFNode* schedule_instruction(Scheduler* s, const Node* n) {
     }
 
     visit_node_operands(&s2.v, 0, n);
-    insert_dict(const Node*, CFNode*, s->scheduled, n, s2.result);
+    shd_dict_insert(const Node*, CFNode*, s->scheduled, n, s2.result);
     return s2.result;
 }
 
 void destroy_scheduler(Scheduler* s) {
-    destroy_dict(s->scheduled);
+    shd_destroy_dict(s->scheduled);
     free(s);
 }

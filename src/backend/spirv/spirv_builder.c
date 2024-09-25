@@ -93,7 +93,7 @@ struct SpvbFileBuilder_ {
     struct Dict* extensions_set;
 };
 
-static KeyHash hash_u32(uint32_t* p) { return hash_murmur(p, sizeof(uint32_t)); }
+static KeyHash hash_u32(uint32_t* p) { return shd_hash_murmur(p, sizeof(uint32_t)); }
 static bool compare_u32s(uint32_t* a, uint32_t* b) { return *a == *b; }
 
 KeyHash hash_string(const char** string);
@@ -116,8 +116,8 @@ SpvbFileBuilder* spvb_begin() {
         .fn_decls = new_growy(),
         .fn_defs = new_growy(),
 
-        .capabilities_set = new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
-        .extensions_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+        .capabilities_set = shd_new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
+        .extensions_set = shd_new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
         .memory_model = SpvMemoryModelGLSL450,
     };
@@ -191,8 +191,8 @@ size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
     destroy_growy(file_builder->extensions);
     destroy_growy(file_builder->capabilities);
 
-    destroy_dict(file_builder->capabilities_set);
-    destroy_dict(file_builder->extensions_set);
+    shd_destroy_dict(file_builder->capabilities_set);
+    shd_destroy_dict(file_builder->extensions_set);
 
     free(file_builder);
 
@@ -223,7 +223,7 @@ void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel
 
 #define target_data file_builder->capabilities
 void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
-    if (insert_set_get_result(SpvCapability, file_builder->capabilities_set, cap)) {
+    if (shd_set_insert_get_result(SpvCapability, file_builder->capabilities_set, cap)) {
         op(SpvOpCapability, 2);
         literal_int(cap);
     }
@@ -232,7 +232,7 @@ void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
 
 #define target_data file_builder->extensions
 void spvb_extension(SpvbFileBuilder* file_builder, const char* name) {
-    if (insert_set_get_result(char*, file_builder->extensions_set, name)) {
+    if (shd_set_insert_get_result(char*, file_builder->extensions_set, name)) {
         op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
         literal_name(name);
     }

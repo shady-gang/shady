@@ -30,7 +30,7 @@ typedef struct Context_ {
 static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     struct Dict* cache = push ? ctx->push : ctx->pop;
 
-    const Node** found = find_value_dict(const Node*, const Node*, cache, element_type);
+    const Node** found = shd_dict_find_value(const Node*, const Node*, cache, element_type);
     if (found)
         return *found;
 
@@ -42,7 +42,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Nodes return_ts = push ? empty(a) : singleton(qualified_t);
     String name = format_string_arena(a->arena, "generated_%s_%s", push ? "push" : "pop", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
-    insert_dict(const Node*, Node*, cache, element_type, fun);
+    shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
 
@@ -184,8 +184,8 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
 
         .config = config,
 
-        .push = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .pop = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .push = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .pop = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     if (config->per_thread_stack_size > 0) {
@@ -212,7 +212,7 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
 
-    destroy_dict(ctx.push);
-    destroy_dict(ctx.pop);
+    shd_destroy_dict(ctx.push);
+    shd_destroy_dict(ctx.pop);
     return dst;
 }

@@ -30,11 +30,11 @@ IrArena* new_ir_arena(const ArenaConfig* config) {
 
         .modules = shd_new_list(Module*),
 
-        .node_set = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .string_set = new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+        .node_set = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .string_set = shd_new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
 
-        .nodes_set   = new_set(Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
-        .strings_set = new_set(Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
+        .nodes_set   = shd_new_set(Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
+        .strings_set = shd_new_set(Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
 
         .ids = new_growy(),
     };
@@ -51,10 +51,10 @@ void destroy_ir_arena(IrArena* arena) {
     }
 
     shd_destroy_list(arena->modules);
-    destroy_dict(arena->strings_set);
-    destroy_dict(arena->string_set);
-    destroy_dict(arena->nodes_set);
-    destroy_dict(arena->node_set);
+    shd_destroy_dict(arena->strings_set);
+    shd_destroy_dict(arena->string_set);
+    shd_destroy_dict(arena->nodes_set);
+    shd_destroy_dict(arena->node_set);
     shd_destroy_arena(arena->arena);
     destroy_growy(arena->ids);
     free(arena);
@@ -74,7 +74,7 @@ Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
         .count = count,
         .nodes = in_nodes
     };
-    const Nodes* found = find_key_dict(Nodes, arena->nodes_set, tmp);
+    const Nodes* found = shd_dict_find_key(Nodes, arena->nodes_set, tmp);
     if (found)
         return *found;
 
@@ -84,7 +84,7 @@ Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
 
-    insert_set_get_result(Nodes, arena->nodes_set, nodes);
+    shd_set_insert_get_result(Nodes, arena->nodes_set, nodes);
     return nodes;
 }
 
@@ -93,7 +93,7 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
         .count = count,
         .strings = in_strs,
     };
-    const Strings* found = find_key_dict(Strings, arena->strings_set, tmp);
+    const Strings* found = shd_dict_find_key(Strings, arena->strings_set, tmp);
     if (found)
         return *found;
 
@@ -103,7 +103,7 @@ Strings strings(IrArena* arena, size_t count, const char* in_strs[]) {
     for (size_t i = 0; i < count; i++)
         strings.strings[i] = in_strs[i];
 
-    insert_set_get_result(Strings, arena->strings_set, strings);
+    shd_set_insert_get_result(Strings, arena->strings_set, strings);
     return strings;
 }
 
@@ -169,7 +169,7 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     if (!zero_terminated)
         return NULL;
     const char* ptr = zero_terminated;
-    const char** found = find_key_dict(const char*, arena->string_set, ptr);
+    const char** found = shd_dict_find_key(const char*, arena->string_set, ptr);
     if (found)
         return *found;
 
@@ -177,7 +177,7 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
 
-    insert_set_get_result(const char*, arena->string_set, new_str);
+    shd_set_insert_get_result(const char*, arena->string_set, new_str);
     return new_str;
 }
 
@@ -232,7 +232,7 @@ const char* unique_name(IrArena* arena, const char* str) {
 }
 
 KeyHash hash_nodes(Nodes* nodes) {
-    return hash_murmur(nodes->nodes, sizeof(const Node*) * nodes->count);
+    return shd_hash_murmur(nodes->nodes, sizeof(const Node*) * nodes->count);
 }
 
 bool compare_nodes(Nodes* a, Nodes* b) {
@@ -243,7 +243,7 @@ bool compare_nodes(Nodes* a, Nodes* b) {
 }
 
 KeyHash hash_strings(Strings* strings) {
-    return hash_murmur(strings->strings, sizeof(char*) * strings->count);
+    return shd_hash_murmur(strings->strings, sizeof(char*) * strings->count);
 }
 
 bool compare_strings(Strings* a, Strings* b) {
@@ -256,7 +256,7 @@ bool compare_strings(Strings* a, Strings* b) {
 KeyHash hash_string(const char** string) {
     if (!*string)
         return 0;
-    return hash_murmur(*string, strlen(*string));
+    return shd_hash_murmur(*string, strlen(*string));
 }
 
 bool compare_string(const char** a, const char** b) {

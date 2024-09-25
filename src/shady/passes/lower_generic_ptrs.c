@@ -85,7 +85,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
         case StoreFn: name = format_string_interned(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
     }
 
-    const Node** found = find_value_dict(String, const Node*, ctx->fns, name);
+    const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, name);
     if (found)
         return *found;
 
@@ -103,7 +103,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             break;
     }
     Node* new_fn = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
-    insert_dict(String, const Node*, ctx->fns, name, new_fn);
+    shd_dict_insert(String, const Node*, ctx->fns, name, new_fn);
 
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     switch (which) {
@@ -279,12 +279,12 @@ Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .fns = new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
+        .fns = shd_new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
         .config = config,
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.fns);
+    shd_destroy_dict(ctx.fns);
     return dst;
 }

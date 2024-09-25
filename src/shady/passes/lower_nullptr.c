@@ -15,7 +15,7 @@ typedef struct {
 
 static const Node* make_nullptr(Context* ctx, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node** found = find_value_dict(const Type*, const Node*, ctx->map, t);
+    const Node** found = shd_dict_find_value(const Type*, const Node*, ctx->map, t);
     if (found)
         return *found;
 
@@ -26,7 +26,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
     })), t, format_string_interned(a, "nullptr_%s", name_type_safe(a, t)));
     decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, singleton(nul));
     const Node* ref = ref_decl_helper(a, decl);
-    insert_dict(const Type*, const Node*, ctx->map, t, ref);
+    shd_dict_insert(const Type*, const Node*, ctx->map, t, ref);
     return ref;
 }
 
@@ -54,10 +54,10 @@ Module* lower_nullptr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.map);
+    shd_destroy_dict(ctx.map);
     return dst;
 }

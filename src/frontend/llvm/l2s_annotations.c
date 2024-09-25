@@ -6,11 +6,11 @@
 #include <stdlib.h>
 
 ParsedAnnotation* find_annotation(Parser* p, const Node* n) {
-    return find_value_dict(const Node*, ParsedAnnotation, p->annotations, n);
+    return shd_dict_find_value(const Node*, ParsedAnnotation, p->annotations, n);
 }
 
 void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
-    ParsedAnnotation* found = find_value_dict(const Node*, ParsedAnnotation, p->annotations, n);
+    ParsedAnnotation* found = shd_dict_find_value(const Node*, ParsedAnnotation, p->annotations, n);
     if (found) {
         ParsedAnnotation* data = shd_arena_alloc(p->annotations_arena, sizeof(a));
         *data = a;
@@ -18,7 +18,7 @@ void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
             found = found->next;
         found->next = data;
     } else {
-        insert_dict(const Node*, ParsedAnnotation, p->annotations, n, a);
+        shd_dict_insert(const Node*, ParsedAnnotation, p->annotations, n, a);
     }
 }
 

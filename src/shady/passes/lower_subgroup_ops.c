@@ -113,14 +113,14 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         error("TODO")
 
     Node* fn = NULL;
-    Node** found = find_value_dict(const Node*, Node*, ctx->fns, t);
+    Node** found = shd_dict_find_value(const Node*, Node*, ctx->fns, t);
     if (found)
         fn = *found;
     else {
         const Node* src_param = param(a, qualified_type_helper(t, false), "src");
         fn = function(m, singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
                       mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), singleton(qualified_type_helper(t, true)));
-        insert_dict(const Node*, Node*, ctx->fns, t, fn);
+        shd_dict_insert(const Node*, Node*, ctx->fns, t, fn);
         build_fn_body(ctx, fn, scope, src_param, t);
     }
 
@@ -155,10 +155,10 @@ Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
-        .fns =  new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .fns =  shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.fns);
+    shd_destroy_dict(ctx.fns);
     return dst;
 }

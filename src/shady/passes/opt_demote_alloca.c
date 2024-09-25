@@ -110,7 +110,7 @@ PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
         switch (instr->tag) {
             case StackAlloc_TAG:
             case LocalAlloc_TAG: {
-                k.src_alloca = *find_value_dict(const Node*, AllocaInfo*, ctx->alloca_info, instr);
+                k.src_alloca = *shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, instr);
                 return k;
             }
             case PrimOp_TAG: {
@@ -144,7 +144,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     *k = (AllocaInfo) { .type = rewrite_node(r, old_type) };
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
-    insert_dict(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
+    shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
     // debugv_print("demote_alloca: uses analysis results for ");
     // log_node(DEBUGV, old);
     // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
@@ -243,12 +243,12 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = shd_new_arena(),
-        .alloca_info = new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
+        .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
         .todo = &todo
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.alloca_info);
+    shd_destroy_dict(ctx.alloca_info);
     shd_destroy_arena(ctx.arena);
     *m = dst;
     return todo;

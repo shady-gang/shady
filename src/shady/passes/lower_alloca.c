@@ -48,7 +48,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     IrArena* a = vctx->context->rewriter.dst_arena;
     switch (node->tag) {
         case StackAlloc_TAG: {
-            StackSlot* found = find_value_dict(const Node*, StackSlot, vctx->prepared_offsets, node);
+            StackSlot* found = shd_dict_find_value(const Node*, StackSlot, vctx->prepared_offsets, node);
             if (found)
                 break;
 
@@ -58,7 +58,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
             shd_list_append(const Type*, vctx->members, element_type);
 
             StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
-            insert_dict(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
+            shd_dict_insert(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
 
             vctx->num_slots++;
             break;
@@ -90,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
-            ctx2.prepared_offsets = new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
             ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
             set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
@@ -123,12 +123,12 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed(r, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
-            destroy_dict(ctx2.prepared_offsets);
+            shd_destroy_dict(ctx2.prepared_offsets);
             return fun;
         }
         case StackAlloc_TAG: {
             if (!ctx->disable_lowering) {
-                StackSlot* found_slot = find_value_dict(const Node*, StackSlot, ctx->prepared_offsets, node);
+                StackSlot* found_slot = shd_dict_find_value(const Node*, StackSlot, ctx->prepared_offsets, node);
                 if (!found_slot) {
                     error_print("lower_alloca: failed to find a stack offset for ");
                     log_node(ERROR, node);

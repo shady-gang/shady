@@ -61,8 +61,8 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
 static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
     const Node* v;
     size_t i = 0;
-    while (dict_iter(free_set, &i, &v, NULL)) {
-        if (find_key_dict(const Node*, bound_set, v))
+    while (shd_dict_iter(free_set, &i, &v, NULL)) {
+        if (shd_dict_find_key(const Node*, bound_set, v))
             continue;
 
         log_string(DEBUGVV, "Found variable used outside it's control scope: ");
@@ -182,13 +182,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 cached_exits[i] = search_processed(rewriter, exiting_node->node);
                 if (cached_exits[i])
-                    remove_dict(const Node*, rewriter->map, exiting_node->node);
+                    shd_dict_remove(const Node*, rewriter->map, exiting_node->node);
                 register_processed(rewriter, exiting_node->node, exits[i].wrapper);
             }
             // ditto for the loop entry and the continue wrapper
             const Node** cached_entry = search_processed(rewriter, node);
             if (cached_entry)
-                remove_dict(const Node*, rewriter->map, node);
+                shd_dict_remove(const Node*, rewriter->map, node);
             register_processed(rewriter, node, continue_wrapper);
 
             // make sure we haven't started rewriting this...
@@ -197,7 +197,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             // }
 
             struct Dict* old_map = rewriter->map;
-            rewriter->map = clone_dict(rewriter->map);
+            rewriter->map = shd_clone_dict(rewriter->map);
             Nodes inner_loop_params = recreate_params(rewriter, get_abstraction_params(node));
             register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             Node* inner_control_case = case_(arena, singleton(join_token_continue));
@@ -222,17 +222,17 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             set_abstraction_body(inner_control_case, loop_body);
 
-            destroy_dict(rewriter->map);
+            shd_destroy_dict(rewriter->map);
             rewriter->map = old_map;
             //register_processed_list(rewriter, get_abstraction_params(node), nparams);
 
             // restore the old context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                remove_dict(const Node*, rewriter->map, shd_read_list(CFNode *, exiting_nodes)[i]->node);
+                shd_dict_remove(const Node*, rewriter->map, shd_read_list(CFNode *, exiting_nodes)[i]->node);
                 if (cached_exits[i])
                     register_processed(rewriter, shd_read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
             }
-            remove_dict(const Node*, rewriter->map, node);
+            shd_dict_remove(const Node*, rewriter->map, node);
             if (cached_entry)
                 register_processed(rewriter, node, *cached_entry);
 
@@ -440,7 +440,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node** cached = search_processed(r, post_dominator);
             if (cached)
-                remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
+                shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             for (size_t i = 0; i < old_params.count; i++) {
                 assert(!search_processed(r, old_params.nodes[i]));
             }
@@ -456,7 +456,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             set_abstraction_body(control_case, inner_terminator);
 
-            remove_dict(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
+            shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             if (cached)
                 register_processed(r, post_dominator, *cached);
 

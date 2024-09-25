@@ -51,7 +51,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
-        .emitted = new_dict(const Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted = shd_new_dict(const Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
         .root_growy = new_growy(),
     };
     ctx.root_printer = open_growy_as_printer(ctx.root_growy);
@@ -59,7 +59,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
 }
 
 static void destroy_printer_ctx(PrinterCtx ctx) {
-    destroy_dict(ctx.emitted);
+    shd_destroy_dict(ctx.emitted);
 }
 
 void print_module(Printer* printer, NodePrintConfig config, Module* mod) {
@@ -1017,7 +1017,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         return "?";
     }
 
-    String* found = find_value_dict(const Node*, String, ctx->emitted, node);
+    String* found = shd_dict_find_value(const Node*, String, ctx->emitted, node);
     if (found)
         return *found;
 
@@ -1032,7 +1032,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     } else {
         r = format_string_interned(node->arena, "%%%d", node->id);
     }
-    insert_dict(const Node*, String, ctx->emitted, node, r);
+    shd_dict_insert(const Node*, String, ctx->emitted, node, r);
 
     Growy* g = new_growy();
     PrinterCtx ctx2 = *ctx;
@@ -1052,7 +1052,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     if (print_inline) {
         String is = string(node->arena, s);
-        insert_dict(const Node*, String, ctx->emitted, node, is);
+        shd_dict_insert(const Node*, String, ctx->emitted, node, is);
         free((void*) s);
         return is;
     } else {

@@ -59,7 +59,7 @@ LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
 static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, LLVMBasicBlockRef dst, const Node* mem) {
     IrArena* a = fn_ctx->fn->arena;
     const Node* dst_bb = convert_basic_block_body(p, fn_ctx, dst);
-    struct List* phis = *find_value_dict(const Node*, struct List*, fn_ctx->phis, dst_bb);
+    struct List* phis = *shd_dict_find_value(const Node*, struct List*, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = shd_list_count(phis);
     LARRAY(const Node*, params, params_count);

@@ -14,41 +14,41 @@ typedef bool (*CmpFn)(void*, void*);
 
 struct Dict;
 
-#define new_dict(K, T, hash, cmp) new_dict_impl(sizeof(K), sizeof(T), alignof(K), alignof(T), hash, cmp)
-#define new_set(K, hash, cmp) new_dict_impl(sizeof(K), 0, alignof(K), 0, hash, cmp)
-struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*)(void*), bool (*)(void*, void*));
+#define shd_new_dict(K, T, hash, cmp) shd_new_dict_impl(sizeof(K), sizeof(T), alignof(K), alignof(T), hash, cmp)
+#define shd_new_set(K, hash, cmp) shd_new_dict_impl(sizeof(K), 0, alignof(K), 0, hash, cmp)
+struct Dict* shd_new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (* hash_fn)(void*), bool (* cmp_fn)(void*, void*));
 
-struct Dict* clone_dict(struct Dict*);
-void destroy_dict(struct Dict*);
-void clear_dict(struct Dict*);
+struct Dict* shd_clone_dict(struct Dict* source);
+void shd_destroy_dict(struct Dict* dict);
+void shd_dict_clear(struct Dict* dict);
 
-bool dict_iter(struct Dict*, size_t* iterator_state, void* key, void* value);
+bool shd_dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value);
 
-size_t entries_count_dict(struct Dict*);
+size_t shd_dict_count(struct Dict* dict);
 
-#define find_value_dict(K, T, dict, key) (T*) find_value_dict_impl(dict, (void*) (&(key)))
-#define find_key_dict(K, dict, key) (K*) find_key_dict_impl(dict, (void*) (&(key)))
-void* find_key_dict_impl(struct Dict*, void*);
-void* find_value_dict_impl(struct Dict*, void*);
+#define shd_dict_find_value(K, T, dict, key) (T*) shd_dict_find_value_impl(dict, (void*) (&(key)))
+#define shd_dict_find_key(K, dict, key) (K*) shd_dict_find_impl(dict, (void*) (&(key)))
+void* shd_dict_find_impl(struct Dict*, void*);
+void* shd_dict_find_value_impl(struct Dict*, void*);
 
-#define remove_dict(K, dict, key) remove_dict_impl(dict, (void*) (&(key)))
-bool remove_dict_impl(struct Dict* dict, void* key);
+#define shd_dict_remove(K, dict, key) shd_dict_remove_impl(dict, (void*) (&(key)))
+bool shd_dict_remove_impl(struct Dict* dict, void* key);
 
-#define insert_dict_and_get_value(K, V, dict, key, value) *(V*) insert_dict_and_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
-#define insert_dict(K, V, dict, key, value)                     insert_dict_and_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
-void* insert_dict_and_get_value_impl(struct Dict*, void* key, void* value);
+#define shd_dict_insert_get_value(K, V, dict, key, value) *(V*) shd_dict_insert_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
+#define shd_dict_insert(K, V, dict, key, value)                     shd_dict_insert_get_value_impl(dict, (void*) (&(key)), (void*) (&(value)))
+void* shd_dict_insert_get_value_impl(struct Dict*, void* key, void* value);
 
-#define insert_dict_and_get_key(K, V, dict, key, value) *(K*) insert_dict_and_get_key_impl(dict, (void*) (&(key)), (void*) (&(value)))
-#define      insert_set_get_key(K, dict, key)           *(K*) insert_dict_and_get_key_impl(dict, (void*) (&(key)), NULL)
-void* insert_dict_and_get_key_impl(struct Dict*, void* key, void* value);
+#define shd_dict_insert_get_key(K, V, dict, key, value) *(K*) shd_dict_insert_get_key_impl(dict, (void*) (&(key)), (void*) (&(value)))
+#define  shd_set_insert_get_key(K, dict, key)           *(K*) shd_dict_insert_get_key_impl(dict, (void*) (&(key)), NULL)
+void* shd_dict_insert_get_key_impl(struct Dict*, void* key, void* value);
 
-#define insert_dict_and_get_result(K, V, dict, key, value) insert_dict_and_get_result_impl(dict, (void*) (&(key)), (void*) (&(value)))
-#define      insert_set_get_result(K, dict, key)           insert_dict_and_get_result_impl(dict, (void*) (&(key)), NULL)
-bool insert_dict_and_get_result_impl(struct Dict*, void* key, void* value);
+#define shd_dict_insert_get_result(K, V, dict, key, value) shd_dict_insert_impl(dict, (void*) (&(key)), (void*) (&(value)))
+#define  shd_set_insert_get_result(K, dict, key)           shd_dict_insert_impl(dict, (void*) (&(key)), NULL)
+bool shd_dict_insert_impl(struct Dict*, void* key, void* value);
 
-KeyHash hash_murmur(const void* data, size_t size);
+KeyHash shd_hash_murmur(const void* data, size_t size);
 
-KeyHash hash_ptr(void**);
-bool compare_ptrs(void**, void**);
+KeyHash shd_hash_ptr(void**);
+bool shd_compare_ptrs(void**, void**);
 
 #endif

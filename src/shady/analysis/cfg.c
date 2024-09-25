@@ -50,7 +50,7 @@ typedef struct {
 static void process_cf_node(CfgBuildContext* ctx, CFNode* node);
 
 CFNode* cfg_lookup(CFG* cfg, const Node* abs) {
-    CFNode** found = find_value_dict(const Node*, CFNode*, cfg->map, abs);
+    CFNode** found = shd_dict_find_value(const Node*, CFNode*, cfg->map, abs);
     if (found) {
         CFNode* cfnode = *found;
         assert(cfnode->node);
@@ -69,7 +69,7 @@ static CFNode* new_cfnode(Arena* a) {
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
-        .structurally_dominates = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .structurally_dominates = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     return new;
 }
@@ -77,13 +77,13 @@ static CFNode* new_cfnode(Arena* a) {
 static CFNode* get_or_enqueue(CfgBuildContext* ctx, const Node* abs) {
     assert(is_abstraction(abs));
     assert(!is_function(abs) || abs == ctx->function);
-    CFNode** found = find_value_dict(const Node*, CFNode*, ctx->nodes, abs);
+    CFNode** found = shd_dict_find_value(const Node*, CFNode*, ctx->nodes, abs);
     if (found) return *found;
 
     CFNode* new = new_cfnode(ctx->arena);
     new->node = abs;
     assert(abs && new->node);
-    insert_dict(const Node*, CFNode*, ctx->nodes, abs, new);
+    shd_dict_insert(const Node*, CFNode*, ctx->nodes, abs, new);
     process_cf_node(ctx, new);
     shd_list_append(Node*, ctx->contents, new);
     return new;
@@ -142,7 +142,7 @@ static void add_structural_edge(CfgBuildContext* ctx, CFNode* parent, const Node
 
 static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type, const Node* term) {
     add_edge(ctx, parent->node, dst, type, term);
-    insert_set_get_result(const Node*, parent->structurally_dominates, dst);
+    shd_set_insert_get_result(const Node*, parent->structurally_dominates, dst);
 }
 
 static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) {
@@ -211,14 +211,14 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 const Node* param = first(get_abstraction_params(terminator->payload.control.inside));
                 //CFNode* let_tail_cfnode = get_or_enqueue(ctx, get_structured_construct_tail(terminator));
                 const Node* tail = get_structured_construct_tail(terminator);
-                insert_dict(const Node*, const Node*, ctx->join_point_values, param, tail);
+                shd_dict_insert(const Node*, const Node*, ctx->join_point_values, param, tail);
                 add_structural_dominance_edge(ctx, node, terminator->payload.control.inside, StructuredEnterBodyEdge, terminator);
                 if (ctx->config.include_structured_tails)
                     add_structural_dominance_edge(ctx, node, get_structured_construct_tail(terminator), StructuredTailEdge, terminator);
                 return;
             } case Join_TAG: {
                 if (ctx->config.include_structured_exits) {
-                    const Node** dst = find_value_dict(const Node*, const Node*, ctx->join_point_values, terminator->payload.join.join_point);
+                    const Node** dst = shd_dict_find_value(const Node*, const Node*, ctx->join_point_values, terminator->payload.join.join_point);
                     if (dst)
                         add_edge(ctx, node->node, *dst, StructuredLeaveBodyEdge, terminator);
                 }
@@ -381,8 +381,8 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
         .arena = arena,
         .function = function,
         .entry = entry,
-        .nodes = new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
-        .join_point_values = new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .nodes = shd_new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
+        .join_point_values = shd_new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .contents = shd_new_list(CFNode*),
         .config = config,
     };
@@ -396,7 +396,7 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
     //    process_cf_node(&context, this);
     //}
 
-    destroy_dict(context.join_point_values);
+    shd_destroy_dict(context.join_point_values);
 
     CFG* cfg = calloc(sizeof(CFG), 1);
     *cfg = (CFG) {
@@ -431,7 +431,7 @@ void destroy_cfg(CFG* cfg) {
         if (node->dominates)
             shd_destroy_list(node->dominates);
         if (node->structurally_dominates)
-            destroy_dict(node->structurally_dominates);
+            shd_destroy_dict(node->structurally_dominates);
     }
     if (!entry_destroyed) {
         shd_destroy_list(cfg->entry->pred_edges);
@@ -439,7 +439,7 @@ void destroy_cfg(CFG* cfg) {
         if (cfg->entry->dominates)
             shd_destroy_list(cfg->entry->dominates);
     }
-    destroy_dict(cfg->map);
+    shd_destroy_dict(cfg->map);
     shd_destroy_arena(cfg->arena);
     free(cfg->rpo);
     shd_destroy_list(cfg->contents);

@@ -11,7 +11,7 @@
 #include <assert.h>
 
 BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb) {
-    BBBuilder* found = find_value_dict(const Node*, BBBuilder, emitter->bb_builders, bb);
+    BBBuilder* found = shd_dict_find_value(const Node*, BBBuilder, emitter->bb_builders, bb);
     assert(found);
     return *found;
 }

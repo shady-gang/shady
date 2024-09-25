@@ -254,7 +254,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     else
         cache = ser ? ctx->serialisation_varying[as] : ctx->deserialisation_varying[as];
 
-    const Node** found = find_value_dict(const Node*, const Node*, cache, element_type);
+    const Node** found = shd_dict_find_value(const Node*, const Node*, cache, element_type);
     if (found)
         return *found;
 
@@ -272,7 +272,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     String name = format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", get_address_space_name(as), uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
-    insert_dict(const Node*, Node*, cache, element_type, fun);
+    shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
     const Node* base = *get_emulated_as_word_array(ctx, as);
@@ -503,10 +503,10 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
-            ctx.serialisation_varying[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.deserialisation_varying[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.serialisation_uniform[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.deserialisation_uniform[i] = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.serialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.deserialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.serialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.deserialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
         }
     }
 
@@ -515,10 +515,10 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
-            destroy_dict(ctx.serialisation_varying[i]);
-            destroy_dict(ctx.deserialisation_varying[i]);
-            destroy_dict(ctx.serialisation_uniform[i]);
-            destroy_dict(ctx.deserialisation_uniform[i]);
+            shd_destroy_dict(ctx.serialisation_varying[i]);
+            shd_destroy_dict(ctx.deserialisation_varying[i]);
+            shd_destroy_dict(ctx.serialisation_uniform[i]);
+            shd_destroy_dict(ctx.deserialisation_uniform[i]);
         }
     }
 

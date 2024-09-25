@@ -45,7 +45,7 @@ typedef struct {
 
 static TmpAllocCleanupClosure create_delete_dict_closure(struct Dict* d) {
     return (TmpAllocCleanupClosure) {
-        .fn = (TmpAllocCleanupFn) destroy_dict,
+        .fn = (TmpAllocCleanupFn) shd_destroy_dict,
         .payload = d,
     };
 }
@@ -137,7 +137,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         BodyBuilder* bb = begin_body_with_mem(a, mem);
         TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-        struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
+        struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);
         TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
         ctx2.rewriter.map = tmp_processed;
@@ -157,7 +157,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         set_abstraction_body(structured_target, structured);
 
         // forget we rewrote all that
-        destroy_dict(tmp_processed);
+        shd_destroy_dict(tmp_processed);
         shd_list_pop_impl(ctx->cleanup_stack);
         shd_list_pop_impl(ctx->cleanup_stack);
 
@@ -361,7 +361,7 @@ static const Node* process(Context* ctx, const Node* node) {
             gen_store(bb, ptr, int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
-            struct Dict* tmp_processed = clone_dict(ctx->rewriter.map);
+            struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);
             TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
@@ -371,7 +371,7 @@ static const Node* process(Context* ctx, const Node* node) {
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
             shd_list_pop_impl(ctx->cleanup_stack);
             shd_list_pop_impl(ctx->cleanup_stack);
-            destroy_dict(tmp_processed);
+            shd_destroy_dict(tmp_processed);
         }
 
         //if (is_leaf)

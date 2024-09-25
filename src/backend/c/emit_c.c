@@ -27,24 +27,24 @@ bool compare_node(Node**, Node**);
 
 void register_emitted(Emitter* emitter, FnEmitter* fn, const Node* node, CTerm as) {
     //assert(as.value || as.var);
-    insert_dict(const Node*, CTerm, fn ? fn->emitted_terms : emitter->emitted_terms, node, as);
+    shd_dict_insert(const Node*, CTerm, fn ? fn->emitted_terms : emitter->emitted_terms, node, as);
 }
 
 CTerm* lookup_existing_term(Emitter* emitter, FnEmitter* fn, const Node* node) {
     CTerm* found = NULL;
     if (fn)
-        found = find_value_dict(const Node*, CTerm, fn->emitted_terms, node);
+        found = shd_dict_find_value(const Node*, CTerm, fn->emitted_terms, node);
     if (!found)
-        found = find_value_dict(const Node*, CTerm, emitter->emitted_terms, node);
+        found = shd_dict_find_value(const Node*, CTerm, emitter->emitted_terms, node);
     return found;
 }
 
 void register_emitted_type(Emitter* emitter, const Node* node, String as) {
-    insert_dict(const Node*, String, emitter->emitted_types, node, as);
+    shd_dict_insert(const Node*, String, emitter->emitted_types, node, as);
 }
 
 CType* lookup_existing_type(Emitter* emitter, const Type* node) {
-    CType* found = find_value_dict(const Node*, CType, emitter->emitted_types, node);
+    CType* found = shd_dict_find_value(const Node*, CType, emitter->emitted_types, node);
     return found;
 }
 
@@ -307,7 +307,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             if (body) {
                 FnEmitter fn = {
                     .cfg = build_fn_cfg(decl),
-                    .emitted_terms = new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
+                    .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
                 };
                 fn.scheduler = new_scheduler(fn.cfg);
                 fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
@@ -344,7 +344,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
 
                 destroy_scheduler(fn.scheduler);
                 destroy_cfg(fn.cfg);
-                destroy_dict(fn.emitted_terms);
+                shd_destroy_dict(fn.emitted_terms);
                 free(fn.instruction_printers);
             }
 
@@ -437,8 +437,8 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
         .type_decls = open_growy_as_printer(type_decls_g),
         .fn_decls = open_growy_as_printer(fn_decls_g),
         .fn_defs = open_growy_as_printer(fn_defs_g),
-        .emitted_terms = new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
-        .emitted_types = new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted_types = shd_new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
     };
 
     // builtins magic (hack) for CUDA
@@ -525,8 +525,8 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
     destroy_growy(fn_decls_g);
     destroy_growy(fn_defs_g);
 
-    destroy_dict(emitter.emitted_types);
-    destroy_dict(emitter.emitted_terms);
+    shd_destroy_dict(emitter.emitted_types);
+    shd_destroy_dict(emitter.emitted_terms);
 
     *output_size = growy_size(final) - 1;
     *output = growy_deconstruct(final);

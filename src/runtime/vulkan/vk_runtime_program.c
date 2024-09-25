@@ -497,12 +497,12 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
 
 VkrSpecProgram* get_specialized_program(Program* program, String entry_point, VkrDevice* device) {
     SpecProgramKey key = { .base = program, .entry_point = entry_point };
-    VkrSpecProgram** found = find_value_dict(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
+    VkrSpecProgram** found = shd_dict_find_value(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
     if (found)
         return *found;
     VkrSpecProgram* spec = create_specialized_program(key, device);
     assert(spec);
-    insert_dict(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key, spec);
+    shd_dict_insert(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key, spec);
     return spec;
 }
 

@@ -35,8 +35,8 @@ static Use* get_last_use(UsesMap* map, const Node* n) {
 }
 
 static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
-    if (!find_key_dict(const Node*, v->seen, n)) {
-        insert_set_get_result(const Node*, v->seen, n);
+    if (!shd_dict_find_key(const Node*, v->seen, n)) {
+        shd_set_insert_get_result(const Node*, v->seen, n);
         UsesMapVisitor nv = *v;
         nv.user = n;
         visit_node_operands(&nv.v, v->exclude, n);
@@ -58,7 +58,7 @@ static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, co
     if (last_use)
         last_use->next_use = use;
     else
-        insert_dict(const Node*, const Use*, v->map->map, op, use);
+        shd_dict_insert(const Node*, const Use*, v->map->map, op, use);
 
     uses_visit_node(v, op);
 }
@@ -66,7 +66,7 @@ static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, co
 static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeClass exclude) {
     UsesMap* uses = calloc(sizeof(UsesMap), 1);
     *uses = (UsesMap) {
-        .map = new_dict(const Node*, Use*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = shd_new_dict(const Node*, Use*, (HashFn) hash_node, (CmpFn) compare_node),
         .a = shd_new_arena(),
     };
 
@@ -74,7 +74,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
         .v = { .visit_op_fn = (VisitOpFn) uses_visit_op },
         .map = uses,
         .exclude = exclude,
-        .seen = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .seen = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
     if (root)
         uses_visit_node(&v, root);
@@ -83,7 +83,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
         for (size_t i = 0; i < nodes.count; i++)
             uses_visit_node(&v, nodes.nodes[i]);
     }
-    destroy_dict(v.seen);
+    shd_destroy_dict(v.seen);
     return uses;
 }
 
@@ -97,12 +97,12 @@ const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude) {
 
 void destroy_uses_map(const UsesMap* map) {
     shd_destroy_arena(map->a);
-    destroy_dict(map->map);
+    shd_destroy_dict(map->map);
     free((void*) map);
 }
 
 const Use* get_first_use(const UsesMap* map, const Node* n) {
-    const Use** found = find_value_dict(const Node*, const Use*, map->map, n);
+    const Use** found = shd_dict_find_value(const Node*, const Use*, map->map, n);
     if (found)
         return *found;
     return NULL;

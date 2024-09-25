@@ -23,9 +23,9 @@ Rewriter create_rewriter_base(Module* src, Module* dst) {
             .search_map = true,
             .write_map = true,
         },
-        .map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .own_decls = true,
-        .decls_map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .decls_map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
         .parent = NULL,
     };
 }
@@ -45,9 +45,9 @@ Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn) {
 
 void destroy_rewriter(Rewriter* r) {
     assert(r->map);
-    destroy_dict(r->map);
+    shd_destroy_dict(r->map);
     if (r->own_decls)
-        destroy_dict(r->decls_map);
+        shd_destroy_dict(r->decls_map);
 }
 
 Rewriter create_importer(Module* src, Module* dst) {
@@ -56,7 +56,7 @@ Rewriter create_importer(Module* src, Module* dst) {
 
 Rewriter create_children_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
-    r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     r.parent = parent;
     r.own_decls = false;
     return r;
@@ -64,7 +64,7 @@ Rewriter create_children_rewriter(Rewriter* parent) {
 
 Rewriter create_decl_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
-    r.map = new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
     r.own_decls = false;
     return r;
 }
@@ -168,13 +168,13 @@ static Nodes rewrite_ops_helper(Rewriter* rewriter, NodeClass class, String op_n
 
 static const Node** search_processed_(const Rewriter* ctx, const Node* old, bool deep) {
     if (is_declaration(old)) {
-        const Node** found = find_value_dict(const Node*, const Node*, ctx->decls_map, old);
+        const Node** found = shd_dict_find_value(const Node*, const Node*, ctx->decls_map, old);
         return found ? found : NULL;
     }
 
     while (ctx) {
         assert(ctx->map && "this rewriter has no processed cache");
-        const Node** found = find_value_dict(const Node*, const Node*, ctx->map, old);
+        const Node** found = shd_dict_find_value(const Node*, const Node*, ctx->map, old);
         if (found)
             return found;
         if (deep)
@@ -222,7 +222,7 @@ void register_processed(Rewriter* ctx, const Node* old, const Node* new) {
 #endif
     struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
     assert(map && "this rewriter has no processed cache");
-    bool r = insert_dict_and_get_result(const Node*, const Node*, map, old, new);
+    bool r = shd_dict_insert_get_result(const Node*, const Node*, map, old, new);
     assert(r);
 }
 
@@ -370,7 +370,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
 void dump_rewriter_map(Rewriter* r) {
     size_t i = 0;
     const Node* src, *dst;
-    while (dict_iter(r->map, &i, &src, &dst)) {
+    while (shd_dict_iter(r->map, &i, &src, &dst)) {
         log_node(ERROR, src);
         log_string(ERROR, " -> ");
         log_node(ERROR, dst);

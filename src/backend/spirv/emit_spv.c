@@ -36,15 +36,15 @@ void spv_register_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* n
             spvb_name(emitter->file_builder, id, name);
     }
     struct Dict* map = fn_builder ? fn_builder->emitted : emitter->global_node_ids;
-    insert_dict_and_get_result(struct Node*, SpvId, map, node, id);
+    shd_dict_insert_get_result(struct Node*, SpvId, map, node, id);
 }
 
 SpvId* spv_search_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* node) {
     SpvId* found = NULL;
     if (fn_builder)
-        found = find_value_dict(const Node*, SpvId, fn_builder->emitted, node);
+        found = shd_dict_find_value(const Node*, SpvId, fn_builder->emitted, node);
     if (!found)
-        found = find_value_dict(const Node*, SpvId, emitter->global_node_ids, node);
+        found = shd_dict_find_value(const Node*, SpvId, emitter->global_node_ids, node);
     return found;
 }
 
@@ -86,7 +86,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     SpvId fn_id = spv_find_emitted(emitter, NULL, node);
     FnBuilder fn_builder = {
         .base = spvb_begin_fn(emitter->file_builder, fn_id, spv_emit_type(emitter, fn_type), spv_types_to_codom(emitter, node->payload.fun.return_types)),
-        .emitted = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted = shd_new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
         .cfg = build_fn_cfg(node),
     };
     fn_builder.scheduler = new_scheduler(fn_builder.cfg);
@@ -113,7 +113,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
             assert(is_basic_block(bb) || bb == node);
             SpvId bb_id = spvb_fresh_id(emitter->file_builder);
             BBBuilder basic_block_builder = spvb_begin_bb(fn_builder.base, bb_id);
-            insert_dict(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
+            shd_dict_insert(const Node*, BBBuilder, emitter->bb_builders, bb, basic_block_builder);
             // add phis for every non-entry basic block
             if (i > 0) {
                 assert(is_basic_block(bb) && bb != node);
@@ -143,11 +143,11 @@ static void emit_function(Emitter* emitter, const Node* node) {
     free(fn_builder.per_bb);
     destroy_scheduler(fn_builder.scheduler);
     destroy_cfg(fn_builder.cfg);
-    destroy_dict(fn_builder.emitted);
+    shd_destroy_dict(fn_builder.emitted);
 }
 
 SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
-    SpvId* existing = find_value_dict(const Node*, SpvId, emitter->global_node_ids, decl);
+    SpvId* existing = shd_dict_find_value(const Node*, SpvId, emitter->global_node_ids, decl);
     if (existing)
         return *existing;
 
@@ -304,12 +304,12 @@ static void emit_decls(Emitter* emitter, Nodes declarations) {
 }
 
 SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
-    SpvId* found = find_value_dict(const char*, SpvId, emitter->extended_instruction_sets, name);
+    SpvId* found = shd_dict_find_value(const char*, SpvId, emitter->extended_instruction_sets, name);
     if (found)
         return *found;
 
     SpvId new = spvb_extended_import(emitter->file_builder, name);
-    insert_dict(const char*, SpvId, emitter->extended_instruction_sets, name, new);
+    shd_dict_insert(const char*, SpvId, emitter->extended_instruction_sets, name, new);
     return new;
 }
 
@@ -343,12 +343,12 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
         .arena = arena,
         .configuration = config,
         .file_builder = file_builder,
-        .global_node_ids = new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
-        .bb_builders = new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
+        .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
         .num_entry_pts = 0,
     };
 
-    emitter.extended_instruction_sets = new_dict(const char*, SpvId, (HashFn) hash_string, (CmpFn) compare_string);
+    emitter.extended_instruction_sets = shd_new_dict(const char*, SpvId, (HashFn) hash_string, (CmpFn) compare_string);
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
@@ -366,9 +366,9 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
     *output_size = spvb_finish(file_builder, output);
 
     // cleanup the emitter
-    destroy_dict(emitter.global_node_ids);
-    destroy_dict(emitter.bb_builders);
-    destroy_dict(emitter.extended_instruction_sets);
+    shd_destroy_dict(emitter.global_node_ids);
+    shd_destroy_dict(emitter.bb_builders);
+    shd_destroy_dict(emitter.extended_instruction_sets);
 
     if (new_mod)
         *new_mod = mod;

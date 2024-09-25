@@ -20,9 +20,9 @@ typedef struct {
 
 static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* node) {
     assert(visitor->arena == node->arena);
-    if (find_key_dict(const Node*, visitor->once, node))
+    if (shd_dict_find_key(const Node*, visitor->once, node))
         return;
-    insert_set_get_result(const Node*, visitor->once, node);
+    shd_set_insert_get_result(const Node*, visitor->once, node);
     visit_node_operands(&visitor->visitor, 0, node);
 }
 
@@ -36,10 +36,10 @@ static void verify_same_arena(Module* mod) {
             .visit_node_fn = (VisitNodeFn) visit_verify_same_arena,
         },
         .arena = arena,
-        .once = new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .once = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
     visit_module(&visitor.visitor, mod);
-    destroy_dict(visitor.once);
+    shd_destroy_dict(visitor.once);
 }
 
 static void verify_scoping(const CompilerConfig* config, Module* mod) {
@@ -48,14 +48,14 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         Scheduler* scheduler = new_scheduler(cfg);
         struct Dict* set = free_frontier(scheduler, cfg, cfg->entry->node);
-        if (entries_count_dict(set) > 0) {
+        if (shd_dict_count(set) > 0) {
             log_string(ERROR, "Leaking variables in ");
             log_node(ERROR, cfg->entry->node);
             log_string(ERROR, ":\n");
 
             size_t j = 0;
             const Node* leaking;
-            while (dict_iter(set, &j, &leaking, NULL)) {
+            while (shd_dict_iter(set, &j, &leaking, NULL)) {
                 log_node(ERROR, leaking);
                 error_print("\n");
             }
@@ -64,7 +64,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
             log_module(ERROR, config, mod);
             error_die();
         }
-        destroy_dict(set);
+        shd_destroy_dict(set);
         destroy_scheduler(scheduler);
         destroy_cfg(cfg);
     }
@@ -119,7 +119,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
     if (is_instruction(node)) {
         ScheduleContext* search = ctx;
         while (search) {
-            if (find_key_dict(const Node*, search->bound, node))
+            if (shd_dict_find_key(const Node*, search->bound, node))
                 break;
             search = search->parent;
         }

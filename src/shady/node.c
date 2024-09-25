@@ -343,7 +343,7 @@ KeyHash hash_node(Node** pnode) {
         goto end;
     }
 
-    KeyHash tag_hash = hash_murmur(&node->tag, sizeof(NodeTag));
+    KeyHash tag_hash = shd_hash_murmur(&node->tag, sizeof(NodeTag));
     KeyHash payload_hash = 0;
 
     if (node_type_has_payload[node->tag]) {

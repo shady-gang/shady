@@ -28,7 +28,7 @@ void shuffle(int arr[]) {
 
 int main(int argc, char** argv) {
     srand((int) get_time_nano());
-    struct Dict* d = new_set(int, (HashFn) bad_hash_i32, (CmpFn) compare_i32);
+    struct Dict* d = shd_new_set(int, (HashFn) bad_hash_i32, (CmpFn) compare_i32);
 
     int arr[TEST_ENTRIES];
     for (int i = 0; i < TEST_ENTRIES; i++) {
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     memset(contained, 0, sizeof(contained));
 
     for (int i = 0; i < TEST_ENTRIES; i++) {
-        bool unique = insert_set_get_result(int, d, arr[i]);
+        bool unique = shd_set_insert_get_result(int, d, arr[i]);
         if (!unique) {
             error("Entry %d was thought to be already in the dict", arr[i]);
         }
@@ -51,27 +51,27 @@ int main(int argc, char** argv) {
     shuffle(arr);
     for (int i = 0; i < TEST_ENTRIES; i++) {
         assert(contained[arr[i]]);
-        assert(find_key_dict(int, d, arr[i]));
+        assert(shd_dict_find_key(int, d, arr[i]));
     }
 
     shuffle(arr);
     for (int i = 0; i < rand() % TEST_ENTRIES; i++) {
         assert(contained[arr[i]]);
-        bool removed = remove_dict(int, d, arr[i]);
+        bool removed = shd_dict_remove(int, d, arr[i]);
         assert(removed);
         contained[arr[i]] = false;
     }
 
     shuffle(arr);
     for (int i = 0; i < TEST_ENTRIES; i++) {
-        assert(!!find_key_dict(int, d, arr[i]) == contained[arr[i]]);
+        assert(!!shd_dict_find_key(int, d, arr[i]) == contained[arr[i]]);
     }
 
     shuffle(arr);
     for (int i = 0; i < TEST_ENTRIES; i++) {
-        assert(!!find_key_dict(int, d, arr[i]) == contained[arr[i]]);
+        assert(!!shd_dict_find_key(int, d, arr[i]) == contained[arr[i]]);
         if (!contained[arr[i]]) {
-            bool unique = insert_set_get_result(int, d, arr[i]);
+            bool unique = shd_set_insert_get_result(int, d, arr[i]);
             if (!unique) {
                 error("Entry %d was thought to be already in the dict", arr[i]);
             }
@@ -83,9 +83,9 @@ int main(int argc, char** argv) {
     shuffle(arr);
     for (int i = 0; i < TEST_ENTRIES; i++) {
         assert(contained[arr[i]]);
-        assert(find_key_dict(int, d, arr[i]));
+        assert(shd_dict_find_key(int, d, arr[i]));
     }
 
-    destroy_dict(d);
+    shd_destroy_dict(d);
     return 0;
 }

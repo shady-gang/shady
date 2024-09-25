@@ -53,7 +53,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             const Node* jp = param(a, jp_type, "if_join");
             Nodes jps = singleton(jp);
-            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
+            shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
             const Node* true_block = rewrite_node(r, payload.if_true);
 
@@ -99,7 +99,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* break_point = param(a, break_jp_type, "loop_break_point");
             const Node* continue_point = param(a, continue_jp_type, "loop_continue_point");
             Nodes jps = mk_nodes(a, break_point, continue_point);
-            insert_dict(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
+            shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
             Nodes new_params = recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
             Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
@@ -146,7 +146,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_die();
             }
 
-            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
+            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
             assert(jps && jps->count == 1);
             const Node* jp = first(*jps);
             assert(jp);
@@ -180,7 +180,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_die();
             }
 
-            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
+            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
             assert(jps && jps->count == 2);
             const Node* jp = jps->nodes[1];
             assert(jp);
@@ -214,7 +214,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_die();
             }
 
-            Nodes* jps = find_value_dict(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
+            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
             assert(jps && jps->count == 2);
             const Node* jp = first(*jps);
             assert(jp);
@@ -239,11 +239,11 @@ Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .structured_join_tokens = new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
+        .structured_join_tokens = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
     };
     rewrite_module(&ctx.rewriter);
     destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.structured_join_tokens);
+    shd_destroy_dict(ctx.structured_join_tokens);
     return dst;
 }
 

@@ -64,7 +64,7 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
 
     CGEdge e;
     size_t i = 0;
-    while (dict_iter(fn_node->callers, &i, &e, NULL)) {
+    while (shd_dict_iter(fn_node->callers, &i, &e, NULL)) {
         crit.num_calls++;
         if (is_call_potentially_inlineable(e.src_fn->fn, e.dst_fn->fn))
             crit.num_inlineable_calls++;
@@ -108,7 +108,7 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
 
     log_string(DEBUG, "Inlining '%s' inside '%s'\n", get_abstraction_name(ocallee), get_abstraction_name(ctx->fun));
     Context inline_context = *ctx;
-    inline_context.rewriter.map = clone_dict(inline_context.rewriter.map);
+    inline_context.rewriter.map = shd_clone_dict(inline_context.rewriter.map);
 
     ctx = &inline_context;
     InlinedCall inlined_call = {
@@ -123,7 +123,7 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
 
     const Node* nbody = rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
 
-    destroy_dict(inline_context.rewriter.map);
+    shd_destroy_dict(inline_context.rewriter.map);
 
     assert(is_terminator(nbody));
     return nbody;
@@ -138,7 +138,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG: {
             if (ctx->graph) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_eliminated) {
                     debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
                     return NULL;
@@ -150,14 +150,14 @@ static const Node* process(Context* ctx, const Node* node) {
             register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
-            fn_ctx.rewriter.map = clone_dict(fn_ctx.rewriter.map);
+            fn_ctx.rewriter.map = shd_clone_dict(fn_ctx.rewriter.map);
             fn_ctx.old_fun = node;
             fn_ctx.fun = new;
             fn_ctx.inlined_call = NULL;
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 register_processed(&fn_ctx.rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
             recreate_decl_body_identity(&fn_ctx.rewriter, node, new);
-            destroy_dict(fn_ctx.rewriter.map);
+            shd_destroy_dict(fn_ctx.rewriter.map);
             return new;
         }
         case Call_TAG: {
@@ -168,7 +168,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
                     debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
@@ -208,7 +208,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ocallee = node->payload.tail_call.callee;
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
                     debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
                     Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);

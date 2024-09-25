@@ -54,11 +54,11 @@ static FnPtr get_fn_ptr(Context* ctx, const Node* the_function) {
     assert(the_function->arena == ctx->rewriter.src_arena);
     assert(the_function->tag == Function_TAG);
 
-    FnPtr* found = find_value_dict(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
+    FnPtr* found = shd_dict_find_value(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function);
     if (found) return *found;
 
     FnPtr ptr = (*ctx->next_fn_ptr)++;
-    bool r = insert_dict_and_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
+    bool r = shd_dict_insert_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
     assert(r);
     return ptr;
 }
@@ -442,7 +442,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     IrArena* a = new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
-    struct Dict* ptrs = new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* ptrs = shd_new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
 
     Node* init_fn = function(dst, nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), nodes(a, 0, NULL));
     set_abstraction_body(init_fn, fn_ret(a, (Return) { .args = empty(a), .mem = get_abstraction_mem(init_fn) }));
@@ -468,7 +468,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     if (*ctx.top_dispatcher_fn)
         generate_top_level_dispatch_fn(&ctx);
 
-    destroy_dict(ptrs);
+    shd_destroy_dict(ptrs);
     destroy_rewriter(&ctx.rewriter);
     return dst;
 }
