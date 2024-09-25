@@ -45,7 +45,7 @@ static void print_bare(Printer* p, size_t len, const char* str) {
     assert(strlen(str) >= len);
     switch(p->output) {
         case PoFile: fwrite(str, sizeof(char), len, p->file); break;
-        case PoGrowy: growy_append_bytes(p->growy, len, str);
+        case PoGrowy: shd_growy_append_bytes(p->growy, len, str);
     }
 }
 
@@ -132,26 +132,26 @@ Printer* print(Printer* p, const char* f, ...) {
 
 const char* printer_growy_unwrap(Printer* p) {
     assert(p->output == PoGrowy);
-    growy_append_bytes(p->growy, 1, "\0");
-    const char* insides = growy_deconstruct(p->growy);
+    shd_growy_append_bytes(p->growy, 1, "\0");
+    const char* insides = shd_growy_deconstruct(p->growy);
     free(p);
     return insides;
 }
 
 const char* replace_string(const char* source, const char* match, const char* replace_with) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     size_t match_len = strlen(match);
     size_t replace_len = strlen(replace_with);
     const char* next_match = strstr(source, match);
     while (next_match != NULL) {
         size_t diff = next_match - source;
-        growy_append_bytes(g, diff, (char*) source);
-        growy_append_bytes(g, replace_len, (char*) replace_with);
+        shd_growy_append_bytes(g, diff, (char*) source);
+        shd_growy_append_bytes(g, replace_len, (char*) replace_with);
         source = next_match + match_len;
         next_match = strstr(source, match);
     }
-    growy_append_bytes(g, strlen(source), (char*) source);
+    shd_growy_append_bytes(g, strlen(source), (char*) source);
     char zero = '\0';
-    growy_append_bytes(g, 1, &zero);
-    return growy_deconstruct(g);
+    shd_growy_append_bytes(g, 1, &zero);
+    return shd_growy_deconstruct(g);
 }

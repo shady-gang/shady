@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
             do_all = false;
         } else {
             error_print("Unrecognised argument: %s\n", argv[i]);
-            error_die();
+            shd_error_die();
         }
     }
 

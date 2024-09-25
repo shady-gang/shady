@@ -216,7 +216,7 @@ static const Node* accept_numerical_literal(ctxparams) {
     }
 
     if (negate) // add back the - in front
-        str = format_string_arena(arena->arena, "-%s", str);
+        str = shd_format_string_arena(arena->arena, "-%s", str);
 
     const Node* n = untyped_number(arena, (UntypedNumber) {
             .plaintext = str
@@ -336,7 +336,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         case string_lit_tok: {
             next_token(tokenizer);
             char* unescaped = calloc(size + 1, 1);
-            size_t j = apply_escape_codes(&contents[tok.start], size, unescaped);
+            size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
             const Node* lit = string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) j, unescaped) });
             free(unescaped);
             return lit;

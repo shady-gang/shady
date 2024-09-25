@@ -52,7 +52,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
         .printer = printer,
         .config = config,
         .emitted = shd_new_dict(const Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
-        .root_growy = new_growy(),
+        .root_growy = shd_new_growy(),
     };
     ctx.root_printer = open_growy_as_printer(ctx.root_growy);
     return ctx;
@@ -83,23 +83,23 @@ void print_node(Printer* printer, NodePrintConfig config, const Node* node) {
 }
 
 void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
     if (node)
         print(p, "%%%d ", node->id);
     print_node(p, (NodePrintConfig) {.reparseable = true}, node);
     destroy_printer(p);
-    *size = growy_size(g);
-    *str_ptr = growy_deconstruct(g);
+    *size = shd_growy_size(g);
+    *str_ptr = shd_growy_deconstruct(g);
 }
 
 void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
     print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
     destroy_printer(p);
-    *size = growy_size(g);
-    *str_ptr = growy_deconstruct(g);
+    *size = shd_growy_size(g);
+    *str_ptr = shd_growy_deconstruct(g);
 }
 
 void dump_node(const Node* node) {
@@ -264,7 +264,7 @@ static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
 }
 
 static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
     CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, abs) : NULL;
     if (cfnode)
@@ -273,7 +273,7 @@ static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
     emit_node(ctx, get_abstraction_body(abs));
 
     if (cfnode) {
-        Growy* g2 = new_growy();
+        Growy* g2 = shd_new_growy();
         Printer* p2 = open_growy_as_printer(g2);
         size_t count = cfnode->dominates->elements_count;
         for (size_t i = 0; i < count; i++) {
@@ -1034,7 +1034,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     }
     shd_dict_insert(const Node*, String, ctx->emitted, node, r);
 
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     PrinterCtx ctx2 = *ctx;
     ctx2.printer = open_growy_as_printer(g);
     bool print_inline = print_node_impl(&ctx2, node);

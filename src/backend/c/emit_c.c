@@ -52,13 +52,13 @@ CValue to_cvalue(SHADY_UNUSED Emitter* e, CTerm term) {
     if (term.value)
         return term.value;
     if (term.var)
-        return format_string_arena(e->arena->arena, "(&%s)", term.var);
+        return shd_format_string_arena(e->arena->arena, "(&%s)", term.var);
     assert(false);
 }
 
 CAddr deref_term(Emitter* e, CTerm term) {
     if (term.value)
-        return format_string_arena(e->arena->arena, "(*%s)", term.value);
+        return shd_format_string_arena(e->arena->arena, "(*%s)", term.value);
     if (term.var)
         return term.var;
     assert(false);
@@ -125,11 +125,11 @@ void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const
     // add extra qualifiers if immutable
     if (!mut) switch (emitter->config.dialect) {
         case CDialect_ISPC:
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            center = shd_format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_C11:
         case CDialect_CUDA:
-            center = format_string_arena(emitter->arena->arena, "const %s", center);
+            center = shd_format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_GLSL:
             if (emitter->config.glsl_version >= 130)
@@ -166,7 +166,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
             if (as != AsGeneric) warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
             prefix = "";
             if (constant)
-                name = format_string_arena(emitter->arena->arena, "const %s", name);
+                name = shd_format_string_arena(emitter->arena->arena, "const %s", name);
             break;
         }
         case CDialect_ISPC:
@@ -179,7 +179,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                     assert(false);
                     // Note: this requires many hacks.
                     prefix = "__device__ ";
-                    name = format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", name);
+                    name = shd_format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", name);
                     break;
                 case AsShared: prefix = "__shared__ "; break;
                 case AsGlobal: {
@@ -190,7 +190,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                     break;
                 }
                 default: {
-                    prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
+                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
                     warn_print("warning: address space %s not supported in CUDA for global variables\n", get_address_space_name(as));
                     break;
                 }
@@ -210,7 +210,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                     break;
                 }
                 default: {
-                    prefix = format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
+                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
                     warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
                     break;
                 }
@@ -224,9 +224,9 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
     if (emitter->config.dialect == CDialect_ISPC) {
         bool uniform = is_addr_space_uniform(emitter->arena, as);
         if (uniform)
-            name = format_string_arena(emitter->arena->arena, "uniform %s", name);
+            name = shd_format_string_arena(emitter->arena->arena, "uniform %s", name);
         else
-            name = format_string_arena(emitter->arena->arena, "varying %s", name);
+            name = shd_format_string_arena(emitter->arena->arena, "varying %s", name);
     }
 
     if (init)
@@ -284,7 +284,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             emit_as = term_from_cvar(name);
             if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
                 if (emitter->use_private_globals) {
-                    register_emitted(emitter, NULL, decl, term_from_cvar(format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
+                    register_emitted(emitter, NULL, decl, term_from_cvar(shd_format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
                     // HACK
                     return;
                 }
@@ -325,15 +325,15 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
-                    fn_body = format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
+                    fn_body = shd_format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
                 } else if (emitter->config.dialect == CDialect_CUDA) {
                     if (lookup_annotation(decl, "EntryPoint")) {
                         // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
                         if (emitter->use_private_globals) {
-                            fn_body = format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
+                            fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
                         }
-                        fn_body = format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
+                        fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
                     }
                 }
                 print(emitter->fn_defs, "\n%s { ", head);
@@ -365,7 +365,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             switch (emitter->config.dialect) {
                 case CDialect_ISPC:
                 default: print(emitter->type_decls, "\ntypedef %s;", c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case CDialect_GLSL: c_emit_nominal_type_body(emitter, format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+                case CDialect_GLSL: c_emit_nominal_type_body(emitter, shd_format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
             }
             return;
         }
@@ -389,7 +389,7 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitte
 }
 
 static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
 
     print(p, "typedef struct __shady_PrivateGlobals {\n");
@@ -409,7 +409,7 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
 
     if (count == 0) {
         destroy_printer(p);
-        destroy_growy(g);
+        shd_destroy_growy(g);
         return NULL;
     }
     return printer_growy_unwrap(p);
@@ -426,9 +426,9 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
     mod = run_backend_specific_passes(compiler_config, &config, mod);
     IrArena* arena = get_module_arena(mod);
 
-    Growy* type_decls_g = new_growy();
-    Growy* fn_decls_g = new_growy();
-    Growy* fn_defs_g = new_growy();
+    Growy* type_decls_g = shd_new_growy();
+    Growy* fn_decls_g = shd_new_growy();
+    Growy* fn_defs_g = shd_new_growy();
 
     Emitter emitter = {
         .compiler_config = compiler_config,
@@ -468,7 +468,7 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
     destroy_printer(emitter.fn_decls);
     destroy_printer(emitter.fn_defs);
 
-    Growy* final = new_growy();
+    Growy* final = shd_new_growy();
     Printer* finalp = open_growy_as_printer(final);
 
     if (emitter.config.dialect == CDialect_GLSL) {
@@ -508,28 +508,28 @@ void emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module
     }
 
     print(finalp, "\n/* types: */\n");
-    growy_append_bytes(final, growy_size(type_decls_g), growy_data(type_decls_g));
+    shd_growy_append_bytes(final, shd_growy_size(type_decls_g), shd_growy_data(type_decls_g));
 
     print(finalp, "\n/* declarations: */\n");
-    growy_append_bytes(final, growy_size(fn_decls_g), growy_data(fn_decls_g));
+    shd_growy_append_bytes(final, shd_growy_size(fn_decls_g), shd_growy_data(fn_decls_g));
 
     print(finalp, "\n/* definitions: */\n");
-    growy_append_bytes(final, growy_size(fn_defs_g), growy_data(fn_defs_g));
+    shd_growy_append_bytes(final, shd_growy_size(fn_defs_g), shd_growy_data(fn_defs_g));
 
     print(finalp, "\n");
     print(finalp, "\n");
     print(finalp, "\n");
-    growy_append_bytes(final, 1, "\0");
+    shd_growy_append_bytes(final, 1, "\0");
 
-    destroy_growy(type_decls_g);
-    destroy_growy(fn_decls_g);
-    destroy_growy(fn_defs_g);
+    shd_destroy_growy(type_decls_g);
+    shd_destroy_growy(fn_decls_g);
+    shd_destroy_growy(fn_defs_g);
 
     shd_destroy_dict(emitter.emitted_types);
     shd_destroy_dict(emitter.emitted_terms);
 
-    *output_size = growy_size(final) - 1;
-    *output = growy_deconstruct(final);
+    *output_size = shd_growy_size(final) - 1;
+    *output = shd_growy_deconstruct(final);
     destroy_printer(finalp);
 
     if (new_mod)

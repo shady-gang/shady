@@ -12,13 +12,13 @@
 #include "util.h"
 
 CodegenTarget guess_target(const char* filename) {
-    if (string_ends_with(filename, ".c"))
+    if (shd_string_ends_with(filename, ".c"))
         return TgtC;
-    else if (string_ends_with(filename, "glsl"))
+    else if (shd_string_ends_with(filename, "glsl"))
         return TgtGLSL;
-    else if (string_ends_with(filename, "spirv") || string_ends_with(filename, "spv"))
+    else if (shd_string_ends_with(filename, "spirv") || shd_string_ends_with(filename, "spv"))
         return TgtSPV;
-    else if (string_ends_with(filename, "ispc"))
+    else if (shd_string_ends_with(filename, "ispc"))
         return TgtISPC;
     error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
     exit(InvalidTarget);

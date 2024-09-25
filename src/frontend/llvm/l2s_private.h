@@ -85,7 +85,7 @@ void postprocess(Parser*, Module* src, Module* dst);
 inline static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
-    if (string_starts_with(name, "llvm."))
+    if (shd_string_starts_with(name, "llvm."))
         return name;
     return NULL;
 }
@@ -93,7 +93,7 @@ inline static String is_llvm_intrinsic(LLVMValueRef fn) {
 inline static String is_shady_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);
-    if (string_starts_with(name, "shady::"))
+    if (shd_string_starts_with(name, "shady::"))
         return name;
     return NULL;
 }

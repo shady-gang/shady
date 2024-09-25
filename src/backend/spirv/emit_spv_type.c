@@ -33,7 +33,7 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
 
         default: {
             error_print("Cannot emit address space %s.\n", get_address_space_name(address_space));
-            error_die();
+            shd_error_die();
             SHADY_UNREACHABLE;
         }
     }

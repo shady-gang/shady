@@ -32,7 +32,7 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {
                 ctx2.stack_size_on_entry = gen_get_stack_size(bb);
-                set_value_name((Node*) ctx2.stack_size_on_entry, format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
+                set_value_name((Node*) ctx2.stack_size_on_entry, shd_format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
             }
             register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             if (node->payload.fun.body)

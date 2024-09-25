@@ -95,7 +95,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
             set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
-            Node* nom_t = nominal_type(m, empty(a), format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
+            Node* nom_t = nominal_type(m, empty(a), shd_format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
             VContext vctx = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
@@ -134,7 +134,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     log_node(ERROR, node);
                     error_print(", most likely this means this alloca was not found in the first block of a function.\n");
                     log_module(DEBUG, ctx->config, ctx->rewriter.src_module);
-                    error_die();
+                    shd_error_die();
                 }
 
                 BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, node->payload.stack_alloc.mem));

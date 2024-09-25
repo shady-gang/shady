@@ -126,7 +126,7 @@ bool vkr_can_import_host_memory(VkrDevice* device) {
 
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     if (!vkr_can_import_host_memory_(device, true)) {
-        error_die();
+        shd_error_die();
     }
 
     VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);

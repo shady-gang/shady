@@ -53,10 +53,10 @@ void log_module(LogLevel level, const CompilerConfig*, Module*);
   fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
   fprintf (stderr, __VA_ARGS__);                            \
   fprintf (stderr, "\n");                                   \
-  error_die();                                              \
+  shd_error_die();                                          \
 }
 
 #include <stdnoreturn.h>
-noreturn void error_die();
+noreturn void shd_error_die();
 
 #endif

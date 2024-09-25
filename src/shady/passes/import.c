@@ -28,7 +28,7 @@ const Node* import_node(Rewriter* r, const Node* node) {
                 error_print(" vs ");
                 log_node(ERROR, imported_t);
                 error_print(".\n");
-                error_die();
+                shd_error_die();
             }
             if (node->tag != existing->tag) {
                 error_print("Incompatible node types for to-be-merged declaration: %s ", get_declaration_name(node));
@@ -36,7 +36,7 @@ const Node* import_node(Rewriter* r, const Node* node) {
                 error_print(" vs ");
                 error_print("%s", node_tags[node->tag]);
                 error_print(".\n");
-                error_die();
+                shd_error_die();
             }
             switch (is_declaration(node)) {
                 case NotADeclaration: assert(false);

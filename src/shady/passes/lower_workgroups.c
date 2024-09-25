@@ -69,7 +69,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = filter_out_annotation(a, wannotations, "EntryPoint");
                 Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* inner = function(m, nparams, format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
+                Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 register_processed(&ctx->rewriter, get_abstraction_mem(node), get_abstraction_mem(inner));
                 set_abstraction_body(inner, recreate_node_identity(&ctx->rewriter, node->payload.fun.body));

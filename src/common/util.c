@@ -19,7 +19,7 @@ X( 'f', '\f') \
 X( 'a', '\a') \
 X( 'v', '\v') \
 
-size_t apply_escape_codes(const char* src, size_t size, char* dst) {
+size_t shd_apply_escape_codes(const char* src, size_t size, char* dst) {
     char p, c = '\0';
     size_t j = 0;
     for (size_t i = 0; i < size; i++) {
@@ -39,7 +39,7 @@ size_t apply_escape_codes(const char* src, size_t size, char* dst) {
     return j;
 }
 
-size_t unapply_escape_codes(const char* src, size_t size, char* dst) {
+size_t shd_unapply_escape_codes(const char* src, size_t size, char* dst) {
     char c = '\0';
     size_t j = 0;
     for (size_t i = 0; i < size; i++) {
@@ -74,7 +74,7 @@ static long get_file_size(FILE* f) {
     return fsize;
 }
 
-bool read_file(const char* filename, size_t* size, char** output) {
+bool shd_read_file(const char* filename, size_t* size, char** output) {
     FILE *f = fopen(filename, "rb");
     if (f == NULL)
         return false;
@@ -107,7 +107,7 @@ err_post_open:
     return false;
 }
 
-bool write_file(const char* filename, size_t size, const char* data) {
+bool shd_write_file(const char* filename, size_t size, const char* data) {
     FILE* f = fopen(filename, "wb");
     if (f == NULL)
         return false;
@@ -130,7 +130,7 @@ enum {
 
 static char static_buffer[ThreadLocalStaticBufferSize];
 
-void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*)) {
+void shd_format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*)) {
     size_t buffer_size = ThreadLocalStaticBufferSize;
     int len;
     char* tmp;
@@ -166,12 +166,12 @@ static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
     *uptr->result = interned;
 }
 
-char* format_string_arena(Arena* arena, const char* str, ...) {
+char* shd_format_string_arena(Arena* arena, const char* str, ...) {
     char* result = NULL;
     InternInArenaPayload p = { .a = arena, .result = &result };
     va_list args;
     va_start(args, str);
-    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) intern_in_arena);
+    shd_format_string_internal(str, args, &p, (void (*)(void*, size_t, char*)) intern_in_arena);
     va_end(args);
     return result;
 }
@@ -185,17 +185,17 @@ static void put_in_new(PutNewPayload* uptr, size_t len, char* tmp) {
     *uptr->result = allocated;
 }
 
-char* format_string_new(const char* str, ...) {
+char* shd_format_string_new(const char* str, ...) {
     char* result = NULL;
     PutNewPayload p = { .result = &result };
     va_list args;
     va_start(args, str);
-    format_string_internal(str, args, &p, (void(*)(void*, size_t, char*)) put_in_new);
+    shd_format_string_internal(str, args, &p, (void (*)(void*, size_t, char*)) put_in_new);
     va_end(args);
     return result;
 }
 
-bool string_starts_with(const char* string, const char* prefix) {
+bool shd_string_starts_with(const char* string, const char* prefix) {
     size_t len = strlen(string);
     size_t slen = strlen(prefix);
     if (len < slen)
@@ -203,7 +203,7 @@ bool string_starts_with(const char* string, const char* prefix) {
     return memcmp(string, prefix, slen) == 0;
 }
 
-bool string_ends_with(const char* string, const char* suffix) {
+bool shd_string_ends_with(const char* string, const char* suffix) {
     size_t len = strlen(string);
     size_t slen = strlen(suffix);
     if (len < slen)
@@ -215,7 +215,7 @@ bool string_ends_with(const char* string, const char* suffix) {
     return true;
 }
 
-char* strip_path(const char* path) {
+char* shd_strip_path(const char* path) {
     char separator = strchr(path, '\\') == NULL ? '/' : '\\';
     char* end = strrchr(path, separator);
     if (!end) {
@@ -233,6 +233,6 @@ char* strip_path(const char* path) {
     return new;
 }
 
-void error_die() {
+void shd_error_die() {
     abort();
 }

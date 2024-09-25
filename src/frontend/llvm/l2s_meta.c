@@ -158,6 +158,6 @@ LLVM_DI_METADATA_NODES(N)
             error_print("Unknown metadata kind %d for ", kind);
             LLVMDumpValue(v);
             error_print(".\n");
-            error_die();
+            shd_error_die();
     }
 }

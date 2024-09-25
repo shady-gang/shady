@@ -20,7 +20,7 @@ inline static int div_roundup(int a, int b) {
 }
 
 inline static void output_word(SpvbSectionBuilder data, uint32_t word) {
-    growy_append_bytes(data, sizeof(uint32_t), (char*) &word);
+    shd_growy_append_bytes(data, sizeof(uint32_t), (char*) &word);
 }
 
 #define op(opcode, size) op_(target_data, opcode, size)
@@ -61,7 +61,7 @@ inline static void literal_int_(SpvbSectionBuilder data, uint32_t i) {
 
 #define copy_section(section) copy_section_(target_data, section)
 inline static void copy_section_(SpvbSectionBuilder target, SpvbSectionBuilder source) {
-    growy_append_bytes(target, growy_size(source), growy_data(source));
+    shd_growy_append_bytes(target, shd_growy_size(source), shd_growy_data(source));
 }
 
 struct SpvbFileBuilder_ {
@@ -103,18 +103,18 @@ SpvbFileBuilder* spvb_begin() {
     SpvbFileBuilder* file_builder = (SpvbFileBuilder*) malloc(sizeof(SpvbFileBuilder));
     *file_builder = (SpvbFileBuilder) {
         .bound = 1,
-        .capabilities = new_growy(),
-        .extensions = new_growy(),
-        .ext_inst_import = new_growy(),
-        .entry_points = new_growy(),
-        .execution_modes = new_growy(),
-        .debug_string_source = new_growy(),
-        .debug_names = new_growy(),
-        .debug_module_processed = new_growy(),
-        .annotations = new_growy(),
-        .types_constants = new_growy(),
-        .fn_decls = new_growy(),
-        .fn_defs = new_growy(),
+        .capabilities = shd_new_growy(),
+        .extensions = shd_new_growy(),
+        .ext_inst_import = shd_new_growy(),
+        .entry_points = shd_new_growy(),
+        .execution_modes = shd_new_growy(),
+        .debug_string_source = shd_new_growy(),
+        .debug_names = shd_new_growy(),
+        .debug_module_processed = shd_new_growy(),
+        .annotations = shd_new_growy(),
+        .types_constants = shd_new_growy(),
+        .fn_decls = shd_new_growy(),
+        .fn_defs = shd_new_growy(),
 
         .capabilities_set = shd_new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
         .extensions_set = shd_new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
@@ -175,30 +175,30 @@ static uint32_t byteswap(uint32_t v) {
 }
 
 size_t spvb_finish(SpvbFileBuilder* file_builder, char** output) {
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     merge_sections(file_builder, g);
 
-    destroy_growy(file_builder->fn_defs);
-    destroy_growy(file_builder->fn_decls);
-    destroy_growy(file_builder->types_constants);
-    destroy_growy(file_builder->annotations);
-    destroy_growy(file_builder->debug_module_processed);
-    destroy_growy(file_builder->debug_names);
-    destroy_growy(file_builder->debug_string_source);
-    destroy_growy(file_builder->execution_modes);
-    destroy_growy(file_builder->entry_points);
-    destroy_growy(file_builder->ext_inst_import);
-    destroy_growy(file_builder->extensions);
-    destroy_growy(file_builder->capabilities);
+    shd_destroy_growy(file_builder->fn_defs);
+    shd_destroy_growy(file_builder->fn_decls);
+    shd_destroy_growy(file_builder->types_constants);
+    shd_destroy_growy(file_builder->annotations);
+    shd_destroy_growy(file_builder->debug_module_processed);
+    shd_destroy_growy(file_builder->debug_names);
+    shd_destroy_growy(file_builder->debug_string_source);
+    shd_destroy_growy(file_builder->execution_modes);
+    shd_destroy_growy(file_builder->entry_points);
+    shd_destroy_growy(file_builder->ext_inst_import);
+    shd_destroy_growy(file_builder->extensions);
+    shd_destroy_growy(file_builder->capabilities);
 
     shd_destroy_dict(file_builder->capabilities_set);
     shd_destroy_dict(file_builder->extensions_set);
 
     free(file_builder);
 
-    size_t s = growy_size(g);
+    size_t s = shd_growy_size(g);
     assert(s % 4 == 0);
-    *output = growy_deconstruct(g);
+    *output = shd_growy_deconstruct(g);
 
     if (is_big_endian()) for (size_t i = 0; i < s / 4; i++) {
         ((uint32_t*)*output)[i] = byteswap(((uint32_t*)(*output))[i]);
@@ -509,8 +509,8 @@ SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId f
         .fn_ret_type = fn_ret_type,
         .file_builder = file_builder,
         .bbs = shd_new_list(SpvbBasicBlockBuilder*),
-        .variables = new_growy(),
-        .header = new_growy(),
+        .variables = shd_new_growy(),
+        .header = shd_new_growy(),
     };
     return fnb;
 }
@@ -556,8 +556,8 @@ void spvb_declare_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_buil
     op(SpvOpFunctionEnd, 1);
 
     shd_destroy_list(fn_builder->bbs);
-    destroy_growy(fn_builder->header);
-    destroy_growy(fn_builder->variables);
+    shd_destroy_growy(fn_builder->header);
+    shd_destroy_growy(fn_builder->variables);
     free(fn_builder);
 }
 #undef target_data
@@ -626,16 +626,16 @@ void spvb_define_function(SpvbFileBuilder* file_builder, SpvbFnBuilder* fn_build
         copy_section(bb->terminator_section);
 
         shd_destroy_list(bb->phis);
-        destroy_growy(bb->instructions_section);
-        destroy_growy(bb->terminator_section);
+        shd_destroy_growy(bb->instructions_section);
+        shd_destroy_growy(bb->terminator_section);
         free(bb);
     }
 
     op(SpvOpFunctionEnd, 1);
 
     shd_destroy_list(fn_builder->bbs);
-    destroy_growy(fn_builder->header);
-    destroy_growy(fn_builder->variables);
+    shd_destroy_growy(fn_builder->header);
+    shd_destroy_growy(fn_builder->variables);
     free(fn_builder);
 }
 #undef target_data
@@ -646,8 +646,8 @@ SpvbBasicBlockBuilder* spvb_begin_bb(SpvbFnBuilder* fn_builder, SpvId label) {
         .fn_builder = fn_builder,
         .label = label,
         .phis = shd_new_list(SpvbPhi*),
-        .instructions_section = new_growy(),
-        .terminator_section = new_growy(),
+        .instructions_section = shd_new_growy(),
+        .terminator_section = shd_new_growy(),
     };
     return bbb;
 }

@@ -16,7 +16,7 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
             continue;
 
         if (definition && i > 0)
-            growy_append_formatted(g, "\n");
+            shd_growy_append_formatted(g, "\n");
 
         String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
         const void* alloc = NULL;
@@ -27,31 +27,31 @@ void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
         String ap = definition ? " arena" : "";
         json_object* ops = json_object_object_get(node, "ops");
         if (ops)
-            growy_append_formatted(g, "const Node* %s(IrArena*%s, %s%s)", snake_name, ap, name, definition ? " payload" : "");
+            shd_growy_append_formatted(g, "const Node* %s(IrArena*%s, %s%s)", snake_name, ap, name, definition ? " payload" : "");
         else
-            growy_append_formatted(g, "const Node* %s(IrArena*%s)", snake_name, ap);
+            shd_growy_append_formatted(g, "const Node* %s(IrArena*%s)", snake_name, ap);
 
         if (definition) {
-            growy_append_formatted(g, " {\n");
-            growy_append_formatted(g, "\tNode node;\n");
-            growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
-            growy_append_formatted(g, "\tnode = (Node) {\n");
-            growy_append_formatted(g, "\t\t.arena = arena,\n");
-            growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
+            shd_growy_append_formatted(g, " {\n");
+            shd_growy_append_formatted(g, "\tNode node;\n");
+            shd_growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
+            shd_growy_append_formatted(g, "\tnode = (Node) {\n");
+            shd_growy_append_formatted(g, "\t\t.arena = arena,\n");
+            shd_growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
             if (ops)
-                growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
-            growy_append_formatted(g, "\t\t.type = NULL,\n");
-            growy_append_formatted(g, "\t};\n");
-            growy_append_formatted(g, "\treturn create_node_helper(arena, node, NULL);\n");
-            growy_append_formatted(g, "}\n");
+                shd_growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
+            shd_growy_append_formatted(g, "\t\t.type = NULL,\n");
+            shd_growy_append_formatted(g, "\t};\n");
+            shd_growy_append_formatted(g, "\treturn create_node_helper(arena, node, NULL);\n");
+            shd_growy_append_formatted(g, "}\n");
         } else {
-            growy_append_formatted(g, ";\n");
+            shd_growy_append_formatted(g, ";\n");
         }
 
         if (alloc)
             free((void*) alloc);
     }
-    growy_append_formatted(g, "\n");
+    shd_growy_append_formatted(g, "\n");
 }
 
 json_object* lookup_node_class(json_object* src, String name) {
@@ -77,7 +77,7 @@ String class_to_type(json_object* src, String class, bool list) {
     // check the class is valid
     if (!lookup_node_class(src, class)) {
         error_print("invalid node class '%s'\n", class);
-        error_die();
+        shd_error_die();
     }
     return list ? "Nodes" : "const Node*";
 }
@@ -111,47 +111,46 @@ void preprocess(json_object* src) {
 
 void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases) {
     assert(json_object_get_type(cases) == json_type_array);
-    growy_append_formatted(g, "typedef enum {\n");
+    shd_growy_append_formatted(g, "typedef enum {\n");
     for (size_t i = 0; i < json_object_array_length(cases); i++) {
         json_object* node_class = json_object_array_get_idx(cases, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         String capitalized = capitalize(name);
-        growy_append_formatted(g, "\t%s%s = 0x%x", enum_case_prefix, capitalized, (1 << i));
-        growy_append_formatted(g, ",\n");
+        shd_growy_append_formatted(g, "\t%s%s = 0x%x", enum_case_prefix, capitalized, (1 << i));
+        shd_growy_append_formatted(g, ",\n");
         free((void*) capitalized);
     }
-    growy_append_formatted(g, "} %s;\n\n", enum_type_name);
+    shd_growy_append_formatted(g, "} %s;\n\n", enum_type_name);
 }
 
 void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_name, String enum_case_prefix, String src_type_name, String src_case_prefix, String src_case_suffix, json_object* cases) {
-    growy_append_formatted(g, "%s %s(%s tag) {\n", enum_type_name, fn_name, src_type_name);
-    growy_append_formatted(g, "\tswitch (tag) { \n");
+    shd_growy_append_formatted(g, "%s %s(%s tag) {\n", enum_type_name, fn_name, src_type_name);
+    shd_growy_append_formatted(g, "\tswitch (tag) { \n");
     assert(json_object_get_type(cases) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(cases); i++) {
         json_object* node = json_object_array_get_idx(cases, i);
         String name = json_object_get_string(json_object_object_get(node, "name"));
-        growy_append_formatted(g, "\t\tcase %s%s%s: \n", src_case_prefix, name, src_case_suffix);
+        shd_growy_append_formatted(g, "\t\tcase %s%s%s: \n", src_case_prefix, name, src_case_suffix);
         json_object* class = json_object_object_get(node, "class");
         switch (json_object_get_type(class)) {
-            case json_type_null:
-                growy_append_formatted(g, "\t\t\treturn 0;\n");
+            case json_type_null:shd_growy_append_formatted(g, "\t\t\treturn 0;\n");
                 break;
             case json_type_string: {
                 String cap = capitalize(json_object_get_string(class));
-                growy_append_formatted(g, "\t\t\treturn %s%s;\n", enum_case_prefix, cap);
+                shd_growy_append_formatted(g, "\t\t\treturn %s%s;\n", enum_case_prefix, cap);
                 free((void*) cap);
                 break;
             }
             case json_type_array: {
-                growy_append_formatted(g, "\t\t\treturn ");
+                shd_growy_append_formatted(g, "\t\t\treturn ");
                 for (size_t j = 0; j < json_object_array_length(class); j++) {
                     if (j > 0)
-                        growy_append_formatted(g, " | ");
+                        shd_growy_append_formatted(g, " | ");
                     String cap = capitalize(json_object_get_string(json_object_array_get_idx(class, j)));
-                    growy_append_formatted(g, "%s%s", enum_case_prefix, cap);
+                    shd_growy_append_formatted(g, "%s%s", enum_case_prefix, cap);
                     free((void*) cap);
                 }
-                growy_append_formatted(g, ";\n");
+                shd_growy_append_formatted(g, ";\n");
                 break;
             }
             case json_type_boolean:
@@ -162,8 +161,8 @@ void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_nam
                 break;
         }
     }
-    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "\tSHADY_UNREACHABLE;\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t\tdefault: assert(false);\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "\tSHADY_UNREACHABLE;\n");
+    shd_growy_append_formatted(g, "}\n");
 }

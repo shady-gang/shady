@@ -353,7 +353,7 @@ const Node* recreate_node_identity(Rewriter* rewriter, const Node* node) {
             log_string(ERROR, "Can't rewrite: ");
             log_node(ERROR, node);
             log_string(ERROR, ", params should be rewritten by the abstraction rewrite logic");
-            error_die();
+            shd_error_die();
         case BasicBlock_TAG: {
             Nodes params = recreate_params(rewriter, node->payload.basic_block.params);
             register_processed_list(rewriter, node->payload.basic_block.params, params);

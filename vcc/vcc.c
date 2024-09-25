@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     vcc_check_clang();
 
     if (vcc_options.only_run_clang)
-        vcc_options.tmp_filename = format_string_new("%s", args.output_filename);
+        vcc_options.tmp_filename = shd_format_string_new("%s", args.output_filename);
     vcc_run_clang(&vcc_options, shd_list_count(args.input_filenames), shd_read_list(String, args.input_filenames));
 
     if (!vcc_options.only_run_clang) {

@@ -2,8 +2,8 @@
 
 void generate_node_print_fns(Growy* g, json_object* src) {
     json_object* nodes = json_object_object_get(src, "nodes");
-    growy_append_formatted(g, "void print_node_generated(PrinterCtx* ctx, const Node* node) {\n");
-    growy_append_formatted(g, "\tswitch (node->tag) { \n");
+    shd_growy_append_formatted(g, "void print_node_generated(PrinterCtx* ctx, const Node* node) {\n");
+    shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
@@ -14,11 +14,11 @@ void generate_node_print_fns(Growy* g, json_object* src) {
             snake_name = to_snake_case(name);
             alloc = (void*) snake_name;
         }
-        growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
-        growy_append_formatted(g, "\t\tprint(ctx->printer, GREEN);\n");
-        growy_append_formatted(g, "\t\tprint(ctx->printer, \"%s\");\n", name);
-        growy_append_formatted(g, "\t\tprint(ctx->printer, RESET);\n");
-        growy_append_formatted(g, "\t\tprint(ctx->printer, \"(\");\n");
+        shd_growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
+        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, GREEN);\n");
+        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \"%s\");\n", name);
+        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, RESET);\n");
+        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \"(\");\n");
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
@@ -34,17 +34,17 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                     bool is_list = json_object_get_boolean(json_object_object_get(op, "list"));
                     String cap_class = capitalize(op_class);
                     if (is_list) {
-                        growy_append_formatted(g, "\t\t{\n");
-                        growy_append_formatted(g, "\t\t\tprint_node_operand_list(ctx, node, \"%s\", Nc%s, node->payload.%s.%s);\n", op_name, cap_class, snake_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t{\n");
+                        shd_growy_append_formatted(g, "\t\t\tprint_node_operand_list(ctx, node, \"%s\", Nc%s, node->payload.%s.%s);\n", op_name, cap_class, snake_name, op_name);
                         // growy_append_formatted(g, "\t\t\tsize_t count = node->payload.%s.%s.count;\n", snake_name, op_name);
                         // growy_append_formatted(g, "\t\t\tfor (size_t i = 0; i < count; i++) {\n");
                         // growy_append_formatted(g, "\t\t\t\tprint_node_operand(printer, node, \"%s\", Nc%s, i, node->payload.%s.%s.nodes[i], config);\n", op_name, cap_class, snake_name, op_name);
                         // growy_append_formatted(g, "\t\t\t}\n");
-                        growy_append_formatted(g, "\t\t}\n");
+                        shd_growy_append_formatted(g, "\t\t}\n");
                     } else {
-                        growy_append_formatted(g, "\t\t{\n");
-                        growy_append_formatted(g, "\t\t\tprint_node_operand(ctx, node, \"%s\", Nc%s, node->payload.%s.%s);\n", op_name, cap_class, snake_name, op_name);
-                        growy_append_formatted(g, "\t\t}\n");
+                        shd_growy_append_formatted(g, "\t\t{\n");
+                        shd_growy_append_formatted(g, "\t\t\tprint_node_operand(ctx, node, \"%s\", Nc%s, node->payload.%s.%s);\n", op_name, cap_class, snake_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t}\n");
                     }
                     free((void*) cap_class);
                 } else {
@@ -61,23 +61,23 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                         if (!isalnum(s[k]))
                             s[k] = '_';
                     }
-                    growy_append_formatted(g, "\t\tprint_node_operand_%s(ctx, node, \"%s\", node->payload.%s.%s);\n", s, op_name, snake_name, op_name);
+                    shd_growy_append_formatted(g, "\t\tprint_node_operand_%s(ctx, node, \"%s\", node->payload.%s.%s);\n", s, op_name, snake_name, op_name);
                     free(s);
                 }
 
                 if (j + 1 < json_object_array_length(ops))
-                    growy_append_formatted(g, "\t\tprint(ctx->printer, \", \");\n");
+                    shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \", \");\n");
             }
         }
-        growy_append_formatted(g, "\t\tprint(ctx->printer, \")\");\n");
-        growy_append_formatted(g, "\t\tbreak;\n");
-        growy_append_formatted(g, "\t}\n", name);
+        shd_growy_append_formatted(g, "\t\tprint(ctx->printer, \")\");\n");
+        shd_growy_append_formatted(g, "\t\tbreak;\n");
+        shd_growy_append_formatted(g, "\t}\n", name);
         if (alloc)
             free(alloc);
     }
-    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t\tdefault: assert(false);\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "}\n");
 }
 
 void generate(Growy* g, json_object* src) {

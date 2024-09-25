@@ -140,5 +140,5 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
 
     error_print("Unsupported type: ");
     LLVMDumpType(t);
-    error_die();
+    shd_error_die();
 }

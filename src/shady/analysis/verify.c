@@ -62,7 +62,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
 
             log_string(ERROR, "Problematic module:\n");
             log_module(ERROR, config, mod);
-            error_die();
+            shd_error_die();
         }
         shd_destroy_dict(set);
         destroy_scheduler(scheduler);
@@ -129,7 +129,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
             log_string(ERROR, "was encountered before we saw it be bound by a let!\n");
             log_string(ERROR, "Problematic module:\n");
             log_module(ERROR, ctx->config, ctx->mod);
-            error_die();
+            shd_error_die();
         }
     }
     visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);

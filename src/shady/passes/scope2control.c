@@ -227,7 +227,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     });
                     const Node* join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name_unsafe(dst));
 
-                    Node* wrapper = basic_block(a, wrapper_params, format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
+                    Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,

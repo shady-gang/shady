@@ -15,7 +15,7 @@ String c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
     const Node* body = get_abstraction_body(abs);
     assert(body && is_terminator(body));
     CFNode* cf_node = cfg_lookup(fn->cfg, abs);
-    Printer* p = open_growy_as_printer(new_growy());
+    Printer* p = open_growy_as_printer(shd_new_growy());
     fn->instruction_printers[cf_node->rpo_index] = p;
     //indent(p);
 

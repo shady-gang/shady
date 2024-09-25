@@ -478,31 +478,31 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     // TODO
                     return NULL;
                 }
-                if (string_starts_with(intrinsic, "llvm.lifetime")) {
+                if (shd_string_starts_with(intrinsic, "llvm.lifetime")) {
                     // don't care
                     return NULL;
                 }
-                if (string_starts_with(intrinsic, "llvm.experimental.noalias.scope.decl")) {
+                if (shd_string_starts_with(intrinsic, "llvm.experimental.noalias.scope.decl")) {
                     // don't care
                     return NULL;
                 }
-                if (string_starts_with(intrinsic, "llvm.var.annotation")) {
+                if (shd_string_starts_with(intrinsic, "llvm.var.annotation")) {
                     // don't care
                     return NULL;
                 }
-                if (string_starts_with(intrinsic, "llvm.memcpy")) {
+                if (shd_string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return bind_instruction_single(b, copy_bytes(a, (CopyBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = bb_mem(b) }));
-                } else if (string_starts_with(intrinsic, "llvm.memset")) {
+                } else if (shd_string_starts_with(intrinsic, "llvm.memset")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return bind_instruction_single(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = bb_mem(b) }));
-                } else if (string_starts_with(intrinsic, "llvm.fmuladd")) {
+                } else if (shd_string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return prim_op_helper(a, fma_op, empty(a), nodes(a, 3, ops.nodes));
-                } else if (string_starts_with(intrinsic, "llvm.fabs")) {
+                } else if (shd_string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return prim_op_helper(a, abs_op, empty(a), nodes(a, 1, ops.nodes));
-                } else if (string_starts_with(intrinsic, "llvm.floor")) {
+                } else if (shd_string_starts_with(intrinsic, "llvm.floor")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return prim_op_helper(a, floor_op, empty(a), nodes(a, 1, ops.nodes));
                 }
@@ -575,15 +575,15 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                         }
 
                         error_print("Unrecognised shady instruction '%s'\n", instructionname);
-                        error_die();
+                        shd_error_die();
                     } else {
                         error_print("Unrecognised shady intrinsic '%s'\n", keyword);
-                        error_die();
+                        shd_error_die();
                     }
                 }
 
                 error_print("Unhandled intrinsic '%s'\n", intrinsic);
-                error_die();
+                shd_error_die();
             }
             finish:
 
@@ -663,5 +663,5 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
     error_print("Shady: unimplemented LLVM instruction ");
     LLVMDumpValue(instr);
     error_print(" (opcode=%d)\n", opcode);
-    error_die();
+    shd_error_die();
 }

@@ -3,8 +3,8 @@
 #include "generator.h"
 
 static void generate_node_names_string_array(Growy* g, json_object* nodes) {
-    growy_append_formatted(g, "const char* node_tags[] = {\n");
-    growy_append_formatted(g, "\t\"invalid\",\n");
+    shd_growy_append_formatted(g, "const char* node_tags[] = {\n");
+    shd_growy_append_formatted(g, "\t\"invalid\",\n");
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
         String name = json_object_get_string(json_object_object_get(node, "name"));
@@ -15,28 +15,28 @@ static void generate_node_names_string_array(Growy* g, json_object* nodes) {
             alloc = (void*) snake_name;
         }
         assert(name);
-        growy_append_formatted(g, "\t\"%s\",\n", snake_name);
+        shd_growy_append_formatted(g, "\t\"%s\",\n", snake_name);
         if (alloc)
             free(alloc);
     }
-    growy_append_formatted(g, "};\n\n");
+    shd_growy_append_formatted(g, "};\n\n");
 }
 
 static void generate_node_has_payload_array(Growy* g, json_object* nodes) {
-    growy_append_formatted(g, "const bool node_type_has_payload[]  = {\n");
-    growy_append_formatted(g, "\tfalse,\n");
+    shd_growy_append_formatted(g, "const bool node_type_has_payload[]  = {\n");
+    shd_growy_append_formatted(g, "\tfalse,\n");
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
         json_object* ops = json_object_object_get(node, "ops");
-        growy_append_formatted(g, "\t%s,\n", ops ? "true" : "false");
+        shd_growy_append_formatted(g, "\t%s,\n", ops ? "true" : "false");
     }
-    growy_append_formatted(g, "};\n\n");
+    shd_growy_append_formatted(g, "};\n\n");
 }
 
 static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_object* nodes) {
-    growy_append_formatted(g, "KeyHash hash_node_payload(const Node* node) {\n");
-    growy_append_formatted(g, "\tKeyHash hash = 0;\n");
-    growy_append_formatted(g, "\tswitch (node->tag) { \n");
+    shd_growy_append_formatted(g, "KeyHash hash_node_payload(const Node* node) {\n");
+    shd_growy_append_formatted(g, "\tKeyHash hash = 0;\n");
+    shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
@@ -50,32 +50,32 @@ static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_objec
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
-            growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
-            growy_append_formatted(g, "\t\t%s payload = node->payload.%s;\n", name, snake_name);
+            shd_growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
+            shd_growy_append_formatted(g, "\t\t%s payload = node->payload.%s;\n", name, snake_name);
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
                 bool ignore = json_object_get_boolean(json_object_object_get(op, "ignore"));
                 if (!ignore) {
-                    growy_append_formatted(g, "\t\thash = hash ^ shd_hash_murmur(&payload.%s, sizeof(payload.%s));\n", op_name, op_name);
+                    shd_growy_append_formatted(g, "\t\thash = hash ^ shd_hash_murmur(&payload.%s, sizeof(payload.%s));\n", op_name, op_name);
                 }
             }
-            growy_append_formatted(g, "\t\tbreak;\n");
-            growy_append_formatted(g, "\t}\n", name);
+            shd_growy_append_formatted(g, "\t\tbreak;\n");
+            shd_growy_append_formatted(g, "\t}\n", name);
         }
         if (alloc)
             free(alloc);
     }
-    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "\treturn hash;\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t\tdefault: assert(false);\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "\treturn hash;\n");
+    shd_growy_append_formatted(g, "}\n");
 }
 
 static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object* nodes) {
-    growy_append_formatted(g, "bool compare_node_payload(const Node* a, const Node* b) {\n");
-    growy_append_formatted(g, "\tbool eq = true;\n");
-    growy_append_formatted(g, "\tswitch (a->tag) { \n");
+    shd_growy_append_formatted(g, "bool compare_node_payload(const Node* a, const Node* b) {\n");
+    shd_growy_append_formatted(g, "\tbool eq = true;\n");
+    shd_growy_append_formatted(g, "\tswitch (a->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
@@ -89,60 +89,60 @@ static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
-            growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
-            growy_append_formatted(g, "\t\t%s payload_a = a->payload.%s;\n", name, snake_name);
-            growy_append_formatted(g, "\t\t%s payload_b = b->payload.%s;\n", name, snake_name);
+            shd_growy_append_formatted(g, "\tcase %s_TAG: {\n", name);
+            shd_growy_append_formatted(g, "\t\t%s payload_a = a->payload.%s;\n", name, snake_name);
+            shd_growy_append_formatted(g, "\t\t%s payload_b = b->payload.%s;\n", name, snake_name);
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
                 bool ignore = json_object_get_boolean(json_object_object_get(op, "ignore"));
                 if (!ignore) {
-                    growy_append_formatted(g, "\t\teq &= memcmp(&payload_a.%s, &payload_b.%s, sizeof(payload_a.%s)) == 0;\n", op_name, op_name, op_name);
+                    shd_growy_append_formatted(g, "\t\teq &= memcmp(&payload_a.%s, &payload_b.%s, sizeof(payload_a.%s)) == 0;\n", op_name, op_name, op_name);
                 }
             }
-            growy_append_formatted(g, "\t\tbreak;\n");
-            growy_append_formatted(g, "\t}\n", name);
+            shd_growy_append_formatted(g, "\t\tbreak;\n");
+            shd_growy_append_formatted(g, "\t}\n", name);
         }
         if (alloc)
             free(alloc);
     }
-    growy_append_formatted(g, "\t\tdefault: assert(false);\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "\treturn eq;\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t\tdefault: assert(false);\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "\treturn eq;\n");
+    shd_growy_append_formatted(g, "}\n");
 }
 
 static void generate_node_is_nominal(Growy* g, json_object* nodes) {
-    growy_append_formatted(g, "bool is_nominal(const Node* node) {\n");
-    growy_append_formatted(g, "\tswitch (node->tag) { \n");
+    shd_growy_append_formatted(g, "bool is_nominal(const Node* node) {\n");
+    shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
         String name = json_object_get_string(json_object_object_get(node, "name"));
         if (json_object_get_boolean(json_object_object_get(node, "nominal"))) {
-            growy_append_formatted(g, "\t\tcase %s_TAG: return true;\n", name);
+            shd_growy_append_formatted(g, "\t\tcase %s_TAG: return true;\n", name);
         }
     }
-    growy_append_formatted(g, "\t\tdefault: return false;\n");
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t\tdefault: return false;\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "}\n");
 }
 
 static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
     assert(json_object_get_type(nodes) == json_type_array);
     if (use_enum)
-        growy_append_formatted(g, "%sTag is_%s(const Node* node) {\n", capitalized_class, class);
+        shd_growy_append_formatted(g, "%sTag is_%s(const Node* node) {\n", capitalized_class, class);
     else
-        growy_append_formatted(g, "bool is_%s(const Node* node) {\n", class);
-    growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
+        shd_growy_append_formatted(g, "bool is_%s(const Node* node) {\n", class);
+    shd_growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
     if (use_enum) {
-        growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
-        growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
     } else {
-        growy_append_formatted(g, "\t\treturn true;\n", capitalized_class);
-        growy_append_formatted(g, "\treturn false;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\t\treturn true;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\treturn false;\n", capitalized_class);
     }
-    growy_append_formatted(g, "}\n\n");
+    shd_growy_append_formatted(g, "}\n\n");
 }
 
 static bool is_of(json_object* node, String class_name) {
@@ -169,35 +169,35 @@ static void generate_getters_for_class(Growy* g, json_object* src, json_object* 
         json_object* operand = json_object_array_get_idx(class_ops, i);
         String operand_name = json_object_get_string(json_object_object_get(operand, "name"));
         assert(operand_name);
-        growy_append_formatted(g, "%s get_%s_%s(const Node* node) {\n", get_type_for_operand(src, operand), class_name, operand_name);
-        growy_append_formatted(g, "\tswitch(node->tag) {\n");
+        shd_growy_append_formatted(g, "%s get_%s_%s(const Node* node) {\n", get_type_for_operand(src, operand), class_name, operand_name);
+        shd_growy_append_formatted(g, "\tswitch(node->tag) {\n");
         for (size_t j = 0; j < json_object_array_length(nodes); j++) {
             json_object* node = json_object_array_get_idx(nodes, j);
             if (is_of(json_object_object_get(node, "class"), class_name)) {
                 String node_name = json_object_get_string(json_object_object_get(node, "name"));
-                growy_append_formatted(g, "\t\tcase %s_TAG: ", node_name);
+                shd_growy_append_formatted(g, "\t\tcase %s_TAG: ", node_name);
                 String node_snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
                 assert(node_snake_name);
-                growy_append_formatted(g, "return node->payload.%s.%s;\n", node_snake_name, operand_name);
+                shd_growy_append_formatted(g, "return node->payload.%s.%s;\n", node_snake_name, operand_name);
             }
         }
-        growy_append_formatted(g, "\t\tdefault: break;\n");
-        growy_append_formatted(g, "\t}\n");
-        growy_append_formatted(g, "\tassert(false);\n");
-        growy_append_formatted(g, "}\n\n");
+        shd_growy_append_formatted(g, "\t\tdefault: break;\n");
+        shd_growy_append_formatted(g, "\t}\n");
+        shd_growy_append_formatted(g, "\tassert(false);\n");
+        shd_growy_append_formatted(g, "}\n\n");
     }
 }
 
 void generate_address_space_name_fn(Growy* g, json_object* address_spaces) {
-    growy_append_formatted(g, "String get_address_space_name(AddressSpace as) {\n");
-    growy_append_formatted(g, "\tswitch (as) {\n");
+    shd_growy_append_formatted(g, "String get_address_space_name(AddressSpace as) {\n");
+    shd_growy_append_formatted(g, "\tswitch (as) {\n");
     for (size_t i = 0; i < json_object_array_length(address_spaces); i++) {
         json_object* as = json_object_array_get_idx(address_spaces, i);
         String name = json_object_get_string(json_object_object_get(as, "name"));
-        growy_append_formatted(g, "\t\t case As%s: return \"%s\";\n", name, name);
+        shd_growy_append_formatted(g, "\t\t case As%s: return \"%s\";\n", name, name);
     }
-    growy_append_formatted(g, "\t}\n");
-    growy_append_formatted(g, "}\n");
+    shd_growy_append_formatted(g, "\t}\n");
+    shd_growy_append_formatted(g, "}\n");
 }
 
 void generate(Growy* g, json_object* src) {

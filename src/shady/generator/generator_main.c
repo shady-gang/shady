@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     LARRAY(JsonFile, json_files, inputs_count);
     for (size_t i = 0; i < inputs_count; i++) {
         String path = argv[ArgFirstInput + i];
-        read_file(path, &json_files[i].size, &json_files[i].contents);
+        shd_read_file(path, &json_files[i].size, &json_files[i].contents);
         json_files[i].root = json_tokener_parse_ex(tokener, json_files[i].contents, json_files[i].size);
         json_err = json_tokener_get_error(tokener);
         if (json_err != json_tokener_success) {
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
         info_print("Correctly opened json file: %s\n", path);
     }
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
 
     json_object* src = json_object_new_object();
 
@@ -49,13 +49,13 @@ int main(int argc, char** argv) {
     preprocess(src);
     generate(g, src);
 
-    size_t final_size = growy_size(g);
-    growy_append_bytes(g, 1, (char[]) { 0 });
-    char* generated = growy_deconstruct(g);
+    size_t final_size = shd_growy_size(g);
+    shd_growy_append_bytes(g, 1, (char[]) { 0 });
+    char* generated = shd_growy_deconstruct(g);
     debug_print("debug: %s\n", generated);
-    if (!write_file(dst_file, final_size, generated)) {
+    if (!shd_write_file(dst_file, final_size, generated)) {
         error_print("Failed to write file '%s'\n", dst_file);
-        error_die();
+        shd_error_die();
     }
     free(generated);
     for (size_t i = 0; i < inputs_count; i++) {

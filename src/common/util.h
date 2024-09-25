@@ -4,18 +4,18 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-size_t apply_escape_codes(const char* src, size_t og_len, char* dst);
-size_t unapply_escape_codes(const char* src, size_t og_len, char* dst);
+size_t shd_apply_escape_codes(const char* src, size_t size, char* dst);
+size_t shd_unapply_escape_codes(const char* src, size_t size, char* dst);
 
-bool read_file(const char* filename, size_t* size, char** output);
-bool write_file(const char* filename, size_t size, const char* data);
+bool shd_read_file(const char* filename, size_t* size, char** output);
+bool shd_write_file(const char* filename, size_t size, const char* data);
 
 typedef struct Arena_ Arena;
-char* format_string_arena(Arena*, const char* str, ...);
-char* format_string_new(const char* str, ...);
-bool string_starts_with(const char* string, const char* prefix);
-bool string_ends_with(const char* string, const char* suffix);
+char* shd_format_string_arena(Arena* arena, const char* str, ...);
+char* shd_format_string_new(const char* str, ...);
+bool shd_string_starts_with(const char* string, const char* prefix);
+bool shd_string_ends_with(const char* string, const char* suffix);
 
-char* strip_path(const char*);
+char* shd_strip_path(const char*);
 
 #endif

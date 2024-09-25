@@ -25,7 +25,7 @@ String c_get_record_field_name(const Type* t, size_t i) {
 
 void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     assert(type->tag == RecordType_TAG);
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
 
     print(p, "\n%s {", name);
@@ -36,10 +36,10 @@ void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     }
     deindent(p);
     print(p, "\n};\n");
-    growy_append_bytes(g, 1, (char[]) { '\0' });
+    shd_growy_append_bytes(g, 1, (char[]) { '\0' });
 
-    print(emitter->type_decls, growy_data(g));
-    destroy_growy(g);
+    print(emitter->type_decls, shd_growy_data(g));
+    shd_destroy_growy(g);
     destroy_printer(p);
 }
 
@@ -50,7 +50,7 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
 
     const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
 
-    Growy* paramg = new_growy();
+    Growy* paramg = shd_new_growy();
     Printer* paramp = open_growy_as_printer(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
     if (dom.count == 0 && emitter->config.dialect == CDialect_C11)
@@ -85,16 +85,16 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
             }
         }
     }
-    growy_append_bytes(paramg, 1, (char[]) { 0 });
+    shd_growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = printer_growy_unwrap(paramp);
     switch (emitter->config.dialect) {
         default:
-            center = format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
+            center = shd_format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
             break;
         case CDialect_GLSL:
             // GLSL does not accept functions declared like void (foo)(int);
             // it also does not support higher-order functions and/or function pointers, so we drop the parentheses
-            center = format_string_arena(emitter->arena->arena, "%s(%s)", center, parameters);
+            center = shd_format_string_arena(emitter->arena->arena, "%s(%s)", center, parameters);
             break;
     }
     free_tmp_str(parameters);
@@ -107,14 +107,14 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
             case CDialect_GLSL:
                 break;
             case CDialect_ISPC:
-                c_decl = format_string_arena(emitter->arena->arena, "export %s", c_decl);
+                c_decl = shd_format_string_arena(emitter->arena->arena, "export %s", c_decl);
                 break;
             case CDialect_CUDA:
-                c_decl = format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
+                c_decl = shd_format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
                 break;
         }
     } else if (emitter->config.dialect == CDialect_CUDA) {
-        c_decl = format_string_arena(emitter->arena->arena, "__device__ %s", c_decl);
+        c_decl = shd_format_string_arena(emitter->arena->arena, "__device__ %s", c_decl);
     }
 
     return c_decl;
@@ -215,7 +215,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             //}
 
             emitted = unique_name(emitter->arena, "Record");
-            String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
+            String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
             if (emitter->config.dialect == CDialect_C11)
@@ -233,15 +233,15 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                     return c_emit_type(emitter, type->payload.qualified_type.type, center);
                 case CDialect_ISPC:
                     if (type->payload.qualified_type.is_uniform)
-                        return c_emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "uniform %s", center));
+                        return c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
-                        return c_emit_type(emitter, type->payload.qualified_type.type, format_string_arena(emitter->arena->arena, "varying %s", center));
+                        return c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
-            CType t = c_emit_type(emitter, type->payload.ptr_type.pointed_type, format_string_arena(emitter->arena->arena, "* %s", center));
+            CType t = c_emit_type(emitter, type->payload.ptr_type.pointed_type, shd_format_string_arena(emitter->arena->arena, "* %s", center));
             // we always emit pointers to _uniform_ data, no exceptions
             if (emitter->config.dialect == CDialect_ISPC)
-                t = format_string_arena(emitter->arena->arena, "uniform %s", t);
+                t = shd_format_string_arena(emitter->arena->arena, "uniform %s", t);
             return t;
         }
         case Type_FnType_TAG: {
@@ -249,8 +249,8 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Type_ArrType_TAG: {
             emitted = unique_name(emitter->arena, "Array");
-            String prefixed = format_string_arena(emitter->arena->arena, "struct %s", emitted);
-            Growy* g = new_growy();
+            String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
+            Growy* g = shd_new_growy();
             Printer* p = open_growy_as_printer(g);
 
             const Node* size = type->payload.arr_type.size;
@@ -261,13 +261,13 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             indent(p);
             String inner_decl_rhs;
             if (size)
-                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
+                inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[%zu]", get_int_literal_value(*resolve_to_int_literal(size), false));
             else
-                inner_decl_rhs = format_string_arena(emitter->arena->arena, "arr[0]");
+                inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[0]");
             print(p, "\n%s;", c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
             deindent(p);
             print(p, "\n};\n");
-            growy_append_bytes(g, 1, (char[]) { '\0' });
+            shd_growy_append_bytes(g, 1, (char[]) { '\0' });
 
             String subdecl = printer_growy_unwrap(p);
             print(emitter->type_decls, subdecl);
@@ -298,13 +298,13 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                         case Float_TAG: base = "vec"; break;
                         default: error("not a valid GLSL vector type");
                     }
-                    emitted = format_string_arena(emitter->arena->arena, "%s%d", base, width);
+                    emitted = shd_format_string_arena(emitter->arena->arena, "%s%d", base, width);
                     break;
                 }
                 case CDialect_ISPC: error("Please lower to something else")
                 case CDialect_C11: {
                     emitted = c_emit_type(emitter, element_type, NULL);
-                    emitted = format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
+                    emitted = shd_format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
                     break;
                 }
             }
@@ -323,7 +323,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     assert(emitted != NULL);
 
     if (strlen(center) > 0)
-        emitted = format_string_arena(emitter->arena->arena, "%s %s", emitted, center);
+        emitted = shd_format_string_arena(emitter->arena->arena, "%s %s", emitted, center);
 
     return emitted;
 }

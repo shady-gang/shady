@@ -30,11 +30,11 @@ static void register_required_descriptors(VkrSpecProgram* program, VkDescriptorS
 
 static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Growy** bindings_lists, int set, VkDescriptorSetLayoutBinding binding) {
     if (bindings_lists[set] == NULL) {
-        bindings_lists[set] = new_growy();
-        layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) growy_data(bindings_lists[set]);
+        bindings_lists[set] = shd_new_growy();
+        layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) shd_growy_data(bindings_lists[set]);
     }
     layout_create_info[set].bindingCount += 1;
-    growy_append_object(bindings_lists[set], binding);
+    shd_growy_append_object(bindings_lists[set], binding);
 }
 
 VkDescriptorType as_to_descriptor_type(AddressSpace as) {
@@ -88,7 +88,7 @@ static void write_value(unsigned char* tgt, const Node* value) {
 static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLayout layouts[]) {
     VkDescriptorSetLayoutCreateInfo layout_create_infos[MAX_DESCRIPTOR_SETS] = { 0 };
     Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
-    Growy* resources = new_growy();
+    Growy* resources = shd_new_growy();
 
     Nodes decls = get_module_declarations(program->specialized_module);
     for (size_t i = 0; i < decls.count; i++) {
@@ -113,7 +113,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 .set = set,
                 .binding = binding,
             };
-            growy_append_object(resources, res_info);
+            shd_growy_append_object(resources, res_info);
             program->resources.num_resources++;
 
             const Type* struct_t = decl->payload.global_variable.type;
@@ -130,7 +130,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                     .parent = res_info,
                     .as = as,
                 };
-                growy_append_object(resources, constant_res_info);
+                shd_growy_append_object(resources, constant_res_info);
                 program->resources.num_resources++;
 
                 constant_res_info->size = layout.size_in_bytes;
@@ -173,11 +173,11 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
         layout_create_infos[set].pNext = NULL;
         vkCreateDescriptorSetLayout(program->device->device, &layout_create_infos[set], NULL, &layouts[set]);
         if (bindings_lists[set] != NULL) {
-            destroy_growy(bindings_lists[set]);
+            shd_destroy_growy(bindings_lists[set]);
         }
     }
 
-    program->resources.resources = (ProgramResourceInfo**) growy_deconstruct(resources);
+    program->resources.resources = (ProgramResourceInfo**) shd_growy_deconstruct(resources);
 
     return true;
 }
@@ -393,14 +393,14 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     if (spec->key.base->runtime->config.dump_spv) {
         String module_name = get_module_name(spec->specialized_module);
-        String file_name = format_string_new("%s.spv", module_name);
-        write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
+        String file_name = shd_format_string_new("%s.spv", module_name);
+        shd_write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
         free((void*) file_name);
     }
 
     String override_file = getenv("SHADY_OVERRIDE_SPV");
     if (override_file) {
-        read_file(override_file, &spec->spirv_size, &spec->spirv_bytes);
+        shd_read_file(override_file, &spec->spirv_size, &spec->spirv_bytes);
         return true;
     }
 

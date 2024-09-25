@@ -345,15 +345,15 @@ static void validate_cfg(CFG* cfg) {
             if (structured_body_uses > 0) {
                 if (structured_body_uses > 1) {
                     error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", get_abstraction_name_safe(node->node), structured_body_uses);
-                    error_die();
+                    shd_error_die();
                 }
                 if (num_jumps > 0) {
                     error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", get_abstraction_name_safe(node->node), num_jumps);
-                    error_die();
+                    shd_error_die();
                 }
                 if (!is_tail && num_exits > 0) {
                     error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", get_abstraction_name_safe(node->node), num_exits);
-                    error_die();
+                    shd_error_die();
                 }
             }
         }

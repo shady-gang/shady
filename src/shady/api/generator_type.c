@@ -21,14 +21,14 @@ void generate(Growy* g, json_object* src) {
         if (!t || json_object_get_boolean(t)) {
             json_object* ops = json_object_object_get(node, "ops");
             if (ops)
-                growy_append_formatted(g, "const Type* check_type_%s(IrArena*, %s);\n", snake_name, name);
+                shd_growy_append_formatted(g, "const Type* check_type_%s(IrArena*, %s);\n", snake_name, name);
             else
-                growy_append_formatted(g, "const Type* check_type_%s(IrArena*);\n", snake_name);
+                shd_growy_append_formatted(g, "const Type* check_type_%s(IrArena*);\n", snake_name);
         }
 
         if (alloc)
             free(alloc);
     }
 
-    growy_append_formatted(g, "const Type* check_type_generated(IrArena* a, const Node* node);\n");
+    shd_growy_append_formatted(g, "const Type* check_type_generated(IrArena* a, const Node* node);\n");
 }

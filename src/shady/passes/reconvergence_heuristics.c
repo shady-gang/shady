@@ -163,7 +163,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
-                Node* wrapper = basic_block(arena, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
+                Node* wrapper = basic_block(arena, exit_wrapper_params, shd_format_string_arena(arena->arena, "exit_wrapper_%d", i));
                 exits[i].wrapper = wrapper;
             }
 
@@ -258,7 +258,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
-                Node* exit_bb = basic_block(arena, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
+                Node* exit_bb = basic_block(arena, empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
                 BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, get_abstraction_mem(exit_bb));
 
                 const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
@@ -431,7 +431,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(a, exit_args, format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction) , get_abstraction_name_safe(post_dominator)));
+            Node* pre_join = basic_block(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction), get_abstraction_name_safe(post_dominator)));
             set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args,

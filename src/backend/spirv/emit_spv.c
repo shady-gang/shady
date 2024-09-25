@@ -132,11 +132,11 @@ static void emit_function(Emitter* emitter, const Node* node) {
 
         spvb_define_function(emitter->file_builder, fn_builder.base);
     } else {
-        Growy* g = new_growy();
+        Growy* g = shd_new_growy();
         spvb_literal_name(g, get_abstraction_name(node));
-        growy_append_bytes(g, 4, (char*) &(uint32_t) { SpvLinkageTypeImport });
-        spvb_decorate(emitter->file_builder, fn_id, SpvDecorationLinkageAttributes, growy_size(g) / 4, (uint32_t*) growy_data(g));
-        destroy_growy(g);
+        shd_growy_append_bytes(g, 4, (char*) &(uint32_t) { SpvLinkageTypeImport });
+        spvb_decorate(emitter->file_builder, fn_id, SpvDecorationLinkageAttributes, shd_growy_size(g) / 4, (uint32_t*) shd_growy_data(g));
+        shd_destroy_growy(g);
         spvb_declare_function(emitter->file_builder, fn_builder.base);
     }
 

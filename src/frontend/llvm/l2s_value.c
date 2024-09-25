@@ -197,5 +197,5 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
     error_print("Failed to find value ");
     LLVMDumpValue(v);
     error_print(" in the already emitted map (kind=%d)\n", LLVMGetValueKind(v));
-    error_die();
+    shd_error_die();
 }

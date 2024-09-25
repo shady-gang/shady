@@ -17,7 +17,7 @@ void deindent(Printer* p);
 void flush(Printer*);
 
 const char* printer_growy_unwrap(Printer* p);
-Growy* new_growy();
+Growy* shd_new_growy();
 #define helper_format_string(f, ...) printer_growy_unwrap(cunk_print(cunk_open_growy_as_printer(cunk_new_growy()), (f), __VA_ARGS__))
 
 const char* replace_string(const char* source, const char* match, const char* replace_with);

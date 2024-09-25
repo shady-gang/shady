@@ -195,11 +195,11 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_NoRet_TAG: return "no_ret";
         case Type_Int_TAG: {
             if (t->payload.int_type.is_signed)
-                return format_string_arena(arena->arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+                return shd_format_string_arena(arena->arena, "i%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
             else
-                return format_string_arena(arena->arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
+                return shd_format_string_arena(arena->arena, "u%s", ((String[]) { "8", "16", "32", "64" })[t->payload.int_type.width]);
         }
-        case Type_Float_TAG: return format_string_arena(arena->arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
+        case Type_Float_TAG: return shd_format_string_arena(arena->arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
         default: break;
@@ -378,7 +378,7 @@ const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
 const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
         error_print("Address space %s is not allowed in this arena\n", get_address_space_name(ptr_type.address_space));
-        error_die();
+        shd_error_die();
     }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
@@ -1253,7 +1253,7 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
             error_print(" instead of the expected ");
             log_node(ERROR, t);
             error_print(".\n");
-            error_die();
+            shd_error_die();
         }
     }
 

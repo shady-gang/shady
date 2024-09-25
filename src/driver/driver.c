@@ -26,13 +26,13 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 SourceLanguage guess_source_language(const char* filename) {
-    if (string_ends_with(filename, ".ll") || string_ends_with(filename, ".bc"))
+    if (shd_string_ends_with(filename, ".ll") || shd_string_ends_with(filename, ".bc"))
         return SrcLLVM;
-    else if (string_ends_with(filename, ".spv"))
+    else if (shd_string_ends_with(filename, ".spv"))
         return SrcSPIRV;
-    else if (string_ends_with(filename, ".slim"))
+    else if (shd_string_ends_with(filename, ".slim"))
         return SrcSlim;
-    else if (string_ends_with(filename, ".slim"))
+    else if (shd_string_ends_with(filename, ".slim"))
         return SrcShadyIR;
 
     warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.", filename);
@@ -76,7 +76,7 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
     size_t len;
     char* contents;
     assert(filename);
-    bool ok = read_file(filename, &len, &contents);
+    bool ok = shd_read_file(filename, &len, &contents);
     if (!ok) {
         error_print("Failed to read file '%s'\n", filename);
         err = InputFileIOError;

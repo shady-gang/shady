@@ -14,7 +14,7 @@
 static int extra_uniqueness = 0;
 
 static void print_node_helper(Printer* p, const Node* n) {
-    Growy* tmp_g = new_growy();
+    Growy* tmp_g = shd_new_growy();
     Printer* tmp_p = open_growy_as_printer(tmp_g);
 
     NodePrintConfig config = {
@@ -26,7 +26,7 @@ static void print_node_helper(Printer* p, const Node* n) {
 
     String label = printer_growy_unwrap(tmp_p);
     char* escaped_label = calloc(strlen(label) * 2, 1);
-    unapply_escape_codes(label, strlen(label), escaped_label);
+    shd_unapply_escape_codes(label, strlen(label), escaped_label);
 
     print(p, "%s", escaped_label);
     free(escaped_label);
@@ -64,7 +64,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         default: break;
     }
 
-    Growy* g = new_growy();
+    Growy* g = shd_new_growy();
     Printer* p = open_growy_as_printer(g);
 
     String abs_name = get_abstraction_name_safe(bb);

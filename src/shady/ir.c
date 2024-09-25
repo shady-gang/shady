@@ -36,13 +36,13 @@ IrArena* new_ir_arena(const ArenaConfig* config) {
         .nodes_set   = shd_new_set(Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
         .strings_set = shd_new_set(Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
 
-        .ids = new_growy(),
+        .ids = shd_new_growy(),
     };
     return arena;
 }
 
 const Node* get_node_by_id(const IrArena* a, NodeId id) {
-    return ((const Node**) growy_data(a->ids))[id];
+    return ((const Node**) shd_growy_data(a->ids))[id];
 }
 
 void destroy_ir_arena(IrArena* arena) {
@@ -56,7 +56,7 @@ void destroy_ir_arena(IrArena* arena) {
     shd_destroy_dict(arena->nodes_set);
     shd_destroy_dict(arena->node_set);
     shd_destroy_arena(arena->arena);
-    destroy_growy(arena->ids);
+    shd_destroy_growy(arena->ids);
     free(arena);
 }
 
@@ -65,8 +65,8 @@ const ArenaConfig* get_arena_config(const IrArena* a) {
 }
 
 NodeId allocate_node_id(IrArena* arena, const Node* n) {
-    growy_append_object(arena->ids, n);
-    return growy_size(arena->ids) / sizeof(const Node*);
+    shd_growy_append_object(arena->ids, n);
+    return shd_growy_size(arena->ids) / sizeof(const Node*);
 }
 
 Nodes nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
@@ -205,7 +205,7 @@ Strings import_strings(IrArena* dst_arena, Strings old_strings) {
     return strings(dst_arena, count, arr);
 }
 
-void format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
+void shd_format_string_internal(const char* str, va_list args, void* uptr, void callback(void*, size_t, char*));
 
 typedef struct {
     IrArena* a;
@@ -222,7 +222,7 @@ String format_string_interned(IrArena* arena, const char* str, ...) {
     InternInArenaPayload p = { .a = arena, .result = &result };
     va_list args;
     va_start(args, str);
-    format_string_internal(str, args, &p, (void (*)(void*, size_t, char*)) intern_in_arena);
+    shd_format_string_internal(str, args, &p, (void (*)(void*, size_t, char*)) intern_in_arena);
     va_end(args);
     return result;
 }

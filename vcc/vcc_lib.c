@@ -24,7 +24,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
         else if (strcmp(argv[i], "--vcc-keep-tmp-file") == 0) {
             argv[i] = NULL;
             options->delete_tmp_file = false;
-            options->tmp_filename = format_string_new("vcc_tmp.ll");
+            options->tmp_filename = shd_format_string_new("vcc_tmp.ll");
             continue;
         } else if (strcmp(argv[i], "--vcc-include-path") == 0) {
             argv[i] = NULL;
@@ -33,7 +33,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
                 error("Missing subgroup size name");
             if (options->include_path)
                 free((void*) options->include_path);
-            options->include_path = format_string_new("%s", argv[i]);
+            options->include_path = shd_format_string_new("%s", argv[i]);
             continue;
         } else if (strcmp(argv[i], "--only-run-clang") == 0) {
             argv[i] = NULL;
@@ -62,9 +62,9 @@ VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     compiler_config->input_cf.has_scope_annotations = true;
 
     String self_path = get_executable_location();
-    String working_dir = strip_path(self_path);
+    String working_dir = shd_strip_path(self_path);
     if (!vcc_config.include_path) {
-        vcc_config.include_path = format_string_new("%s/../share/vcc/include/", working_dir);
+        vcc_config.include_path = shd_format_string_new("%s/../share/vcc/include/", working_dir);
     }
     free((void*) working_dir);
     free((void*) self_path);
@@ -79,18 +79,18 @@ void destroy_vcc_options(VccConfig vcc_options) {
 }
 
 void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* input_filenames) {
-    Growy* g = new_growy();
-    growy_append_string(g, VCC_CLANG);
+    Growy* g = shd_new_growy();
+    shd_growy_append_string(g, VCC_CLANG);
     String self_path = get_executable_location();
-    String working_dir = strip_path(self_path);
-    growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
+    String working_dir = shd_strip_path(self_path);
+    shd_growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -Xclang -fpreserve-vec3-type --target=spir64-unknown-unknown -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
     free((void*) working_dir);
     free((void*) self_path);
 
     if (!vcc_options->tmp_filename) {
         if (vcc_options->only_run_clang) {
             error_print("Please provide an output filename.\n");
-            error_die();
+            shd_error_die();
         }
         char* tmp_alloc;
         vcc_options->tmp_filename = tmp_alloc = malloc(33);
@@ -105,34 +105,34 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
             tmp_alloc[i] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[rand() % (10 + 26 * 2)];
         }
     }
-    growy_append_formatted(g, " -o %s", vcc_options->tmp_filename);
+    shd_growy_append_formatted(g, " -o %s", vcc_options->tmp_filename);
 
     for (size_t i = 0; i < num_source_files; i++) {
         String filename = input_filenames[i];
 
-        growy_append_string(g, " \"");
-        growy_append_bytes(g, strlen(filename), filename);
-        growy_append_string(g, "\"");
+        shd_growy_append_string(g, " \"");
+        shd_growy_append_bytes(g, strlen(filename), filename);
+        shd_growy_append_string(g, "\"");
     }
 
-    growy_append_bytes(g, 1, "\0");
-    char* arg_string = growy_deconstruct(g);
+    shd_growy_append_bytes(g, 1, "\0");
+    char* arg_string = shd_growy_deconstruct(g);
 
     info_print("built command: %s\n", arg_string);
 
     FILE* stream = popen(arg_string, "r");
     free(arg_string);
 
-    Growy* json_bytes = new_growy();
+    Growy* json_bytes = shd_new_growy();
     while (true) {
         char buf[4096];
         int read = fread(buf, 1, sizeof(buf), stream);
         if (read == 0)
             break;
-        growy_append_bytes(json_bytes, read, buf);
+        shd_growy_append_bytes(json_bytes, read, buf);
     }
-    growy_append_string(json_bytes, "\0");
-    char* llvm_result = growy_deconstruct(json_bytes);
+    shd_growy_append_string(json_bytes, "\0");
+    char* llvm_result = shd_growy_deconstruct(json_bytes);
     int clang_returned = pclose(stream);
     info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
     free(llvm_result);
@@ -143,7 +143,7 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
 Module* vcc_parse_back_into_module(CompilerConfig* config, VccConfig* vcc_options, String module_name) {
     size_t len;
     char* llvm_ir;
-    if (!read_file(vcc_options->tmp_filename, &len, &llvm_ir))
+    if (!shd_read_file(vcc_options->tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
     Module* mod;
     driver_load_source_file(config, SrcLLVM, len, llvm_ir, module_name, &mod);

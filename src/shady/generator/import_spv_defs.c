@@ -14,10 +14,10 @@ static String sanitize_node_name(String name) {
     char* tmpname = NULL;
     tmpname = calloc(strlen(name) + 1, 1);
     bool is_type = false;
-    if (string_starts_with(name, "OpType")) {
+    if (shd_string_starts_with(name, "OpType")) {
         memcpy(tmpname, name + 6, strlen(name) - 6);
         is_type = true;
-    } else if (string_starts_with(name, "Op"))
+    } else if (shd_string_starts_with(name, "Op"))
        memcpy(tmpname, name + 2, strlen(name) - 2);
     else
        memcpy(tmpname, name, strlen(name));
@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
     // search the include path for spirv.core.grammar.json
     char* spv_core_json_path = NULL;
     for (size_t i = ArgSpirvGrammarSearchPathBegins; i < argc; i++) {
-        char* path = format_string_new("%s/spirv/unified1/spirv.core.grammar.json", argv[i]);
+        char* path = shd_format_string_new("%s/spirv/unified1/spirv.core.grammar.json", argv[i]);
         info_print("trying path %s\n", path);
         FILE* f = fopen(path, "rb");
         if (f) {
@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
     } JsonFile;
 
     JsonFile imports;
-    read_file(argv[ArgImportsFile], &imports.size, &imports.contents);
+    shd_read_file(argv[ArgImportsFile], &imports.size, &imports.contents);
     imports.root = json_tokener_parse_ex(tokener, imports.contents, imports.size);
     json_err = json_tokener_get_error(tokener);
     if (json_err != json_tokener_success) {
@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
     }
 
     JsonFile spirv;
-    read_file(spv_core_json_path, &spirv.size, &spirv.contents);
+    shd_read_file(spv_core_json_path, &spirv.size, &spirv.contents);
     spirv.root = json_tokener_parse_ex(tokener, spirv.contents, spirv.size);
     json_err = json_tokener_get_error(tokener);
     if (json_err != json_tokener_success) {
@@ -318,17 +318,17 @@ int main(int argc, char** argv) {
 
     import_spirv_defs(imports.root, spirv.root, output);
 
-    Growy* g = new_growy();
-    growy_append_string(g, json_object_to_json_string_ext(output, JSON_C_TO_STRING_PRETTY));
+    Growy* g = shd_new_growy();
+    shd_growy_append_string(g, json_object_to_json_string_ext(output, JSON_C_TO_STRING_PRETTY));
     json_object_put(output);
 
-    size_t final_size = growy_size(g);
-    growy_append_bytes(g, 1, (char[]) { 0 });
-    char* generated = growy_deconstruct(g);
+    size_t final_size = shd_growy_size(g);
+    shd_growy_append_bytes(g, 1, (char[]) { 0 });
+    char* generated = shd_growy_deconstruct(g);
     debug_print("debug: %s\n", generated);
-    if (!write_file(dst_file, final_size, generated)) {
+    if (!shd_write_file(dst_file, final_size, generated)) {
         error_print("Failed to write file '%s'\n", dst_file);
-        error_die();
+        shd_error_die();
     }
     free(generated);
     free(spirv.contents);

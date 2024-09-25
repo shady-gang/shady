@@ -143,7 +143,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_print("Scoping error: Failed to find a dominating selection construct for ");
                 log_node(ERROR, node);
                 error_print(".\n");
-                error_die();
+                shd_error_die();
             }
 
             Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
@@ -177,7 +177,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_print("Scoping error: Failed to find a dominating loop construct for ");
                 log_node(ERROR, node);
                 error_print(".\n");
-                error_die();
+                shd_error_die();
             }
 
             Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
@@ -211,7 +211,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 error_print("Scoping error: Failed to find a dominating loop construct for ");
                 log_node(ERROR, node);
                 error_print(".\n");
-                error_die();
+                shd_error_die();
             }
 
             Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);

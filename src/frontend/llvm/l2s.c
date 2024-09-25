@@ -293,7 +293,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     if (LLVMParseIRInContext(context, mem, &src, &parsing_diagnostic)) {
         error_print("Failed to parse LLVM IR\n");
         error_print(parsing_diagnostic);
-        error_die();
+        shd_error_die();
     }
     info_print("LLVM IR parsed successfully\n");
 

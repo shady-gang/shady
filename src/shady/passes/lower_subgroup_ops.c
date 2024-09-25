@@ -99,7 +99,7 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node*
     log_string(ERROR, "subgroup_first emulation is not supported for ");
     log_node(ERROR, t);
     log_string(ERROR, ".\n");
-    error_die();
+    shd_error_die();
 }
 
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src) {

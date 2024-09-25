@@ -182,7 +182,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 if (needs_patch) {
                     original_word = gen_load(bb, gen_lea(bb, arr, zero, singleton(base_offset)));
                     error_print("TODO");
-                    error_die();
+                    shd_error_die();
                     // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 }*/
                 const Node* word = value;
@@ -270,7 +270,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && is_addr_space_uniform(a, as)), .type = element_type });
     Nodes return_ts = ser ? empty(a) : singleton(return_value_t);
 
-    String name = format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", get_address_space_name(as), uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
+    String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", get_address_space_name(as), uniform_address ? "uniform" : "varying", name_type_safe(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
@@ -389,7 +389,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     Module* m = ctx->rewriter.dst_module;
 
     String as_name = get_address_space_name(as);
-    Node* global_struct_t = nominal_type(m, singleton(annotation(a, (Annotation) { .name = "Generated" })), format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    Node* global_struct_t = nominal_type(m, singleton(annotation(a, (Annotation) { .name = "Generated" })), shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
 
     LARRAY(String, member_names, collected.count);
     LARRAY(const Type*, member_tys, collected.count);
@@ -476,7 +476,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = ref_decl_helper(a, constant_decl)
     });
 
-    Node* words_array = global_var(m, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical"})), words_array_type, format_string_arena(a->arena, "memory_%s", as_name), as);
+    Node* words_array = global_var(m, append_nodes(a, annotations, annotation(a, (Annotation) { .name = "Logical"})), words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
 
     *get_emulated_as_word_array(ctx, as) = ref_decl_helper(a, words_array);
 }
