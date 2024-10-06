@@ -60,11 +60,11 @@ ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLang
         }
         case SrcShadyIR:
         case SrcSlim: {
-            ParserConfig pconfig = {
+            SlimParserConfig pconfig = {
                 .front_end = lang == SrcSlim,
             };
             shd_debugvv_print("Parsing: \n%s\n", file_contents);
-            *mod = shd_parse_slim_module(config, pconfig, (const char*) file_contents, name);
+            *mod = shd_parse_slim_module(config, &pconfig, (const char*) file_contents, name);
         }
     }
     return NoError;

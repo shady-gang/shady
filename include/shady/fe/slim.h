@@ -1,6 +1,8 @@
 #ifndef SHADY_SLIM_H
 #define SHADY_SLIM_H
 
+#include "shady/config.h"
+
 typedef enum {
     SlimOpDereference,
     SlimOpAssign,
@@ -11,5 +13,11 @@ typedef enum {
     SlimOpBindContinuations,
     SlimOpUnbound,
 } SlimFrontEndOpCodes;
+
+typedef struct {
+    bool front_end;
+} SlimParserConfig;
+
+Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConfig* pconfig, const char* contents, String name);
 
 #endif

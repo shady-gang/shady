@@ -15,10 +15,10 @@
 #include <stdbool.h>
 
 void add_scheduler_source(const CompilerConfig* config, Module* dst) {
-    ParserConfig pconfig = {
+    SlimParserConfig pconfig = {
         .front_end = true,
     };
-    Module* builtin_scheduler_mod = shd_parse_slim_module(config, pconfig, shady_scheduler_src, "builtin_scheduler");
+    Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, shady_scheduler_src, "builtin_scheduler");
     shd_debug_print("Adding builtin scheduler code");
     link_module(dst, builtin_scheduler_mod);
     destroy_ir_arena(get_module_arena(builtin_scheduler_mod));

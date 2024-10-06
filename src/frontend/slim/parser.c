@@ -1,5 +1,5 @@
-#include "token.h"
 #include "parser.h"
+#include "token.h"
 
 #include "list.h"
 #include "portability.h"
@@ -52,7 +52,7 @@ INFIX_OPERATORS()
 }
 
 // to avoid some repetition
-#define ctxparams SHADY_UNUSED ParserConfig config, SHADY_UNUSED const char* contents, SHADY_UNUSED Module* mod, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
+#define ctxparams SHADY_UNUSED const SlimParserConfig* config, SHADY_UNUSED const char* contents, SHADY_UNUSED Module* mod, SHADY_UNUSED IrArena* arena, SHADY_UNUSED Tokenizer* tokenizer
 #define ctx config, contents, mod, arena, tokenizer
 
 static void error_with_loc(ctxparams) {
@@ -430,7 +430,7 @@ static const Type* accept_unqualified_type(ctxparams) {
            .pointed_type = elem_type,
            .is_reference = true,
         });
-    } else if (config.front_end && accept_token(ctx, lsbracket_tok)) {
+    } else if (config->front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
         expect(elem_type, "type");
         const Node* size = NULL;
@@ -519,7 +519,7 @@ static const Type* accept_qualified_type(ctxparams) {
 }
 
 static const Node* accept_operand(ctxparams, BodyBuilder* bb) {
-    return config.front_end ? accept_expr(ctx, bb, max_precedence()) : accept_value(ctx, bb);
+    return config->front_end ? accept_expr(ctx, bb, max_precedence()) : accept_value(ctx, bb);
 }
 
 static const Node* expect_operand(ctxparams, BodyBuilder* bb) {
@@ -748,7 +748,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* condition = accept_operand(ctx, bb);
             expect(condition, "condition value");
             expect(accept_token(ctx, rpar_tok), "')'");
-            const Node* (*merge)(const Node*) = config.front_end ? make_selection_merge : NULL;
+            const Node* (*merge)(const Node*) = config->front_end ? make_selection_merge : NULL;
 
             Node* true_case = case_(arena, shd_nodes(arena, 0, NULL));
             set_abstraction_body(true_case, expect_body(ctx, get_abstraction_mem(true_case), merge));
@@ -769,7 +769,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             Nodes initial_arguments;
             expect_parameters(ctx, &parameters, &initial_arguments, bb);
             // by default loops continue forever
-            const Node* (*default_loop_end_behaviour)(const Node*) = config.front_end ? make_loop_continue : NULL;
+            const Node* (*default_loop_end_behaviour)(const Node*) = config->front_end ? make_loop_continue : NULL;
             Node* loop_case = case_(arena, parameters);
             set_abstraction_body(loop_case, expect_body(ctx, get_abstraction_mem(loop_case), default_loop_end_behaviour));
             return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
@@ -1233,7 +1233,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
     return nom;
 }
 
-void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
+void slim_parse_string(const SlimParserConfig* config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Tokenizer* tokenizer = shd_new_tokenizer(contents);
 

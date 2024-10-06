@@ -1,14 +1,8 @@
 #ifndef SHADY_PARSER_H
-
 #define SHADY_PARSER_H
 
-#include "shady/ir.h"
-
 #include "shady/fe/slim.h"
-
-typedef struct {
-    bool front_end;
-} ParserConfig;
+#include "shady/ir.h"
 
 #define INFIX_OPERATORS() \
 INFIX_OPERATOR(Mul, star_tok,                 mul_op,            1) \
@@ -37,8 +31,5 @@ INFIX_OPERATORS()
 #undef INFIX_OPERATOR
     InfixOperatorsCount
 } InfixOperators;
-
-typedef struct CompilerConfig_ CompilerConfig;
-Module* shd_parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name);
 
 #endif
