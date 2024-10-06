@@ -265,8 +265,8 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 init = NULL;
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
-            if (is_decl_builtin(decl)) {
-                Builtin b = get_decl_builtin(decl);
+            if (shd_is_decl_builtin(decl)) {
+                Builtin b = shd_get_decl_builtin(decl);
                 CTerm t = c_emit_builtin(emitter, b);
                 register_emitted(emitter, NULL, decl, t);
                 return;

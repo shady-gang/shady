@@ -13,8 +13,6 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "spirv/unified1/OpenCL.std.h"
 #include "spirv/unified1/GLSL.std.450.h"
 
-extern SpvBuiltIn spv_builtins[];
-
 // TODO: reserve real decoration IDs
 typedef enum {
     ShdDecorationName           = 999999,
@@ -753,9 +751,11 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 Nodes annotations = shd_empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
                 if (builtin) {
-                    Builtin b = get_builtin_by_spv_id(*builtin->payload.literals.data);
+                    Builtin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
                     assert(b != BuiltinsCount && "Unsupported builtin");
-                    annotations = shd_nodes_append(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena, get_builtin_name(b))));
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena,
+                                                                                                                                                   shd_get_builtin_name(
+                                                                                                                                                           b))));
                 }
 
                 parser->defs[result].type = Decl;

@@ -5,23 +5,31 @@
 #include "portability.h"
 #include <string.h>
 
-AddressSpace builtin_as[] = {
+static AddressSpace builtin_as[] = {
 #define BUILTIN(_, as, _2) as,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-AddressSpace get_builtin_as(Builtin builtin) { return builtin_as[builtin]; }
+AddressSpace shd_get_builtin_address_space(Builtin builtin) {
+    if (builtin >= BuiltinsCount)
+        return AsGeneric;
+    return builtin_as[builtin];
+}
 
-String builtin_names[] = {
+static String builtin_names[] = {
 #define BUILTIN(name, _, _2) #name,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-String get_builtin_name(Builtin builtin) { return builtin_names[builtin]; }
+String shd_get_builtin_name(Builtin builtin) {
+    if (builtin >= BuiltinsCount)
+        return "";
+    return builtin_names[builtin];
+}
 
-const Type* get_builtin_type(IrArena* arena, Builtin builtin) {
+const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin) {
     switch (builtin) {
 #define BUILTIN(name, _, datatype) case Builtin##name: return datatype;
 SHADY_BUILTINS()
@@ -31,13 +39,13 @@ SHADY_BUILTINS()
 }
 
 // What's the decoration for the builtin
-SpvBuiltIn spv_builtins[] = {
+static SpvBuiltIn spv_builtins[] = {
 #define BUILTIN(name, _, _2) SpvBuiltIn##name,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-Builtin get_builtin_by_name(String s) {
+Builtin shd_get_builtin_by_name(String s) {
     for (size_t i = 0; i < BuiltinsCount; i++) {
         if (strcmp(s, builtin_names[i]) == 0) {
             return i;
@@ -46,7 +54,7 @@ Builtin get_builtin_by_name(String s) {
     return BuiltinsCount;
 }
 
-Builtin get_builtin_by_spv_id(SpvBuiltIn id) {
+Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id) {
     Builtin b = BuiltinsCount;
     for (size_t i = 0; i < BuiltinsCount; i++) {
         if (id == spv_builtins[i]) {
@@ -57,15 +65,21 @@ Builtin get_builtin_by_spv_id(SpvBuiltIn id) {
     return b;
 }
 
-Builtin get_decl_builtin(const Node* decl) {
+Builtin shd_get_decl_builtin(const Node* decl) {
     const Node* a = lookup_annotation(decl, "Builtin");
     if (!a)
         return BuiltinsCount;
     String payload = get_annotation_string_payload(a);
-    return get_builtin_by_name(payload);
+    return shd_get_builtin_by_name(payload);
 }
 
 
-bool is_decl_builtin(const Node* decl) {
-    return get_decl_builtin(decl) != BuiltinsCount;
+bool shd_is_decl_builtin(const Node* decl) {
+    return shd_get_decl_builtin(decl) != BuiltinsCount;
+}
+
+int32_t shd_get_builtin_spv_id(Builtin builtin) {
+    if (builtin >= BuiltinsCount)
+        return 0;
+    return spv_builtins[builtin];
 }

@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case GlobalVariable_TAG: {
             const Node* ba = lookup_annotation(node, "Builtin");
             if (ba) {
-                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinWorkgroupSize:
                         return NULL;

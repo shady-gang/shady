@@ -40,16 +40,18 @@ SHADY_BUILTINS()
   BuiltinsCount
 } Builtin;
 
-AddressSpace get_builtin_as(Builtin);
-String get_builtin_name(Builtin);
+AddressSpace shd_get_builtin_address_space(Builtin builtin);
+String shd_get_builtin_name(Builtin builtin);
 
-const Type* get_builtin_type(IrArena* arena, Builtin);
-Builtin get_builtin_by_name(String);
+const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin);
+Builtin shd_get_builtin_by_name(String s);
 
 typedef enum SpvBuiltIn_ SpvBuiltIn;
-Builtin get_builtin_by_spv_id(SpvBuiltIn id);
+Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id);
 
-bool is_decl_builtin(const Node*);
-Builtin get_decl_builtin(const Node*);
+bool shd_is_decl_builtin(const Node* decl);
+Builtin shd_get_decl_builtin(const Node* decl);
+
+int32_t shd_get_builtin_spv_id(Builtin builtin);
 
 #endif

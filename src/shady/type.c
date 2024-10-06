@@ -1244,9 +1244,9 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
 
     const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
     if (ba && arena->config.validate_builtin_types) {
-        Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+        Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
         assert(b != BuiltinsCount);
-        const Type* t = get_builtin_type(arena, b);
+        const Type* t = shd_get_builtin_type(arena, b);
         if (t != global_variable.type) {
             shd_error_print("Creating a @Builtin global variable '%s' with the incorrect type: ", global_variable.name);
             shd_log_node(ERROR, global_variable.type);

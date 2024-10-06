@@ -37,7 +37,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ba = lookup_annotation(node, "Builtin");
             if (ba) {
                 Nodes filtered_as = rewrite_nodes(&ctx->rewriter, filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
-                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinSubgroupId:
                     case BuiltinWorkgroupId:

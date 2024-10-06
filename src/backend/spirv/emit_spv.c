@@ -19,8 +19,6 @@
 #include <assert.h>
 #include <analysis/scheduler.h>
 
-extern SpvBuiltIn spv_builtins[];
-
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
@@ -172,9 +170,9 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     String builtin_name = get_annotation_string_payload(a);
                     assert(builtin_name);
                     assert(b == BuiltinsCount && "Only one @Builtin annotation permitted.");
-                    b = get_builtin_by_name(builtin_name);
+                    b = shd_get_builtin_by_name(builtin_name);
                     assert(b != BuiltinsCount);
-                    SpvBuiltIn d = spv_builtins[b];
+                    SpvBuiltIn d = shd_get_builtin_spv_id(b);
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
                 } else if (strcmp(name, "Location") == 0) {

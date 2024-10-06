@@ -155,7 +155,7 @@ const Node* get_builtin(Module* m, Builtin b) {
             continue;
         String builtin_name = get_annotation_string_payload(a);
         assert(builtin_name);
-        if (strcmp(builtin_name, get_builtin_name(b)) == 0)
+        if (strcmp(builtin_name, shd_get_builtin_name(b)) == 0)
             return decl;
     }
 
@@ -167,9 +167,13 @@ const Node* get_or_create_builtin(Module* m, Builtin b, String n) {
     if (decl)
         return decl;
 
-    AddressSpace as = get_builtin_as(b);
+    AddressSpace as = shd_get_builtin_address_space(b);
     IrArena* a = get_module_arena(m);
-    decl = global_var(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a, get_builtin_name(b)))), get_builtin_type(a, b), n ? n : shd_format_string_arena(a->arena, "builtin_%s", get_builtin_name(b)), as);
+    decl = global_var(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a,
+                                                                                               shd_get_builtin_name(b)))),
+                      shd_get_builtin_type(a, b), n ? n : shd_format_string_arena(a->arena, "builtin_%s",
+                                                                                                                                                                                       shd_get_builtin_name(
+                                                                                                                                                                                          b)), as);
     return decl;
 }
 
@@ -188,7 +192,7 @@ bool is_builtin_load_op(const Node* n, Builtin* out) {
             if (a) {
                 String bn = get_annotation_string_payload(a);
                 assert(bn);
-                Builtin b = get_builtin_by_name(bn);
+                Builtin b = shd_get_builtin_by_name(bn);
                 if (b != BuiltinsCount) {
                     *out = b;
                     return true;

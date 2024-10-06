@@ -218,7 +218,8 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
-                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl)) {
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
+                        decl)) {
                     assert(fn && "ISPC backend cannot statically refer to a varying variable");
                     return ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *lookup_existing_term(emitter, NULL, decl));
                 }
@@ -987,7 +988,8 @@ static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
         if (node->tag == RefDecl_TAG) {
             const Node* decl = node->payload.ref_decl.decl;
             if (decl->tag == GlobalVariable_TAG)
-                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !is_decl_builtin(decl))
+                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
+                        decl))
                     //if (is_value(node) && !is_qualified_type_uniform(node->type))
                         return false;
         }

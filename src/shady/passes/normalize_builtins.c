@@ -20,9 +20,9 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             GlobalVariable global_variable = src->payload.global_variable;
             const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
             if (ba) {
-                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
-                const Type* expected_t = get_builtin_type(a, b);
+                const Type* expected_t = shd_get_builtin_type(a, b);
                 const Type* actual_t = rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
                 if (expected_t != actual_t) {
                     shd_log_fmt(INFO, "normalize_builtins: found builtin decl '%s' not matching expected type: '", global_variable.name);
@@ -60,12 +60,13 @@ static const Node* process(Context* ctx, const Node* node) {
             GlobalVariable global_variable = node->payload.global_variable;
             const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
             if (ba) {
-                Builtin b = get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
                 if (ctx->builtins[b])
                     return ctx->builtins[b];
-                const Type* t = get_builtin_type(a, b);
-                Node* ndecl = global_var(r->dst_module, rewrite_nodes(r, global_variable.annotations), t, global_variable.name, get_builtin_as(b));
+                const Type* t = shd_get_builtin_type(a, b);
+                Node* ndecl = global_var(r->dst_module, rewrite_nodes(r, global_variable.annotations), t, global_variable.name,
+                                         shd_get_builtin_address_space(b));
                 register_processed(r, node, ndecl);
                 // no 'init' for builtins, right ?
                 assert(!global_variable.init);

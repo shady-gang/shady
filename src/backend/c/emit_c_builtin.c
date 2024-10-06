@@ -27,5 +27,5 @@ CTerm c_emit_builtin(Emitter* emitter, Builtin b) {
     }
     if (name)
         return term_from_cvar(name);
-    return term_from_cvar(get_builtin_name(b));
+    return term_from_cvar(shd_get_builtin_name(b));
 }
