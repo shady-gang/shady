@@ -11,7 +11,7 @@
 #include "list.h"
 #include "util.h"
 
-CodegenTarget guess_target(const char* filename) {
+CodegenTarget shd_guess_target(const char* filename) {
     if (shd_string_ends_with(filename, ".c"))
         return TgtC;
     else if (shd_string_ends_with(filename, "glsl"))
@@ -24,7 +24,7 @@ CodegenTarget guess_target(const char* filename) {
     exit(InvalidTarget);
 }
 
-void cli_pack_remaining_args(int* pargc, char** argv) {
+void shd_pack_remaining_args(int* pargc, char** argv) {
     LARRAY(char*, nargv, *pargc);
     int nargc = 0;
     for (size_t i = 0; i < *pargc; i++) {
@@ -35,7 +35,7 @@ void cli_pack_remaining_args(int* pargc, char** argv) {
     *pargc = nargc;
 }
 
-void cli_parse_common_args(int* pargc, char** argv) {
+void shd_parse_common_args(int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -79,7 +79,7 @@ void cli_parse_common_args(int* pargc, char** argv) {
         shd_error_print("  --log-level debug[v[v]], info, warn, error]\n");
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
 #define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
@@ -107,7 +107,7 @@ static IntSizes parse_int_size(String argv) {
     shd_error("Valid pointer sizes are 8, 16, 32 or 64.");
 }
 
-void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
+void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -186,10 +186,10 @@ void cli_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         shd_error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
-void cli_parse_input_files(struct List* list, int* pargc, char** argv) {
+void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
     int argc = *pargc;
 
     for (int i = 1; i < argc; i++) {
@@ -199,11 +199,11 @@ void cli_parse_input_files(struct List* list, int* pargc, char** argv) {
         argv[i] = NULL;
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
     assert(*pargc == 1);
 }
 
-DriverConfig default_driver_config() {
+DriverConfig shd_default_driver_config(void) {
     return (DriverConfig) {
         .config = shd_default_compiler_config(),
         .target = TgtAuto,
@@ -215,11 +215,11 @@ DriverConfig default_driver_config() {
     };
 }
 
-void destroy_driver_config(DriverConfig* config) {
+void shd_destroy_driver_config(DriverConfig* config) {
     shd_destroy_list(config->input_filenames);
 }
 
-void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
+void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
@@ -299,5 +299,5 @@ void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv) {
         shd_error_print("  --dump-ir <filename>                      Dumps the final IR\n");
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }

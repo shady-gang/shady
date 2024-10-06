@@ -31,14 +31,14 @@ static const char* default_shader =
 int main(int argc, char* argv[]) {
     shd_log_set_level(INFO);
     Args args = {
-        .driver_config = default_driver_config(),
+        .driver_config = shd_default_driver_config(),
         .runtime_config = default_runtime_config(),
     };
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
-    cli_parse_common_args(&argc, argv);
+    shd_parse_common_args(&argc, argv);
     cli_parse_runtime_config(&args.runtime_config, &argc, argv);
-    cli_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
-    cli_parse_input_files(args.driver_config.input_filenames, &argc, argv);
+    shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
+    shd_driver_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     shd_info_print("Shady runtime test starting...\n");
 
@@ -52,11 +52,12 @@ int main(int argc, char* argv[]) {
     arena = new_ir_arena(&aconfig);
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
         Module* module;
-        driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader, "runtime_test", &module);
+        shd_driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader,
+                                    "runtime_test", &module);
         program = new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
         Module* module = new_module(arena, "my_module");
-        int err = driver_load_source_files(&args.driver_config, module);
+        int err = shd_driver_load_source_files(&args.driver_config, module);
         if (err)
             return err;
         program = new_program_from_module(runtime, &args.driver_config.config, module);
@@ -76,6 +77,6 @@ int main(int argc, char* argv[]) {
     shutdown_runtime(runtime);
     if (arena)
         destroy_ir_arena(arena);
-    destroy_driver_config(&args.driver_config);
+    shd_destroy_driver_config(&args.driver_config);
     return 0;
 }

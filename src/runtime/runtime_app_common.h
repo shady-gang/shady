@@ -47,7 +47,7 @@ static void cli_parse_common_app_arguments(CommonAppArgs* args, int* pargc, char
         exit(0);
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
 #endif

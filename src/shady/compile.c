@@ -62,7 +62,7 @@ void shd_apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, Op
     }
 }
 
-CompilationResult run_compiler_passes(CompilerConfig* config, Module** pmod) {
+CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod) {
     IrArena* initial_arena = (*pmod)->arena;
 
     // we don't want to mess with the original module

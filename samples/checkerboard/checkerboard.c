@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 
     RuntimeConfig runtime_config = default_runtime_config();
 
-    cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&compiler_config, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&compiler_config, &argc, argv);
     cli_parse_runtime_config(&runtime_config, &argc, argv);
 
     shd_info_print("Shady checkerboard test starting...\n");
@@ -68,7 +68,8 @@ int main(int argc, char **argv)
     ArenaConfig aconfig = shd_default_arena_config(&compiler_config.target);
     IrArena* a = new_ir_arena(&aconfig);
     Module* m;
-    if (driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)
+    if (shd_driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src,
+                                    "checkerboard", &m) != NoError)
         shd_error("Failed to load checkerboard module");
     Program* program = new_program_from_module(runtime, &compiler_config, m);
 

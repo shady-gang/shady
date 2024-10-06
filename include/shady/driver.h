@@ -29,9 +29,9 @@ typedef enum {
     SrcLLVM,
 } SourceLanguage;
 
-SourceLanguage guess_source_language(const char* filename);
-ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t, const char* file_contents, String, Module** mod);
-ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String, Module** mod);
+SourceLanguage shd_driver_guess_source_language(const char* filename);
+ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod);
+ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod);
 
 typedef enum {
     TgtAuto,
@@ -41,16 +41,16 @@ typedef enum {
     TgtISPC,
 } CodegenTarget;
 
-CodegenTarget guess_target(const char* filename);
+CodegenTarget shd_guess_target(const char* filename);
 
-void cli_pack_remaining_args(int* pargc, char** argv);
+void shd_pack_remaining_args(int* pargc, char** argv);
 
 // parses 'common' arguments such as log level etc
-void cli_parse_common_args(int* pargc, char** argv);
+void shd_parse_common_args(int* pargc, char** argv);
 // parses compiler pipeline options
-void cli_parse_compiler_config_args(CompilerConfig*, int* pargc, char** argv);
+void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv);
 // parses the remaining arguments into a list of files
-void cli_parse_input_files(struct List*, int* pargc, char** argv);
+void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
@@ -63,18 +63,18 @@ typedef struct {
     const char* loop_tree_output_filename;
 } DriverConfig;
 
-DriverConfig default_driver_config();
-void destroy_driver_config(DriverConfig*);
+DriverConfig shd_default_driver_config(void);
+void shd_destroy_driver_config(DriverConfig* config);
 
-void cli_parse_driver_arguments(DriverConfig* args, int* pargc, char** argv);
+void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv);
 
-ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod);
-ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod);
+ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod);
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod);
 
 typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
-CompilationResult run_compiler_passes(CompilerConfig* config, Module** mod);
+CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod);
 
 #endif

@@ -25,7 +25,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-SourceLanguage guess_source_language(const char* filename) {
+SourceLanguage shd_driver_guess_source_language(const char* filename) {
     if (shd_string_ends_with(filename, ".ll") || shd_string_ends_with(filename, ".bc"))
         return SrcLLVM;
     else if (shd_string_ends_with(filename, ".spv"))
@@ -39,7 +39,7 @@ SourceLanguage guess_source_language(const char* filename) {
     return SrcSlim;
 }
 
-ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod) {
+ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod) {
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
@@ -70,9 +70,9 @@ ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLang
     return NoError;
 }
 
-ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod) {
+ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod) {
     ShadyErrorCodes err;
-    SourceLanguage lang = guess_source_language(filename);
+    SourceLanguage lang = shd_driver_guess_source_language(filename);
     size_t len;
     char* contents;
     assert(filename);
@@ -87,13 +87,13 @@ ShadyErrorCodes driver_load_source_file_from_filename(const CompilerConfig* conf
         err = InputFileDoesNotExist;
         goto exit;
     }
-    err = driver_load_source_file(config, lang, len, contents, name, mod);
+    err = shd_driver_load_source_file(config, lang, len, contents, name, mod);
     free((void*) contents);
     exit:
     return err;
 }
 
-ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
+ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     if (shd_list_count(args->input_filenames) == 0) {
         shd_error_print("Missing input file. See --help for proper usage");
         return MissingInputArg;
@@ -102,7 +102,9 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
     size_t num_source_files = shd_list_count(args->input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
         Module* m;
-        int err = driver_load_source_file_from_filename(&args->config, shd_read_list(const char*, args->input_filenames)[i], shd_read_list(const char*, args->input_filenames)[i], &m);
+        int err = shd_driver_load_source_file_from_filename(&args->config,
+                                                            shd_read_list(const char*, args->input_filenames)[i],
+                                                            shd_read_list(const char*, args->input_filenames)[i], &m);
         if (err)
             return err;
         link_module(mod, m);
@@ -112,11 +114,11 @@ ShadyErrorCodes driver_load_source_files(DriverConfig* args, Module* mod) {
     return NoError;
 }
 
-ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, &args->config, mod);
 
-    CompilationResult result = run_compiler_passes(&args->config, &mod);
+    CompilationResult result = shd_run_compiler_passes(&args->config, &mod);
     if (result != CompilationNoError) {
         shd_error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
@@ -154,7 +156,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
 
     if (args->output_filename) {
         if (args->target == TgtAuto)
-            args->target = guess_target(args->output_filename);
+            args->target = shd_guess_target(args->output_filename);
         FILE* f = fopen(args->output_filename, "wb");
         size_t output_size;
         char* output_buffer;

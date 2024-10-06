@@ -10,6 +10,6 @@ if (strcmp(argv[i], "--no-"#name) == 0) { \
     f = true; argv[i] = NULL; continue; \
 }
 
-void cli_pack_remaining_args(int* pargc, char** argv);
+void shd_pack_remaining_args(int* pargc, char** argv);
 
 #endif

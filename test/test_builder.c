@@ -156,7 +156,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
 }
 
 int main(int argc, char** argv) {
-    cli_parse_common_args(&argc, argv);
+    shd_parse_common_args(&argc, argv);
 
     TargetConfig target_config = shd_default_target_config();
     ArenaConfig aconfig = shd_default_arena_config(&target_config);

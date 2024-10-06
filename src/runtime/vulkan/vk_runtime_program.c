@@ -382,7 +382,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
     config.specialization.entry_point = spec->key.entry_point;
 
-    CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
+    CHECK(shd_run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
 
     Module* final_mod;
     emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &final_mod);

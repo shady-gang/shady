@@ -116,7 +116,7 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     Module* m;
-    CHECK(driver_load_source_file_from_filename(&args->compiler_config, path, "aobench", &m) == NoError, return);
+    CHECK(shd_driver_load_source_file_from_filename(&args->compiler_config, path, "aobench", &m) == NoError, return);
     Program* program = new_program_from_module(runtime, &args->compiler_config, m);
 
     // run it twice to compile everything and benefit from caches
@@ -147,8 +147,8 @@ int main(int argc, char **argv) {
 
     args.compiler_config.input_cf.restructure_with_heuristics = true;
 
-    cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&args.compiler_config, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&args.compiler_config, &argc, argv);
     cli_parse_runtime_config(&args.runtime_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 

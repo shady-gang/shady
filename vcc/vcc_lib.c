@@ -42,7 +42,7 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
         }
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
 void vcc_check_clang(void) {
@@ -146,7 +146,7 @@ Module* vcc_parse_back_into_module(CompilerConfig* config, VccConfig* vcc_option
     if (!shd_read_file(vcc_options->tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
     Module* mod;
-    driver_load_source_file(config, SrcLLVM, len, llvm_ir, module_name, &mod);
+    shd_driver_load_source_file(config, SrcLLVM, len, llvm_ir, module_name, &mod);
     free(llvm_ir);
 
     if (vcc_options->delete_tmp_file)

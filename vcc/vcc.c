@@ -12,13 +12,13 @@
 int main(int argc, char** argv) {
     shd_platform_specific_terminal_init_extras();
 
-    DriverConfig args = default_driver_config();
+    DriverConfig args = shd_default_driver_config();
     VccConfig vcc_options = vcc_init_config(&args.config);
-    cli_parse_driver_arguments(&args, &argc, argv);
-    cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&args.config, &argc, argv);
+    shd_parse_driver_args(&args, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&args.config, &argc, argv);
     cli_parse_vcc_args(&vcc_options, &argc, argv);
-    cli_parse_input_files(args.input_filenames, &argc, argv);
+    shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
     if (shd_list_count(args.input_filenames) == 0) {
         shd_error_print("Missing input file. See --help for proper usage");
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 
     if (!vcc_options.only_run_clang) {
         Module* mod = vcc_parse_back_into_module(&args.config, &vcc_options, "my_module");
-        driver_compile(&args, mod);
+        shd_driver_compile(&args, mod);
         destroy_ir_arena(get_module_arena(mod));
     }
 
@@ -44,5 +44,5 @@ int main(int argc, char** argv) {
 
     destroy_vcc_options(vcc_options);
     destroy_ir_arena(arena);
-    destroy_driver_config(&args);
+    shd_destroy_driver_config(&args);
 }

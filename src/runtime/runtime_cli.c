@@ -45,5 +45,5 @@ void cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv) {
         shd_error_print("  --dump-ir <filename>                      Dumps the final IR\n");
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }

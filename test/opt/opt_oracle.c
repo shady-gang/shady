@@ -60,7 +60,7 @@ static void cli_parse_oracle_args(int* pargc, char** argv) {
         }
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
 static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) {
@@ -76,19 +76,19 @@ static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) 
 int main(int argc, char** argv) {
     shd_platform_specific_terminal_init_extras();
 
-    DriverConfig args = default_driver_config();
-    cli_parse_driver_arguments(&args, &argc, argv);
-    cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&args.config, &argc, argv);
+    DriverConfig args = shd_default_driver_config();
+    shd_parse_driver_args(&args, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&args.config, &argc, argv);
     cli_parse_oracle_args(&argc, argv);
-    cli_parse_input_files(args.input_filenames, &argc, argv);
+    shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
     aconfig.optimisations.weaken_non_leaking_allocas = true;
     IrArena* arena = new_ir_arena(&aconfig);
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
-    ShadyErrorCodes err = driver_load_source_files(&args, mod);
+    ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
     if (err)
         exit(err);
 
@@ -100,5 +100,5 @@ int main(int argc, char** argv) {
     shd_info_print("Compilation successful\n");
 
     destroy_ir_arena(arena);
-    destroy_driver_config(&args);
+    shd_destroy_driver_config(&args);
 }
