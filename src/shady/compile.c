@@ -14,7 +14,7 @@
 
 #include <stdbool.h>
 
-void add_scheduler_source(const CompilerConfig* config, Module* dst) {
+static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     SlimParserConfig pconfig = {
         .front_end = true,
     };
