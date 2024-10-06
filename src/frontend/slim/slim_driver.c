@@ -17,7 +17,7 @@ RewritePass slim_pass_infer;
 void slim_parse_string(const SlimParserConfig* config, const char* contents, Module* mod);
 
 Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConfig* pconfig, const char* contents, String name) {
-    ArenaConfig aconfig = default_arena_config(&config->target);
+    ArenaConfig aconfig = shd_default_arena_config(&config->target);
     aconfig.name_bound = false;
     aconfig.check_op_classes = false;
     aconfig.check_types = false;

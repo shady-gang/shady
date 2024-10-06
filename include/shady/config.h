@@ -13,7 +13,7 @@ typedef struct {
     PointerModel memory;
 } TargetConfig;
 
-TargetConfig default_target_config();
+TargetConfig shd_default_target_config(void);
 
 typedef enum {
     /// Uses the MaskType
@@ -54,7 +54,7 @@ struct ArenaConfig_ {
     } optimisations;
 };
 
-ArenaConfig default_arena_config(const TargetConfig* target);
+ArenaConfig shd_default_arena_config(const TargetConfig* target);
 
 typedef struct CompilerConfig_ CompilerConfig;
 struct CompilerConfig_ {
@@ -124,7 +124,6 @@ struct CompilerConfig_ {
     } hooks;
 };
 
-CompilerConfig default_compiler_config();
+CompilerConfig shd_default_compiler_config(void);
 
 #endif
-

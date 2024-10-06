@@ -141,7 +141,7 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 int main(int argc, char **argv) {
     shd_log_set_level(INFO);
     Args args = {
-        .compiler_config = default_compiler_config(),
+        .compiler_config = shd_default_compiler_config(),
         .runtime_config = default_runtime_config(),
     };
 

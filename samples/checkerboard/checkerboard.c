@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     }
 
     shd_log_set_level(INFO);
-    CompilerConfig compiler_config = default_compiler_config();
+    CompilerConfig compiler_config = shd_default_compiler_config();
 
     RuntimeConfig runtime_config = default_runtime_config();
 
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
-    ArenaConfig aconfig = default_arena_config(&compiler_config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&compiler_config.target);
     IrArena* a = new_ir_arena(&aconfig);
     Module* m;
     if (driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)

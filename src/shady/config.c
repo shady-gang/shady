@@ -4,7 +4,7 @@
 #define KiB * 1024
 #define MiB * 1024 KiB
 
-CompilerConfig default_compiler_config() {
+CompilerConfig shd_default_compiler_config(void) {
     return (CompilerConfig) {
         .dynamic_scheduling = true,
         .per_thread_stack_size = 4 KiB,
@@ -41,7 +41,7 @@ CompilerConfig default_compiler_config() {
             .god_function = true,
         },*/
 
-        .target = default_target_config(),
+        .target = shd_default_target_config(),
 
         .specialization = {
             .subgroup_size = 8,
@@ -50,7 +50,7 @@ CompilerConfig default_compiler_config() {
     };
 }
 
-TargetConfig default_target_config() {
+TargetConfig shd_default_target_config(void) {
     return (TargetConfig) {
         .memory = {
             .word_size = IntTy32,
@@ -59,7 +59,7 @@ TargetConfig default_target_config() {
     };
 }
 
-ArenaConfig default_arena_config(const TargetConfig* target) {
+ArenaConfig shd_default_arena_config(const TargetConfig* target) {
     ArenaConfig config = {
         .is_simt = true,
         .name_bound = true,

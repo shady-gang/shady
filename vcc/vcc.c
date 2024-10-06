@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    ArenaConfig aconfig = default_arena_config(&args.config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
     IrArena* arena = new_ir_arena(&aconfig);
 
     vcc_check_clang();

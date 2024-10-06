@@ -205,7 +205,7 @@ void cli_parse_input_files(struct List* list, int* pargc, char** argv) {
 
 DriverConfig default_driver_config() {
     return (DriverConfig) {
-        .config = default_compiler_config(),
+        .config = shd_default_compiler_config(),
         .target = TgtAuto,
         .input_filenames = shd_new_list(const char*),
         .output_filename = NULL,

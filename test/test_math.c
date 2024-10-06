@@ -91,8 +91,8 @@ static void test_int_literals(IrArena* a) {
 int main(int argc, char** argv) {
     cli_parse_common_args(&argc, argv);
 
-    TargetConfig target_config = default_target_config();
-    ArenaConfig aconfig = default_arena_config(&target_config);
+    TargetConfig target_config = shd_default_target_config();
+    ArenaConfig aconfig = shd_default_arena_config(&target_config);
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* a = new_ir_arena(&aconfig);

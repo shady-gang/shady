@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 
     Program* program;
     IrArena* arena = NULL;
-    ArenaConfig aconfig = default_arena_config(&args.driver_config.config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.config.target);
     arena = new_ir_arena(&aconfig);
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
         Module* module;
