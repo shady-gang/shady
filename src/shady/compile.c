@@ -30,7 +30,7 @@ void add_scheduler_source(const CompilerConfig* config, Module* dst) {
 #define SHADY_RUN_VERIFY 1
 #endif
 
-void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
+void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
     Module* old_mod = NULL;
     old_mod = *pmod;
     *pmod = pass(config, *pmod);
@@ -52,7 +52,7 @@ void run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial
         config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
 }
 
-void apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
+void shd_apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
     bool changed = pass(config, m);
     *todo |= changed;
 
