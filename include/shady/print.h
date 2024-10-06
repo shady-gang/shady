@@ -16,10 +16,10 @@ typedef struct {
     bool in_cfg;
 } NodePrintConfig;
 
-void print_module_into_str(Module* mod, char** str_ptr, size_t* size);
-void print_node_into_str(const Node* node, char** str_ptr, size_t* size);
+void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size);
+void shd_print_node_into_str(const Node* node, char** str_ptr, size_t* size);
 
-void print_module(Printer* printer, NodePrintConfig config, Module* mod);
-void print_node(Printer* printer, NodePrintConfig config, const Node* node);
+void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod);
+void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node);
 
 #endif

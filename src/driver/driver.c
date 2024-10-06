@@ -145,7 +145,7 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
         assert(f);
         size_t output_size;
         char* output_buffer;
-        print_module_into_str(mod, &output_buffer, &output_size);
+        shd_print_module_into_str(mod, &output_buffer, &output_size);
         fwrite(output_buffer, output_size, 1, f);
         free((void*) output_buffer);
         fclose(f);

@@ -22,7 +22,7 @@ static void print_node_helper(Printer* p, const Node* n) {
         .in_cfg = true,
     };
 
-    print_node(tmp_p, config, n);
+    shd_print_node(tmp_p, config, n);
 
     String label = shd_printer_growy_unwrap(tmp_p);
     char* escaped_label = calloc(strlen(label) * 2, 1);

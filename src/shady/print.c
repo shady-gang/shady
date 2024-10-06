@@ -62,7 +62,7 @@ static void destroy_printer_ctx(PrinterCtx ctx) {
     shd_destroy_dict(ctx.emitted);
 }
 
-void print_module(Printer* printer, NodePrintConfig config, Module* mod) {
+void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod) {
     PrinterCtx ctx = make_printer_ctx(printer, config);
     print_mod_impl(&ctx, mod);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
@@ -72,7 +72,7 @@ void print_module(Printer* printer, NodePrintConfig config, Module* mod) {
     destroy_printer_ctx(ctx);
 }
 
-void print_node(Printer* printer, NodePrintConfig config, const Node* node) {
+void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) {
     PrinterCtx ctx = make_printer_ctx(printer, config);
     String emitted = emit_node(&ctx, node);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
@@ -82,21 +82,21 @@ void print_node(Printer* printer, NodePrintConfig config, const Node* node) {
     destroy_printer_ctx(ctx);
 }
 
-void print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
+void shd_print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
     if (node)
         shd_print(p, "%%%d ", node->id);
-    print_node(p, (NodePrintConfig) {.reparseable = true}, node);
+    shd_print_node(p, (NodePrintConfig) {.reparseable = true}, node);
     shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
 }
 
-void print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
+void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
-    print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
+    shd_print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
     shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
@@ -106,13 +106,13 @@ void dump_node(const Node* node) {
     Printer* p = shd_new_printer_from_file(stdout);
     if (node)
         shd_print(p, "%%%d ", node->id);
-    print_node(p, (NodePrintConfig) {.color = true}, node);
+    shd_print_node(p, (NodePrintConfig) {.color = true}, node);
     printf("\n");
 }
 
 void dump_module(Module* mod) {
     Printer* p = shd_new_printer_from_file(stdout);
-    print_module(p, (NodePrintConfig) {.color = true}, mod);
+    shd_print_module(p, (NodePrintConfig) {.color = true}, mod);
     shd_destroy_printer(p);
     printf("\n");
 }
@@ -120,7 +120,7 @@ void dump_module(Module* mod) {
 void shd_log_node(LogLevel level, const Node* node) {
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
-        print_node(p, (NodePrintConfig) {.color = true}, node);
+        shd_print_node(p, (NodePrintConfig) {.color = true}, node);
         shd_destroy_printer(p);
     }
 }
@@ -134,7 +134,7 @@ void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* 
     }
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
-        print_module(p, config, mod);
+        shd_print_module(p, config, mod);
         shd_destroy_printer(p);
     }
 }
@@ -672,7 +672,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
         //     printf("call");
         //     printf(RESET);
         //     printf(" (");
-        //     print_node(node->payload.call.callee);
+        //     shd_print_node(node->payload.call.callee);
         //     printf(")");
         //     print_args_list(ctx, node->payload.call.args);
         //     break;
@@ -861,7 +861,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             printf("join");
             printf(RESET);
             printf("(");
-            print_node(node->payload.join.join_point);
+            shd_print_node(node->payload.join.join_point);
             printf(")");
             print_args_list(ctx, node->payload.join.args);
             printf(";");
