@@ -22,7 +22,6 @@ String capitalize(String str);
 bool starts_with_vowel(String str);
 
 bool has_custom_ctor(json_object* node);
-void generate_node_ctor(Growy* g, json_object* nodes, bool definition);
 
 json_object* lookup_node_class(json_object* src, String name);
 String class_to_type(json_object* src, String class, bool list);

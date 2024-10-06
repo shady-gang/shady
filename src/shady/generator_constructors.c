@@ -80,6 +80,5 @@ void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
     json_object* nodes = json_object_object_get(src, "nodes");
-    generate_node_ctor(g, nodes, true);
     generate_pre_construction_validation(g, src);
 }

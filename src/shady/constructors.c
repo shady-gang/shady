@@ -19,7 +19,7 @@ const Node* fold_node_operand(NodeTag tag, NodeClass, String, const Node* op);
 
 const Type* check_type_generated(IrArena* a, const Node* node);
 
-static Node* create_node_helper(IrArena* arena, Node node, bool* pfresh) {
+Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     pre_construction_validation(arena, &node);
     if (arena->config.check_types)
         node.type = check_type_generated(arena, &node);
@@ -74,7 +74,7 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
         .tag = Param_TAG,
         .payload.param = param
     };
-    return create_node_helper(arena, node, NULL);
+    return _shd_create_node_helper(arena, node, NULL);
 }
 
 const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
@@ -123,7 +123,7 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
         .tag = Function_TAG,
         .payload.fun = payload
     };
-    Node* fn = create_node_helper(arena, node, NULL);
+    Node* fn = _shd_create_node_helper(arena, node, NULL);
     register_decl_module(mod, fn);
 
     for (size_t i = 0; i < params.count; i++) {
@@ -152,7 +152,7 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
         .payload.basic_block = payload
     };
 
-    Node* bb = create_node_helper(arena, node, NULL);
+    Node* bb = _shd_create_node_helper(arena, node, NULL);
 
     for (size_t i = 0; i < params.count; i++) {
         Node* param = (Node*) params.nodes[i];
@@ -180,7 +180,7 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
         .tag = Constant_TAG,
         .payload.constant = cnst
     };
-    Node* decl = create_node_helper(arena, node, NULL);
+    Node* decl = _shd_create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }
@@ -211,7 +211,7 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
         .tag = GlobalVariable_TAG,
         .payload.global_variable = gvar
     };
-    Node* decl = create_node_helper(arena, node, NULL);
+    Node* decl = _shd_create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }
@@ -233,7 +233,7 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
         .tag = NominalType_TAG,
         .payload.nom_type = payload
     };
-    Node* decl = create_node_helper(arena, node, NULL);
+    Node* decl = _shd_create_node_helper(arena, node, NULL);
     register_decl_module(mod, decl);
     return decl;
 }

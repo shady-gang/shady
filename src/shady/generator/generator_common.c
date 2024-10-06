@@ -5,55 +5,6 @@ bool has_custom_ctor(json_object* node) {
     return (constructor && strcmp(constructor, "custom") == 0);
 }
 
-void generate_node_ctor(Growy* g, json_object* nodes, bool definition) {
-    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
-        json_object* node = json_object_array_get_idx(nodes, i);
-
-        String name = json_object_get_string(json_object_object_get(node, "name"));
-        assert(name);
-
-        if (has_custom_ctor(node))
-            continue;
-
-        if (definition && i > 0)
-            shd_growy_append_formatted(g, "\n");
-
-        String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
-        const void* alloc = NULL;
-        if (!snake_name) {
-            alloc = snake_name = to_snake_case(name);
-        }
-
-        String ap = definition ? " arena" : "";
-        json_object* ops = json_object_object_get(node, "ops");
-        if (ops)
-            shd_growy_append_formatted(g, "const Node* %s(IrArena*%s, %s%s)", snake_name, ap, name, definition ? " payload" : "");
-        else
-            shd_growy_append_formatted(g, "const Node* %s(IrArena*%s)", snake_name, ap);
-
-        if (definition) {
-            shd_growy_append_formatted(g, " {\n");
-            shd_growy_append_formatted(g, "\tNode node;\n");
-            shd_growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
-            shd_growy_append_formatted(g, "\tnode = (Node) {\n");
-            shd_growy_append_formatted(g, "\t\t.arena = arena,\n");
-            shd_growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
-            if (ops)
-                shd_growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
-            shd_growy_append_formatted(g, "\t\t.type = NULL,\n");
-            shd_growy_append_formatted(g, "\t};\n");
-            shd_growy_append_formatted(g, "\treturn create_node_helper(arena, node, NULL);\n");
-            shd_growy_append_formatted(g, "}\n");
-        } else {
-            shd_growy_append_formatted(g, ";\n");
-        }
-
-        if (alloc)
-            free((void*) alloc);
-    }
-    shd_growy_append_formatted(g, "\n");
-}
-
 json_object* lookup_node_class(json_object* src, String name) {
     json_object* node_classes = json_object_object_get(src, "node-classes");
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {

@@ -132,6 +132,50 @@ static void generate_header_getters_for_class(Growy* g, json_object* src, json_o
     }
 }
 
+void generate_node_ctor(Growy* g, json_object* nodes) {
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+
+        String name = json_object_get_string(json_object_object_get(node, "name"));
+        assert(name);
+
+        if (has_custom_ctor(node))
+            continue;
+
+        if (i > 0)
+            shd_growy_append_formatted(g, "\n");
+
+        String snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
+        const void* alloc = NULL;
+        if (!snake_name) {
+            alloc = snake_name = to_snake_case(name);
+        }
+
+        json_object* ops = json_object_object_get(node, "ops");
+        if (ops)
+            shd_growy_append_formatted(g, "static inline const Node* %s(IrArena* arena, %s payload)", snake_name, name);
+        else
+            shd_growy_append_formatted(g, "static inline const Node* %s(IrArena* arena)", snake_name);
+
+        shd_growy_append_formatted(g, " {\n");
+        shd_growy_append_formatted(g, "\tNode node;\n");
+        shd_growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
+        shd_growy_append_formatted(g, "\tnode = (Node) {\n");
+        shd_growy_append_formatted(g, "\t\t.arena = arena,\n");
+        shd_growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
+        if (ops)
+            shd_growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
+        shd_growy_append_formatted(g, "\t\t.type = NULL,\n");
+        shd_growy_append_formatted(g, "\t};\n");
+        shd_growy_append_formatted(g, "\treturn _shd_create_node_helper(arena, node, NULL);\n");
+        shd_growy_append_formatted(g, "}\n");
+
+        if (alloc)
+            free((void*) alloc);
+    }
+    shd_growy_append_formatted(g, "\n");
+}
+
 void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
@@ -145,7 +189,10 @@ void generate(Growy* g, json_object* src) {
     shd_growy_append_formatted(g, "NodeClass get_node_class_from_tag(NodeTag tag);\n\n");
     generate_node_payloads(g, src, nodes);
     generate_node_type(g, nodes);
-    generate_node_ctor(g, nodes, false);
+
+    shd_growy_append_formatted(g, "#include <string.h>\n");
+    shd_growy_append_formatted(g, "Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh);\n");
+    generate_node_ctor(g, nodes);
 
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);
