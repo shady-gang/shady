@@ -52,7 +52,7 @@ ShadyErrorCodes driver_load_source_file(const CompilerConfig* config, SourceLang
         }
         case SrcSPIRV: {
 #ifdef SPV_PARSER_PRESENT
-            parse_spirv_into_shady(config, len, file_contents, name, mod);
+            shd_parse_spirv(config, len, file_contents, name, mod);
 #else
             assert(false && "SPIR-V front-end missing in this version");
 #endif

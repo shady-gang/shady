@@ -1338,7 +1338,7 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError parse_spirv_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
+S2SError shd_parse_spirv(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     ArenaConfig aconfig = default_arena_config(&config->target);
     IrArena* a = new_ir_arena(&aconfig);
     *dst = new_module(a, name);
