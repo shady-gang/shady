@@ -21,7 +21,7 @@ typedef struct {
 CEmitterConfig default_c_emitter_config(void);
 
 typedef struct CompilerConfig_ CompilerConfig;
-void emit_c(const CompilerConfig* compiler_config, CEmitterConfig emitter_config, Module*, size_t* output_size, char** output, Module** new_mod);
+void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod);
 
 #endif
 

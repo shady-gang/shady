@@ -163,15 +163,15 @@ ShadyErrorCodes driver_compile(DriverConfig* args, Module* mod) {
             case TgtSPV: emit_spirv(&args->config, mod, &output_size, &output_buffer, NULL); break;
             case TgtC:
                 args->c_emitter_config.dialect = CDialect_C11;
-                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtGLSL:
                 args->c_emitter_config.dialect = CDialect_GLSL;
-                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
             case TgtISPC:
                 args->c_emitter_config.dialect = CDialect_ISPC;
-                emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
                 break;
         }
         shd_debug_print("Wrote result to %s\n", args->output_filename);
