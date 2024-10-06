@@ -150,13 +150,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count > 1)
                 exit_destination_alloca = gen_stack_alloc(outer_bb, shd_int32_type(arena));
 
-            const Node* join_token_exit = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                .yield_types = shd_empty(arena)
+            const Node* join_token_exit = param(arena, shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
+                    .yield_types = shd_empty(arena)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = param(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                .yield_types = inner_yield_types
-            }), true), "jp_continue");
+            const Node* join_token_continue = param(arena,
+                                                    shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
+                                                            .yield_types = inner_yield_types
+                                                    }), true), "jp_continue");
 
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
@@ -272,7 +273,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 exit_numbers[i] = shd_int32_literal(arena, i);
                 set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
-                exit_jumps[i] = jump_helper(arena, exit_bb, shd_empty(arena), bb_mem(outer_bb));
+                exit_jumps[i] = jump_helper(arena, bb_mem(outer_bb), exit_bb, shd_empty(arena));
             }
 
             const Node* outer_body;
@@ -427,7 +428,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
-            const Node* join_token = param(a, qualified_type_helper(join_point_type(a, (JoinPointType) {
+            const Node* join_token = param(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
@@ -451,8 +452,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = get_abstraction_mem(control_case),
                 .condition = rewrite_node(r, payload.condition),
-                .true_jump = jump_helper(a, rewrite_node(r, payload.true_jump->payload.jump.target), rewrite_nodes(r, payload.true_jump->payload.jump.args), get_abstraction_mem(control_case)),
-                .false_jump = jump_helper(a, rewrite_node(r, payload.false_jump->payload.jump.target), rewrite_nodes(r, payload.false_jump->payload.jump.args), get_abstraction_mem(control_case)),
+                .true_jump = jump_helper(a, get_abstraction_mem(control_case),
+                                         rewrite_node(r, payload.true_jump->payload.jump.target),
+                                         rewrite_nodes(r, payload.true_jump->payload.jump.args)),
+                .false_jump = jump_helper(a, get_abstraction_mem(control_case),
+                                          rewrite_node(r, payload.false_jump->payload.jump.target),
+                                          rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
             set_abstraction_body(control_case, inner_terminator);
 

@@ -68,8 +68,8 @@ static const Node* process(Context* ctx, const Node* old) {
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                 .mem = bb_mem(loop_bb),
                 .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
-                .true_jump = jump_helper(a, true_case, shd_empty(a), bb_mem(loop_bb)),
-                .false_jump = jump_helper(a, false_case, shd_empty(a), bb_mem(loop_bb)),
+                .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
+                .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
             })));
 
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
@@ -114,8 +114,8 @@ static const Node* process(Context* ctx, const Node* old) {
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                     .mem = bb_mem(loop_bb),
                     .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
-                    .true_jump = jump_helper(a, true_case, shd_empty(a), bb_mem(loop_bb)),
-                    .false_jump = jump_helper(a, false_case, shd_empty(a), bb_mem(loop_bb)),
+                    .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
+                    .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
             })));
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }

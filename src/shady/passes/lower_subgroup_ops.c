@@ -107,7 +107,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     Module* m = ctx->rewriter.dst_module;
     const Node* t = get_unqualified_type(src->type);
     if (is_supported_natively(ctx, t))
-        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, qualified_type_helper(t, true), mk_nodes(a, scope, src));
+        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
 
     if (resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
         shd_error("TODO")
@@ -117,9 +117,10 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param(a, qualified_type_helper(t, false), "src");
+        const Node* src_param = param(a, shd_as_qualified_type(t, false), "src");
         fn = function(m, shd_singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
-                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(qualified_type_helper(t, true)));
+                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(
+                        shd_as_qualified_type(t, true)));
         shd_dict_insert(const Node*, Node*, ctx->fns, t, fn);
         build_fn_body(ctx, fn, scope, src_param, t);
     }

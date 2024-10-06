@@ -25,16 +25,16 @@ static void test_body_builder_constants(IrArena* a) {
 
 static void test_body_builder_fun_body(IrArena* a) {
     Module* m = new_module(a, "test_module");
-    const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
-        .address_space = AsGeneric,
-        .pointed_type = shd_uint32_type(a),
+    const Node* p1 = param(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
+            .address_space = AsGeneric,
+            .pointed_type = shd_uint32_type(a),
     }), false), NULL);
-    const Node* p2 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
-        .address_space = AsGeneric,
-        .pointed_type = shd_uint32_type(a),
+    const Node* p2 = param(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
+            .address_space = AsGeneric,
+            .pointed_type = shd_uint32_type(a),
     }), false), NULL);
-    // const Node* p3 = param(a, qualified_type_helper(bool_type(a), false), NULL);
-    // const Node* p4 = param(a, qualified_type_helper(uint32_type(a), false), NULL);
+    // const Node* p3 = param(a, shd_as_qualified_type(bool_type(a), false), NULL);
+    // const Node* p4 = param(a, shd_as_qualified_type(uint32_type(a), false), NULL);
     Node* fun = function(m, mk_nodes(a, p1, p2), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
 
@@ -87,9 +87,9 @@ static void test_body_builder_fun_body(IrArena* a) {
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block(IrArena* a) {
     Module* m = new_module(a, "test_module");
-    const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
-        .address_space = AsGeneric,
-        .pointed_type = shd_uint32_type(a),
+    const Node* p1 = param(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
+            .address_space = AsGeneric,
+            .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
@@ -126,9 +126,9 @@ static void test_body_builder_impure_block(IrArena* a) {
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Module* m = new_module(a, "test_module");
-    const Node* p1 = param(a, qualified_type_helper(ptr_type(a, (PtrType) {
-        .address_space = AsGeneric,
-        .pointed_type = shd_uint32_type(a),
+    const Node* p1 = param(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
+            .address_space = AsGeneric,
+            .pointed_type = shd_uint32_type(a),
     }), false), NULL);
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));

@@ -167,12 +167,13 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
             // The exit ladder must exit that new loop
             set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = shd_empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) }));
             // After that we jump to the parent exit
-            return finish_body(bb, jump_helper(a, exit, shd_empty(a), bb_mem(bb)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         } else {
             // Simply jmp to the exit once done
-            set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, exit, shd_empty(a), get_abstraction_mem(inner_exit_ladder_bb)));
+            set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, get_abstraction_mem(inner_exit_ladder_bb), exit,
+                                                                   shd_empty(a)));
             // Jump into the new structured target
-            return finish_body(bb, jump_helper(a, structured_target, rewrite_nodes(&ctx->rewriter, oargs), bb_mem(bb)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), structured_target, rewrite_nodes(&ctx->rewriter, oargs)));
         }
     }
 }
@@ -215,7 +216,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_if(bb, shd_empty(a), condition, true_case, false_case);
-            return finish_body(bb, jump_helper(a, exit, shd_empty(a), bb_mem(bb)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         }
         case Switch_TAG: {
             Switch payload = body->payload.br_switch;
@@ -233,7 +234,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
             BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
             gen_match(bb, shd_empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), shd_nodes(a, body->payload.br_switch.case_jumps.count, (const Node**) cases), default_case);
-            return finish_body(bb, jump_helper(a, exit, shd_empty(a), bb_mem(bb)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         }
         // let(control(body), tail)
         // var phi = undef; level = N+1; structurize[body, if (level == N+1, _ => tail(load(phi))); structured_exit_terminator]
@@ -283,7 +284,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
             set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));
             gen_if(bb_tail, shd_empty(a), guard, true_case, NULL);
-            set_abstraction_body(tail, finish_body(bb_tail, jump_helper(a, exit, shd_empty(a), bb_mem(bb_tail))));
+            set_abstraction_body(tail, finish_body(bb_tail, jump_helper(a, bb_mem(bb_tail), exit, shd_empty(a))));
 
             register_processed(r, get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
             return finish_body(bb_prelude, structure(&control_ctx, get_abstraction_body(old_control_case), tail));
@@ -302,7 +303,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
                 gen_store(bb, control->phis[i], args.nodes[i]);
             }
 
-            return finish_body(bb, jump_helper(a, exit, shd_empty(a), bb_mem(bb)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         }
 
         case Return_TAG:

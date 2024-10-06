@@ -143,7 +143,7 @@ bool deconstruct_qualified_type(const Type** type_out) {
     } else shd_error("Expected a value type (annotated with qual_type)")
 }
 
-const Type* qualified_type_helper(const Type* type, bool uniform) {
+const Type* shd_as_qualified_type(const Type* type, bool uniform) {
     return qualified_type(type->arena, (QualifiedType) { .type = type, .is_uniform = uniform });
 }
 
@@ -157,7 +157,8 @@ Nodes strip_qualifiers(IrArena* arena, Nodes tys) {
 Nodes add_qualifiers(IrArena* arena, Nodes tys, bool uniform) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
-        arr[i] = qualified_type_helper(tys.nodes[i], uniform || !arena->config.is_simt /* SIMD arenas ban varying value types */);
+        arr[i] = shd_as_qualified_type(tys.nodes[i],
+                                       uniform || !arena->config.is_simt /* SIMD arenas ban varying value types */);
     return shd_nodes(arena, tys.count, arr);
 }
 

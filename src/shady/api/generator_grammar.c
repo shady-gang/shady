@@ -132,7 +132,7 @@ static void generate_header_getters_for_class(Growy* g, json_object* src, json_o
     }
 }
 
-void generate_node_ctor(Growy* g, json_object* nodes) {
+void generate_node_ctor(Growy* g, json_object* src, json_object* nodes) {
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
 
@@ -170,6 +170,29 @@ void generate_node_ctor(Growy* g, json_object* nodes) {
         shd_growy_append_formatted(g, "\treturn _shd_create_node_helper(arena, node, NULL);\n");
         shd_growy_append_formatted(g, "}\n");
 
+        // Generate helper variant
+        if (ops) {
+            shd_growy_append_formatted(g, "static inline const Node* %s_helper(IrArena* arena, ", snake_name);
+            for (size_t j = 0; j < json_object_array_length(ops); j++) {
+                json_object* op = json_object_array_get_idx(ops, j);
+                String op_name = json_object_get_string(json_object_object_get(op, "name"));
+                shd_growy_append_formatted(g, "\t%s %s", get_type_for_operand(src, op), op_name);
+                if (j + 1 < json_object_array_length(ops))
+                    shd_growy_append_formatted(g, ", ");
+            }
+            shd_growy_append_formatted(g, ") {\n");
+            shd_growy_append_formatted(g, "\treturn %s(arena, (%s) {", snake_name, name);
+            for (size_t j = 0; j < json_object_array_length(ops); j++) {
+                json_object* op = json_object_array_get_idx(ops, j);
+                String op_name = json_object_get_string(json_object_object_get(op, "name"));
+                shd_growy_append_formatted(g, ".%s = %s", op_name, op_name);
+                if (j + 1 < json_object_array_length(ops))
+                    shd_growy_append_formatted(g, ", ");
+            }
+            shd_growy_append_formatted(g, "});\n");
+            shd_growy_append_formatted(g, "}\n");
+        }
+
         if (alloc)
             free((void*) alloc);
     }
@@ -192,7 +215,7 @@ void generate(Growy* g, json_object* src) {
 
     shd_growy_append_formatted(g, "#include <string.h>\n");
     shd_growy_append_formatted(g, "Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh);\n");
-    generate_node_ctor(g, nodes);
+    generate_node_ctor(g, src, nodes);
 
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
         json_object* node_class = json_object_array_get_idx(node_classes, i);

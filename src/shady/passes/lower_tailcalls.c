@@ -255,7 +255,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
                 });
-                const Node* new_jp = param(a, qualified_type_helper(new_jp_type, true), old_jp->payload.param.name);
+                const Node* new_jp = param(a, shd_as_qualified_type(new_jp_type, true), old_jp->payload.param.name);
                 register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = case_(a, shd_singleton(new_jp));
                 register_processed(r, payload.inside, new_control_case);
@@ -333,8 +333,8 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         set_abstraction_body(c.case_, branch(a, (Branch) {
             .mem = get_abstraction_mem(c.case_),
             .condition = bail_condition,
-            .true_jump = jump_helper(a, bail_case, shd_empty(a), get_abstraction_mem(c.case_)),
-            .false_jump = jump_helper(a, proceed_case, shd_empty(a), get_abstraction_mem(c.case_)),
+            .true_jump = jump_helper(a, get_abstraction_mem(c.case_), bail_case, shd_empty(a)),
+            .false_jump = jump_helper(a, get_abstraction_mem(c.case_), proceed_case, shd_empty(a)),
         }));
         // gen_if(loop_body_builder, empty(a), bail_condition, bail_case, NULL);
     }
@@ -363,13 +363,13 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     set_abstraction_body(zero_case_lam, branch(a, (Branch) {
             .mem = get_abstraction_mem(zero_case_lam),
             .condition = should_run,
-            .true_jump = jump_helper(a, zero_if_true_lam, shd_empty(a), get_abstraction_mem(zero_case_lam)),
-            .false_jump = jump_helper(a, zero_if_false, shd_empty(a), get_abstraction_mem(zero_case_lam)),
+            .true_jump = jump_helper(a, get_abstraction_mem(zero_case_lam), zero_if_true_lam, shd_empty(a)),
+            .false_jump = jump_helper(a, get_abstraction_mem(zero_case_lam), zero_if_false, shd_empty(a)),
     }));
 
     const Node* zero_lit = shd_uint64_literal(a, 0);
     shd_list_append(const Node*, literals, zero_lit);
-    const Node* zero_jump = jump_helper(a, zero_case_lam, shd_empty(a), bb_mem(loop_body_builder));
+    const Node* zero_jump = jump_helper(a, bb_mem(loop_body_builder), zero_case_lam, shd_empty(a));
     shd_list_append(const Node*, jumps, zero_jump);
 
     Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
@@ -401,12 +401,12 @@ void generate_top_level_dispatch_fn(Context* ctx) {
             set_abstraction_body(fn_case, branch(a, (Branch) {
                 .mem = get_abstraction_mem(fn_case),
                 .condition = should_run,
-                .true_jump = jump_helper(a, if_true_case, shd_empty(a), get_abstraction_mem(fn_case)),
-                .false_jump = jump_helper(a, if_false, shd_empty(a), get_abstraction_mem(fn_case)),
+                .true_jump = jump_helper(a, get_abstraction_mem(fn_case), if_true_case, shd_empty(a)),
+                .false_jump = jump_helper(a, get_abstraction_mem(fn_case), if_false, shd_empty(a)),
             }));
 
             shd_list_append(const Node*, literals, fn_lit);
-            const Node* j = jump_helper(a, fn_case, shd_empty(a), bb_mem(loop_body_builder));
+            const Node* j = jump_helper(a, bb_mem(loop_body_builder), fn_case, shd_empty(a));
             shd_list_append(const Node*, jumps, j);
         }
     }
@@ -419,7 +419,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
         .switch_value = next_function,
         .case_values = shd_nodes(a, shd_list_count(literals), shd_read_list(const Node*, literals)),
         .case_jumps = shd_nodes(a, shd_list_count(jumps), shd_read_list(const Node*, jumps)),
-        .default_jump = jump_helper(a, default_case, shd_empty(a), bb_mem(loop_body_builder))
+        .default_jump = jump_helper(a, bb_mem(loop_body_builder), default_case, shd_empty(a))
     })));
 
     shd_destroy_list(literals);

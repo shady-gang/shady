@@ -121,7 +121,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param(a, qualified_type_helper(shd_uint32_type(a), false), "sp");
+    const Node* payload = param(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
 
     // Keep annotations the same
     Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));
@@ -204,7 +204,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Type* jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
                 });
-                const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(jp_type, true), mk_nodes(a, tail_ptr, sp));
+                const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
+                                                     shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 

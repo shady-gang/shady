@@ -31,7 +31,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
                 register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
                 set_abstraction_body(post_prelude, rewrite_node(&functx.rewriter, get_abstraction_body(node)));
-                set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, post_prelude, shd_empty(a), bb_mem(functx.bb))));
+                set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
+                                                                                shd_empty(a))));
                 shd_destroy_dict(functx.rewriter.map);
             }
             return newfun;

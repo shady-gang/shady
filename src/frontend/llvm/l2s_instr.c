@@ -74,7 +74,7 @@ static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, 
         assert(false && "failed to find the appropriate source");
         next: continue;
     }
-    return jump_helper(a, dst_bb, shd_nodes(a, params_count, params), mem);
+    return jump_helper(a, mem, dst_bb, shd_nodes(a, params_count, params));
 }
 
 static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
@@ -274,7 +274,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 bool idk;
-                //element_t = qualified_type_helper(element_t, false);
+                //element_t = shd_as_qualified_type(element_t, false);
                 enter_composite_indices(&element_t, &idk, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 r = prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), BIND_PREV_R(typed_ptr));

@@ -312,7 +312,7 @@ void set_abstraction_body(Node* abs, const Node* body) {
                     const Node* mem = insert->block_entry_mem;
                     const Node* block = insert->block_entry_block;
                     set_abstraction_body((Node*) block, finish_block_body(insert, body));
-                    body = jump_helper(a, block, shd_empty(a), mem);
+                    body = jump_helper(a, mem, block, shd_empty(a));
                     // mem_abs->payload.basic_block.insert = NULL;
                     continue;
                 }

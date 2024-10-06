@@ -109,8 +109,8 @@ static bool has_forward_declarations(CDialect dialect) {
 CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term) {
     String interm = unique_name(emitter->arena, "intermediary_ptr_value");
     assert(ptr_type->tag == PtrType_TAG);
-    const Type* ut = qualified_type_helper(ptr_type, true);
-    const Type* vt = qualified_type_helper(ptr_type, false);
+    const Type* ut = shd_as_qualified_type(ptr_type, true);
+    const Type* vt = shd_as_qualified_type(ptr_type, false);
     String lhs = c_emit_type(emitter, vt, interm);
     shd_print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, c_emit_type(emitter, ut, NULL), to_cvalue(emitter, term));
     return term_from_cvalue(interm);

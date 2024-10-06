@@ -344,7 +344,7 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
     BodyBuilder* outer_control_case_builder = begin_body_with_mem(a, get_abstraction_mem(outer_control.case_));
     LARRAY(const Node*, params, arg_types.count);
     for (size_t i = 0; i < arg_types.count; i++) {
-        params[i] = param(a, qualified_type_helper(arg_types.nodes[i], false), NULL);
+        params[i] = param(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
     }
     Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
     set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));

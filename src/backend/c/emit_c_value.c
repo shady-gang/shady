@@ -822,7 +822,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // See https://github.com/ispc/ispc/issues/2496
             if (emitter->config.dialect == CDialect_ISPC) {
                 String interm = unique_name(arena, "lea_intermediary_ptr_value");
-                shd_print(p, "\n%s = %s;", c_emit_type(emitter, qualified_type_helper(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
+                shd_print(p, "\n%s = %s;", c_emit_type(emitter, shd_as_qualified_type(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                 acc = term_from_cvalue(interm);
             }
 

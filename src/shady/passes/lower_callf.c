@@ -44,9 +44,10 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
-                ctx2.return_jp = gen_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint, qualified_type_helper(jp_type, true), shd_empty(a));
+                ctx2.return_jp = gen_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
+                                                     shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
-                const Node* jp_variable = param(a, qualified_type_helper(jp_type, false), "return_jp");
+                const Node* jp_variable = param(a, shd_as_qualified_type(jp_type, false), "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }
@@ -56,7 +57,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
             set_abstraction_body(prelude, finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
-            set_abstraction_body(fun, jump_helper(a, prelude, shd_empty(a), get_abstraction_mem(fun)));
+            set_abstraction_body(fun, jump_helper(a, get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
         }
 

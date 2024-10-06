@@ -100,7 +100,8 @@ const Node* process(Context* ctx, const Node* old) {
                 Control old_control_payload = control->payload.control;
                 // there was a control but now there is not anymore - jump to the tail!
                 if (rewrite_node(r, old_control_payload.inside) == NULL) {
-                    return jump_helper(a, rewrite_node(r, old_control_payload.tail), rewrite_nodes(r, payload.args), rewrite_node(r, payload.mem));
+                    return jump_helper(a, rewrite_node(r, payload.mem), rewrite_node(r, old_control_payload.tail),
+                                       rewrite_nodes(r, payload.args));
                 }
             }
             break;

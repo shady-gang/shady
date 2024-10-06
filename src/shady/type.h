@@ -51,7 +51,7 @@ const Type* get_unqualified_type(const Type*);
 bool is_qualified_type_uniform(const Type*);
 bool deconstruct_qualified_type(const Type**);
 
-const Type* qualified_type_helper(const Type*, bool uniform);
+const Type* shd_as_qualified_type(const Type* type, bool uniform);
 
 Nodes strip_qualifiers(IrArena*, Nodes);
 Nodes add_qualifiers(IrArena*, Nodes, bool);

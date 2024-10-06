@@ -77,10 +77,6 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return _shd_create_node_helper(arena, node, NULL);
 }
 
-const Node* composite_helper(IrArena* a, const Type* t, Nodes contents) {
-    return composite(a, (Composite) { .type = t, .contents = contents });
-}
-
 const Node* tuple_helper(IrArena* a, Nodes contents) {
     const Type* t = NULL;
     if (a->config.check_types) {
@@ -90,18 +86,6 @@ const Node* tuple_helper(IrArena* a, Nodes contents) {
     }
 
     return composite_helper(a, t, contents);
-}
-
-const Node* fn_addr_helper(IrArena* a, const Node* fn) {
-    return fn_addr(a, (FnAddr) { .fn = fn });
-}
-
-const Node* ref_decl_helper(IrArena* a, const Node* decl) {
-    return ref_decl(a, (RefDecl) { .decl = decl });
-}
-
-const Node* type_decl_ref_helper(IrArena* a, const Node* decl) {
-    return type_decl_ref(a, (TypeDeclRef) { .decl = decl });
 }
 
 Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
@@ -238,14 +222,6 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
     return decl;
 }
 
-const Node* prim_op_helper(IrArena* a, Op op, Nodes types, Nodes operands) {
-    return prim_op(a, (PrimOp) {
-        .op = op,
-        .type_arguments = types,
-        .operands = operands
-    });
-}
-
 const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) {
     const Node* lea = ptr_array_element_offset(a, (PtrArrayElementOffset) {
         .ptr = ptr,
@@ -260,14 +236,6 @@ const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes in
     return lea;
 }
 
-const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem) {
-    return jump(a, (Jump) {
-        .target = dst,
-        .args = args,
-        .mem = mem,
-    });
-}
-
 const Node* unit_type(IrArena* arena) {
      return record_type(arena, (RecordType) {
          .members = shd_empty(arena),
@@ -275,15 +243,7 @@ const Node* unit_type(IrArena* arena) {
 }
 
 const Node* empty_multiple_return_type(IrArena* arena) {
-    return qualified_type_helper(unit_type(arena), true);
-}
-
-const Node* annotation_value_helper(IrArena* a, String n, const Node* v) {
-    return annotation_value(a, (AnnotationValue) { .name = n, .value = v});
-}
-
-const Node* string_lit_helper(IrArena* a, String s) {
-    return string_lit(a, (StringLiteral) { .string = s });
+    return shd_as_qualified_type(unit_type(arena), true);
 }
 
 const Type* shd_int_type_helper(IrArena* a, bool s, IntSizes w) { return int_type(a, (Int) { .width = w, .is_signed = s }); }

@@ -114,7 +114,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             const Node* instruction = NULL;
             if (imported_hint) {
                 assert(is_data_type(imported_hint));
-                const Node* s = qualified_type_helper(imported_hint, true);
+                const Node* s = shd_as_qualified_type(imported_hint, true);
                 if (oconstant->value)
                     instruction = infer(ctx, oconstant->value, s);
             } else if (oconstant->value) {
@@ -136,7 +136,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
              Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
              register_processed(&ctx->rewriter, node, ngvar);
 
-             ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, qualified_type_helper(imported_ty, true));
+             ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, shd_as_qualified_type(imported_ty, true));
              return ngvar;
         }
         case NominalType_TAG: {
@@ -172,7 +172,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 expect_uniform = deconstruct_qualified_type(&expected_type);
                 assert(is_subtype(expected_type, type));
             }
-            return infer(ctx, node->payload.constrained.value, qualified_type_helper(type, expect_uniform));
+            return infer(ctx, node->payload.constrained.value, shd_as_qualified_type(type, expect_uniform));
         }
         case IntLiteral_TAG: {
             if (expected_type) {
@@ -368,7 +368,8 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
         }
         case empty_mask_op:
         case mask_is_thread_active_op: {
-            input_types = mk_nodes(a, qualified_type_helper(mask_type(a), false), qualified_type_helper(shd_uint32_type(a), false));
+            input_types = mk_nodes(a, shd_as_qualified_type(mask_type(a), false),
+                                   shd_as_qualified_type(shd_uint32_type(a), false));
             break;
         }
         default: {
@@ -427,7 +428,7 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
 static const Node* infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* condition = infer(ctx, node->payload.if_instr.condition, qualified_type_helper(bool_type(a), false));
+    const Node* condition = infer(ctx, node->payload.if_instr.condition, shd_as_qualified_type(bool_type(a), false));
 
     Nodes join_types = infer_nodes(ctx, node->payload.if_instr.yield_types);
     Context infer_if_body_ctx = *ctx;
@@ -527,7 +528,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             assert(ptr_type->tag == PtrType_TAG);
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
             assert(element_t);
-            const Node* value = infer(ctx, payload.value, qualified_type_helper(element_t, false));
+            const Node* value = infer(ctx, payload.value, shd_as_qualified_type(element_t, false));
             return store(a, (Store) { .ptr = ptr, .value = value, .mem = infer(ctx, node->payload.store.mem, NULL) });
         }
         case Instruction_StackAlloc_TAG: {

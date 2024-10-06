@@ -857,7 +857,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
             param_name = param_name ? param_name : shd_format_string_arena(parser->arena->arena, "param%d", parser->fun_arg_i);
-            parser->defs[result].node = param(parser->arena, qualified_type_helper(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
+            parser->defs[result].node = param(parser->arena,
+                                              shd_as_qualified_type(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }
         case SpvOpLabel: {
@@ -916,7 +917,8 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             parser->defs[result].type = Value;
             String phi_name = get_name(parser, result);
             phi_name = phi_name ? phi_name : unique_name(parser->arena, "phi");
-            parser->defs[result].node = param(parser->arena, qualified_type_helper(get_def_type(parser, result_t), false), phi_name);
+            parser->defs[result].node = param(parser->arena,
+                                              shd_as_qualified_type(get_def_type(parser, result_t), false), phi_name);
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
@@ -1287,8 +1289,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             SpvId destinations[2] = { instruction[2], instruction[3] };
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
-                .true_jump = jump_helper(parser->arena, get_def_block(parser, destinations[0]), get_args_from_phi(parser, destinations[0], parser->current_block.id), bb_mem(bb)),
-                .false_jump = jump_helper(parser->arena, get_def_block(parser, destinations[1]), get_args_from_phi(parser, destinations[1], parser->current_block.id), bb_mem(bb)),
+                .true_jump = jump_helper(parser->arena, bb_mem(bb), get_def_block(parser, destinations[0]),
+                                         get_args_from_phi(parser, destinations[0], parser->current_block.id)),
+                .false_jump = jump_helper(parser->arena, bb_mem(bb), get_def_block(parser, destinations[1]),
+                                          get_args_from_phi(parser, destinations[1], parser->current_block.id)),
                 .condition = get_def_ssa_value(parser, instruction[1]),
             }));
             parser->current_block.builder = NULL;

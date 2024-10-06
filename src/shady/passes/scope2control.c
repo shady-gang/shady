@@ -53,7 +53,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = rewrite_node(r, node->payload.param.type);
             else
-                t = qualified_type_helper(rewrite_node(r, node->payload.param.type), false);
+                t = shd_as_qualified_type(rewrite_node(r, node->payload.param.type), false);
         }
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
@@ -114,7 +114,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
         Node* control_case = case_(a, shd_singleton(add_control.token));
-        set_abstraction_body(control_case, jump_helper(a, c, shd_empty(a), get_abstraction_mem(control_case)));
+        set_abstraction_body(control_case, jump_helper(a, get_abstraction_mem(control_case), c, shd_empty(a)));
 
         Node* c2 = case_(a, shd_empty(a));
         BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
@@ -130,10 +130,10 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         }
 
         c = c2;
-        set_abstraction_body(c2, finish_body(bb, jump_helper(a, find_processed(r, dst), results, bb_mem(bb))));
+        set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), find_processed(r, dst), results)));
     }
 
-    const Node* body = jump_helper(a, c, shd_empty(a), get_abstraction_mem(nabs));
+    const Node* body = jump_helper(a, get_abstraction_mem(nabs), c, shd_empty(a));
     set_abstraction_body(nabs, body);
 }
 
@@ -225,7 +225,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types
                     });
-                    const Node* join_token = param(a, qualified_type_helper(jp_type, false), get_abstraction_name_unsafe(dst));
+                    const Node* join_token = param(a, shd_as_qualified_type(jp_type, false), get_abstraction_name_unsafe(dst));
 
                     Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
@@ -290,7 +290,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Jump_TAG: {
             Wrapped* found = shd_dict_find_value(const Node*, Wrapped, ctx->jump2wrapper, node);
             if (found)
-                return jump_helper(a, found->wrapper, rewrite_nodes(r, node->payload.jump.args), rewrite_node(r, node->payload.jump.mem));
+                return jump_helper(a, rewrite_node(r, node->payload.jump.mem), found->wrapper,
+                                   rewrite_nodes(r, node->payload.jump.args));
             break;
         }
         default: break;

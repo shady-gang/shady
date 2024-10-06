@@ -440,7 +440,7 @@ const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
 
 const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
     assert(is_data_type(payload.ptr_type) && payload.ptr_type->tag == PtrType_TAG);
-    return qualified_type_helper(payload.ptr_type, true);
+    return shd_as_qualified_type(payload.ptr_type, true);
 }
 
 const Type* check_type_composite(IrArena* arena, Composite composite) {
@@ -565,7 +565,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(first_operand_type->tag == Int_TAG);
             assert(second_operand_type->tag == Int_TAG);
 
-            return qualified_type_helper(maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
+            return shd_as_qualified_type(maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
         }
         case add_carry_op:
         case sub_borrow_op:
@@ -598,7 +598,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 // TODO: assert unsigned
                 result_t = record_type(arena, (RecordType) {.members = mk_nodes(arena, result_t, result_t)});
             }
-            return qualified_type_helper(result_t, result_uniform);
+            return shd_as_qualified_type(result_t, result_uniform);
         }
 
         case not_op: {
@@ -628,7 +628,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 result_uniform &= operand_uniform;
             }
 
-            return qualified_type_helper(first_operand_type, result_uniform);
+            return shd_as_qualified_type(first_operand_type, result_uniform);
         }
         case lt_op:
         case lte_op:
@@ -653,7 +653,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 result_uniform &= operand_uniform;
             }
 
-            return qualified_type_helper(maybe_packed_type_helper(bool_type(arena), first_operand_width), result_uniform);
+            return shd_as_qualified_type(maybe_packed_type_helper(bool_type(arena), first_operand_width),
+                                         result_uniform);
         }
         case sqrt_op:
         case inv_sqrt_op:
@@ -671,7 +672,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform = deconstruct_qualified_type(&src_type);
             size_t width = deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG);
-            return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
+            return shd_as_qualified_type(maybe_packed_type_helper(src_type, width), uniform);
         }
         case pow_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -690,7 +691,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 result_uniform &= operand_uniform;
             }
 
-            return qualified_type_helper(first_operand_type, result_uniform);
+            return shd_as_qualified_type(first_operand_type, result_uniform);
         }
         case fma_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -709,7 +710,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 result_uniform &= operand_uniform;
             }
 
-            return qualified_type_helper(first_operand_type, result_uniform);
+            return shd_as_qualified_type(first_operand_type, result_uniform);
         }
         case abs_op:
         case sign_op:
@@ -720,7 +721,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform = deconstruct_qualified_type(&src_type);
             size_t width = deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
-            return qualified_type_helper(maybe_packed_type_helper(src_type, width), uniform);
+            return shd_as_qualified_type(maybe_packed_type_helper(src_type, width), uniform);
         }
         case align_of_op:
         case size_of_op: {
@@ -762,7 +763,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return qualified_type_helper(maybe_packed_type_helper(alternatives_types[0], width), alternatives_all_uniform && condition_uniform);
+            return shd_as_qualified_type(maybe_packed_type_helper(alternatives_types[0], width),
+                                         alternatives_all_uniform && condition_uniform);
         }
         case insert_op:
         case extract_dynamic_op:
@@ -789,7 +791,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 });
             }
 
-            return qualified_type_helper(t, uniform);
+            return shd_as_qualified_type(t, uniform);
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);
@@ -813,7 +815,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 int64_t index = get_int_literal_value(*resolve_to_int_literal(indices[i]), true);
                 assert(index < 0 /* poison */ || (index >= 0 && index < total_size && "shuffle element out of range"));
             }
-            return qualified_type_helper(pack_type(arena, (PackType) { .element_type = element_t, .width = indices_count }), u);
+            return shd_as_qualified_type(
+                    pack_type(arena, (PackType) {.element_type = element_t, .width = indices_count}), u);
         }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
@@ -851,7 +854,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         // Mask management
         case empty_mask_op: {
             assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
-            return qualified_type_helper(get_actual_mask_type(arena), true);
+            return shd_as_qualified_type(get_actual_mask_type(arena), true);
         }
         case mask_is_thread_active_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -1023,7 +1026,8 @@ const Type* check_type_load(IrArena* a, Load load) {
     const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
     const Type* elem_type = node_ptr_type_->pointed_type;
     elem_type = maybe_packed_type_helper(elem_type, width);
-    return qualified_type_helper(elem_type, ptr_uniform && is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
+    return shd_as_qualified_type(elem_type,
+                                 ptr_uniform && is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
 }
 
 const Type* check_type_store(IrArena* a, Store store) {
@@ -1122,12 +1126,12 @@ const Type* check_type_push_stack(IrArena* a, PushStack payload) {
 }
 
 const Type* check_type_pop_stack(IrArena* a, PopStack payload) {
-    return qualified_type_helper(payload.type, false);
+    return shd_as_qualified_type(payload.type, false);
 }
 
 const Type* check_type_set_stack_size(IrArena* a, SetStackSize payload) {
     assert(get_unqualified_type(payload.value->type) == shd_uint32_type(a));
-    return qualified_type_helper(unit_type(a), true);
+    return shd_as_qualified_type(unit_type(a), true);
 }
 
 const Type* check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {

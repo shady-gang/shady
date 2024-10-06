@@ -30,7 +30,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = rewrite_node(r, node->payload.param.type);
             else
-                t = qualified_type_helper(rewrite_node(r, node->payload.param.type), false);
+                t = shd_as_qualified_type(rewrite_node(r, node->payload.param.type), false);
         }
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
@@ -73,7 +73,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < new_params.count; i++)
-                        new_params = shd_change_node_at_index(a, new_params, i, param(a, qualified_type_helper(get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
+                        new_params = shd_change_node_at_index(a, new_params, i, param(a, shd_as_qualified_type(
+                                get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
                 old_annotations = shd_nodes_append(a, old_annotations, an->payload);
                 an = an->next;

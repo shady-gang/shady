@@ -249,24 +249,11 @@ const Type* shd_fp64_type(IrArena* arena);
 
 const Node* shd_fp_literal_helper(IrArena* a, FloatSizes size, double value);
 
-const Node* type_decl_ref_helper(IrArena*, const Node* decl);
-
 // values
 Node* param(IrArena*, const Type* type, const char* name);
 
 const Node* tuple_helper(IrArena*, Nodes contents);
-const Node* composite_helper(IrArena*, const Type*, Nodes contents);
-const Node* fn_addr_helper(IrArena*, const Node* fn);
-const Node* ref_decl_helper(IrArena*, const Node* decl);
-const Node* string_lit_helper(IrArena* a, String s);
-const Node* annotation_value_helper(IrArena* a, String n, const Node* v);
-
-// instructions
-const Node* prim_op_helper(IrArena*, Op, Nodes, Nodes);
 const Node* lea_helper(IrArena*, const Node*, const Node*, Nodes);
-
-// terminators
-const Node* jump_helper(IrArena* a, const Node* dst, Nodes args, const Node* mem);
 
 // decl ctors
 Node* function    (Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
