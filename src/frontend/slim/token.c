@@ -15,7 +15,7 @@ static const char* token_strings[] = {
 #undef TOKEN
 };
 
-const char* token_tags[] = {
+static const char* token_tags[] = {
 #define TOKEN(name, str) #name,
         TOKENS()
 #undef TOKEN
@@ -42,7 +42,7 @@ typedef struct Tokenizer_ {
     Token current;
 } Tokenizer;
 
-Tokenizer* new_tokenizer(const char* source) {
+Tokenizer* shd_new_tokenizer(const char* source) {
     if (!constants_initialized) {
         init_tokenizer_constants();
         constants_initialized = true;
@@ -56,11 +56,11 @@ Tokenizer* new_tokenizer(const char* source) {
         .line = 1,
     };
     memcpy(alloc, &tokenizer, sizeof(Tokenizer));
-    next_token(alloc);
+    shd_next_token(alloc);
     return alloc;
 }
 
-void destroy_tokenizer(Tokenizer* tokenizer) {
+void shd_destroy_tokenizer(Tokenizer* tokenizer) {
     free(tokenizer);
 }
 
@@ -68,7 +68,7 @@ static bool in_bounds(Tokenizer* tokenizer, size_t offset_to_slice) {
     return (tokenizer->pos + offset_to_slice) <= tokenizer->source_size;
 }
 
-const char whitespace[] = { ' ', '\t', '\r' };
+static const char whitespace[] = { ' ', '\t', '\r' };
 
 static inline bool is_alpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
 static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
@@ -104,7 +104,7 @@ static void eat_whitespace_and_comments(Tokenizer* tokenizer) {
     }
 }
 
-Token next_token(Tokenizer* tokenizer) {
+Token shd_next_token(Tokenizer* tokenizer) {
     eat_whitespace_and_comments(tokenizer);
     if (tokenizer->pos == tokenizer->source_size) {
         shd_debugvv_print("EOF\n");
@@ -212,13 +212,13 @@ Token next_token(Tokenizer* tokenizer) {
     return token;
 }
 
-Loc current_loc(Tokenizer* tokenizer) {
+Loc shd_current_loc(Tokenizer* tokenizer) {
     return (Loc) {
         .line = tokenizer->line,
         .column = tokenizer->pos - tokenizer->last_line_pos
     };
 }
 
-Token curr_token(Tokenizer* tokenizer) {
+Token shd_curr_token(Tokenizer* tokenizer) {
     return tokenizer->current;
 }

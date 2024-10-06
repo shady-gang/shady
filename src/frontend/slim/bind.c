@@ -366,7 +366,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     return recreate_node_identity(&ctx->rewriter, node);
 }
 
-Module* bind_program(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
+Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     assert(!src->arena->config.name_bound);
     aconfig.name_bound = true;

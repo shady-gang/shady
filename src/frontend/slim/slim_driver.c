@@ -8,15 +8,15 @@
 #include "log.h"
 
 /// Removes all Unresolved nodes and replaces them with the appropriate decl/value
-RewritePass bind_program;
+RewritePass slim_pass_bind;
 /// Enforces the grammar, notably by let-binding any intermediary result
-RewritePass normalize;
+RewritePass slim_pass_normalize;
 /// Makes sure every node is well-typed
-RewritePass infer_program;
+RewritePass slim_pass_infer;
 
 void slim_parse_string(ParserConfig config, const char* contents, Module* mod);
 
-Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name) {
+Module* shd_parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, const char* contents, String name) {
     ArenaConfig aconfig = default_arena_config(&config->target);
     aconfig.name_bound = false;
     aconfig.check_op_classes = false;
@@ -34,11 +34,11 @@ Module* parse_slim_module(const CompilerConfig* config, ParserConfig pconfig, co
 
     generate_dummy_constants(config, *pmod);
 
-    RUN_PASS(bind_program)
-    RUN_PASS(normalize)
+    RUN_PASS(slim_pass_bind)
+    RUN_PASS(slim_pass_normalize)
 
     RUN_PASS(normalize_builtins)
-    RUN_PASS(infer_program)
+    RUN_PASS(slim_pass_infer)
     RUN_PASS(lower_cf_instrs)
 
     destroy_ir_arena(initial_arena);

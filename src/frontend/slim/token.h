@@ -103,16 +103,14 @@ TOKEN(equal, "=") \
 TOKEN(LIST_END, NULL)
 
 typedef struct Tokenizer_ Tokenizer;
-Tokenizer* new_tokenizer(const char* source);
-void destroy_tokenizer(Tokenizer*);
+Tokenizer* shd_new_tokenizer(const char* source);
+void shd_destroy_tokenizer(Tokenizer* tokenizer);
 
 typedef enum {
 #define TOKEN(name, str) name##_tok,
     TOKENS()
 #undef TOKEN
 } TokenTag;
-
-extern const char* token_tags[];
 
 typedef struct {
     TokenTag tag;
@@ -124,10 +122,10 @@ typedef struct {
     size_t line, column;
 } Loc;
 
-Loc current_loc(Tokenizer* tokenizer);
+Loc shd_current_loc(Tokenizer* tokenizer);
 
-Token curr_token(Tokenizer* tokenizer);
-Token next_token(Tokenizer* tokenizer);
+Token shd_curr_token(Tokenizer* tokenizer);
+Token shd_next_token(Tokenizer* tokenizer);
 
 #define SHADY_TOKEN_H
 

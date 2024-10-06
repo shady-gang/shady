@@ -56,7 +56,7 @@ INFIX_OPERATORS()
 #define ctx config, contents, mod, arena, tokenizer
 
 static void error_with_loc(ctxparams) {
-    Loc loc = current_loc(tokenizer);
+    Loc loc = shd_current_loc(tokenizer);
     size_t startline = loc.line - 2;
     if (startline < 1) startline = 1;
     size_t endline = startline + 5;
@@ -139,17 +139,17 @@ static void expect_impl(ctxparams, bool condition, const char* format, ...) {
 }
 
 static bool accept_token(ctxparams, TokenTag tag) {
-    if (curr_token(tokenizer).tag == tag) {
-        next_token(tokenizer);
+    if (shd_curr_token(tokenizer).tag == tag) {
+        shd_next_token(tokenizer);
         return true;
     }
     return false;
 }
 
 static const char* accept_identifier(ctxparams) {
-    Token tok = curr_token(tokenizer);
+    Token tok = shd_curr_token(tokenizer);
     if (tok.tag == identifier_tok) {
-        next_token(tokenizer);
+        shd_next_token(tokenizer);
         size_t size = tok.end - tok.start;
         return string_sized(arena, (int) size, &contents[tok.start]);
     }
@@ -196,7 +196,7 @@ static const Node* accept_numerical_literal(ctxparams) {
 
     bool negate = accept_token(ctx, minus_tok);
 
-    Token tok = curr_token(tokenizer);
+    Token tok = shd_curr_token(tokenizer);
     size_t size = tok.end - tok.start;
     String str = string_sized(arena, (int) size, &contents[tok.start]);
 
@@ -205,7 +205,7 @@ static const Node* accept_numerical_literal(ctxparams) {
             if (negate)
                 syntax_error("hexadecimal literals can't start with '-'");
         case dec_lit_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             break;
         }
         default: {
@@ -258,7 +258,7 @@ static const Node* make_unbound(IrArena* a, const Node* mem, String identifier) 
 }
 
 static const Node* accept_value(ctxparams, BodyBuilder* bb) {
-    Token tok = curr_token(tokenizer);
+    Token tok = shd_curr_token(tokenizer);
     size_t size = tok.end - tok.start;
 
     const Node* number = accept_numerical_literal(ctx);
@@ -268,7 +268,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
     switch (tok.tag) {
         case identifier_tok: {
             const char* id = string_sized(arena, (int) size, &contents[tok.start]);
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
 
             Op op = PRIMOPS_COUNT;
             for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
@@ -328,29 +328,31 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         }
         case hex_lit_tok:
         case dec_lit_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             return untyped_number(arena, (UntypedNumber) {
                 .plaintext = string_sized(arena, (int) size, &contents[tok.start])
             });
         }
         case string_lit_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             char* unescaped = calloc(size + 1, 1);
             size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
             const Node* lit = string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) j, unescaped) });
             free(unescaped);
             return lit;
         }
-        case true_tok: next_token(tokenizer); return true_lit(arena);
-        case false_tok: next_token(tokenizer); return false_lit(arena);
+        case true_tok:
+            shd_next_token(tokenizer); return true_lit(arena);
+        case false_tok:
+            shd_next_token(tokenizer); return false_lit(arena);
         case lpar_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             if (accept_token(ctx, rpar_tok)) {
                 return tuple_helper(arena, shd_empty(arena));
             }
             const Node* atom = expect_operand(ctx, bb);
-            if (curr_token(tokenizer).tag == rpar_tok) {
-                next_token(tokenizer);
+            if (shd_curr_token(tokenizer).tag == rpar_tok) {
+                shd_next_token(tokenizer);
             } else {
                 struct List* elements = shd_new_list(const Node*);
                 shd_list_append(const Node*, elements, atom);
@@ -368,7 +370,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             return atom;
         }
         case composite_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             const Type* elem_type = accept_unqualified_type(ctx);
             expect(elem_type, "composite data type");
             Nodes elems = expect_operands(ctx, bb);
@@ -379,15 +381,23 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
 }
 
 static AddressSpace accept_address_space(ctxparams) {
-    switch (curr_token(tokenizer).tag) {
-        case global_tok:   next_token(tokenizer); return AsGlobal;
-        case private_tok:  next_token(tokenizer); return AsPrivate;
-        case shared_tok:   next_token(tokenizer); return AsShared;
-        case subgroup_tok: next_token(tokenizer); return AsSubgroup;
-        case generic_tok:  next_token(tokenizer); return AsGeneric;
-        case input_tok:    next_token(tokenizer); return AsInput;
-        case output_tok:   next_token(tokenizer); return AsOutput;
-        case extern_tok:   next_token(tokenizer); return AsExternal;
+    switch (shd_curr_token(tokenizer).tag) {
+        case global_tok:
+            shd_next_token(tokenizer); return AsGlobal;
+        case private_tok:
+            shd_next_token(tokenizer); return AsPrivate;
+        case shared_tok:
+            shd_next_token(tokenizer); return AsShared;
+        case subgroup_tok:
+            shd_next_token(tokenizer); return AsSubgroup;
+        case generic_tok:
+            shd_next_token(tokenizer); return AsGeneric;
+        case input_tok:
+            shd_next_token(tokenizer); return AsInput;
+        case output_tok:
+            shd_next_token(tokenizer); return AsOutput;
+        case extern_tok:
+            shd_next_token(tokenizer); return AsExternal;
         default:
             break;
     }
@@ -628,10 +638,10 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
     const Node* expr = accept_primary_expr(ctx, bb);
     while (expr) {
         InfixOperators infix;
-        if (is_infix_operator(curr_token(tokenizer).tag, &infix)) {
+        if (is_infix_operator(shd_curr_token(tokenizer).tag, &infix)) {
             int precedence = get_precedence(infix);
             if (precedence > outer_precedence) break;
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
 
             const Node* rhs = accept_expr(ctx, bb, precedence - 1);
             expect(rhs, "expression");
@@ -667,7 +677,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
             continue;
         }
 
-        switch (curr_token(tokenizer).tag) {
+        switch (shd_curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes ops = expect_operands(ctx, bb);
                 expr = bind_instruction_single(bb, call(arena, (Call) {
@@ -729,10 +739,10 @@ static const Node* make_loop_continue(const Node* mem) {
 }
 
 static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
-    Token current_token = curr_token(tokenizer);
+    Token current_token = shd_curr_token(tokenizer);
     switch (current_token.tag) {
         case if_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             expect(accept_token(ctx, lpar_tok), "'('");
             const Node* condition = accept_operand(ctx, bb);
@@ -753,7 +763,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, true_case, false_case));
         }
         case loop_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             Nodes parameters;
             Nodes initial_arguments;
@@ -765,7 +775,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             Nodes yield_types = accept_types(ctx, 0, NeverQualified);
             expect(accept_token(ctx, lpar_tok), "'('");
             String str = accept_identifier(ctx);
@@ -878,14 +888,14 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
 }
 
 static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
-    TokenTag tag = curr_token(tokenizer).tag;
+    TokenTag tag = shd_curr_token(tokenizer).tag;
     switch (tag) {
         case jump_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             return expect_jump(ctx, bb);
         }
         case branch_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
 
             expect(accept_token(ctx, lpar_tok), "'('");
             const Node* condition = accept_value(ctx, bb);
@@ -904,7 +914,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             });
         }
         case switch_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
 
             expect(accept_token(ctx, lpar_tok), "'('");
             const Node* inspectee = accept_value(ctx, bb);
@@ -938,7 +948,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             });
         }
         case return_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             Nodes args = expect_operands(ctx, bb);
             return fn_ret(arena, (Return) {
                 .args = args,
@@ -946,31 +956,31 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             });
         }
         case merge_selection_tok: {
-            next_token(tokenizer);
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
+            shd_next_token(tokenizer);
+            Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_selection(arena, (MergeSelection) {
                 .args = args,
                 .mem = bb_mem(bb)
             });
         }
         case continue_tok: {
-            next_token(tokenizer);
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
+            shd_next_token(tokenizer);
+            Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_continue(arena, (MergeContinue) {
                 .args = args,
                 .mem = bb_mem(bb)
             });
         }
         case break_tok: {
-            next_token(tokenizer);
-            Nodes args = curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
+            shd_next_token(tokenizer);
+            Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_break(arena, (MergeBreak) {
                 .args = args,
                 .mem = bb_mem(bb)
             });
         }
         case join_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok), "'('");
             const Node* jp = accept_operand(ctx, bb);
             expect(accept_token(ctx, rpar_tok), "')'");
@@ -982,7 +992,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             });
         }
         case unreachable_tok: {
-            next_token(tokenizer);
+            shd_next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok), "'('");
             expect(accept_token(ctx, rpar_tok), "')'");
             return unreachable(arena, (Unreachable) { .mem = bb_mem(bb) });
@@ -1022,7 +1032,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     Nodes ids = shd_empty(arena);
     Nodes conts = shd_empty(arena);
-    if (curr_token(tokenizer).tag == cont_tok) {
+    if (shd_curr_token(tokenizer).tag == cont_tok) {
         while (true) {
             if (!accept_token(ctx, cont_tok))
                 break;
@@ -1059,8 +1069,8 @@ static Nodes accept_annotations(ctxparams) {
                 }
 
                 // TODO: AnnotationCompound ?
-                if (curr_token(tokenizer).tag == comma_tok) {
-                    next_token(tokenizer);
+                if (shd_curr_token(tokenizer).tag == comma_tok) {
+                    shd_next_token(tokenizer);
                     struct List* values = shd_new_list(const Node*);
                     shd_list_append(const Node*, values, first_value);
                     while (true) {
@@ -1133,7 +1143,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     const char* name = accept_identifier(ctx);
     expect(name, "function name");
     Nodes types = accept_types(ctx, comma_tok, MaybeQualified);
-    expect(curr_token(tokenizer).tag == lpar_tok, "')'");
+    expect(shd_curr_token(tokenizer).tag == lpar_tok, "')'");
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL, NULL);
 
@@ -1225,10 +1235,10 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
 
 void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
     IrArena* arena = get_module_arena(mod);
-    Tokenizer* tokenizer = new_tokenizer(contents);
+    Tokenizer* tokenizer = shd_new_tokenizer(contents);
 
     while (true) {
-        Token token = curr_token(tokenizer);
+        Token token = shd_curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
@@ -1249,6 +1259,6 @@ void slim_parse_string(ParserConfig config, const char* contents, Module* mod) {
         syntax_error("expected a declaration");
     }
 
-    destroy_tokenizer(tokenizer);
+    shd_destroy_tokenizer(tokenizer);
 }
 

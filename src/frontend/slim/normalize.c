@@ -110,7 +110,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return new;
 }
 
-Module* normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
     aconfig.check_op_classes = true;
     IrArena* a = new_ir_arena(&aconfig);
