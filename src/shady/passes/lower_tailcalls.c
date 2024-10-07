@@ -434,15 +434,15 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     })));
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
-    struct Dict* ptrs = shd_new_dict(const Node*, FnPtr, (HashFn) hash_node, (CmpFn) compare_node);
+    struct Dict* ptrs = shd_new_dict(const Node*, FnPtr, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
 
     Node* init_fn = function(dst, shd_nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
     set_abstraction_body(init_fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = get_abstraction_mem(init_fn) }));

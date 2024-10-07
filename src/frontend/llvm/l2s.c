@@ -33,8 +33,8 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
     return *a == *b;
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 #ifdef LLVM_VERSION_MAJOR
 int vcc_get_linked_major_llvm_version() {
@@ -180,7 +180,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
     FnParseCtx fn_parse_ctx = {
         .fn = f,
-        .phis = shd_new_dict(const Node*, struct List*, (HashFn) hash_node, (CmpFn) compare_node),
+        .phis = shd_new_dict(const Node*, struct List*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .bbs = shd_new_dict(LLVMBasicBlockRef, BBParseCtx*, (HashFn) shd_hash_ptr, (CmpFn) shd_compare_ptrs),
         .jumps_todo = shd_new_list(JumpTodo),
     };

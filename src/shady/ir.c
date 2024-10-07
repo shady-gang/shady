@@ -19,8 +19,8 @@ static bool shd_compare_strings(Strings* a, Strings* b);
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node** a, const Node** b);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node** a, const Node** b);
 
 IrArena* shd_new_ir_arena(const ArenaConfig* config) {
     IrArena* arena = malloc(sizeof(IrArena));
@@ -30,7 +30,7 @@ IrArena* shd_new_ir_arena(const ArenaConfig* config) {
 
         .modules = shd_new_list(Module*),
 
-        .node_set = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .node_set = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .string_set = shd_new_set(const char*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
 
         .nodes_set   = shd_new_set(Nodes, (HashFn) shd_hash_nodes, (CmpFn) shd_compare_nodes),

@@ -10,8 +10,8 @@
 #include <assert.h>
 #include <string.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 Rewriter shd_create_rewriter_base(Module* src, Module* dst) {
     return (Rewriter) {
@@ -23,9 +23,9 @@ Rewriter shd_create_rewriter_base(Module* src, Module* dst) {
             .search_map = true,
             .write_map = true,
         },
-        .map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .own_decls = true,
-        .decls_map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .decls_map = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .parent = NULL,
     };
 }
@@ -56,7 +56,7 @@ Rewriter shd_create_importer(Module* src, Module* dst) {
 
 Rewriter shd_create_children_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
-    r.map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.map = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
     r.parent = parent;
     r.own_decls = false;
     return r;
@@ -64,7 +64,7 @@ Rewriter shd_create_children_rewriter(Rewriter* parent) {
 
 Rewriter shd_create_decl_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
-    r.map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+    r.map = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
     r.own_decls = false;
     return r;
 }
@@ -232,8 +232,8 @@ void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
         shd_register_processed(rewriter, old.nodes[i], new.nodes[i]);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 #pragma GCC diagnostic error "-Wswitch"
 

@@ -26,8 +26,8 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     shd_visit_node_operands(&visitor->visitor, 0, node);
 }
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 static void verify_same_arena(Module* mod) {
     const IrArena* arena = get_module_arena(mod);
@@ -36,7 +36,7 @@ static void verify_same_arena(Module* mod) {
             .visit_node_fn = (VisitNodeFn) visit_verify_same_arena,
         },
         .arena = arena,
-        .once = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .once = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
     shd_visit_module(&visitor.visitor, mod);
     shd_destroy_dict(visitor.once);

@@ -22,8 +22,8 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 void register_emitted(Emitter* emitter, FnEmitter* fn, const Node* node, CTerm as) {
     //assert(as.value || as.var);
@@ -307,7 +307,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             if (body) {
                 FnEmitter fn = {
                     .cfg = build_fn_cfg(decl),
-                    .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
+                    .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
                 };
                 fn.scheduler = new_scheduler(fn.cfg);
                 fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
@@ -437,8 +437,8 @@ void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Mo
         .type_decls = shd_new_printer_from_growy(type_decls_g),
         .fn_decls = shd_new_printer_from_growy(fn_decls_g),
         .fn_defs = shd_new_printer_from_growy(fn_defs_g),
-        .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) hash_node, (CmpFn) compare_node),
-        .emitted_types = shd_new_dict(Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .emitted_types = shd_new_dict(Node*, String, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
 
     // builtins magic (hack) for CUDA

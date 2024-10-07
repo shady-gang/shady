@@ -9,8 +9,8 @@
 #include "shady/rewrite.h"
 #include "../shady/type.h"
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct {
     Rewriter rewriter;

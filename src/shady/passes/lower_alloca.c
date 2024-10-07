@@ -69,8 +69,8 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     shd_visit_node_operands(&vctx->visitor, ~NcMem, node);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
@@ -90,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
-            ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
             ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
             set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");

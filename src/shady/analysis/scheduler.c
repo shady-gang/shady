@@ -5,8 +5,8 @@
 #include "dict.h"
 #include <stdlib.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 struct Scheduler_ {
     Visitor v;
@@ -51,7 +51,7 @@ Scheduler* new_scheduler(CFG* cfg) {
             .visit_op_fn = (VisitOpFn) visit_operand,
         },
         .cfg = cfg,
-        .scheduled = shd_new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
+        .scheduled = shd_new_dict(const Node*, CFNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     return s;
 }

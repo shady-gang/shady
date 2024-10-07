@@ -23,8 +23,8 @@ typedef struct {
     struct List* stack;
 } LoopTreeBuilder;
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) {
     LTNode* n = calloc(sizeof(LTNode), 1);
@@ -221,7 +221,7 @@ LoopTree* build_loop_tree(CFG* s) {
     shd_destroy_list(global_heads);
     shd_destroy_list(ltb.stack);
 
-    lt->map = shd_new_dict(const Node*, LTNode*, (HashFn) hash_node, (CmpFn) compare_node);
+    lt->map = shd_new_dict(const Node*, LTNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
     build_map_recursive(lt->map, lt->root);
 
     return lt;

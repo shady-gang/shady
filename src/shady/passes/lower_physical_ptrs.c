@@ -361,8 +361,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 static Nodes collect_globals(Context* ctx, AddressSpace as) {
     IrArena* a = ctx->rewriter.dst_arena;
@@ -502,10 +502,10 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {
-            ctx.serialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.deserialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.serialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
-            ctx.deserialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node);
+            ctx.serialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+            ctx.deserialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+            ctx.serialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+            ctx.deserialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
         }
     }
 

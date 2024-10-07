@@ -12,8 +12,8 @@
 #include <string.h>
 #include <assert.h>
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 KeyHash hash_cgedge(CGEdge* n) {
     return shd_hash_murmur(n, sizeof(CGEdge));
@@ -197,7 +197,7 @@ static void tarjan(struct Dict* verts) {
 CallGraph* new_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
-        .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
+        .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
 
     const UsesMap* uses = create_module_uses_map(mod, NcType);

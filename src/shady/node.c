@@ -329,9 +329,9 @@ void set_abstraction_body(Node* abs, const Node* body) {
     }
 }
 
-KeyHash hash_node_payload(const Node* node);
+KeyHash _shd_hash_node_payload(const Node* node);
 
-KeyHash hash_node(Node** pnode) {
+KeyHash shd_hash_node(Node** pnode) {
     const Node* node = *pnode;
     KeyHash combined;
 
@@ -347,7 +347,7 @@ KeyHash hash_node(Node** pnode) {
     KeyHash payload_hash = 0;
 
     if (node_type_has_payload[node->tag]) {
-        payload_hash = hash_node_payload(node);
+        payload_hash = _shd_hash_node_payload(node);
     }
     combined = tag_hash ^ payload_hash;
 
@@ -355,9 +355,9 @@ KeyHash hash_node(Node** pnode) {
     return combined;
 }
 
-bool compare_node_payload(const Node*, const Node*);
+bool _shd_compare_node_payload(const Node*, const Node*);
 
-bool compare_node(Node** pa, Node** pb) {
+bool shd_compare_node(Node** pa, Node** pb) {
     if ((*pa)->tag != (*pb)->tag) return false;
     if (is_nominal((*pa)))
         return *pa == *pb;
@@ -369,7 +369,7 @@ bool compare_node(Node** pa, Node** pb) {
     #define field(w) eq &= memcmp(&a->payload.w, &b->payload.w, sizeof(a->payload.w)) == 0;
 
     if (node_type_has_payload[a->tag]) {
-        return compare_node_payload(a, b);
+        return _shd_compare_node_payload(a, b);
     } else return true;
 }
 

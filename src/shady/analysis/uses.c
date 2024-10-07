@@ -8,8 +8,8 @@
 #include <assert.h>
 #include <string.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 struct UsesMap_ {
     struct Dict* map;
@@ -66,7 +66,7 @@ static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, co
 static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeClass exclude) {
     UsesMap* uses = calloc(sizeof(UsesMap), 1);
     *uses = (UsesMap) {
-        .map = shd_new_dict(const Node*, Use*, (HashFn) hash_node, (CmpFn) compare_node),
+        .map = shd_new_dict(const Node*, Use*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .a = shd_new_arena(),
     };
 
@@ -74,7 +74,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
         .v = { .visit_op_fn = (VisitOpFn) uses_visit_op },
         .map = uses,
         .exclude = exclude,
-        .seen = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .seen = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     if (root)
         uses_visit_node(&v, root);

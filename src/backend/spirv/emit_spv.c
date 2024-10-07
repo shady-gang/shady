@@ -19,8 +19,8 @@
 #include <assert.h>
 #include <analysis/scheduler.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
@@ -84,7 +84,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
     SpvId fn_id = spv_find_emitted(emitter, NULL, node);
     FnBuilder fn_builder = {
         .base = spvb_begin_fn(emitter->file_builder, fn_id, spv_emit_type(emitter, fn_type), spv_types_to_codom(emitter, node->payload.fun.return_types)),
-        .emitted = shd_new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .cfg = build_fn_cfg(node),
     };
     fn_builder.scheduler = new_scheduler(fn_builder.cfg);
@@ -341,8 +341,8 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
         .arena = arena,
         .configuration = config,
         .file_builder = file_builder,
-        .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) hash_node, (CmpFn) compare_node),
-        .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) hash_node, (CmpFn) compare_node),
+        .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .num_entry_pts = 0,
     };
 

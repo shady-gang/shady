@@ -231,8 +231,8 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     bool todo = false;
@@ -243,7 +243,7 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = shd_new_arena(),
-        .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
+        .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .todo = &todo
     };
     shd_rewrite_module(&ctx.rewriter);

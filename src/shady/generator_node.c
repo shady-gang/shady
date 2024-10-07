@@ -34,7 +34,7 @@ static void generate_node_has_payload_array(Growy* g, json_object* nodes) {
 }
 
 static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_object* nodes) {
-    shd_growy_append_formatted(g, "KeyHash hash_node_payload(const Node* node) {\n");
+    shd_growy_append_formatted(g, "KeyHash _shd_hash_node_payload(const Node* node) {\n");
     shd_growy_append_formatted(g, "\tKeyHash hash = 0;\n");
     shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
@@ -73,7 +73,7 @@ static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_objec
 }
 
 static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object* nodes) {
-    shd_growy_append_formatted(g, "bool compare_node_payload(const Node* a, const Node* b) {\n");
+    shd_growy_append_formatted(g, "bool _shd_compare_node_payload(const Node* a, const Node* b) {\n");
     shd_growy_append_formatted(g, "\tbool eq = true;\n");
     shd_growy_append_formatted(g, "\tswitch (a->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);

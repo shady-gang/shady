@@ -21,8 +21,8 @@
 
 #include <assert.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct Context_ {
     Rewriter rewriter;
@@ -235,7 +235,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         bool todo = false;
         Context ctx = {
             .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-            .lifted = shd_new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
+            .lifted = shd_new_dict(const Node*, LiftedCont*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
             .config = config,
 
             .todo = &todo

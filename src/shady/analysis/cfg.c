@@ -28,8 +28,8 @@ struct List* build_cfgs(Module* mod, CFGBuildConfig config) {
     return cfgs;
 }
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 typedef struct {
     Arena* arena;
@@ -69,7 +69,7 @@ static CFNode* new_cfnode(Arena* a) {
         .rpo_index = SIZE_MAX,
         .idom = NULL,
         .dominates = NULL,
-        .structurally_dominates = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .structurally_dominates = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     return new;
 }
@@ -381,8 +381,8 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
         .arena = arena,
         .function = function,
         .entry = entry,
-        .nodes = shd_new_dict(const Node*, CFNode*, (HashFn) hash_node, (CmpFn) compare_node),
-        .join_point_values = shd_new_dict(const Node*, const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .nodes = shd_new_dict(const Node*, CFNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .join_point_values = shd_new_dict(const Node*, const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .contents = shd_new_list(CFNode*),
         .config = config,
     };

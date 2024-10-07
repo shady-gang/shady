@@ -38,8 +38,8 @@ static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     }
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 struct Dict* free_frontier(Scheduler* scheduler, CFG* cfg, const Node* abs) {
     FreeFrontierVisitor ffv = {
@@ -49,8 +49,8 @@ struct Dict* free_frontier(Scheduler* scheduler, CFG* cfg, const Node* abs) {
         .scheduler = scheduler,
         .cfg = cfg,
         .start = cfg_lookup(cfg, abs),
-        .frontier = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .seen = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
+        .frontier = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .seen = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     if (get_abstraction_body(abs))
         visit_free_frontier(&ffv, get_abstraction_body(abs));

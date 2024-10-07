@@ -17,8 +17,8 @@
 
 #include <string.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct {
     Rewriter rewriter;
@@ -68,7 +68,7 @@ static Controls* get_or_create_controls(Context* ctx, const Node* fn_or_bb) {
     IrArena* a = ctx->rewriter.dst_arena;
     Controls* controls = shd_arena_alloc(ctx->arena, sizeof(Controls));
     *controls = (Controls) {
-        .control_destinations = shd_new_dict(const Node*, AddControl, (HashFn) hash_node, (CmpFn) compare_node),
+        .control_destinations = shd_new_dict(const Node*, AddControl, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     shd_dict_insert(const Node*, Controls*, ctx->controls, fn_or_bb, controls);
     return controls;
@@ -309,8 +309,8 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .arena = shd_new_arena(),
-        .controls = shd_new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
-        .jump2wrapper = shd_new_dict(const Node*, Wrapped, (HashFn) hash_node, (CmpFn) compare_node),
+        .controls = shd_new_dict(const Node*, Controls*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .jump2wrapper = shd_new_dict(const Node*, Wrapped, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;

@@ -37,8 +37,8 @@ struct PrinterCtx_ {
     struct Dict* emitted;
 };
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 static bool print_node_impl(PrinterCtx* ctx, const Node* node);
 static void print_terminator(PrinterCtx* ctx, const Node* node);
@@ -51,7 +51,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
-        .emitted = shd_new_dict(const Node*, String, (HashFn) hash_node, (CmpFn) compare_node),
+        .emitted = shd_new_dict(const Node*, String, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .root_growy = shd_new_growy(),
     };
     ctx.root_printer = shd_new_printer_from_growy(ctx.root_growy);

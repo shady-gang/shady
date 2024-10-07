@@ -145,8 +145,8 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
@@ -156,7 +156,7 @@ Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
-        .fns =  shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
+        .fns =  shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

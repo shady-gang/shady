@@ -223,8 +223,8 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
