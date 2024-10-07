@@ -4,6 +4,8 @@
 #include "shady/ir.h"
 #include "shady/ir/builtin.h"
 
+const Node* lea_helper(IrArena*, const Node*, const Node*, Nodes);
+
 void gen_push_value_stack(BodyBuilder* bb, const Node* value);
 void gen_push_values_stack(BodyBuilder* bb, Nodes values);
 const Node* gen_pop_value_stack(BodyBuilder*, const Type* type);

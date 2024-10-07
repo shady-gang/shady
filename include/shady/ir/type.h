@@ -1,11 +1,18 @@
 #ifndef SHADY_IR_TYPE_H
 #define SHADY_IR_TYPE_H
 
-#include "shady/ir/base.h"
+#include "shady/ir/grammar.h"
 
 /// Unit type, carries no information (equivalent to C's void)
 /// There is exactly one possible value of this type: ()
 const Node* unit_type(IrArena*);
+
+Type* nominal_type(Module*, Nodes annotations, String name);
+
+String get_address_space_name(AddressSpace);
+/// Returns false iff pointers in that address space can contain different data at the same address
+/// (amongst threads in the same subgroup)
+bool is_addr_space_uniform(IrArena*, AddressSpace);
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type*);

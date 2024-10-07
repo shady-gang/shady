@@ -1,19 +1,7 @@
 #ifndef SHADY_IR_INT_H
 #define SHADY_IR_INT_H
 
-#include "shady/ir/base.h"
-
-typedef enum {
-    IntTy8,
-    IntTy16,
-    IntTy32,
-    IntTy64,
-} IntSizes;
-
-enum {
-    IntSizeMin = IntTy8,
-    IntSizeMax = IntTy64,
-};
+#include "shady/ir/grammar.h"
 
 static inline int int_size_in_bytes(IntSizes s) {
     switch (s) {
@@ -45,5 +33,8 @@ const Node* shd_uint8_literal(IrArena* arena, uint8_t u);
 const Node* shd_uint16_literal(IrArena* arena, uint16_t u);
 const Node* shd_uint32_literal(IrArena* arena, uint32_t u);
 const Node* shd_uint64_literal(IrArena* arena, uint64_t u);
+
+const IntLiteral* resolve_to_int_literal(const Node* node);
+int64_t get_int_literal_value(IntLiteral, bool sign_extend);
 
 #endif

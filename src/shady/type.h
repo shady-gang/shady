@@ -21,7 +21,4 @@ bool is_conversion_legal(const Type* src_type, const Type* dst_type);
 
 const Type* get_actual_mask_type(IrArena* arena);
 
-void enter_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack);
-void enter_composite_indices(const Type** datatype, bool* uniform, Nodes indices, bool allow_entering_pack);
-
 #endif

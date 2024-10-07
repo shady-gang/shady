@@ -1,13 +1,7 @@
 #ifndef SHADY_IR_FLOAT_H
 #define SHADY_IR_FLOAT_H
 
-#include "shady/ir/base.h"
-
-typedef enum {
-    FloatTy16,
-    FloatTy32,
-    FloatTy64
-} FloatSizes;
+#include "shady/ir/grammar.h"
 
 static inline int float_size_in_bytes(FloatSizes s) {
     switch (s) {
@@ -22,5 +16,8 @@ const Type* shd_fp32_type(IrArena* arena);
 const Type* shd_fp64_type(IrArena* arena);
 
 const Node* shd_fp_literal_helper(IrArena* a, FloatSizes size, double value);
+
+const FloatLiteral* resolve_to_float_literal(const Node* node);
+double get_float_literal_value(FloatLiteral);
 
 #endif
