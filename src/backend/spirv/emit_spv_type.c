@@ -88,7 +88,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
             }
             break;
         }
-        default: shd_error("not a suitable nominal type body (tag=%s)", node_tags[type->tag]);
+        default: shd_error("not a suitable nominal type body (tag=%s)", shd_get_node_tag_string(type->tag));
     }
 }
 

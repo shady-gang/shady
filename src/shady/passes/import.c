@@ -32,9 +32,9 @@ const Node* import_node(Rewriter* r, const Node* node) {
             }
             if (node->tag != existing->tag) {
                 shd_error_print("Incompatible node types for to-be-merged declaration: %s ", get_declaration_name(node));
-                shd_error_print("%s", node_tags[existing->tag]);
+                shd_error_print("%s", shd_get_node_tag_string(existing->tag));
                 shd_error_print(" vs ");
-                shd_error_print("%s", node_tags[node->tag]);
+                shd_error_print("%s", shd_get_node_tag_string(node->tag));
                 shd_error_print(".\n");
                 shd_error_die();
             }

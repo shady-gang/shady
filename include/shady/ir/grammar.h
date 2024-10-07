@@ -22,4 +22,6 @@ typedef struct BodyBuilder_ BodyBuilder;
 // see grammar.json
 #include "grammar_generated.h"
 
+const char* shd_get_node_tag_string(NodeTag tag);
+
 #endif

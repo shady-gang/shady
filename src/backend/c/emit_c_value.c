@@ -69,7 +69,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
         default: {
             assert(!is_instruction(value));
-            shd_error("Unhandled value for code generation: %s", node_tags[value->tag]);
+            shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(value->tag));
         }
         case Value_IntLiteral_TAG: {
             if (value->payload.int_literal.is_signed)

@@ -556,7 +556,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             break;
         }
         default: {
-            shd_error("Unhandled value for code generation: %s", node_tags[node->tag]);
+            shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));
         }
     }
 

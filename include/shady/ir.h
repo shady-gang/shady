@@ -15,9 +15,6 @@
 #include "shady/ir/primop.h"
 #include "shady/ir/grammar.h"
 
-extern const char* node_tags[];
-extern const bool node_type_has_payload[];
-
 //////////////////////////////// Node categories ////////////////////////////////
 
 bool is_nominal(const Node* node);

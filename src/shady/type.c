@@ -204,7 +204,7 @@ String name_type_safe(IrArena* arena, const Type* t) {
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
         default: break;
     }
-    return unique_name(arena, node_tags[t->tag]);
+    return unique_name(arena, shd_get_node_tag_string(t->tag));
 }
 
 /// Is this a type that a value in the language can have ?

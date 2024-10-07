@@ -329,6 +329,14 @@ void set_abstraction_body(Node* abs, const Node* body) {
     }
 }
 
+const char* node_tags[];
+
+const char* shd_get_node_tag_string(NodeTag tag) {
+    return node_tags[tag];
+}
+
+const bool node_type_has_payload[];
+
 KeyHash _shd_hash_node_payload(const Node* node);
 
 KeyHash shd_hash_node(Node** pnode) {

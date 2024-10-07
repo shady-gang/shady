@@ -1,5 +1,7 @@
 #include "s2s.h"
+
 #include "shady/ir/builtin.h"
+#include "shady/ir/memory_layout.h"
 
 // this avoids polluting the namespace
 #define SpvHasResultAndType ShadySpvHasResultAndType

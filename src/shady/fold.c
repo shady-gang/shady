@@ -1,10 +1,12 @@
 #include "fold.h"
 
+#include "shady/ir/memory_layout.h"
+#include "shady/rewrite.h"
+
 #include "log.h"
 
 #include "type.h"
 #include "portability.h"
-#include "shady/rewrite.h"
 
 #include "transform/ir_gen_helpers.h"
 
