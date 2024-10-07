@@ -16,8 +16,7 @@ typedef struct {
     bool is_entry_point;
 } Context;
 
-static void add_bounds_check(BodyBuilder* bb, const Node* i, const Node* max) {
-    IrArena* a = bb->arena;
+static void add_bounds_check(IrArena* a, BodyBuilder* bb, const Node* i, const Node* max) {
     Node* out_of_bounds_case = case_(a, shd_empty(a));
     shd_set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
         .args = shd_empty(a),
@@ -119,7 +118,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         cases[scope * 3 + dim] = loop_body;
                         BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_body));
                         builders[scope * 3 + dim] = loop_bb;
-                        add_bounds_check(loop_bb, params[dim], maxes[dim]);
+                        add_bounds_check(a, loop_bb, params[dim], maxes[dim]);
                     }
                 }
 

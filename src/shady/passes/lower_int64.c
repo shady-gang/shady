@@ -16,16 +16,16 @@ static bool should_convert(Context* ctx, const Type* t) {
     return t->tag == Int_TAG && t->payload.int_type.width == IntTy64 && ctx->config->lower.int64;
 }
 
-static void extract_low_hi_halves(BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
-    *lo = shd_first(bind_instruction(bb, prim_op(bb->arena,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, shd_int32_literal(bb->arena, 0)) })));
-    *hi = shd_first(bind_instruction(bb, prim_op(bb->arena,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(bb->arena, src, shd_int32_literal(bb->arena, 1)) })));
+static void extract_low_hi_halves(IrArena* a, BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
+    *lo = shd_first(bind_instruction(bb, prim_op(a,
+                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) })));
+    *hi = shd_first(bind_instruction(bb, prim_op(a,
+                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) })));
 }
 
-static void extract_low_hi_halves_list(BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
+static void extract_low_hi_halves_list(IrArena* a, BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
     for (size_t i = 0; i < src.count; i++) {
-        extract_low_hi_halves(bb, src.nodes[i], lows, his);
+        extract_low_hi_halves(a, bb, src.nodes[i], lows, his);
         lows++;
         his++;
     }
@@ -59,7 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     Nodes new_nodes = shd_rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
                     BodyBuilder* bb = begin_block_pure(a);
-                    extract_low_hi_halves_list(bb, new_nodes, lows, his);
+                    extract_low_hi_halves_list(a, bb, new_nodes, lows, his);
                     Nodes low_and_carry = bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = shd_nodes(a, 2, lows)}));
                     const Node* lo = shd_first(low_and_carry);
                     // compute the high side, without forgetting the carry bit

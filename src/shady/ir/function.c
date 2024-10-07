@@ -80,3 +80,65 @@ Node* basic_block(IrArena* arena, Nodes params, const char* name) {
 
     return bb;
 }
+
+const Node* shd_get_abstraction_mem(const Node* abs) {
+    return abs_mem(abs->arena, (AbsMem) { .abs = abs });
+}
+
+String shd_get_abstraction_name(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        default: assert(false);
+    }
+}
+
+String shd_get_abstraction_name_unsafe(const Node* abs) {
+    assert(is_abstraction(abs));
+    switch (abs->tag) {
+        case Function_TAG: return abs->payload.fun.name;
+        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        default: assert(false);
+    }
+}
+
+String shd_get_abstraction_name_safe(const Node* abs) {
+    String name = shd_get_abstraction_name_unsafe(abs);
+    if (name)
+        return name;
+    return shd_fmt_string_irarena(abs->arena, "%%%d", abs->id);
+}
+
+void shd_set_abstraction_body(Node* abs, const Node* body) {
+    assert(is_abstraction(abs));
+    assert(!body || is_terminator(body));
+    IrArena* a = abs->arena;
+
+    if (body) {
+        while (true) {
+            const Node* mem0 = shd_get_original_mem(get_terminator_mem(body));
+            assert(mem0->tag == AbsMem_TAG);
+            Node* mem_abs = mem0->payload.abs_mem.abs;
+            if (is_basic_block(mem_abs)) {
+                BodyBuilder* insert = mem_abs->payload.basic_block.insert;
+                if (insert && mem_abs != abs) {
+                    const Node* mem = _shd_bb_insert_mem(insert);
+                    const Node* block = _shd_bb_insert_block(insert);
+                    shd_set_abstraction_body((Node*) block, _shd_finish_block_body(insert, body));
+                    body = jump_helper(a, mem, block, shd_empty(a));
+                    // mem_abs->payload.basic_block.insert = NULL;
+                    continue;
+                }
+            }
+            assert(mem_abs == abs);
+            break;
+        }
+    }
+
+    switch (abs->tag) {
+        case Function_TAG: abs->payload.fun.body = body; break;
+        case BasicBlock_TAG: abs->payload.basic_block.body = body; break;
+        default: assert(false);
+    }
+}

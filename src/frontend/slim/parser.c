@@ -858,13 +858,13 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
-        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(bb->arena), shd_nodes_prepend(bb->arena, strings2nodes(bb->arena, ids), instruction));
+        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(arena), shd_nodes_prepend(arena, strings2nodes(arena, ids), instruction));
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
-        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(bb->arena), shd_nodes_prepend(bb->arena, shd_concat_nodes(bb->arena, strings2nodes(bb->arena, ids), types), instruction));
+        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(arena), shd_nodes_prepend(arena, shd_concat_nodes(arena, strings2nodes(arena, ids), types), instruction));
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;

@@ -1,4 +1,4 @@
-#include "ir_private.h"
+#include "shady/body_builder.h"
 
 #include "transform/ir_gen_helpers.h"
 
@@ -11,6 +11,15 @@
 #include <assert.h>
 
 #pragma GCC diagnostic error "-Wswitch"
+
+struct BodyBuilder_ {
+    IrArena* arena;
+    struct List* stack;
+    const Node* block_entry_block;
+    const Node* block_entry_mem;
+    const Node* mem;
+    Node* tail_block;
+};
 
 typedef struct {
     Structured_constructTag tag;
@@ -46,6 +55,18 @@ BodyBuilder* begin_block_pure(IrArena* a) {
     return builder;
 }
 
+IrArena* _shd_get_bb_arena(BodyBuilder* bb) {
+    return bb->arena;
+}
+
+const Node* _shd_bb_insert_mem(BodyBuilder* bb) {
+    return bb->block_entry_mem;
+}
+
+const Node* _shd_bb_insert_block(BodyBuilder* bb) {
+    return bb->block_entry_block;
+}
+
 const Node* bb_mem(BodyBuilder* bb) {
     return bb->mem;
 }
@@ -63,7 +84,7 @@ Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size
 }
 
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
-    if (bb->arena->config.check_types) {
+    if (shd_get_arena_config(bb->arena)->check_types) {
         assert(is_mem(instruction));
     }
     if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
@@ -72,7 +93,7 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
 }
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
-    assert(bb->arena->config.check_types);
+    assert(shd_get_arena_config(bb->arena)->check_types);
     return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
 }
 
@@ -81,7 +102,7 @@ const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
-    assert(bb->arena->config.check_types);
+    assert(shd_get_arena_config(bb->arena)->check_types);
     assert(output_names);
     return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
 }
@@ -203,7 +224,7 @@ const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
     return yield_value_and_wrap_in_block(bb, maybe_tuple_helper(bb->arena, values));
 }
 
-const Node* finish_block_body(BodyBuilder* bb, const Node* terminator) {
+const Node* _shd_finish_block_body(BodyBuilder* bb, const Node* terminator) {
     assert(bb->block_entry_mem);
     terminator = build_body(bb, terminator);
     shd_destroy_list(bb->stack);
