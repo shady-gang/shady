@@ -56,7 +56,7 @@ static void test_body_builder_fun_body(IrArena* a) {
     set_abstraction_body(fun, finish_body(bb, return_terminator));
     // set_abstraction_body(fun, finish_body_with_return(bb, singleton(sum)));
 
-    dump_module(m);
+    shd_dump_module(m);
 
     // Follow the CFG and the mems to make sure we arrive back at the initial start !
     CFG* cfg = build_fn_cfg(fun);
@@ -109,7 +109,7 @@ static void test_body_builder_impure_block(IrArena* a) {
     });
     set_abstraction_body(fun, finish_body(bb, return_terminator));
 
-    dump_module(m);
+    shd_dump_module(m);
 
     bool found_store = false;
     const Node* mem = get_terminator_mem(return_terminator);
@@ -152,7 +152,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     });
     set_abstraction_body(fun, finish_body(bb, return_terminator));
 
-    dump_module(m);
+    shd_dump_module(m);
 }
 
 int main(int argc, char** argv) {

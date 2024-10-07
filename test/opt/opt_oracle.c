@@ -40,10 +40,10 @@ static void check_module(Module* mod) {
         if (!expect_memstuff)
             shd_error_print("no more ");
         shd_error_print("memory primops in the output.\n");
-        dump_module(mod);
+        shd_dump_module(mod);
         exit(-1);
     }
-    dump_module(mod);
+    shd_dump_module(mod);
     exit(0);
 }
 

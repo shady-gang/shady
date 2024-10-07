@@ -102,7 +102,7 @@ void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     *str_ptr = shd_growy_deconstruct(g);
 }
 
-void dump_node(const Node* node) {
+void shd_dump_node(const Node* node) {
     Printer* p = shd_new_printer_from_file(stdout);
     if (node)
         shd_print(p, "%%%d ", node->id);
@@ -110,7 +110,7 @@ void dump_node(const Node* node) {
     printf("\n");
 }
 
-void dump_module(Module* mod) {
+void shd_dump_module(Module* mod) {
     Printer* p = shd_new_printer_from_file(stdout);
     shd_print_module(p, (NodePrintConfig) {.color = true}, mod);
     shd_destroy_printer(p);
@@ -165,10 +165,10 @@ void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* 
 
 static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op);
 
-void print_node_operand(PrinterCtx* ctx, const Node* node, String op_name, NodeClass op_class, const Node* op);
-void print_node_operand_list(PrinterCtx* ctx, const Node* node, String op_name, NodeClass op_class, Nodes ops);
+void _shd_print_node_operand(PrinterCtx* ctx, const Node* node, String op_name, NodeClass op_class, const Node* op);
+void _shd_print_node_operand_list(PrinterCtx* ctx, const Node* node, String op_name, NodeClass op_class, Nodes ops);
 
-void print_node_generated(PrinterCtx* ctx, const Node* node);
+void _shd_print_node_generated(PrinterCtx* ctx, const Node* node);
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -487,8 +487,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("%s", get_declaration_name(node->payload.type_decl_ref.decl));
             break;
         }
-        default:
-            print_node_generated(ctx, node);
+        default:_shd_print_node_generated(ctx, node);
             break;
     }
     printf(RESET);
@@ -642,8 +641,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
             return true;
-        default:
-            print_node_generated(ctx, node);
+        default:_shd_print_node_generated(ctx, node);
             break;
     }
     return false;
@@ -677,7 +675,7 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
         //     print_args_list(ctx, node->payload.call.args);
         //     break;
         // }
-        default: print_node_generated(ctx, node);
+        default: _shd_print_node_generated(ctx, node);
     }
     //printf("\n");
 }
@@ -881,8 +879,7 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, node->payload.merge_selection.args);
             printf(";");
             break;*/
-        default:
-            print_node_generated(ctx, node);
+        default:_shd_print_node_generated(ctx, node);
             return;
     }
     emit_node(ctx, get_terminator_mem(node));
@@ -1090,7 +1087,7 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf(RESET);
         return true;
     } else {
-        print_node_generated(ctx, node);
+        _shd_print_node_generated(ctx, node);
     }
     return false;
 }
@@ -1151,7 +1148,7 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op) 
     }
 }
 
-void print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
+void _shd_print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
     print_operand_name_helper(ctx, name);
     if (op_class == NcBasic_block)
         shd_print(ctx->printer, BYELLOW);
@@ -1159,7 +1156,7 @@ void print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass o
     shd_print(ctx->printer, RESET);
 }
 
-void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {
+void _shd_print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1170,33 +1167,33 @@ void print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeCl
     shd_print(ctx->printer, "]");
 }
 
-void print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
+void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%s", get_address_space_name(as));
 }
 
-void print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
+void _shd_print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%s", get_primop_name(op));
 }
 
-void print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, const Node* n, String name, RecordSpecialFlag flags) {
+void _shd_print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, const Node* n, String name, RecordSpecialFlag flags) {
     print_operand_name_helper(ctx, name);
     if (flags & DecorateBlock)
         shd_print(ctx->printer, "DecorateBlock");
 }
 
-void print_node_operand_uint32_t(PrinterCtx* ctx, const Node* n, String name, uint32_t i) {
+void _shd_print_node_operand_uint32_t(PrinterCtx* ctx, const Node* n, String name, uint32_t i) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%u", i);
 }
 
-void print_node_operand_uint64_t(PrinterCtx* ctx, const Node* n, String name, uint64_t i) {
+void _shd_print_node_operand_uint64_t(PrinterCtx* ctx, const Node* n, String name, uint64_t i) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%zu", i);
 }
 
-void print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String name, IntSizes s) {
+void _shd_print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String name, IntSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
         case IntTy8: shd_print(ctx->printer, "8");  break;
@@ -1206,7 +1203,7 @@ void print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String name, In
     }
 }
 
-void print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String name, FloatSizes s) {
+void _shd_print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String name, FloatSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
         case FloatTy16: shd_print(ctx->printer, "16"); break;
@@ -1215,12 +1212,12 @@ void print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String name, 
     }
 }
 
-void print_node_operand_String(PrinterCtx* ctx, const Node* n, String name, String s ){
+void _shd_print_node_operand_String(PrinterCtx* ctx, const Node* n, String name, String s ){
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "\"%s\"", s);
 }
 
-void print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name, Strings ops) {
+void _shd_print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name, Strings ops) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1231,7 +1228,7 @@ void print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name, Str
     shd_print(ctx->printer, "]");
 }
 
-void print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, bool b) {
+void _shd_print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, bool b) {
     print_operand_name_helper(ctx, name);
     if (b)
         shd_print(ctx->printer, "true");
