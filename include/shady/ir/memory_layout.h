@@ -1,7 +1,7 @@
 #ifndef SHADY_MEMORY_LAYOUT_H
 #define SHADY_MEMORY_LAYOUT_H
 
-#include "shady/ir.h"
+#include "shady/ir/base.h"
 #include "shady/config.h"
 
 typedef struct {

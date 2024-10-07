@@ -1,5 +1,5 @@
 #include "shady/pass.h"
-#include "shady/memory_layout.h"
+#include "shady/ir/memory_layout.h"
 
 #include "../shady/type.h"
 #include "../shady/transform/ir_gen_helpers.h"

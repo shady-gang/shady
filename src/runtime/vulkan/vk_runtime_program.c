@@ -1,7 +1,7 @@
 #include "vk_runtime_private.h"
 
 #include "shady/driver.h"
-#include "shady/memory_layout.h"
+#include "shady/ir/memory_layout.h"
 
 #include "type.h"
 

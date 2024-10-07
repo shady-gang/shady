@@ -1,4 +1,4 @@
-#include "shady/memory_layout.h"
+#include "shady/ir/memory_layout.h"
 #include "ir_gen_helpers.h"
 
 #include "log.h"
