@@ -1,14 +1,15 @@
 #include "emit_spv.h"
-#include "type.h"
+
+#include "shady/memory_layout.h"
+
+#include "../shady/type.h"
+#include "../shady/rewrite.h"
 
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
 
-#include "../shady/rewrite.h"
-#include "../shady/transform/memory_layout.h"
-
-#include "assert.h"
+#include <assert.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -81,7 +82,7 @@ void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
                 spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
             }
             LARRAY(FieldLayout, fields, member_types.count);
-            get_record_layout(emitter->arena, type, fields);
+            shd_get_record_layout(emitter->arena, type, fields);
             for (size_t i = 0; i < member_types.count; i++) {
                 spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
             }
@@ -180,7 +181,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
-            TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.arr_type.element_type);
+            TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, type->payload.arr_type.element_type);
             spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
             break;
         }

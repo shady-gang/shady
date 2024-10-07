@@ -1,10 +1,9 @@
 #include "shady/pass.h"
+#include "shady/memory_layout.h"
 
 #include "../ir_private.h"
 #include "../type.h"
-
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 #include "log.h"
 #include "portability.h"
@@ -78,7 +77,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
             size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
-            const Node* offset = bytes_to_words(bb, address);
+            const Node* offset = shd_bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
@@ -102,7 +101,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             return acc;
         }
         case Float_TAG: {
-            const Type* unsigned_int_t = int_type(a, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
+            const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
             return gen_reinterpret_cast(bb, element_type, unsigned_int);
         }
@@ -172,7 +171,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
             size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
-            const Node* offset = bytes_to_words(bb, address);
+            const Node* offset = shd_bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
@@ -204,7 +203,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             return;
         }
         case Float_TAG: {
-            const Type* unsigned_int_t = int_type(a, (Int) {.width = float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
+            const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_value = gen_primop_e(bb, reinterpret_op, shd_singleton(unsigned_int_t), shd_singleton(value));
             return gen_serialisation(ctx, bb, unsigned_int_t, arr, address, unsigned_value);
         }
@@ -466,7 +465,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     // compute the size
     BodyBuilder* bb = begin_block_pure(a);
     const Node* size_of = gen_primop_e(bb, size_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_empty(a));
-    const Node* size_in_words = bytes_to_words(bb, size_of);
+    const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
     constant_decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(size_in_words));

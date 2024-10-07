@@ -1,8 +1,8 @@
 #include "shady/pass.h"
+#include "shady/memory_layout.h"
 
 #include "../type.h"
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
@@ -51,7 +51,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 
     Nodes annotations = mk_nodes(a, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
-    String name = shd_format_string_arena(a->arena, "__%s_args", old_entry_point->payload.fun.name);
+    String name = shd_fmt_string_irarena(a, "__%s_args", old_entry_point->payload.fun.name);
     Node* var = global_var(rewriter->dst_module, annotations, type, name, AsExternal);
 
     return ref_decl_helper(a, var);

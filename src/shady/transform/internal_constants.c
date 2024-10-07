@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-void generate_dummy_constants(SHADY_UNUSED const CompilerConfig* config, Module* mod) {
+void shd_generate_dummy_constants(SHADY_UNUSED const CompilerConfig* config, Module* mod) {
     IrArena* arena = get_module_arena(mod);
     Nodes annotations = mk_nodes(arena, annotation(arena, (Annotation) { .name = "RetainAfterSpecialization" }), annotation(arena, (Annotation) { .name = "Exported" }));
 #define X(constant_name, T, placeholder) \

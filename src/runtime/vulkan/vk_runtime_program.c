@@ -1,18 +1,17 @@
 #include "vk_runtime_private.h"
 
 #include "shady/driver.h"
+#include "shady/memory_layout.h"
+
+#include "type.h"
 
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
 #include "list.h"
 #include "growy.h"
-
 #include "arena.h"
 #include "util.h"
-#include "type.h"
-
-#include "../../shady/transform/memory_layout.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -64,14 +63,14 @@ static void write_value(unsigned char* tgt, const Node* value) {
 
             if (struct_t->tag == RecordType_TAG) {
                 LARRAY(FieldLayout, fields, values.count);
-                get_record_layout(a, struct_t, fields);
+                shd_get_record_layout(a, struct_t, fields);
                 for (size_t i = 0; i < values.count; i++) {
                     // TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(element->type));
                     write_value(tgt + fields->offset_in_bytes, values.nodes[i]);
                 }
             } else if (struct_t->tag == ArrType_TAG) {
                 for (size_t i = 0; i < values.count; i++) {
-                    TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(values.nodes[i]->type));
+                    TypeMemLayout layout = shd_get_mem_layout(value->arena, get_unqualified_type(values.nodes[i]->type));
                     write_value(tgt, values.nodes[i]);
                     tgt += layout.size_in_bytes;
                 }
@@ -123,7 +122,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 assert(member_t->tag == PtrType_TAG);
                 member_t = get_pointee_type(member_t->arena, member_t);
-                TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
+                TypeMemLayout layout = shd_get_mem_layout(get_module_arena(program->specialized_module), member_t);
 
                 ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
                 *constant_res_info = (ProgramResourceInfo) {
@@ -356,7 +355,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
     IrArena* a = get_module_arena(mod);
 
     LARRAY(FieldLayout, fields, num_args);
-    get_record_layout(a, args_struct_type, fields);
+    shd_get_record_layout(a, args_struct_type, fields);
 
     size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
     if (!offset_size_buffer) {

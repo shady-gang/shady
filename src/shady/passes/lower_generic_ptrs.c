@@ -1,9 +1,9 @@
 #include "shady/pass.h"
+#include "shady/memory_layout.h"
 
 #include "../type.h"
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 #include "log.h"
 #include "portability.h"

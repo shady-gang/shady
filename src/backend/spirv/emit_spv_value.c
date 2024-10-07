@@ -1,20 +1,21 @@
 #include "emit_spv.h"
 
-#include "log.h"
-#include "dict.h"
-#include "portability.h"
+#include "shady/memory_layout.h"
 
 #include "../shady/type.h"
-#include "../shady/transform/memory_layout.h"
 #include "../shady/transform/ir_gen_helpers.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/analysis/scheduler.h"
 
-#include <assert.h>
-#include <string.h>
+#include "log.h"
+#include "dict.h"
+#include "portability.h"
 
 #include "spirv/unified1/NonSemanticDebugPrintf.h"
 #include "spirv/unified1/GLSL.std.450.h"
+
+#include <assert.h>
+#include <string.h>
 
 typedef enum {
     Custom, Plain,
@@ -395,7 +396,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             uint32_t operands[2];
             if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
                 // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
+                TypeMemLayout layout = shd_get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
                 operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
                 operands_count += 2;
@@ -416,7 +417,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             uint32_t operands[2];
             if (ptr_type->payload.ptr_type.address_space == AsGlobal) {
                 // TODO only do this in VK mode ?
-                TypeMemLayout layout = get_mem_layout(emitter->arena, elem_type);
+                TypeMemLayout layout = shd_get_mem_layout(emitter->arena, elem_type);
                 operands[operands_count + 0] = SpvMemoryAccessAlignedMask;
                 operands[operands_count + 1] = (uint32_t) layout.alignment_in_bytes;
                 operands_count += 2;

@@ -32,7 +32,7 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     shd_debugv_print("Parsed slim module:\n");
     shd_log_module(DEBUGV, config, *pmod);
 
-    generate_dummy_constants(config, *pmod);
+    shd_generate_dummy_constants(config, *pmod);
 
     RUN_PASS(slim_pass_bind)
     RUN_PASS(slim_pass_normalize)

@@ -10,8 +10,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../shady/transform/memory_layout.h"
-
 Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_config, Module* mod) {
     Program* program = calloc(1, sizeof(Program));
     program->runtime = runtime;

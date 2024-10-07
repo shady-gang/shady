@@ -1,7 +1,7 @@
 #include "shady/pass.h"
+#include "shady/memory_layout.h"
 
 #include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 #include "../type.h"
 #include "../ir_private.h"
 
@@ -48,7 +48,7 @@ static const Node* process(Context* ctx, const Node* old) {
             src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, payload.count));
-            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), bytes_to_words(bb, num_in_bytes));
+            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
@@ -95,7 +95,7 @@ static const Node* process(Context* ctx, const Node* old) {
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
             const Node* num = rewrite_node(&ctx->rewriter, payload.count);
-            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), bytes_to_words(bb, num));
+            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num));
 
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
