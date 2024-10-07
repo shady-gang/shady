@@ -2,7 +2,7 @@
 
 #include "log.h"
 
-#include "../visit.h"
+#include "shady/visit.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -39,7 +39,7 @@ static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
         shd_set_insert_get_result(const Node*, v->seen, n);
         UsesMapVisitor nv = *v;
         nv.user = n;
-        visit_node_operands(&nv.v, v->exclude, n);
+        shd_visit_node_operands(&nv.v, v->exclude, n);
     }
 }
 

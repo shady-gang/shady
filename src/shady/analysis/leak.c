@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../visit.h"
+#include "shady/visit.h"
 
 void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, VisitEnclosingAbsCallback fn) {
     const Use* use = get_first_use(map, n);

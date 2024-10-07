@@ -1,6 +1,6 @@
 #include "shady/pass.h"
 
-#include "../visit.h"
+#include "shady/visit.h"
 #include "../type.h"
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -66,7 +66,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
         default: break;
     }
 
-    visit_node_operands(&vctx->visitor, ~NcMem, node);
+    shd_visit_node_operands(&vctx->visitor, ~NcMem, node);
 }
 
 KeyHash hash_node(Node**);
@@ -107,7 +107,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 .members = shd_new_list(const Node*),
                 .prepared_offsets = ctx2.prepared_offsets,
             };
-            visit_function_bodies_rpo(&vctx.visitor, node);
+            shd_visit_function_bodies_rpo(&vctx.visitor, node);
 
             vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
                 .members = shd_nodes(a, vctx.num_slots, shd_read_list(const Node*, vctx.members)),

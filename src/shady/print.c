@@ -13,7 +13,7 @@
 #include "printer.h"
 
 #include "type.h"
-#include "visit.h"
+#include "shady/visit.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -1125,7 +1125,7 @@ static void print_mem(PrinterCtx* ctx, const Node* mem) {
         case Mem_MemAndValue_TAG: return print_mem(ctx, mem->payload.mem_and_value.mem);
         default: {
             assert(is_instruction(mem));
-            visit_node_operands((Visitor*) &pv, 0, mem);
+            shd_visit_node_operands((Visitor*) &pv, 0, mem);
             return;
         }
     }

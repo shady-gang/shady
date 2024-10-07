@@ -1,6 +1,6 @@
 #include "free_frontier.h"
 
-#include "visit.h"
+#include "shady/visit.h"
 #include "dict.h"
 
 typedef struct {
@@ -20,7 +20,7 @@ static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     if (where) {
         FreeFrontierVisitor vv = *v;
         if (cfg_is_dominated(where, v->start)) {
-            visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
+            shd_visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
         } else {
             if (is_abstraction(node)) {
                 struct Dict* other_ff = free_frontier(v->scheduler, v->cfg, node);

@@ -3,7 +3,7 @@
 
 #include "../type.h"
 #include "../ir_private.h"
-#include "../visit.h"
+#include "shady/visit.h"
 
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/cfg.h"

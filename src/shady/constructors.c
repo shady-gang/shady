@@ -5,7 +5,7 @@
 #include "portability.h"
 
 #include "dict.h"
-#include "visit.h"
+#include "shady/visit.h"
 
 #include <string.h>
 #include <assert.h>

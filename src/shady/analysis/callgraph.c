@@ -6,7 +6,7 @@
 #include "portability.h"
 #include "log.h"
 
-#include "../visit.h"
+#include "shady/visit.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -82,7 +82,7 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
         }
         default: break;
     }
-    visit_node_operands(&visitor->visitor, ~NcMem, node);
+    shd_visit_node_operands(&visitor->visitor, ~NcMem, node);
 }
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
@@ -106,7 +106,7 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     };
 
     if (get_abstraction_body(fn)) {
-        visit_function_rpo(&v.visitor, fn);
+        shd_visit_function_rpo(&v.visitor, fn);
     }
 
     return new;

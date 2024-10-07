@@ -6,7 +6,7 @@
 #include "dict.h"
 #include "list.h"
 
-#include "../visit.h"
+#include "shady/visit.h"
 #include "../ir_private.h"
 #include "../type.h"
 
@@ -23,7 +23,7 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     if (shd_dict_find_key(const Node*, visitor->once, node))
         return;
     shd_set_insert_get_result(const Node*, visitor->once, node);
-    visit_node_operands(&visitor->visitor, 0, node);
+    shd_visit_node_operands(&visitor->visitor, 0, node);
 }
 
 KeyHash hash_node(const Node**);
@@ -38,7 +38,7 @@ static void verify_same_arena(Module* mod) {
         .arena = arena,
         .once = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
-    visit_module(&visitor.visitor, mod);
+    shd_visit_module(&visitor.visitor, mod);
     shd_destroy_dict(visitor.once);
 }
 
@@ -132,7 +132,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
             shd_error_die();
         }
     }
-    visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);
+    shd_visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);
 }
 
 static void verify_bodies(const CompilerConfig* config, Module* mod) {

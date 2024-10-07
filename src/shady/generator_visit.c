@@ -4,7 +4,7 @@ void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
     json_object* nodes = json_object_object_get(src, "nodes");
-    shd_growy_append_formatted(g, "void visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* node) {\n");
+    shd_growy_append_formatted(g, "void shd_visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* node) {\n");
     shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
@@ -33,9 +33,9 @@ void generate(Growy* g, json_object* src) {
                 if (!ignore) {
                     shd_growy_append_formatted(g, "\t\tif ((exclude & Nc%s) == 0)\n", class_cap);
                     if (list)
-                        shd_growy_append_formatted(g, "\t\t\tvisit_ops(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t\tshd_visit_ops(visitor, Nc%s, \"%s\", payload.%s);\n", class_cap, op_name, op_name);
                     else
-                        shd_growy_append_formatted(g, "\t\t\tvisit_op(visitor, Nc%s, \"%s\", payload.%s, 0);\n", class_cap, op_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t\tshd_visit_op(visitor, Nc%s, \"%s\", payload.%s, 0);\n", class_cap, op_name, op_name);
                 }
                 free((void*) class_cap);
             }

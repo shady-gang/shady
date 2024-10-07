@@ -1,9 +1,9 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 #include "shady/print.h"
+#include "shady/visit.h"
 
 #include "../shady/passes/passes.h"
-#include "../shady/visit.h"
 
 #include "log.h"
 #include "portability.h"
@@ -29,12 +29,12 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
         default: break;
     }
 
-    visit_node_operands(v, ~(NcMem | NcDeclaration | NcTerminator), n);
+    shd_visit_node_operands(v, ~(NcMem | NcDeclaration | NcTerminator), n);
 }
 
 static void check_module(Module* mod) {
     Visitor v = { .visit_node_fn = search_for_memstuff };
-    visit_module(&v, mod);
+    shd_visit_module(&v, mod);
     if (expect_memstuff != found_memstuff) {
         shd_error_print("Expected ");
         if (!expect_memstuff)

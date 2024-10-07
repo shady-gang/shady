@@ -1,6 +1,6 @@
 #include "scheduler.h"
 
-#include "visit.h"
+#include "shady/visit.h"
 
 #include "dict.h"
 #include <stdlib.h>
@@ -73,7 +73,7 @@ CFNode* schedule_instruction(Scheduler* s, const Node* n) {
         schedule_after(&s2.result, cfg_lookup(s->cfg, n->payload.abs_mem.abs));
     }
 
-    visit_node_operands(&s2.v, 0, n);
+    shd_visit_node_operands(&s2.v, 0, n);
     shd_dict_insert(const Node*, CFNode*, s->scheduled, n, s2.result);
     return s2.result;
 }
