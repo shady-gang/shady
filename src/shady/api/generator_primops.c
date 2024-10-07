@@ -20,5 +20,4 @@ void generate(Growy* g, json_object* src) {
 
     json_object* op_classes = json_object_object_get(src, "prim-ops-classes");
     generate_bit_enum(g, "OpClass", "Oc", op_classes);
-    shd_growy_append_formatted(g, "OpClass get_primop_class(Op);\n\n");
 }

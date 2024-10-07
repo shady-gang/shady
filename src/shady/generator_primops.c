@@ -41,5 +41,5 @@ void generate(Growy* g, json_object* shd) {
     generate_primops_names_array(g, primops);
     generate_primops_side_effects_array(g, primops);
 
-    generate_bit_enum_classifier(g, "get_primop_class", "OpClass", "Oc", "Op", "", "_op", primops);
+    generate_bit_enum_classifier(g, "shd_get_primop_class", "OpClass", "Oc", "Op", "", "_op", primops);
 }

@@ -64,7 +64,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     Op op;
                     size_t i;
                     for (i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(get_primop_name(i), shd_get_annotation_string_payload(an->payload)) == 0) {
+                        if (strcmp(shd_get_primop_name(i), shd_get_annotation_string_payload(an->payload)) == 0) {
                             op = (Op) i;
                             break;
                         }

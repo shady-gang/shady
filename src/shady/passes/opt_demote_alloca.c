@@ -84,7 +84,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
                 }
                 default: break;
             }
-            if (has_primop_got_side_effects(payload.op))
+            if (shd_has_primop_got_side_effects(payload.op))
                 k->leaks = true;
         } /*else if (use->user->tag == Lea_TAG) {
             // TODO: follow where those derived pointers are used and establish whether they leak themselves

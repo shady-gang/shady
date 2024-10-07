@@ -272,7 +272,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
 
             Op op = PRIMOPS_COUNT;
             for (size_t i = 0; i < PRIMOPS_COUNT; i++) {
-                if (strcmp(id, get_primop_name(i)) == 0) {
+                if (strcmp(id, shd_get_primop_name(i)) == 0) {
                     op = i;
                     break;
                 }

@@ -434,7 +434,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
-    CTerm term = term_from_cvalue(shd_fmt_string_irarena(emitter->arena, "/* todo %s */", get_primop_name(prim_op->op)));
+    CTerm term = term_from_cvalue(shd_fmt_string_irarena(emitter->arena, "/* todo %s */", shd_get_primop_name(prim_op->op)));
     const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
         case add_carry_op:

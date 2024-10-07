@@ -546,7 +546,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                         Op op;
                         size_t i;
                         for (i = 0; i < PRIMOPS_COUNT; i++) {
-                            if (strcmp(get_primop_name(i), opname) == 0) {
+                            if (strcmp(shd_get_primop_name(i), opname) == 0) {
                                 op = (Op) i;
                                 break;
                             }

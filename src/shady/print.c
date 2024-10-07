@@ -1174,7 +1174,7 @@ void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String
 
 void _shd_print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
     print_operand_name_helper(ctx, name);
-    shd_print(ctx->printer, "%s", get_primop_name(op));
+    shd_print(ctx->printer, "%s", shd_get_primop_name(op));
 }
 
 void _shd_print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, const Node* n, String name, RecordSpecialFlag flags) {

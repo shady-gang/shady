@@ -3,7 +3,9 @@
 
 #include "shady/ir/grammar.h"
 
-String get_primop_name(Op op);
-bool has_primop_got_side_effects(Op op);
+OpClass shd_get_primop_class(Op op);
+
+String shd_get_primop_name(Op op);
+bool shd_has_primop_got_side_effects(Op op);
 
 #endif
