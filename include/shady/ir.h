@@ -51,6 +51,7 @@ const Node* tuple_helper(IrArena*, Nodes contents);
 const Node* lea_helper(IrArena*, const Node*, const Node*, Nodes);
 
 #include "shady/ir/mem.h"
+#include "shady/ir/type.h"
 
 const IntLiteral* resolve_to_int_literal(const Node* node);
 int64_t get_int_literal_value(IntLiteral, bool sign_extend);
@@ -74,9 +75,6 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
 /// Empty type: there are no values of this type.
 /// Useful for the codomain of things that don't return at all
 const Type* noret_type(IrArena*);
-/// Unit type, carries no information (equivalent to C's void)
-/// There is exactly one possible value of this type: ()
-const Node* unit_type(IrArena*);
 /// For typing instructions that return nothing (equivalent to C's void f())
 const Node* empty_multiple_return_type(IrArena*);
 
