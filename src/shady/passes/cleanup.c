@@ -57,7 +57,7 @@ const Node* process(Context* ctx, const Node* old) {
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
             if (uses <= 1 && a->config.optimisations.inline_single_use_bbs) {
-                shd_log_fmt(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", get_abstraction_name_safe(old), uses);
+                shd_log_fmt(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", shd_get_abstraction_name_safe(old), uses);
                 *ctx->todo = true;
                 return NULL;
             }
@@ -70,7 +70,7 @@ const Node* process(Context* ctx, const Node* old) {
                 // it's been inlined away! just steal the body
                 Nodes nargs = shd_rewrite_nodes(r, old->payload.jump.args);
                 shd_register_processed_list(r, get_abstraction_params(otarget), nargs);
-                shd_register_processed(r, get_abstraction_mem(otarget), shd_rewrite_node(r, old->payload.jump.mem));
+                shd_register_processed(r, shd_get_abstraction_mem(otarget), shd_rewrite_node(r, old->payload.jump.mem));
                 return shd_rewrite_node(r, get_abstraction_body(otarget));
             }
             break;
@@ -84,7 +84,7 @@ const Node* process(Context* ctx, const Node* old) {
                     Join payload_join = term->payload.join;
                     if (payload_join.join_point == shd_first(get_abstraction_params(control_inside))) {
                         // if we immediately consume the join point and it's never leaked, this control block does nothing and can be eliminated
-                        shd_register_processed(r, get_abstraction_mem(control_inside), shd_rewrite_node(r, payload.mem));
+                        shd_register_processed(r, shd_get_abstraction_mem(control_inside), shd_rewrite_node(r, payload.mem));
                         shd_register_processed(r, control_inside, NULL);
                         *ctx->todo = true;
                         return shd_rewrite_node(r, term);
@@ -122,8 +122,8 @@ OptPass simplify;
 bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
 
-    IrArena* a = get_module_arena(src);
-    *m = new_module(a, get_module_name(*m));
+    IrArena* a = shd_module_get_arena(src);
+    *m = shd_new_module(a, shd_module_get_name(*m));
     bool todo = false;
     Context ctx = { .todo = &todo };
     ctx.rewriter = shd_create_node_rewriter(src, *m, (RewriteNodeFn) process);
@@ -137,7 +137,7 @@ OptPass opt_mem2reg;
 RewritePass import;
 
 Module* cleanup(const CompilerConfig* config, Module* const src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     if (!aconfig.check_types)
         return src;
     bool todo;

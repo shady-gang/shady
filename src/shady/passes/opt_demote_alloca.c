@@ -237,8 +237,8 @@ bool shd_compare_node(const Node**, const Node**);
 bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     bool todo = false;
     Module* src = *m;
-    IrArena* a = get_module_arena(src);
-    Module* dst = new_module(a, get_module_name(src));
+    IrArena* a = shd_module_get_arena(src);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

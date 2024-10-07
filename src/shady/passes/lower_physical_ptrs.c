@@ -127,7 +127,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 shd_log_node(ERROR, element_type);
                 shd_error_print(" is not known a compile-time!\n");
             }
-            size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
+            size_t components_count = shd_get_int_literal_value(*shd_resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
             LARRAY(const Node*, components, components_count);
             const Node* offset = address;
@@ -231,7 +231,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 shd_log_node(ERROR, element_type);
                 shd_error_print(" is not known a compile-time!\n");
             }
-            size_t components_count = get_int_literal_value(*resolve_to_int_literal(size), 0);
+            size_t components_count = shd_get_int_literal_value(*shd_resolve_to_int_literal(size), 0);
             const Type* component_type = get_fill_type_element_type(element_type);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
@@ -273,7 +273,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address_param, value_param);
@@ -342,14 +342,14 @@ static const Node* process_node(Context* ctx, const Node* old) {
             break;
         }
         case Function_TAG: {
-            if (strcmp(get_abstraction_name(old), "generated_init") == 0) {
+            if (strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
                 Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-                BodyBuilder *bb = begin_body_with_mem(a, get_abstraction_mem(new));
+                BodyBuilder *bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
                 for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
                     if (is_as_emulated(ctx, as))
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
-                shd_register_processed(&ctx->rewriter, get_abstraction_mem(old), bb_mem(bb));
+                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), bb_mem(bb));
                 set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
                 return new;
             }
@@ -366,7 +366,7 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 static Nodes collect_globals(Context* ctx, AddressSpace as) {
     IrArena* a = ctx->rewriter.dst_arena;
-    Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
+    Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
     LARRAY(const Type*, collected, old_decls.count);
     size_t members_count = 0;
 
@@ -481,13 +481,13 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 }
 
 Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.address_spaces[AsPrivate].physical = false;
     aconfig.address_spaces[AsShared].physical = false;
     aconfig.address_spaces[AsSubgroup].physical = false;
 
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

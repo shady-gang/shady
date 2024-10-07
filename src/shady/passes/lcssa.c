@@ -43,7 +43,7 @@ static const LTNode* get_loop(const LTNode* n) {
 
 static String loop_name(const LTNode* n) {
     if (n && n->type == LF_HEAD && shd_list_count(n->cf_nodes) > 0) {
-        return get_abstraction_name(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
+        return shd_get_abstraction_name(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
     }
     return "";
 }
@@ -88,7 +88,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     ctx = &ctx2;
 
     if (!ctx->cfg) {
-        shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", get_abstraction_name(old));
+        shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", shd_get_abstraction_name(old));
         shd_log_module(ERROR, ctx->config, ctx->rewriter.src_module);
         shd_error_die();
     }
@@ -110,7 +110,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
         Nodes nargs;
         find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted_params[i], &nargs);
         Nodes nparams = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
-        new_children[i] = basic_block(a, shd_concat_nodes(a, nparams, new_params[i]), get_abstraction_name(old_children[i]));
+        new_children[i] = basic_block(a, shd_concat_nodes(a, nparams, new_params[i]), shd_get_abstraction_name(old_children[i]));
         shd_register_processed(&ctx->rewriter, old_children[i], new_children[i]);
         shd_register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
         shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
@@ -189,9 +189,9 @@ KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
 Module* lcssa(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

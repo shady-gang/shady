@@ -7,7 +7,7 @@
 #include "llvm-c/DebugInfo.h"
 
 static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     assert(LLVMIsAMDNode(mdnode));
 
     unsigned count = LLVMGetMDNodeNumOperands(mdnode);
@@ -23,7 +23,7 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
 
 static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, String node_name) {
     // printf("%s\n", name);
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     String name = LLVMGetValueName(v);
     if (!name || strlen(name) == 0)
         name = unique_name(a, node_name);
@@ -102,7 +102,7 @@ LLVM_DI_WITH_PARENT_SCOPES(N)
 }
 
 Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     Nodes str = shd_empty(a);
 
     LLVMMetadataRef scope = LLVMDILocationGetScope(dbgloc);
@@ -123,7 +123,7 @@ Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
 }
 
 const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
     LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);
 

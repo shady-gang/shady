@@ -27,7 +27,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         uint8_t* tmp = malloc(sizeof(uint8_t) * c.count);
         bool ends_zero = false;
         for (size_t i = 0; i < c.count; i++) {
-            tmp[i] = get_int_literal_value(*resolve_to_int_literal(c.nodes[i]), false);
+            tmp[i] = shd_get_int_literal_value(*shd_resolve_to_int_literal(c.nodes[i]), false);
             if (tmp[i] == 0) {
                 if (i == c.count - 1)
                     ends_zero = true;
@@ -514,7 +514,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 t = get_nominal_type_body(t);
             }
             const Node* index = shd_first(prim_op->operands);
-            uint64_t index_literal = get_int_literal_value(*resolve_to_int_literal(index), false);
+            uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
             String member_name = c_get_record_field_name(t, index_literal);
             term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, t, NULL), member_name));
             break;
@@ -629,7 +629,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             const Type* t = get_unqualified_type(shd_first(prim_op->operands)->type);
             for (size_t i = (insert ? 2 : 1); i < prim_op->operands.count; i++) {
                 const Node* index = prim_op->operands.nodes[i];
-                const IntLiteral* static_index = resolve_to_int_literal(index);
+                const IntLiteral* static_index = shd_resolve_to_int_literal(index);
 
                 switch (is_type(t)) {
                     case Type_TypeDeclRef_TAG: {
@@ -686,7 +686,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             String suffixes = "xyzw";
             shd_print(p, "\n%s = vec%d(", c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
             for (size_t i = 2; i < prim_op->operands.count; i++) {
-                const IntLiteral* selector = resolve_to_int_literal(prim_op->operands.nodes[i]);
+                const IntLiteral* selector = shd_resolve_to_int_literal(prim_op->operands.nodes[i]);
                 if (selector->value < left_size)
                     shd_print(p, "%s.%c\n", lhs_e, suffixes[selector->value]);
                 else
@@ -731,7 +731,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
             }
             case SpvOpGroupNonUniformElect: {
                 assert(instr.operands.count == 1);
-                const IntLiteral* scope = resolve_to_int_literal(shd_first(instr.operands));
+                const IntLiteral* scope = shd_resolve_to_int_literal(shd_first(instr.operands));
                 assert(scope && scope->value == SpvScopeSubgroup);
                 switch (emitter->config.dialect) {
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_elect_first()"));
@@ -827,7 +827,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             }
 
             assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
-            size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             String field_name = c_get_record_field_name(pointee_type, static_index);
             acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
             curr_ptr_type = ptr_type(arena, (PtrType) {
@@ -837,7 +837,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             break;
         }
         case Type_PackType_TAG: {
-            size_t static_index = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             String suffixes = "xyzw";
             acc = term_from_cvar(shd_format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
             curr_ptr_type = ptr_type(arena, (PtrType) {
@@ -864,7 +864,7 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
     const Type* curr_ptr_type = get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
 
-    const IntLiteral* offset_static_value = resolve_to_int_literal(lea.offset);
+    const IntLiteral* offset_static_value = shd_resolve_to_int_literal(lea.offset);
     if (!offset_static_value || offset_static_value->value != 0) {
         CTerm offset = c_emit_value(emitter, fn, lea.offset);
         // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this

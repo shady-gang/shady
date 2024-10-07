@@ -93,10 +93,10 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.validate_builtin_types = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .builtins = calloc(sizeof(Node*), BuiltinsCount)

@@ -86,7 +86,7 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
 
 static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node* param, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fn));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fn));
     const Node* result = generate(ctx, bb, scope, t, param);
     if (result) {
         set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
@@ -109,7 +109,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     if (is_supported_natively(ctx, t))
         return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
 
-    if (resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
+    if (shd_resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
         shd_error("TODO")
 
     Node* fn = NULL;
@@ -149,9 +149,9 @@ KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),

@@ -65,7 +65,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             shd_destroy_dict(frontier);
             shd_dict_insert(const Node*, Nodes, ctx->lift, node, additional_args);
-            Node* new_bb = basic_block(a, new_params, get_abstraction_name_unsafe(node));
+            Node* new_bb = basic_block(a, new_params, shd_get_abstraction_name_unsafe(node));
 
             Context* fn_ctx = ctx;
             while (fn_ctx->rewriter.parent) {
@@ -100,13 +100,13 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     bool todo = true;
     Module* dst;
     while (todo) {
         todo = false;
-        dst = new_module(a, get_module_name(src));
+        dst = shd_new_module(a, shd_module_get_name(src));
         Context ctx = {
             .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
             .lift = shd_new_dict(const Node*, Nodes, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

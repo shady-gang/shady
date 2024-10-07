@@ -81,12 +81,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
             shd_register_processed_list(r, node->payload.fun.params, new_params);
             Nodes new_annotations = shd_rewrite_nodes(r, old_annotations);
-            Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* decl = function(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             shd_register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 set_abstraction_body(decl, fn_ret(a, (Return) {
                     .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(decl))),
-                    .mem = get_abstraction_mem(decl),
+                    .mem = shd_get_abstraction_mem(decl),
                 }));
             } else if (get_abstraction_body(node))
                 set_abstraction_body(decl, shd_rewrite_node(r, get_abstraction_body(node)));
@@ -106,7 +106,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
-                    as = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
+                    as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as);

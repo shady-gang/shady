@@ -306,7 +306,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
         }
     }
 
-    Node* new_case = basic_block(a, shd_nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
+    Node* new_case = basic_block(a, shd_nodes(a, inferred_arg_type.count, nparams), shd_get_abstraction_name_unsafe(node));
     shd_register_processed(r, node, new_case);
     set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
@@ -605,12 +605,12 @@ static const Node* process(Context* src_ctx, const Node* node) {
 }
 
 Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
     aconfig.allow_fold = true; // TODO was moved here because a refactor, does this cause issues ?
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),

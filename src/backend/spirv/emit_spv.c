@@ -29,7 +29,7 @@ bool shd_compare_string(const char** a, const char** b);
 
 void spv_register_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* node, SpvId id) {
     if (is_value(node)) {
-        String name = get_value_name_unsafe(node);
+        String name = shd_get_value_name_unsafe(node);
         if (name)
             spvb_name(emitter->file_builder, id, name);
     }
@@ -62,7 +62,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNo
     SpvId bb_id = get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder->base, bb_builder);
 
-    String name = get_abstraction_name_safe(bb_node);
+    String name = shd_get_abstraction_name_safe(bb_node);
     if (name)
         spvb_name(emitter->file_builder, bb_id, name);
 
@@ -131,7 +131,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         spvb_define_function(emitter->file_builder, fn_builder.base);
     } else {
         Growy* g = shd_new_growy();
-        spvb_literal_name(g, get_abstraction_name(node));
+        spvb_literal_name(g, shd_get_abstraction_name(node));
         shd_growy_append_bytes(g, 4, (char*) &(uint32_t) { SpvLinkageTypeImport });
         spvb_decorate(emitter->file_builder, fn_id, SpvDecorationLinkageAttributes, shd_growy_size(g) / 4, (uint32_t*) shd_growy_data(g));
         shd_destroy_growy(g);
@@ -176,15 +176,15 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
                 } else if (strcmp(name, "Location") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
+                    size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationLocation, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorSet") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
+                    size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorBinding") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
+                    size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                 }
@@ -268,7 +268,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            ExecutionModel execution_model = shd_execution_model_from_string(get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
+            ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
             assert(execution_model != EmNone);
 
             spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, interface_size, interface_arr);
@@ -280,9 +280,9 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             if (workgroup_size) {
                 Nodes values = shd_get_annotation_values(workgroup_size);
                 assert(values.count == 3);
-                uint32_t wg_x_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[0]), false);
-                uint32_t wg_y_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[1]), false);
-                uint32_t wg_z_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[2]), false);
+                uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
+                uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
+                uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
 
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
             }
@@ -328,9 +328,9 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, Module*
 }
 
 void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
-    IrArena* initial_arena = get_module_arena(mod);
+    IrArena* initial_arena = shd_module_get_arena(mod);
     mod = run_backend_specific_passes(config, mod);
-    IrArena* arena = get_module_arena(mod);
+    IrArena* arena = shd_module_get_arena(mod);
 
     FileBuilder file_builder = spvb_begin();
     spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
@@ -352,7 +352,7 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
 
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
 
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     emit_decls(&emitter, decls);
     emit_entry_points(&emitter, decls);
 

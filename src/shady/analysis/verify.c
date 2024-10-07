@@ -30,7 +30,7 @@ KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
 static void verify_same_arena(Module* mod) {
-    const IrArena* arena = get_module_arena(mod);
+    const IrArena* arena = shd_module_get_arena(mod);
     ArenaVerifyVisitor visitor = {
         .visitor = {
             .visit_node_fn = (VisitNodeFn) visit_verify_same_arena,
@@ -151,7 +151,7 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
     }
     shd_destroy_list(cfgs);
 
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         verify_nominal_node(NULL, decl);
@@ -162,7 +162,7 @@ void verify_module(const CompilerConfig* config, Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly
-    if (get_module_arena(mod)->config.check_types) {
+    if (shd_module_get_arena(mod)->config.check_types) {
         verify_scoping(config, mod);
         verify_bodies(config, mod);
     }

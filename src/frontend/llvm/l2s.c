@@ -45,7 +45,7 @@ int vcc_get_linked_major_llvm_version() {
 #endif
 
 static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
-    bb_ctx->builder = begin_body_with_mem(bb_ctx->nbb->arena, get_abstraction_mem(bb_ctx->nbb));
+    bb_ctx->builder = begin_body_with_mem(bb_ctx->nbb->arena, shd_get_abstraction_mem(bb_ctx->nbb));
     LLVMValueRef instr;
     LLVMBasicBlockRef bb = bb_ctx->bb;
     for (instr = bb_ctx->instr; instr; instr = LLVMGetNextInstruction(instr)) {
@@ -72,7 +72,7 @@ static void write_bb_tail(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
 }
 
 static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasicBlockRef bb) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     shd_debug_print("l2s: preparing BB %s %d\n", LLVMGetBasicBlockName(bb), bb);
     if (shd_log_get_level() >= DEBUG)
         LLVMDumpValue((LLVMValueRef)bb);
@@ -151,7 +151,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
 
     const Node** found = shd_dict_find_value(LLVMValueRef, const Node*, p->map, fn);
     if (found) return *found;
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     shd_debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
     Nodes params = shd_empty(a);
@@ -240,7 +240,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
 const Node* convert_global(Parser* p, LLVMValueRef global) {
     const Node** found = shd_dict_find_value(LLVMValueRef, const Node*, p->map, global);
     if (found) return *found;
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
 
     String name = LLVMGetValueName(global);
     String intrinsic = is_llvm_intrinsic(global);
@@ -303,7 +303,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     aconfig.optimisations.inline_single_use_bbs = false;
 
     IrArena* arena = shd_new_ir_arena(&aconfig);
-    Module* dirty = new_module(arena, "dirty");
+    Module* dirty = shd_new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
         .config = config,
@@ -335,7 +335,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* arena2 = shd_new_ir_arena(&aconfig);
-    *dst = new_module(arena2, name);
+    *dst = shd_new_module(arena2, name);
     postprocess(&p, dirty, *dst);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
     shd_log_module(DEBUGVV, config, *dst);

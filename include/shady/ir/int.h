@@ -34,7 +34,7 @@ const Node* shd_uint16_literal(IrArena* arena, uint16_t u);
 const Node* shd_uint32_literal(IrArena* arena, uint32_t u);
 const Node* shd_uint64_literal(IrArena* arena, uint64_t u);
 
-const IntLiteral* resolve_to_int_literal(const Node* node);
-int64_t get_int_literal_value(IntLiteral, bool sign_extend);
+const IntLiteral* shd_resolve_to_int_literal(const Node* node);
+int64_t shd_get_int_literal_value(IntLiteral literal, bool sign_extend);
 
 #endif

@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
     IrArena* arena = shd_new_ir_arena(&aconfig);
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+    Module* mod = shd_new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
     if (err)

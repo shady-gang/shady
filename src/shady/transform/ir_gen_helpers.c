@@ -147,7 +147,7 @@ void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
 }
 
 const Node* get_builtin(Module* m, Builtin b) {
-    Nodes decls = get_module_declarations(m);
+    Nodes decls = shd_module_get_declarations(m);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG)
@@ -170,7 +170,7 @@ const Node* get_or_create_builtin(Module* m, Builtin b, String n) {
         return decl;
 
     AddressSpace as = shd_get_builtin_address_space(b);
-    IrArena* a = get_module_arena(m);
+    IrArena* a = shd_module_get_arena(m);
     decl = global_var(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a,
                                                                                                shd_get_builtin_name(b)))),
                       shd_get_builtin_type(a, b), n ? n : shd_format_string_arena(a->arena, "builtin_%s",
@@ -206,7 +206,7 @@ bool is_builtin_load_op(const Node* n, Builtin* out) {
 }
 
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
-    Nodes old_decls = get_module_declarations(rewriter->src_module);
+    Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (strcmp(get_declaration_name(decl), name) == 0) {

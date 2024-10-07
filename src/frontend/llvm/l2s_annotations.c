@@ -61,10 +61,10 @@ static bool is_io_as(AddressSpace as) {
 }
 
 void process_llvm_annotations(Parser* p, LLVMValueRef global) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
     assert(t->tag == ArrType_TAG);
-    size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
+    size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
     assert(arr_size > 0);
     const Node* value = convert_value(p, LLVMGetInitializer(global));
     assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);
@@ -82,16 +82,16 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
             annotation_payload = annotation_payload->payload.global_variable.init;
         }
 
-        NodeResolveConfig resolve_config = default_node_resolve_config();
+        NodeResolveConfig resolve_config = shd_default_node_resolve_config();
         // both of those assumptions are hacky but this front-end is a hacky deal anyways.
         resolve_config.assume_globals_immutability = true;
         resolve_config.allow_incompatible_types = true;
-        const char* ostr = get_string_literal(a, chase_ptr_to_source(annotation_payload, resolve_config));
+        const char* ostr = shd_get_string_literal(a, shd_chase_ptr_to_source(annotation_payload, resolve_config));
         char* str = calloc(strlen(ostr) + 1, 1);
         memcpy(str, ostr, strlen(ostr) + 1);
         if (strcmp(strtok(str, "::"), "shady") == 0) {
             const Node* target = entry->payload.composite.contents.nodes[0];
-            target = resolve_node_to_definition(target, resolve_config);
+            target = shd_resolve_node_to_definition(target, resolve_config);
 
             char* keyword = strtok(NULL, "::");
             if (strcmp(keyword, "entry_point") == 0) {

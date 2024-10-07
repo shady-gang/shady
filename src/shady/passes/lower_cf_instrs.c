@@ -63,15 +63,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
             } else {
                 assert(yield_types.count == 0);
                 false_block = basic_block(a, shd_nodes(a, 0, NULL), unique_name(a, "if_false"));
-                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = get_abstraction_mem(false_block) }));
+                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
             }
 
             Node* control_case = basic_block(a, shd_singleton(jp), NULL);
             const Node* control_body = branch(a, (Branch) {
                 .condition = shd_rewrite_node(r, node->payload.if_instr.condition),
-                .true_jump = jump_helper(a, get_abstraction_mem(control_case), true_block, shd_empty(a)),
-                .false_jump = jump_helper(a, get_abstraction_mem(control_case), false_block, shd_empty(a)),
-                .mem = get_abstraction_mem(control_case),
+                .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case), true_block, shd_empty(a)),
+                .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case), false_block, shd_empty(a)),
+                .mem = shd_get_abstraction_mem(control_case),
             });
             set_abstraction_body(control_case, control_body);
 
@@ -104,9 +104,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
             Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
 
-            BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(loop_header_block));
+            BodyBuilder* inner_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, shd_singleton(continue_point));
-            set_abstraction_body(inner_control_case, jump_helper(a, get_abstraction_mem(inner_control_case),
+            set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
                                                                  shd_rewrite_node(r, old_loop_block), new_params));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
@@ -116,7 +116,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* first_iteration_jump = jump(a, (Jump) {
                 .target = loop_header_block,
                 .args = shd_rewrite_nodes(r, payload.initial_args),
-                .mem = get_abstraction_mem(outer_control_case),
+                .mem = shd_get_abstraction_mem(outer_control_case),
             });
             set_abstraction_body(outer_control_case, first_iteration_jump);
 
@@ -235,9 +235,9 @@ KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
 Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .structured_join_tokens = shd_new_dict(const Node*, Nodes, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

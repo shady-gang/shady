@@ -202,13 +202,13 @@ CallGraph* new_callgraph(Module* mod) {
 
     const UsesMap* uses = create_module_uses_map(mod, NcType);
 
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag == Function_TAG) {
             CGNode* node = analyze_fn(graph, decl);
 
-            const Use* use = get_first_use(uses, fn_addr_helper(get_module_arena(mod), decl));
+            const Use* use = get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
             for (;use;use = use->next_use) {
                 if (use->user->tag == Call_TAG && strcmp(use->operand_name, "callee") == 0)
                     continue;

@@ -47,7 +47,7 @@ const Node* shd_get_node_by_id(const IrArena* a, NodeId id) {
 
 void shd_destroy_ir_arena(IrArena* arena) {
     for (size_t i = 0; i < shd_list_count(arena->modules); i++) {
-        destroy_module(shd_read_list(Module*, arena->modules)[i]);
+        shd_destroy_module(shd_read_list(Module*, arena->modules)[i]);
     }
 
     shd_destroy_list(arena->modules);

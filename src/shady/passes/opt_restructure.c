@@ -84,13 +84,13 @@ static DFSStackEntry* encountered_before(Context* ctx, const Node* bb, size_t* p
 
 static const Node* make_unreachable_case(IrArena* a) {
     Node* c = case_(a, shd_empty(a));
-    set_abstraction_body(c, unreachable(a, (Unreachable) { .mem = get_abstraction_mem(c) }));
+    set_abstraction_body(c, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(c) }));
     return c;
 }
 
 static const Node* make_selection_merge_case(IrArena* a) {
     Node* c = case_(a, shd_empty(a));
-    set_abstraction_body(c, merge_selection(a, (MergeSelection) { .args = shd_empty(a), .mem = get_abstraction_mem(c) }));
+    set_abstraction_body(c, merge_selection(a, (MergeSelection) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(c) }));
     return c;
 }
 
@@ -151,7 +151,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         // Just jumps to the actual ladder
         Node* structured_target = case_(a, shd_nodes(a, oargs.count, nparams));
-        shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old_target), get_abstraction_mem(structured_target));
+        shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old_target), shd_get_abstraction_mem(structured_target));
         const Node* structured = structure(&ctx2, get_abstraction_body(old_target), inner_exit_ladder_bb);
         assert(is_terminator(structured));
         set_abstraction_body(structured_target, structured);
@@ -165,12 +165,12 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
             // Use the structured target as the body of a loop
             gen_loop(bb, shd_empty(a), shd_rewrite_nodes(&ctx->rewriter, oargs), structured_target);
             // The exit ladder must exit that new loop
-            set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = shd_empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) }));
+            set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(inner_exit_ladder_bb) }));
             // After that we jump to the parent exit
             return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         } else {
             // Simply jmp to the exit once done
-            set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, get_abstraction_mem(inner_exit_ladder_bb), exit,
+            set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, shd_get_abstraction_mem(inner_exit_ladder_bb), exit,
                                                                    shd_empty(a)));
             // Jump into the new structured target
             return finish_body(bb, jump_helper(a, bb_mem(bb), structured_target, shd_rewrite_nodes(&ctx->rewriter, oargs)));
@@ -209,10 +209,10 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             shd_rewrite_node(r, payload.mem);
 
             Node* true_case = case_(a, shd_empty(a));
-            set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, get_abstraction_mem(true_case), make_selection_merge_case(a)));
+            set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, shd_get_abstraction_mem(true_case), make_selection_merge_case(a)));
 
             Node* false_case = case_(a, shd_empty(a));
-            set_abstraction_body(false_case, handle_bb_callsite(ctx, payload.false_jump->payload.jump, get_abstraction_mem(false_case), make_selection_merge_case(a)));
+            set_abstraction_body(false_case, handle_bb_callsite(ctx, payload.false_jump->payload.jump, shd_get_abstraction_mem(false_case), make_selection_merge_case(a)));
 
             BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             gen_if(bb, shd_empty(a), condition, true_case, false_case);
@@ -224,12 +224,12 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             shd_rewrite_node(r, payload.mem);
 
             Node* default_case = case_(a, shd_empty(a));
-            set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, get_abstraction_mem(default_case), make_selection_merge_case(a)));
+            set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, shd_get_abstraction_mem(default_case), make_selection_merge_case(a)));
 
             LARRAY(Node*, cases, body->payload.br_switch.case_jumps.count);
             for (size_t i = 0; i < body->payload.br_switch.case_jumps.count; i++) {
                 cases[i] = case_(a, shd_empty(a));
-                set_abstraction_body(cases[i], handle_bb_callsite(ctx, payload.case_jumps.nodes[i]->payload.jump, get_abstraction_mem(cases[i]), make_selection_merge_case(a)));
+                set_abstraction_body(cases[i], handle_bb_callsite(ctx, payload.case_jumps.nodes[i]->payload.jump, shd_get_abstraction_mem(cases[i]), make_selection_merge_case(a)));
             }
 
             BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
@@ -270,7 +270,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 
             // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
             Node* tail = case_(a, shd_empty(a));
-            BodyBuilder* bb_tail = begin_body_with_mem(a, get_abstraction_mem(tail));
+            BodyBuilder* bb_tail = begin_body_with_mem(a, shd_get_abstraction_mem(tail));
             LARRAY(const Node*, phi_values, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 phi_values[i] = gen_load(bb_tail, phis[i]);
@@ -281,12 +281,12 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
             const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, shd_int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
             Node* true_case = case_(a, shd_empty(a));
-            shd_register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
+            shd_register_processed(r, shd_get_abstraction_mem(get_structured_construct_tail(body)), shd_get_abstraction_mem(true_case));
             set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));
             gen_if(bb_tail, shd_empty(a), guard, true_case, NULL);
             set_abstraction_body(tail, finish_body(bb_tail, jump_helper(a, bb_mem(bb_tail), exit, shd_empty(a))));
 
-            shd_register_processed(r, get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
+            shd_register_processed(r, shd_get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
             return finish_body(bb_prelude, structure(&control_ctx, get_abstraction_body(old_control_case), tail));
         }
         case Join_TAG: {
@@ -328,7 +328,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
     if (is_declaration(node)) {
         String name = get_declaration_name(node);
-        Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
+        Nodes decls = shd_module_get_declarations(ctx->rewriter.dst_module);
         for (size_t i = 0; i < decls.count; i++) {
             if (strcmp(get_declaration_name(decls.nodes[i]), name) == 0)
                 return decls.nodes[i];
@@ -354,11 +354,11 @@ static const Node* process(Context* ctx, const Node* node) {
             is_leaf = is_builtin || !node->payload.fun.body;
         } else {
             ctx2.lower = true;
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = gen_local_alloc(bb, shd_int32_type(a));
-            set_value_name(ptr, "cf_depth");
+            shd_set_value_name(ptr, "cf_depth");
             gen_store(bb, ptr, shd_int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
@@ -366,7 +366,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
-            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new, finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
@@ -416,9 +416,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),

@@ -9,7 +9,7 @@
 const Type* convert_type(Parser* p, LLVMTypeRef t) {
     const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, t);
     if (found) return *found;
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
 
     switch (LLVMGetTypeKind(t)) {
         case LLVMVoidTypeKind: return unit_type(a);

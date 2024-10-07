@@ -11,7 +11,7 @@
 #include "llvm-c/DebugInfo.h"
 
 static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     LARRAY(const Node*, ops, num_ops);
     for (size_t i = 0; i < num_ops; i++) {
         LLVMValueRef op = LLVMGetOperand(v, i);
@@ -90,7 +90,7 @@ static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* eleme
 const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
     Node* fn = fn_ctx ? fn_ctx->fn : NULL;
 
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
     int num_ops = LLVMGetNumOperands(instr);
     size_t num_results = 1;
     Nodes result_types = shd_empty(a);
@@ -465,9 +465,9 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     meta = meta->payload.global_variable.init;
                     assert(meta && meta->tag == Composite_TAG);
                     const Node* name_node = meta->payload.composite.contents.nodes[2];
-                    String name = get_string_literal(target->arena, name_node);
+                    String name = shd_get_string_literal(target->arena, name_node);
                     assert(name);
-                    set_value_name((Node*) target, name);
+                    shd_set_value_name((Node*) target, name);
                     return NULL;
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {

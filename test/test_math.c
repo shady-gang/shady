@@ -32,7 +32,7 @@ static bool check_same_bytes(char* a, char* b, size_t size) {
 }
 
 static void check_int_literal_against_reference(IrArena* a, const Node* lit, IntLiteral reference) {
-    const IntLiteral* ptr = resolve_to_int_literal(lit);
+    const IntLiteral* ptr = shd_resolve_to_int_literal(lit);
     CHECK(ptr, exit(-1));
     IntLiteral got = *ptr;
     CHECK(got.is_signed == reference.is_signed, exit(-1));
@@ -76,13 +76,13 @@ static void test_int_literals(IrArena* a) {
             .width = IntTy64,
             .is_signed = true
         };
-        uint64_t extracted_literal_value = get_int_literal_value(reference_literal, true);
+        uint64_t extracted_literal_value = shd_get_int_literal_value(reference_literal, true);
         int16_t reference_minus_one_i16 = test_value;
         CHECK(check_same_bytes((char*) &extracted_literal_value, (char*) &reference_minus_one_i16, sizeof(uint16_t)), exit(-1));
-        uint64_t minus_one_u32 = get_int_literal_value(reference_literal, true);
+        uint64_t minus_one_u32 = shd_get_int_literal_value(reference_literal, true);
         int32_t reference_minus_one_i32 = test_value;
         CHECK(check_same_bytes((char*) &minus_one_u32, (char*) &reference_minus_one_i32, sizeof(uint32_t)), exit(-1));
-        uint64_t minus_one_u64 = get_int_literal_value(reference_literal, true);
+        uint64_t minus_one_u64 = shd_get_int_literal_value(reference_literal, true);
         int64_t reference_minus_one_i64 = test_value;
         CHECK(check_same_bytes((char*) &minus_one_u64, (char*) &reference_minus_one_i64, sizeof(uint64_t)), exit(-1));
     }

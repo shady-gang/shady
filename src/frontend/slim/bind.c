@@ -42,7 +42,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    Nodes new_decls = get_module_declarations(ctx->rewriter.dst_module);
+    Nodes new_decls = shd_module_get_declarations(ctx->rewriter.dst_module);
     for (size_t i = 0; i < new_decls.count; i++) {
         const Node* decl = new_decls.nodes[i];
         if (strcmp(get_declaration_name(decl), name) == 0) {
@@ -53,7 +53,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    Nodes old_decls = get_module_declarations(ctx->rewriter.src_module);
+    Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
         if (strcmp(get_declaration_name(old_decl), name) == 0) {
@@ -112,7 +112,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
                 } else if (payload.opcode == SlimOpUnbound) {
                     if (payload.mem)
                         shd_rewrite_node(&ctx->rewriter, payload.mem);
-                    Resolved entry = resolve_using_name(ctx, get_string_literal(a, shd_first(payload.operands)));
+                    Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.operands)));
                     // can't take the address if it's not a var!
                     if (!entry.is_var)
                         return NULL;
@@ -144,7 +144,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
             Nodes results = deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
-                String name = get_string_literal(a, names[i]);
+                String name = shd_get_string_literal(a, names[i]);
                 shd_log_fmt(DEBUGV, "Bound immutable variable '%s'\n", name);
                 add_binding(ctx, false, name, results.nodes[i]);
             }
@@ -157,12 +157,12 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
             Nodes results = deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
-                String name = get_string_literal(a, names[i]);
+                String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
                 const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
                 const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
-                set_value_name(ptr, name);
+                shd_set_value_name(ptr, name);
                 bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
 
                 add_binding(ctx, true, name, ptr);
@@ -176,9 +176,9 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             const Node** conts = &instr.operands.nodes[0 + names_count];
             LARRAY(Node*, bbs, names_count);
             for (size_t i = 0; i < names_count; i++) {
-                String name = get_string_literal(a, names[i]);
+                String name = shd_get_string_literal(a, names[i]);
                 Nodes nparams = shd_recreate_params(r, get_abstraction_params(conts[i]));
-                bbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(conts[i]));
+                bbs[i] = basic_block(a, nparams, shd_get_abstraction_name_unsafe(conts[i]));
                 shd_register_processed(r, conts[i], bbs[i]);
                 add_binding(ctx, false, name, bbs[i]);
                 shd_log_fmt(DEBUGV, "Bound continuation '%s'\n", name);
@@ -348,7 +348,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                                 return shd_rewrite_node(r, payload.mem);
                             mem = shd_rewrite_node(r, payload.mem);
                         }
-                        Resolved entry = resolve_using_name(ctx, get_string_literal(a, shd_first(payload.operands)));
+                        Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.operands)));
                         if (entry.is_var) {
                             return load(a, (Load) { .ptr = entry.node, .mem = mem });
                         } else if (mem) {
@@ -367,11 +367,11 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 }
 
 Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     assert(!src->arena->config.name_bound);
     aconfig.name_bound = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),

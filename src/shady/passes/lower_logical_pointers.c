@@ -138,12 +138,12 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.address_spaces[AsInput].physical = false;
     aconfig.address_spaces[AsOutput].physical = false;
     aconfig.address_spaces[AsUniformConstant].physical = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

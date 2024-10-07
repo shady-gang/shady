@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case offset_of_op: {
                     const Type* t = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
                     const Node* n = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.operands));
-                    const IntLiteral* literal = resolve_to_int_literal(n);
+                    const IntLiteral* literal = shd_resolve_to_int_literal(n);
                     assert(literal);
                     t = get_maybe_nominal_type_body(t);
                     uint64_t offset_in_bytes = (uint64_t) shd_get_record_field_offset_in_bytes(a, t, literal->value);
@@ -49,9 +49,9 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process)

@@ -113,7 +113,7 @@ static void generate_node_payload_cmp_fn(Growy* g, json_object* src, json_object
 }
 
 static void generate_node_is_nominal(Growy* g, json_object* nodes) {
-    shd_growy_append_formatted(g, "bool is_nominal(const Node* node) {\n");
+    shd_growy_append_formatted(g, "bool shd_is_node_nominal(const Node* node) {\n");
     shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {

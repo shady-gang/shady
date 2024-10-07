@@ -32,7 +32,7 @@ Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const
     }
 
     Program* program = new_program_from_module(runtime, base_config, module);
-    program->arena = get_module_arena(module);
+    program->arena = shd_module_get_arena(module);
     return program;
 }
 
@@ -45,7 +45,7 @@ Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_con
     }
 
     Program* program = new_program_from_module(runtime, base_config, module);
-    program->arena = get_module_arena(module);
+    program->arena = shd_module_get_arena(module);
     return program;
 }
 

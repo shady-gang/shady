@@ -148,7 +148,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TreeNode* root = NULL;
             for (size_t i = 0; i < literals.count; i++) {
                 TreeNode* t = shd_arena_alloc(arena, sizeof(TreeNode));
-                t->key = get_int_literal_value(*resolve_to_int_literal(literals.nodes[i]), false);
+                t->key = shd_get_int_literal_value(*shd_resolve_to_int_literal(literals.nodes[i]), false);
                 t->lam = cases.nodes[i];
                 root = insert(root, t);
             }
@@ -181,9 +181,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_switch_btree(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),

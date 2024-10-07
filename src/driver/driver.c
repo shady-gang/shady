@@ -108,7 +108,7 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
         if (err)
             return err;
         link_module(mod, m);
-        shd_destroy_ir_arena(get_module_arena(m));
+        shd_destroy_ir_arena(shd_module_get_arena(m));
     }
 
     return NoError;
@@ -181,6 +181,6 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
         free((void*) output_buffer);
         fclose(f);
     }
-    shd_destroy_ir_arena(get_module_arena(mod));
+    shd_destroy_ir_arena(shd_module_get_arena(mod));
     return NoError;
 }

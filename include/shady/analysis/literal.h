@@ -3,7 +3,7 @@
 
 #include "shady/ir/base.h"
 
-const char* get_string_literal(IrArena*, const Node*);
+const char* shd_get_string_literal(IrArena* arena, const Node* node);
 
 typedef struct {
     bool enter_loads;
@@ -11,10 +11,10 @@ typedef struct {
     bool assume_globals_immutability;
 } NodeResolveConfig;
 
-NodeResolveConfig default_node_resolve_config(void);
-const Node* chase_ptr_to_source(const Node*, NodeResolveConfig config);
-const Node* resolve_ptr_to_value(const Node* node, NodeResolveConfig config);
+NodeResolveConfig shd_default_node_resolve_config(void);
+const Node* shd_chase_ptr_to_source(const Node* ptr, NodeResolveConfig config);
+const Node* shd_resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config);
 
-const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config);
+const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig config);
 
 #endif

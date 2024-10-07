@@ -17,7 +17,7 @@ const Type* shd_fp64_type(IrArena* arena);
 
 const Node* shd_fp_literal_helper(IrArena* a, FloatSizes size, double value);
 
-const FloatLiteral* resolve_to_float_literal(const Node* node);
-double get_float_literal_value(FloatLiteral);
+const FloatLiteral* shd_resolve_to_float_literal(const Node* node);
+double shd_get_float_literal_value(FloatLiteral literal);
 
 #endif

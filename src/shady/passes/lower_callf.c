@@ -36,7 +36,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nannots = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
 
             Node* prelude = case_(a, shd_empty(a));
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(prelude));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(prelude));
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(a, (JoinPointType) {
@@ -52,12 +52,12 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 ctx2.return_jp = jp_variable;
             }
 
-            Node* fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, shd_empty(a));
+            Node* fun = function(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
             shd_register_processed(&ctx->rewriter, old, fun);
 
-            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), bb_mem(bb));
             set_abstraction_body(prelude, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
-            set_abstraction_body(fun, jump_helper(a, get_abstraction_mem(fun), prelude, shd_empty(a)));
+            set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
         }
 
@@ -135,7 +135,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             const Node* control_body = tail_call(a, (TailCall) {
                 .callee = ncallee,
                 .args = nargs,
-                .mem = get_abstraction_mem(control_case),
+                .mem = shd_get_abstraction_mem(control_case),
             });
             set_abstraction_body(control_case, control_body);
             BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
@@ -147,9 +147,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 }
 
 Module* lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) lower_callf_process),
         .disable_lowering = false,

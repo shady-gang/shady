@@ -37,7 +37,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
             shd_error("EntryPoint parameters must be uniform");
 
         types[i] = type;
-        names[i] = get_value_name_safe(params.nodes[i]);
+        names[i] = shd_get_value_name_safe(params.nodes[i]);
     }
 
     return record_type(a, (RecordType) {
@@ -60,7 +60,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct) {
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
 
     Nodes params = old_entry_point->payload.fun.params;
 
@@ -70,7 +70,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
         shd_register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
-    shd_register_processed(&ctx->rewriter, get_abstraction_mem(old_entry_point), bb_mem(bb));
+    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), bb_mem(bb));
     return finish_body(bb, shd_rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 
@@ -91,9 +91,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_entrypoint_args(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config

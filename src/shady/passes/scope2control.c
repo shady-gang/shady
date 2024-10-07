@@ -90,14 +90,14 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         assert(obb->tag == BasicBlock_TAG);
         Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
         shd_register_processed_list(r, get_abstraction_params(obb), nparams);
-        nbbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(obb));
+        nbbs[i] = basic_block(a, nparams, shd_get_abstraction_name_unsafe(obb));
         shd_register_processed(r, obb, nbbs[i]);
     }
 
     // We introduce a dummy case now because we don't know yet whether the body of the abstraction will be wrapped
     Node* c = case_(a, shd_empty(a));
     Node* oc = c;
-    shd_register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
+    shd_register_processed(r, shd_get_abstraction_mem(oabs), shd_get_abstraction_mem(c));
 
     for (size_t k = 0; k < num_dom; k++) {
         CFNode* dominated = shd_read_list(CFNode*, n->dominates)[k];
@@ -114,10 +114,10 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
         Node* control_case = case_(a, shd_singleton(add_control.token));
-        set_abstraction_body(control_case, jump_helper(a, get_abstraction_mem(control_case), c, shd_empty(a)));
+        set_abstraction_body(control_case, jump_helper(a, shd_get_abstraction_mem(control_case), c, shd_empty(a)));
 
         Node* c2 = case_(a, shd_empty(a));
-        BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(c2));
+        BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(c2));
         const Type* jp_type = add_control.token->type;
         deconstruct_qualified_type(&jp_type);
         assert(jp_type->tag == JoinPointType_TAG);
@@ -133,7 +133,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), shd_find_processed(r, dst), results)));
     }
 
-    const Node* body = jump_helper(a, get_abstraction_mem(nabs), c, shd_empty(a));
+    const Node* body = jump_helper(a, shd_get_abstraction_mem(nabs), c, shd_empty(a));
     set_abstraction_body(nabs, body);
 }
 
@@ -184,7 +184,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
         shd_log_node(WARN, dst);
         shd_warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
     } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
-        shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", get_abstraction_name_safe(src), get_abstraction_name_safe(dst));
+        shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", shd_get_abstraction_name_safe(src), shd_get_abstraction_name_safe(dst));
 
         CFNode* src_cfnode = cfg_lookup(cfg, src);
         assert(src_cfnode->node);
@@ -196,21 +196,21 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
 
         CFNode* dom = src_cfnode->idom;
         while (dom) {
-            shd_debug_print("Considering %s as a location for control\n", get_abstraction_name_safe(dom->node));
+            shd_debug_print("Considering %s as a location for control\n", shd_get_abstraction_name_safe(dom->node));
             Nodes* dom_lexical_scope = find_scope_info(dom->node);
             if (!dom_lexical_scope) {
-                shd_warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", get_abstraction_name_safe(dom->node));
+                shd_warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", shd_get_abstraction_name_safe(dom->node));
                 dom = dom->idom;
                 continue;
             } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
-                shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
+                shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", shd_get_abstraction_name_safe(dom->node));
             } else if (shd_compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                 // if (cfg_is_dominated(target_cfnode, dom)) {
                 if (!cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
                     // assert(false);
                 }
 
-                shd_debug_print("We need to introduce a control block at %s, pointing at %s\n.", get_abstraction_name_safe(dom->node), get_abstraction_name_safe(dst));
+                shd_debug_print("We need to introduce a control block at %s, pointing at %s\n.", shd_get_abstraction_name_safe(dom->node), shd_get_abstraction_name_safe(dst));
 
                 Controls* controls = get_or_create_controls(ctx, dom->node);
                 AddControl* found = shd_dict_find_value(const Node, AddControl, controls->control_destinations, dst);
@@ -225,13 +225,13 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types
                     });
-                    const Node* join_token = param(a, shd_as_qualified_type(jp_type, false), get_abstraction_name_unsafe(dst));
+                    const Node* join_token = param(a, shd_as_qualified_type(jp_type, false), shd_get_abstraction_name_unsafe(dst));
 
-                    Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", get_abstraction_name_safe(dst)));
+                    Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,
-                        .mem = get_abstraction_mem(wrapper),
+                        .mem = shd_get_abstraction_mem(wrapper),
                     });
 
                     AddControl add_control = {
@@ -301,10 +301,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* scope2control(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,

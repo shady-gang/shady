@@ -31,8 +31,8 @@ struct Module_ {
     bool sealed;
 };
 
-void register_decl_module(Module*, Node*);
-void destroy_module(Module* m);
+void _shd_module_add_decl(Module* m, Node* node);
+void shd_destroy_module(Module* m);
 
 struct BodyBuilder_ {
     IrArena* arena;

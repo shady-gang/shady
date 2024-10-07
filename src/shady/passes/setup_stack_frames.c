@@ -29,12 +29,12 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
 
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {
                 ctx2.stack_size_on_entry = gen_get_stack_size(bb);
-                set_value_name((Node*) ctx2.stack_size_on_entry, shd_format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
+                shd_set_value_name((Node*) ctx2.stack_size_on_entry, shd_format_string_arena(a->arena, "saved_stack_ptr_entering_%s", shd_get_abstraction_name(fun)));
             }
-            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), bb_mem(bb));
             if (node->payload.fun.body)
                 set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
             else
@@ -60,9 +60,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* setup_stack_frames(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

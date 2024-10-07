@@ -30,7 +30,7 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     Node* ptr = &node;
     Node** found = shd_dict_find_key(Node*, arena->node_set, ptr);
     // sanity check nominal nodes to be unique, check for duplicates in structural nodes
-    if (is_nominal(&node))
+    if (shd_is_node_nominal(&node))
         assert(!found);
     else if (found)
         return *found;
@@ -108,7 +108,7 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
         .payload.fun = payload
     };
     Node* fn = _shd_create_node_helper(arena, node, NULL);
-    register_decl_module(mod, fn);
+    _shd_module_add_decl(mod, fn);
 
     for (size_t i = 0; i < params.count; i++) {
         Node* param = (Node*) params.nodes[i];
@@ -165,12 +165,12 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
         .payload.constant = cnst
     };
     Node* decl = _shd_create_node_helper(arena, node, NULL);
-    register_decl_module(mod, decl);
+    _shd_module_add_decl(mod, decl);
     return decl;
 }
 
 Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
-    const Node* existing = get_declaration(mod, name);
+    const Node* existing = shd_module_get_declaration(mod, name);
     if (existing) {
         assert(existing->tag == GlobalVariable_TAG);
         assert(existing->payload.global_variable.type == type);
@@ -196,7 +196,7 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
         .payload.global_variable = gvar
     };
     Node* decl = _shd_create_node_helper(arena, node, NULL);
-    register_decl_module(mod, decl);
+    _shd_module_add_decl(mod, decl);
     return decl;
 }
 
@@ -218,7 +218,7 @@ Type* nominal_type(Module* mod, Nodes annotations, String name) {
         .payload.nom_type = payload
     };
     Node* decl = _shd_create_node_helper(arena, node, NULL);
-    register_decl_module(mod, decl);
+    _shd_module_add_decl(mod, decl);
     return decl;
 }
 

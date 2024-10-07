@@ -60,6 +60,6 @@ void shd_visit_function_bodies_rpo(Visitor* visitor, const Node* function) {
 #include "visit_generated.c"
 
 void shd_visit_module(Visitor* visitor, Module* mod) {
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     shd_visit_nodes(visitor, decls);
 }

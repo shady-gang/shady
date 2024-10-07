@@ -89,7 +89,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
     Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
     Growy* resources = shd_new_growy();
 
-    Nodes decls = get_module_declarations(program->specialized_module);
+    Nodes decls = shd_module_get_declarations(program->specialized_module);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
@@ -102,8 +102,8 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 default: continue;
             }
 
-            int set = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
-            int binding = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
+            int set = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
+            int binding = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
 
             ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {
@@ -122,7 +122,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 assert(member_t->tag == PtrType_TAG);
                 member_t = get_pointee_type(member_t->arena, member_t);
-                TypeMemLayout layout = shd_get_mem_layout(get_module_arena(program->specialized_module), member_t);
+                TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
 
                 ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
                 *constant_res_info = (ProgramResourceInfo) {
@@ -140,7 +140,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 Nodes annotations = get_declaration_annotations(decl);
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* a = annotations.nodes[k];
-                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
+                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
                         constant_res_info->default_data = calloc(1, layout.size_in_bytes);
                         write_value(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
                         //printf("wowie");
@@ -275,7 +275,7 @@ static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const Co
 }
 
 static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) {
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
 
     const Node* args_struct_annotation;
     const Node* args_struct_type = NULL;
@@ -352,7 +352,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
         return false;
     }
 
-    IrArena* a = get_module_arena(mod);
+    IrArena* a = shd_module_get_arena(mod);
 
     LARRAY(FieldLayout, fields, num_args);
     shd_get_record_layout(a, args_struct_type, fields);
@@ -391,7 +391,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_module = final_mod;
 
     if (spec->key.base->runtime->config.dump_spv) {
-        String module_name = get_module_name(spec->specialized_module);
+        String module_name = shd_module_get_name(spec->specialized_module);
         String file_name = shd_format_string_new("%s.spv", module_name);
         shd_write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
         free((void*) file_name);
@@ -513,8 +513,8 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     free( (void*) spec->parameters.arg_offset);
     free(spec->spirv_bytes);
-    if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
-        shd_destroy_ir_arena(get_module_arena(spec->specialized_module));
+    if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
+        shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)

@@ -79,7 +79,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* obody = get_abstraction_body(liftee);
-    String name = get_abstraction_name_safe(liftee);
+    String name = shd_get_abstraction_name_safe(liftee);
 
     Scheduler* scheduler = new_scheduler(cfg);
     struct Dict* frontier_set = free_frontier(scheduler, cfg, liftee);
@@ -95,7 +95,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
-    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", get_abstraction_name_safe(liftee), recover_context_size);
+    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", shd_get_abstraction_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = frontier.nodes[i];
         if (!is_value(item)) {
@@ -111,7 +111,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     // Create and register new parameters for the lifted continuation
     LARRAY(const Node*, new_params_arr, ovariables.count);
     for (size_t i = 0; i < ovariables.count; i++)
-        new_params_arr[i] = param(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), get_value_name_unsafe(ovariables.nodes[i]));
+        new_params_arr[i] = param(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), shd_get_value_name_unsafe(ovariables.nodes[i]));
     Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
@@ -130,7 +130,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
-    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
     gen_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = frontier.nodes[i];
@@ -149,7 +149,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         shd_register_processed(r, ovar, recovered_value);
     }
 
-    shd_register_processed(r, get_abstraction_mem(liftee), bb_mem(bb));
+    shd_register_processed(r, shd_get_abstraction_mem(liftee), bb_mem(bb));
     shd_register_processed(r, liftee, new_fn);
     const Node* substituted = shd_rewrite_node(r, obody);
     shd_destroy_rewriter(r);
@@ -210,7 +210,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
-                shd_register_processed(r, get_abstraction_mem(oinside), bb_mem(bb));
+                shd_register_processed(r, shd_get_abstraction_mem(oinside), bb_mem(bb));
                 shd_register_processed(r, oinside, NULL);
                 return finish_body(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }
@@ -222,7 +222,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = NULL;
     Module* dst;
 
@@ -231,7 +231,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         shd_debugv_print("lift_indirect_target: round %d\n", round++);
         IrArena* oa = a;
         a = shd_new_ir_arena(&aconfig);
-        dst = new_module(a, get_module_name(src));
+        dst = shd_new_module(a, shd_module_get_name(src));
         bool todo = false;
         Context ctx = {
             .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
@@ -262,7 +262,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     // this will be safe now since we won't lift any more code after this pass
     aconfig.optimisations.weaken_non_leaking_allocas = true;
     IrArena* a2 = shd_new_ir_arena(&aconfig);
-    dst = new_module(a2, get_module_name(src));
+    dst = shd_new_module(a2, shd_module_get_name(src));
     Rewriter r = shd_create_importer(src, dst);
     shd_rewrite_module(&r);
     shd_destroy_rewriter(&r);

@@ -40,7 +40,7 @@ typedef struct BodyBuilder_ BodyBuilder;
 // see grammar.json
 #include "grammar_generated.h"
 
-bool is_nominal(const Node* node);
+bool shd_is_node_nominal(const Node* node);
 const char* shd_get_node_tag_string(NodeTag tag);
 
 #endif

@@ -3,12 +3,12 @@
 
 #include "shady/ir/base.h"
 
-Module* new_module(IrArena*, String name);
+Module* shd_new_module(IrArena* arena, String name);
 
-IrArena* get_module_arena(const Module*);
-String get_module_name(const Module*);
-Nodes get_module_declarations(const Module*);
-Node* get_declaration(const Module*, String);
+IrArena* shd_module_get_arena(const Module* m);
+String shd_module_get_name(const Module* m);
+Nodes shd_module_get_declarations(const Module* m);
+Node* shd_module_get_declaration(const Module* m, String name);
 
 void link_module(Module* dst, Module* src);
 

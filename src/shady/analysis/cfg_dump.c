@@ -67,7 +67,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
 
-    String abs_name = get_abstraction_name_safe(bb);
+    String abs_name = shd_get_abstraction_name_safe(bb);
 
     shd_print(p, "%s: \n%d: ", abs_name, bb->id);
 
@@ -84,7 +84,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
         print_node_helper(p, body);
         shd_print(p, "\\l");
     }
-    shd_print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? get_abstraction_name_safe(n->structured_idom->node) : "null");
+    shd_print(p, "rpo: %d, idom: %s, sdom: %s", n->rpo_index, n->idom ? shd_get_abstraction_name_safe(n->idom->node) : "null", n->structured_idom ? shd_get_abstraction_name_safe(n->structured_idom->node) : "null");
 
     String label = shd_printer_growy_unwrap(p);
     fprintf(output, "bb_%zu [nojustify=true, label=\"%s\", color=\"%s\", shape=box];\n", (size_t) n, label, color);
@@ -102,7 +102,7 @@ static void dump_cfg(FILE* output, CFG* cfg) {
 
     const Node* entry = cfg->entry->node;
     fprintf(output, "subgraph cluster_%d {\n", entry->id);
-    fprintf(output, "label = \"%s\";\n", get_abstraction_name_safe(entry));
+    fprintf(output, "label = \"%s\";\n", shd_get_abstraction_name_safe(entry));
     for (size_t i = 0; i < shd_list_count(cfg->contents); i++) {
         const CFNode* n = shd_read_list(const CFNode*, cfg->contents)[i];
         dump_cf_node(output, n);
@@ -170,7 +170,7 @@ void dump_cfgs_auto(Module* mod) {
 }
 
 static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
-    String name = get_abstraction_name_safe(idom->node);
+    String name = shd_get_abstraction_name_safe(idom->node);
     if (name)
         shd_print(p, "bb_%zu [label=\"%s\", shape=box];\n", (size_t) idom, name);
     else
@@ -184,7 +184,7 @@ static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
 }
 
 void dump_domtree_cfg(Printer* p, CFG* s) {
-    shd_print(p, "subgraph cluster_%s {\n", get_abstraction_name_safe(s->entry->node));
+    shd_print(p, "subgraph cluster_%s {\n", shd_get_abstraction_name_safe(s->entry->node));
     dump_domtree_cfnode(p, s->entry);
     shd_print(p, "}\n");
 }

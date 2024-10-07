@@ -173,9 +173,9 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.depth_per_rpo = compute_scope_depth(a, fn_ctx.cfg);
             Node* new_fn = shd_recreate_node_head(r, node);
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), shd_empty(a));
-            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_fn, finish_body(bb, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
             destroy_cfg(fn_ctx.cfg);
             free(fn_ctx.depth_per_rpo);
@@ -184,12 +184,12 @@ static const Node* process(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             Nodes nparams = shd_recreate_params(r, get_abstraction_params(node));
             shd_register_processed_list(r, get_abstraction_params(node), nparams);
-            Node* new_bb = basic_block(a, nparams, get_abstraction_name_unsafe(node));
+            Node* new_bb = basic_block(a, nparams, shd_get_abstraction_name_unsafe(node));
             shd_register_processed(r, node, new_bb);
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_bb));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_bb));
             CFNode* n = cfg_lookup(ctx->cfg, node);
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), ctx->depth_per_rpo[n->rpo_index]);
-            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new_bb, finish_body(bb, shd_rewrite_node(r, get_abstraction_body(node))));
             return new_bb;
         }
@@ -200,9 +200,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* scope_heuristic(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };

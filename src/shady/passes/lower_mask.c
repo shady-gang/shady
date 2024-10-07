@@ -49,10 +49,10 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.specializations.subgroup_mask_representation = SubgroupMaskInt64;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     const Type* mask_type = get_actual_mask_type(a);
     assert(mask_type->tag == Int_TAG);

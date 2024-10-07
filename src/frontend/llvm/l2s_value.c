@@ -46,7 +46,7 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
 const Node* convert_value(Parser* p, LLVMValueRef v) {
     const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, v);
     if (found) return *found;
-    IrArena* a = get_module_arena(p->dst);
+    IrArena* a = shd_module_get_arena(p->dst);
 
     const Node* r = NULL;
     const Type* t = LLVMGetValueKind(v) != LLVMMetadataAsValueValueKind ? convert_type(p, LLVMTypeOf(v)) : NULL;
@@ -89,7 +89,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);
-            size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
+            size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             return data_composite(t, arr_size, v);
         }
@@ -128,7 +128,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
-            size_t arr_size = get_int_literal_value(*resolve_to_int_literal(t->payload.arr_type.size), false);
+            size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
             LARRAY(const Node*, elements, arr_size);
             for (size_t i = 0; i < arr_size; i++) {

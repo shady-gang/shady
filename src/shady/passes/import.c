@@ -19,7 +19,7 @@ static void replace_or_compare(const Node** dst, const Node* with) {
 
 const Node* import_node(Rewriter* r, const Node* node) {
     if (is_declaration(node)) {
-        Node* existing = get_declaration(r->dst_module, get_declaration_name(node));
+        Node* existing = shd_module_get_declaration(r->dst_module, get_declaration_name(node));
         if (existing) {
             const Node* imported_t = shd_rewrite_node(r, node->type);
             if (imported_t != existing->type) {
@@ -61,9 +61,9 @@ const Node* import_node(Rewriter* r, const Node* node) {
 }
 
 Module* import(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) shd_recreate_node),
     };

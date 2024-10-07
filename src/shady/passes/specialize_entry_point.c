@@ -68,7 +68,7 @@ static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
     if (!config->specialization.entry_point)
         return NULL;
     const Node* found = NULL;
-    Nodes old_decls = get_module_declarations(m);
+    Nodes old_decls = shd_module_get_declarations(m);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (strcmp(get_declaration_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
             assert(!found);
@@ -94,9 +94,9 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
             const Node* old_wg_size_annotation = shd_lookup_annotation(old_entry_point_decl, "WorkgroupSize");
             assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3);
             Nodes wg_size_nodes = shd_get_annotation_values(old_wg_size_annotation);
-            target->specializations.workgroup_size[0] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
-            target->specializations.workgroup_size[1] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
-            target->specializations.workgroup_size[2] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
+            target->specializations.workgroup_size[0] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
+            target->specializations.workgroup_size[1] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
+            target->specializations.workgroup_size[2] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
             assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2] > 0);
             break;
         }
@@ -105,10 +105,10 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
 }
 
 Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(config, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
@@ -118,7 +118,7 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
     const Node* old_entry_point_decl = find_entry_point(src, config);
     shd_rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
-    Nodes old_decls = get_module_declarations(src);
+    Nodes old_decls = shd_module_get_declarations(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
         if (shd_lookup_annotation(old_decl, "RetainAfterSpecialization"))

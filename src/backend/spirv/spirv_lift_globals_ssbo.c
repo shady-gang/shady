@@ -27,9 +27,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
                 shd_dict_clear(functx.rewriter.map);
                 shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
-                functx.bb = begin_body_with_mem(a, get_abstraction_mem(newfun));
+                functx.bb = begin_body_with_mem(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
-                shd_register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
+                shd_register_processed(&functx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
                 set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
                 set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
                                                                                 shd_empty(a))));
@@ -63,16 +63,16 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
 
-    Nodes old_decls = get_module_declarations(src);
+    Nodes old_decls = shd_module_get_declarations(src);
     LARRAY(const Type*, member_tys, old_decls.count);
     LARRAY(String, member_names, old_decls.count);
 

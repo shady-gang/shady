@@ -62,7 +62,7 @@ void enter_composite(const Type** datatype, bool* uniform, const Node* selector,
     try_again:
     switch (current_type->tag) {
         case RecordType_TAG: {
-            size_t selector_value = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            size_t selector_value = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             assert(selector_value < current_type->payload.record_type.members.count);
             current_type = current_type->payload.record_type.members.nodes[selector_value];
             break;
@@ -80,7 +80,7 @@ void enter_composite(const Type** datatype, bool* uniform, const Node* selector,
         case PackType_TAG: {
             assert(allow_entering_pack);
             assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a pack type need to be constant");
-            size_t selector_value = get_int_literal_value(*resolve_to_int_literal(selector), false);
+            size_t selector_value = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             assert(selector_value < current_type->payload.pack_type.width);
             current_type = current_type->payload.pack_type.element_type;
             break;
@@ -260,7 +260,7 @@ Nodes get_composite_type_element_types(const Type* type) {
         }
         case Type_ArrType_TAG:
         case Type_PackType_TAG: {
-            size_t size = get_int_literal_value(*resolve_to_int_literal(get_fill_type_size(type)), false);
+            size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(get_fill_type_size(type)), false);
             if (size >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
             }

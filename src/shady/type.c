@@ -106,7 +106,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             // unsized arrays are supertypes of sized arrays (even though they're not datatypes...)
             // TODO: maybe change this so it's only valid when talking about to pointer-to-arrays
-            const IntLiteral* size_literal = resolve_to_int_literal(supertype->payload.arr_type.size);
+            const IntLiteral* size_literal = shd_resolve_to_int_literal(supertype->payload.arr_type.size);
             if (size_literal && size_literal->value == 0)
                 return true;
             return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size;
@@ -812,7 +812,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool u = lhs_u & rhs_u;
             for (size_t i = 0; i < indices_count; i++) {
                 u &= is_qualified_type_uniform(indices[i]->type);
-                int64_t index = get_int_literal_value(*resolve_to_int_literal(indices[i]), true);
+                int64_t index = shd_get_int_literal_value(*shd_resolve_to_int_literal(indices[i]), true);
                 assert(index < 0 /* poison */ || (index >= 0 && index < total_size && "shuffle element out of range"));
             }
             return shd_as_qualified_type(
@@ -1060,7 +1060,7 @@ const Type* check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffse
     bool offset_uniform = deconstruct_qualified_type(&offset_type);
     assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
 
-    const IntLiteral* lit = resolve_to_int_literal(lea.offset);
+    const IntLiteral* lit = shd_resolve_to_int_literal(lea.offset);
     bool offset_is_zero = lit && lit->value == 0;
     assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
     assert(offset_is_zero || is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");

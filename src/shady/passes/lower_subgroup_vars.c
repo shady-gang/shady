@@ -25,9 +25,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
                 shd_dict_clear(functx.rewriter.map);
                 shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
-                functx.bb = begin_body_with_mem(a, get_abstraction_mem(newfun));
+                functx.bb = begin_body_with_mem(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
-                shd_register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
+                shd_register_processed(&functx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
                 set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
                 set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
                                                                                 shd_empty(a))));
@@ -58,7 +58,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Type* ntype = shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
                 const Type* atype = arr_type(a, (ArrType) {
                     .element_type = ntype,
-                    .size = ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
+                    .size = ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
                 });
 
                 assert(shd_lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
@@ -88,9 +88,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_subgroup_vars(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config

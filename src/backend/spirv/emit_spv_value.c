@@ -242,7 +242,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
             LARRAY(uint32_t, indices, indices_count);
             for (size_t i = 0; i < indices_count; i++) {
                 // TODO: fallback to Dynamic variants transparently
-                indices[i] = get_int_literal_value(*resolve_to_int_literal(args.nodes[i + indices_start]), false);
+                indices[i] = shd_get_int_literal_value(*shd_resolve_to_int_literal(args.nodes[i + indices_start]), false);
             }
 
             if (insert)
@@ -256,7 +256,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
             SpvId b = spv_emit_value(emitter, fn_builder, args.nodes[1]);
             LARRAY(uint32_t, indices, args.count - 2);
             for (size_t i = 0; i < args.count - 2; i++) {
-                int64_t indice = get_int_literal_value(*resolve_to_int_literal(args.nodes[i + 2]), true);
+                int64_t indice = shd_get_int_literal_value(*shd_resolve_to_int_literal(args.nodes[i + 2]), true);
                 if (indice == -1)
                     indices[i] = 0xFFFFFFFF;
                 else
@@ -313,7 +313,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             case SpvOpGroupNonUniformIAdd: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
                 SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(instr.operands));
-                SpvGroupOperation group_op = get_int_literal_value(*resolve_to_int_literal(instr.operands.nodes[2]), false);
+                SpvGroupOperation group_op = shd_get_int_literal_value(*shd_resolve_to_int_literal(instr.operands.nodes[2]), false);
                 return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), NULL);
             }
             case SpvOpGroupNonUniformElect: {

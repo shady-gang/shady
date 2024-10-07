@@ -79,7 +79,7 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
     if (root)
         uses_visit_node(&v, root);
     if (m) {
-        Nodes nodes = get_module_declarations(m);
+        Nodes nodes = shd_module_get_declarations(m);
         for (size_t i = 0; i < nodes.count; i++)
             uses_visit_node(&v, nodes.nodes[i]);
     }

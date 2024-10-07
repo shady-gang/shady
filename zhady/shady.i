@@ -5,6 +5,21 @@
 %module shady
 %{
 #include "shady/ir.h"
+
+* arena
+
+* m
+
+* m
+
+* m
+
+* mname
+
+* v
+
+* arena* node
+
 #include "shady/runtime.h"
 #include "shady/driver.h"
 #include "shady/config.h"

@@ -64,7 +64,7 @@ static void cli_parse_oracle_args(int* pargc, char** argv) {
 }
 
 static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) {
-    IrArena* initial_arena = get_module_arena(initial_mod);
+    IrArena* initial_arena = shd_module_get_arena(initial_mod);
     Module** pmod = &initial_mod;
 
     RUN_PASS(cleanup)
@@ -86,14 +86,14 @@ int main(int argc, char** argv) {
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
     aconfig.optimisations.weaken_non_leaking_allocas = true;
     IrArena* arena = shd_new_ir_arena(&aconfig);
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+    Module* mod = shd_new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
     if (err)
         exit(err);
 
     Module* mod2 = oracle_passes(&args.config, mod);
-    shd_destroy_ir_arena(get_module_arena(mod2));
+    shd_destroy_ir_arena(shd_module_get_arena(mod2));
 
     if (err)
         exit(err);

@@ -89,13 +89,13 @@ static const Node* process(Context* ctx, const Node* node) {
                 return fun;
             }
 
-            BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
             ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
             ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
-            set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
+            shd_set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
-            Node* nom_t = nominal_type(m, shd_empty(a), shd_format_string_arena(a->arena, "%s_stack_frame", get_abstraction_name(node)));
+            Node* nom_t = nominal_type(m, shd_empty(a), shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_abstraction_name(node)));
             VContext vctx = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
@@ -120,7 +120,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
-            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
             shd_destroy_dict(ctx2.prepared_offsets);
@@ -164,9 +164,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

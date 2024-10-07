@@ -44,7 +44,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
 
     const Node* element_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
     element_size = gen_conversion(bb, shd_uint32_type(a), element_size);
@@ -93,9 +93,9 @@ static const Node* process_node(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
+    if (old->tag == Function_TAG && strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
         Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-        BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
+        BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
 
         // Make sure to zero-init the stack pointers
         // TODO isn't this redundant with thoose things having an initial value already ?
@@ -104,7 +104,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_pointer = ctx->stack_pointer;
             gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
-        shd_register_processed(r, get_abstraction_mem(old), bb_mem(bb));
+        shd_register_processed(r, shd_get_abstraction_mem(old), bb_mem(bb));
         set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
         return new;
     }
@@ -175,9 +175,9 @@ KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
 Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

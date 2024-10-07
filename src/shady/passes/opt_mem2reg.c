@@ -123,11 +123,11 @@ OptPass opt_mem2reg;
 
 bool opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
-    IrArena* a = get_module_arena(src);
+    IrArena* a = shd_module_get_arena(src);
 
     Module* dst = NULL;
     bool todo = false;
-    dst = new_module(a, get_module_name(src));
+    dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .todo = &todo

@@ -53,17 +53,17 @@ static const Node* process(Context* ctx, const Node* old) {
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
-            set_value_name(index, "memcpy_i");
+            shd_set_value_name(index, "memcpy_i");
             Node* loop_case = l.loop_body;
-            BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
+            BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_case));
             const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, shd_empty(a)));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), loaded_word);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
             Node* false_case = case_(a, shd_empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = shd_empty(a) }));
+            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                 .mem = bb_mem(loop_bb),
@@ -100,16 +100,16 @@ static const Node* process(Context* ctx, const Node* old) {
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
-            set_value_name(index, "memset_i");
+            shd_set_value_name(index, "memset_i");
             Node* loop_case = l.loop_body;
-            BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_case));
+            BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_case));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), src_value);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
             Node* false_case = case_(a, shd_empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = get_abstraction_mem(false_case), .args = shd_empty(a) }));
+            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                     .mem = bb_mem(loop_bb),
@@ -126,9 +126,9 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
             .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process)

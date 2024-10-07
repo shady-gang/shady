@@ -34,7 +34,7 @@ BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
 
 BodyBuilder* begin_block_with_side_effects(IrArena* a, const Node* mem) {
     Node* block = basic_block(a, shd_empty(a), NULL);
-    BodyBuilder* builder = begin_body_with_mem(a, get_abstraction_mem(block));
+    BodyBuilder* builder = begin_body_with_mem(a, shd_get_abstraction_mem(block));
     builder->tail_block = block;
     builder->block_entry_block = block;
     builder->block_entry_mem = mem;
@@ -270,7 +270,7 @@ Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constru
             break;
         }
     }
-    bb->mem = get_abstraction_mem(tail);
+    bb->mem = shd_get_abstraction_mem(tail);
     shd_list_append(StackEntry , bb->stack, entry);
     bb->tail_block = tail;
     return entry.vars;
@@ -341,14 +341,14 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
     assert(arg_types.count == initial_values.count);
     IrArena* a = bb->arena;
     begin_control_t outer_control = begin_control(bb, yield_types);
-    BodyBuilder* outer_control_case_builder = begin_body_with_mem(a, get_abstraction_mem(outer_control.case_));
+    BodyBuilder* outer_control_case_builder = begin_body_with_mem(a, shd_get_abstraction_mem(outer_control.case_));
     LARRAY(const Node*, params, arg_types.count);
     for (size_t i = 0; i < arg_types.count; i++) {
         params[i] = param(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
     }
     Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
     set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
-    BodyBuilder* loop_header_builder = begin_body_with_mem(a, get_abstraction_mem(loop_header));
+    BodyBuilder* loop_header_builder = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header));
     begin_control_t inner_control = begin_control(loop_header_builder, arg_types);
     set_abstraction_body(loop_header, finish_body_with_jump(loop_header_builder, loop_header, inner_control.results));
 

@@ -196,7 +196,7 @@ bool parse_spv_header(SpvParser* parser) {
 
 String decode_spv_string_literal(SpvParser* parser, uint32_t* at) {
     // TODO: assumes little endian
-    return string(get_module_arena(parser->mod), (const char*) at);
+    return string(shd_module_get_arena(parser->mod), (const char*) at);
 }
 
 AddressSpace convert_storage_class(SpvStorageClass class) {
@@ -901,7 +901,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             Node* block = basic_block(parser->arena, params, bb_name);
             parser->defs[result].node = block;
 
-            BodyBuilder* bb = begin_body_with_mem(parser->arena, get_abstraction_mem(block));
+            BodyBuilder* bb = begin_body_with_mem(parser->arena, shd_get_abstraction_mem(block));
             parser->current_block.builder = bb;
             parser->current_block.finished = NULL;
             while (parser->current_block.builder) {
@@ -1122,7 +1122,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             if (callee->tag == Function_TAG) {
                 const Node* fn = callee; //callee->payload.fn_addr.fn;
-                String fn_name = get_abstraction_name(fn);
+                String fn_name = shd_get_abstraction_name(fn);
                 if (shd_string_starts_with(fn_name, "__shady")) {
                     char* copy = malloc(strlen(fn_name) + 1);
                     memcpy(copy, fn_name, strlen(fn_name) + 1);
@@ -1347,14 +1347,14 @@ bool compare_spvid(SpvId* pa, SpvId* pb) {
 S2SError shd_parse_spirv(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     ArenaConfig aconfig = shd_default_arena_config(&config->target);
     IrArena* a = shd_new_ir_arena(&aconfig);
-    *dst = new_module(a, name);
+    *dst = shd_new_module(a, name);
 
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
         .words = (uint32_t*) data,
         .mod = *dst,
-        .arena = get_module_arena(*dst),
+        .arena = shd_module_get_arena(*dst),
 
         .decorations_arena = shd_new_arena(),
         .phi_arguments = shd_new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),

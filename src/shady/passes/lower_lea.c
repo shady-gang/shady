@@ -61,7 +61,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
         case RecordType_TAG: {
             Nodes member_types = pointed_type->payload.record_type.members;
 
-            const IntLiteral* selector_value = resolve_to_int_literal(index);
+            const IntLiteral* selector_value = shd_resolve_to_int_literal(index);
             assert(selector_value && "selector value must be known for LEA into a record");
             size_t n = selector_value->value;
             assert(n < member_types.count);
@@ -88,7 +88,7 @@ static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* p
 
     const Node* ptr = base;
 
-    const IntLiteral* offset_value = resolve_to_int_literal(offset);
+    const IntLiteral* offset_value = shd_resolve_to_int_literal(offset);
     bool offset_is_zero = offset_value && offset_value->value == 0;
     if (!offset_is_zero) {
         const Type* element_type = pointer_type->payload.ptr_type.pointed_type;
@@ -166,9 +166,9 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_lea(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

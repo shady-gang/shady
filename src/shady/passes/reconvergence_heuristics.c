@@ -120,14 +120,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
         for (size_t i = 0; i < shd_list_count(exiting_nodes); i++) {
-            shd_debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name_safe(shd_read_list(CFNode *, exiting_nodes)[i]->node), get_abstraction_name_safe(node));
+            shd_debugv_print("Node %s exits the loop headed at %s\n", shd_get_abstraction_name_safe(shd_read_list(CFNode * , exiting_nodes)[i]->node), shd_get_abstraction_name_safe(node));
         }
 
         size_t exiting_nodes_count = shd_list_count(exiting_nodes);
         if (exiting_nodes_count > 0) {
             Nodes nparams = shd_recreate_params(rewriter, get_abstraction_params(node));
             Node* loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
-            BodyBuilder* outer_bb = begin_body_with_mem(arena, get_abstraction_mem(loop_container));
+            BodyBuilder* outer_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(loop_container));
             Nodes inner_yield_types = strip_qualifiers(arena, get_param_types(arena, nparams));
 
             LARRAY(Exit, exits, exiting_nodes_count);
@@ -173,7 +173,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params,
-                .mem = get_abstraction_mem(continue_wrapper),
+                .mem = shd_get_abstraction_mem(continue_wrapper),
             });
             set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
@@ -202,7 +202,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes inner_loop_params = shd_recreate_params(rewriter, get_abstraction_params(node));
             shd_register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
             Node* inner_control_case = case_(arena, shd_singleton(join_token_continue));
-            shd_register_processed(rewriter, get_abstraction_mem(node), get_abstraction_mem(inner_control_case));
+            shd_register_processed(rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
             const Node* loop_body = shd_rewrite_node(rewriter, get_abstraction_body(node));
 
             // save the context
@@ -210,7 +210,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = get_abstraction_params(exits[i].wrapper);
-                BodyBuilder* exit_wrapper_bb = begin_body_with_mem(arena, get_abstraction_mem(exits[i].wrapper));
+                BodyBuilder* exit_wrapper_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(exits[i].wrapper));
 
                 for (size_t j = 0; j < exits[i].params_count; j++)
                     gen_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
@@ -238,7 +238,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 shd_register_processed(rewriter, node, *cached_entry);
 
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
-            BodyBuilder* inner_bb = begin_body_with_mem(arena, get_abstraction_mem(loop_outer));
+            BodyBuilder* inner_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(loop_outer));
             Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
@@ -250,7 +250,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
                 .args = nparams,
-                .mem = get_abstraction_mem(outer_control_case),
+                .mem = shd_get_abstraction_mem(outer_control_case),
             }));
             gen_control(outer_bb, shd_empty(arena), outer_control_case);
 
@@ -259,8 +259,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
-                Node* exit_bb = basic_block(arena, shd_empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name_safe(exiting_node->node)));
-                BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, get_abstraction_mem(exit_bb));
+                Node* exit_bb = basic_block(arena, shd_empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", shd_get_abstraction_name_safe(exiting_node->node)));
+                BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(exit_bb));
 
                 const Node* recreated_exit = shd_rewrite_node(rewriter, exiting_node->node);
 
@@ -432,11 +432,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", get_abstraction_name_safe(ctx->current_abstraction), get_abstraction_name_safe(post_dominator)));
+            Node* pre_join = basic_block(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_abstraction_name_safe(ctx->current_abstraction), shd_get_abstraction_name_safe(post_dominator)));
             set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args,
-                .mem = get_abstraction_mem(pre_join),
+                .mem = shd_get_abstraction_mem(pre_join),
             }));
 
             const Node** cached = shd_search_processed(r, post_dominator);
@@ -450,12 +450,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Node* control_case = case_(a, shd_singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
-                .mem = get_abstraction_mem(control_case),
+                .mem = shd_get_abstraction_mem(control_case),
                 .condition = shd_rewrite_node(r, payload.condition),
-                .true_jump = jump_helper(a, get_abstraction_mem(control_case),
+                .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                          shd_rewrite_node(r, payload.true_jump->payload.jump.target),
                                          shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
-                .false_jump = jump_helper(a, get_abstraction_mem(control_case),
+                .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                           shd_rewrite_node(r, payload.false_jump->payload.jump.target),
                                           shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
@@ -482,10 +482,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

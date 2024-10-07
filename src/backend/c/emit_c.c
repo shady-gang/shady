@@ -273,7 +273,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             }
 
             if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
-                int location = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
+                int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 register_emitted(emitter, NULL, decl, t);
                 return;
@@ -316,7 +316,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
 
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
-                    String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
+                    String variable_name = shd_get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
@@ -393,7 +393,7 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     Printer* p = shd_new_printer_from_growy(g);
 
     shd_print(p, "typedef struct __shady_PrivateGlobals {\n");
-    Nodes decls = get_module_declarations(m);
+    Nodes decls = shd_module_get_declarations(m);
     size_t count = 0;
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
@@ -422,9 +422,9 @@ CEmitterConfig default_c_emitter_config(void) {
 }
 
 void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
-    IrArena* initial_arena = get_module_arena(mod);
+    IrArena* initial_arena = shd_module_get_arena(mod);
     mod = run_backend_specific_passes(compiler_config, &config, mod);
-    IrArena* arena = get_module_arena(mod);
+    IrArena* arena = shd_module_get_arena(mod);
 
     Growy* type_decls_g = shd_new_growy();
     Growy* fn_decls_g = shd_new_growy();
@@ -460,7 +460,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Mo
         }
     }
 
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++)
         c_emit_decl(&emitter, decls.nodes[i]);
 

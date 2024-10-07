@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
                                     "runtime_test", &module);
         program = new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
-        Module* module = new_module(arena, "my_module");
+        Module* module = shd_new_module(arena, "my_module");
         int err = shd_driver_load_source_files(&args.driver_config, module);
         if (err)
             return err;

@@ -526,7 +526,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
         }
         case Value_Param_TAG:
             printf(YELLOW);
-            String name = get_value_name_unsafe(node);
+            String name = shd_get_value_name_unsafe(node);
             if (name && strlen(name) > 0)
                 printf("%s_", name);
             printf("%%%d", node->id);
@@ -539,7 +539,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             break;
         case IntLiteral_TAG:
             printf(BBLUE);
-            uint64_t v = get_int_literal_value(node->payload.int_literal, false);
+            uint64_t v = shd_get_int_literal_value(node->payload.int_literal, false);
             switch (node->payload.int_literal.width) {
                 case IntTy8:  printf("%" PRIu8,  (uint8_t)  v);  break;
                 case IntTy16: printf("%" PRIu16, (uint16_t) v); break;
@@ -1093,7 +1093,7 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
-    Nodes decls = get_module_declarations(mod);
+    Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         print_decl(ctx, decl);

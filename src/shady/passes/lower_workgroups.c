@@ -22,7 +22,7 @@ static void add_bounds_check(BodyBuilder* bb, const Node* i, const Node* max) {
     Node* out_of_bounds_case = case_(a, shd_empty(a));
     set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
         .args = shd_empty(a),
-        .mem = get_abstraction_mem(out_of_bounds_case)
+        .mem = shd_get_abstraction_mem(out_of_bounds_case)
     }));
     gen_if(bb, shd_empty(a), gen_primop_e(bb, gte_op, shd_empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
 }
@@ -63,18 +63,18 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 Nodes wannotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
                 Nodes wparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* wrapper = function(m, wparams, get_abstraction_name(node), wannotations, shd_empty(a));
+                Node* wrapper = function(m, wparams, shd_get_abstraction_name(node), wannotations, shd_empty(a));
                 shd_register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = shd_filter_out_annotation(a, wannotations, "EntryPoint");
                 Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, shd_empty(a));
+                Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)), nannotations, shd_empty(a));
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
-                shd_register_processed(&ctx->rewriter, get_abstraction_mem(node), get_abstraction_mem(inner));
+                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));
                 set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));
 
-                BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(wrapper));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(wrapper));
                 const Node* num_workgroups_var = shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
                 const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, num_workgroups_var));
 
@@ -118,7 +118,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     for (int dim = 0; dim < 3; dim++) {
                         Node* loop_body = case_(a, shd_singleton(params[dim]));
                         cases[scope * 3 + dim] = loop_body;
-                        BodyBuilder* loop_bb = begin_body_with_mem(a, get_abstraction_mem(loop_body));
+                        BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_body));
                         builders[scope * 3 + dim] = loop_bb;
                         add_bounds_check(loop_bb, params[dim], maxes[dim]);
                     }
@@ -189,9 +189,9 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lower_workgroups(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,

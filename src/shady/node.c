@@ -8,15 +8,15 @@
 #include <string.h>
 #include <assert.h>
 
-String get_value_name_unsafe(const Node* v) {
+String shd_get_value_name_unsafe(const Node* v) {
     assert(v && is_value(v));
     if (v->tag == Param_TAG)
         return v->payload.param.name;
     return NULL;
 }
 
-String get_value_name_safe(const Node* v) {
-    String name = get_value_name_unsafe(v);
+String shd_get_value_name_safe(const Node* v) {
+    String name = shd_get_value_name_unsafe(v);
     if (name && strlen(name) > 0)
         return name;
     //if (v->tag == Variable_TAG)
@@ -24,13 +24,13 @@ String get_value_name_safe(const Node* v) {
     //return node_tags[v->tag];
 }
 
-void set_value_name(const Node* var, String name) {
+void shd_set_value_name(const Node* var, String name) {
     // TODO: annotations
     // if (var->tag == Variablez_TAG)
     //     var->payload.varz.name = string(var->arena, name);
 }
 
-int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
+int64_t shd_get_int_literal_value(IntLiteral literal, bool sign_extend) {
     if (sign_extend) {
         switch (literal.width) {
             case IntTy8:  return (int64_t) (int8_t)  (literal.value & 0xFF);
@@ -51,7 +51,7 @@ int64_t get_int_literal_value(IntLiteral literal, bool sign_extend) {
 }
 
 static_assert(sizeof(float) == sizeof(uint64_t) / 2, "floats aren't the size we expect");
-double get_float_literal_value(FloatLiteral literal) {
+double shd_get_float_literal_value(FloatLiteral literal) {
     double r;
     switch (literal.width) {
         case FloatTy16:
@@ -73,15 +73,15 @@ double get_float_literal_value(FloatLiteral literal) {
 }
 
 static bool is_zero(const Node* node) {
-    const IntLiteral* lit = resolve_to_int_literal(node);
-    if (lit && get_int_literal_value(*lit, false) == 0)
+    const IntLiteral* lit = shd_resolve_to_int_literal(node);
+    if (lit && shd_get_int_literal_value(*lit, false) == 0)
         return true;
     return false;
 }
 
-const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
+const Node* shd_chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
     while (true) {
-        ptr = resolve_node_to_definition(ptr, config);
+        ptr = shd_resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
             case PtrArrayElementOffset_TAG: break;
             case PtrCompositeElement_TAG: {
@@ -121,9 +121,9 @@ const Node* chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
     return ptr;
 }
 
-const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
+const Node* shd_resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
     while (ptr) {
-        ptr = resolve_node_to_definition(ptr, config);
+        ptr = shd_resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
             case PrimOp_TAG: {
                 switch (ptr->payload.prim_op.op) {
@@ -145,7 +145,7 @@ const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
     return NULL;
 }
 
-NodeResolveConfig default_node_resolve_config(void) {
+NodeResolveConfig shd_default_node_resolve_config(void) {
     return (NodeResolveConfig) {
         .enter_loads = true,
         .allow_incompatible_types = false,
@@ -153,7 +153,7 @@ NodeResolveConfig default_node_resolve_config(void) {
     };
 }
 
-const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
+const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig config) {
     while (node) {
         switch (node->tag) {
             case Constant_TAG:
@@ -165,7 +165,7 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
             case Load_TAG: {
                 if (config.enter_loads) {
                     const Node* source = node->payload.load.ptr;
-                    const Node* result = resolve_ptr_to_value(source, config);
+                    const Node* result = shd_resolve_ptr_to_value(source, config);
                     if (!result)
                         break;
                     node = result;
@@ -192,8 +192,8 @@ const Node* resolve_node_to_definition(const Node* node, NodeResolveConfig confi
     return node;
 }
 
-const IntLiteral* resolve_to_int_literal(const Node* node) {
-    node = resolve_node_to_definition(node, default_node_resolve_config());
+const IntLiteral* shd_resolve_to_int_literal(const Node* node) {
+    node = shd_resolve_node_to_definition(node, shd_default_node_resolve_config());
     if (!node)
         return NULL;
     if (node->tag == IntLiteral_TAG)
@@ -201,8 +201,8 @@ const IntLiteral* resolve_to_int_literal(const Node* node) {
     return NULL;
 }
 
-const FloatLiteral* resolve_to_float_literal(const Node* node) {
-    node = resolve_node_to_definition(node, default_node_resolve_config());
+const FloatLiteral* shd_resolve_to_float_literal(const Node* node) {
+    node = shd_resolve_node_to_definition(node, shd_default_node_resolve_config());
     if (!node)
         return NULL;
     if (node->tag == FloatLiteral_TAG)
@@ -210,30 +210,30 @@ const FloatLiteral* resolve_to_float_literal(const Node* node) {
     return NULL;
 }
 
-const char* get_string_literal(IrArena* arena, const Node* node) {
+const char* shd_get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
     if (node->type && get_unqualified_type(node->type)->tag == PtrType_TAG) {
-        NodeResolveConfig nrc = default_node_resolve_config();
-        const Node* ptr = chase_ptr_to_source(node, nrc);
-        const Node* value = resolve_ptr_to_value(ptr, nrc);
+        NodeResolveConfig nrc = shd_default_node_resolve_config();
+        const Node* ptr = shd_chase_ptr_to_source(node, nrc);
+        const Node* value = shd_resolve_ptr_to_value(ptr, nrc);
         if (value)
-            return get_string_literal(arena, value);
+            return shd_get_string_literal(arena, value);
     }
     switch (node->tag) {
         case Declaration_GlobalVariable_TAG: {
             const Node* init = node->payload.global_variable.init;
             if (init) {
-                return get_string_literal(arena, init);
+                return shd_get_string_literal(arena, init);
             }
             break;
         }
         case Declaration_Constant_TAG: {
-            return get_string_literal(arena, node->payload.constant.value);
+            return shd_get_string_literal(arena, node->payload.constant.value);
         }
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            return get_string_literal(arena, decl);
+            return shd_get_string_literal(arena, decl);
         }
         /*case Lea_TAG: {
             Lea lea = node->payload.lea;
@@ -255,7 +255,7 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
             for (size_t i = 0; i < contents.count; i++) {
                 const Node* value = contents.nodes[i];
                 assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == IntTy8);
-                chars[i] = (unsigned char) get_int_literal_value(*resolve_to_int_literal(value), false);
+                chars[i] = (unsigned char) shd_get_int_literal_value(*shd_resolve_to_int_literal(value), false);
             }
             assert(chars[contents.count - 1] == 0);
             return string(arena, chars);
@@ -265,11 +265,11 @@ const char* get_string_literal(IrArena* arena, const Node* node) {
     return NULL;
 }
 
-const Node* get_abstraction_mem(const Node* abs) {
+const Node* shd_get_abstraction_mem(const Node* abs) {
     return abs_mem(abs->arena, (AbsMem) { .abs = abs });
 }
 
-String get_abstraction_name(const Node* abs) {
+String shd_get_abstraction_name(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
@@ -278,7 +278,7 @@ String get_abstraction_name(const Node* abs) {
     }
 }
 
-String get_abstraction_name_unsafe(const Node* abs) {
+String shd_get_abstraction_name_unsafe(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
@@ -287,8 +287,8 @@ String get_abstraction_name_unsafe(const Node* abs) {
     }
 }
 
-String get_abstraction_name_safe(const Node* abs) {
-    String name = get_abstraction_name_unsafe(abs);
+String shd_get_abstraction_name_safe(const Node* abs) {
+    String name = shd_get_abstraction_name_unsafe(abs);
     if (name)
         return name;
     return shd_fmt_string_irarena(abs->arena, "%%%d", abs->id);
@@ -343,7 +343,7 @@ KeyHash shd_hash_node(Node** pnode) {
     const Node* node = *pnode;
     KeyHash combined;
 
-    if (is_nominal(node)) {
+    if (shd_is_node_nominal(node)) {
         size_t ptr = (size_t) node;
         uint32_t upper = ptr >> 32;
         uint32_t lower = ptr;
@@ -367,7 +367,7 @@ bool _shd_compare_node_payload(const Node*, const Node*);
 
 bool shd_compare_node(Node** pa, Node** pb) {
     if ((*pa)->tag != (*pb)->tag) return false;
-    if (is_nominal((*pa)))
+    if (shd_is_node_nominal((*pa)))
         return *pa == *pb;
 
     const Node* a = *pa;

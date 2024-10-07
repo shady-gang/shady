@@ -48,7 +48,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
-        shd_debugv_print("Function %s can't be a leaf function because", get_abstraction_name(fn_node->fn));
+        shd_debugv_print("Function %s can't be a leaf function because", shd_get_abstraction_name(fn_node->fn));
         bool and = false;
         if (fn_node->is_address_captured) {
             shd_debugv_print("its address is captured");
@@ -74,7 +74,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     CGEdge e;
     while (shd_dict_iter(fn_node->callees, &iter, &e, NULL)) {
         if (!is_leaf_fn(ctx, e.dst_fn)) {
-            shd_debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", get_abstraction_name(fn_node->fn), get_abstraction_name(e.dst_fn->fn));
+            shd_debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", shd_get_abstraction_name(fn_node->fn), shd_get_abstraction_name(e.dst_fn->fn));
             info->is_leaf = false;
             info->done = true;
         }
@@ -110,7 +110,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_recreate_node_body(&ctx->rewriter, node, new);
 
             if (fn_ctx.is_leaf) {
-                shd_debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
+                shd_debugv_print("Function %s is a leaf function!\n", shd_get_abstraction_name(node));
                 new->payload.fun.annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) {
                     .name = "Leaf",
                 }));
@@ -122,7 +122,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Control_TAG: {
             if (!is_control_static(ctx->uses, node)) {
-                shd_debugv_print("Function %s can't be a leaf function because the join point ", get_abstraction_name(ctx->cfg->entry->node));
+                shd_debugv_print("Function %s can't be a leaf function because the join point ", shd_get_abstraction_name(ctx->cfg->entry->node));
                 shd_log_node(DEBUGV, shd_first(get_abstraction_params(node->payload.control.inside)));
                 shd_debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
@@ -136,7 +136,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (control && is_control_static(ctx->uses, control))
                     break;
             }
-            shd_debugv_print("Function %s can't be a leaf function because it joins with ", get_abstraction_name(ctx->cfg->entry->node));
+            shd_debugv_print("Function %s can't be a leaf function because it joins with ", shd_get_abstraction_name(ctx->cfg->entry->node));
             shd_log_node(DEBUGV, old_jp);
             shd_debugv_print("which is not bound by a control node within that function.\n");
             ctx->is_leaf = false;
@@ -152,9 +152,9 @@ KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
 Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(const Node*, FnInfo, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
