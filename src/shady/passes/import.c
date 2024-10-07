@@ -73,7 +73,7 @@ Module* import(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     return dst;
 }
 
-void link_module(Module* dst, Module* src) {
+void shd_module_link(Module* dst, Module* src) {
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) import_node),
     };

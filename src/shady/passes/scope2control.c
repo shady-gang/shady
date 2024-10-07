@@ -107,14 +107,14 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
 
     Controls* controls = get_or_create_controls(ctx, oabs);
 
-    set_abstraction_body(oc, shd_rewrite_node(r, obody));
+    shd_set_abstraction_body(oc, shd_rewrite_node(r, obody));
 
     size_t i = 0;
     AddControl add_control;
     while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
         Node* control_case = case_(a, shd_singleton(add_control.token));
-        set_abstraction_body(control_case, jump_helper(a, shd_get_abstraction_mem(control_case), c, shd_empty(a)));
+        shd_set_abstraction_body(control_case, jump_helper(a, shd_get_abstraction_mem(control_case), c, shd_empty(a)));
 
         Node* c2 = case_(a, shd_empty(a));
         BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(c2));
@@ -130,11 +130,11 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         }
 
         c = c2;
-        set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), shd_find_processed(r, dst), results)));
+        shd_set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), shd_find_processed(r, dst), results)));
     }
 
     const Node* body = jump_helper(a, shd_get_abstraction_mem(nabs), c, shd_empty(a));
-    set_abstraction_body(nabs, body);
+    shd_set_abstraction_body(nabs, body);
 }
 
 bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
@@ -157,7 +157,7 @@ static const Nodes* find_scope_info(const Node* abs) {
             if (!info || info->count > mem->payload.ext_instr.operands.count)
                 info = &mem->payload.ext_instr.operands;
         }
-        mem = get_parent_mem(mem);
+        mem = shd_get_parent_mem(mem);
     }
     return info;
 }

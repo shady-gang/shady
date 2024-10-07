@@ -13,12 +13,10 @@ static inline Node* case_(IrArena* a, Nodes params) {
     return basic_block(a, params, NULL);
 }
 
-/// Empty type: there are no values of this type.
-/// Useful for the codomain of things that don't return at all
-const Type* noret_type(IrArena*);
-
 /// For typing instructions that return nothing (equivalent to C's void f())
-const Type* empty_multiple_return_type(IrArena*);
+static inline const Type* empty_multiple_return_type(IrArena* arena) {
+    return shd_as_qualified_type(unit_type(arena), true);
+}
 
 inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }
 
@@ -27,6 +25,6 @@ String shd_get_abstraction_name(const Node* abs);
 String shd_get_abstraction_name_unsafe(const Node* abs);
 String shd_get_abstraction_name_safe(const Node* abs);
 
-void set_abstraction_body(Node* abs, const Node* body);
+void shd_set_abstraction_body(Node* abs, const Node* body);
 
 #endif

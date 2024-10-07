@@ -94,10 +94,10 @@ break;
             case convert_op: {
                 const Type* dst_t = shd_first(payload.type_arguments);
                 uint64_t bitmask = 0;
-                if (get_type_bitwidth(dst_t) == 64)
+                if (shd_get_type_bitwidth(dst_t) == 64)
                     bitmask = UINT64_MAX;
                 else
-                    bitmask = ~(UINT64_MAX << get_type_bitwidth(dst_t));
+                    bitmask = ~(UINT64_MAX << shd_get_type_bitwidth(dst_t));
                 if (dst_t->tag == Int_TAG) {
                     if (all_int_literals) {
                         uint64_t old_value = shd_get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);

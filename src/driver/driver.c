@@ -107,7 +107,7 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
                                                             shd_read_list(const char*, args->input_filenames)[i], &m);
         if (err)
             return err;
-        link_module(mod, m);
+        shd_module_link(mod, m);
         shd_destroy_ir_arena(shd_module_get_arena(m));
     }
 

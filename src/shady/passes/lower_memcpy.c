@@ -61,11 +61,11 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            shd_set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
             Node* false_case = case_(a, shd_empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
+            shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
-            set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
+            shd_set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
                 .mem = bb_mem(loop_bb),
                 .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
                 .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
@@ -107,15 +107,15 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
-            set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
+            shd_set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
             Node* false_case = case_(a, shd_empty(a));
-            set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
+            shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
-            set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
-                    .mem = bb_mem(loop_bb),
-                    .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
-                    .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
-                    .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
+            shd_set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
+                .mem = bb_mem(loop_bb),
+                .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
+                .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
+                .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
             })));
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }

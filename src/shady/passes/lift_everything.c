@@ -77,7 +77,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             shd_register_processed(&fn_ctx->rewriter, node, new_bb);
-            set_abstraction_body(new_bb, shd_rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
+            shd_set_abstraction_body(new_bb, shd_rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
             shd_destroy_rewriter(&bb_ctx.rewriter);
             return new_bb;
         }

@@ -56,14 +56,14 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             shd_register_processed(&ctx->rewriter, old, fun);
 
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), bb_mem(bb));
-            set_abstraction_body(prelude, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
-            set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), prelude, shd_empty(a)));
+            shd_set_abstraction_body(prelude, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
+            shd_set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
         }
 
         Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
         if (old->payload.fun.body)
-            set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+            shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body));
         return fun;
     }
 
@@ -137,7 +137,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .args = nargs,
                 .mem = shd_get_abstraction_mem(control_case),
             });
-            set_abstraction_body(control_case, control_body);
+            shd_set_abstraction_body(control_case, control_body);
             BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
             return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
         }

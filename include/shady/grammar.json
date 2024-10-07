@@ -150,6 +150,10 @@
     {
       "name": "NoRet",
       "snake_name": "noret_type",
+      "description": [
+        "Empty type: there are no values of this type.",
+        "Useful for the codomain of things that don't return at all"
+      ],
       "class": "type",
       "type": false
     },

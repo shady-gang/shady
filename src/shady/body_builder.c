@@ -66,7 +66,7 @@ static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outp
     if (bb->arena->config.check_types) {
         assert(is_mem(instruction));
     }
-    if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ get_parent_mem(instruction))
+    if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
         bb->mem = instruction;
     return deconstruct_composite(bb->arena, bb, instruction, outputs_count);
 }
@@ -115,7 +115,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
                 break;
             }
         }
-        set_abstraction_body((Node*) get_structured_construct_tail(terminator), t2);
+        shd_set_abstraction_body((Node*) get_structured_construct_tail(terminator), t2);
     }
     return terminator;
 }
@@ -347,10 +347,10 @@ begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes 
         params[i] = param(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
     }
     Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
-    set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
+    shd_set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
     BodyBuilder* loop_header_builder = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header));
     begin_control_t inner_control = begin_control(loop_header_builder, arg_types);
-    set_abstraction_body(loop_header, finish_body_with_jump(loop_header_builder, loop_header, inner_control.results));
+    shd_set_abstraction_body(loop_header, finish_body_with_jump(loop_header_builder, loop_header, inner_control.results));
 
     return (begin_loop_helper_t) {
         .results = outer_control.results,

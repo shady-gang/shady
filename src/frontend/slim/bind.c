@@ -193,7 +193,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                     if (param_name)
                         add_binding(&cont_ctx, false, param_name, bb_param);
                 }
-                set_abstraction_body(bbs[i], shd_rewrite_node(&cont_ctx.rewriter, get_abstraction_body(conts[i])));
+                shd_set_abstraction_body(bbs[i], shd_rewrite_node(&cont_ctx.rewriter, get_abstraction_body(conts[i])));
             }
         }
     }
@@ -230,7 +230,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
 
             if (decl->payload.fun.body) {
                 fn_ctx.current_function = bound;
-                set_abstraction_body(bound, shd_rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
+                shd_set_abstraction_body(bound, shd_rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
             }
             return bound;
         }
@@ -302,7 +302,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             }
             shd_register_processed(&ctx->rewriter, node, new_bb);
             shd_register_processed_list(&ctx->rewriter, node->payload.basic_block.params, new_params);
-            set_abstraction_body(new_bb, shd_rewrite_node(&ctx->rewriter, node->payload.basic_block.body));
+            shd_set_abstraction_body(new_bb, shd_rewrite_node(&ctx->rewriter, node->payload.basic_block.body));
             return new_bb;
         }
         case ExtInstr_TAG: {

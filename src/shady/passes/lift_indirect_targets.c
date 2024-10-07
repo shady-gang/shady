@@ -155,7 +155,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_destroy_rewriter(r);
 
     assert(is_terminator(substituted));
-    set_abstraction_body(new_fn, finish_body(bb, substituted));
+    shd_set_abstraction_body(new_fn, finish_body(bb, substituted));
 
     return lifted_cont;
 }

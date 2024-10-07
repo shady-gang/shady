@@ -68,7 +68,7 @@ static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
 static void write_bb_tail(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
     LLVMBasicBlockRef bb = bb_ctx->bb;
     LLVMValueRef instr = LLVMGetLastInstruction(bb);
-    set_abstraction_body(bb_ctx->nbb, finish_body(bb_ctx->builder, convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr)));
+    shd_set_abstraction_body(bb_ctx->nbb, finish_body(bb_ctx->builder, convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr)));
 }
 
 static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasicBlockRef bb) {

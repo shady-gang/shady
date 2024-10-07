@@ -105,7 +105,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
             shd_register_processed(&ctx->rewriter, node, fun);
             body_context.current_fn = fun;
-            set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
+            shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
             return fun;
         }
         case Constant_TAG: {
@@ -308,7 +308,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
 
     Node* new_case = basic_block(a, shd_nodes(a, inferred_arg_type.count, nparams), shd_get_abstraction_name_unsafe(node));
     shd_register_processed(r, node, new_case);
-    set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
+    shd_set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
 }
 
@@ -332,7 +332,7 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     assert(bb);
     shd_register_processed(&ctx->rewriter, node, bb);
 
-    set_abstraction_body(bb, infer(&body_context, node->payload.basic_block.body, NULL));
+    shd_set_abstraction_body(bb, infer(&body_context, node->payload.basic_block.body, NULL));
     return bb;
 }
 
@@ -502,7 +502,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
 
     Node* new_case = basic_block(a, shd_singleton(jp), NULL);
     shd_register_processed(&joinable_ctx.rewriter, olam, new_case);
-    set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
+    shd_set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {
         .yield_types = yield_types,

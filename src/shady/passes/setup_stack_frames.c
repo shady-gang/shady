@@ -36,7 +36,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), bb_mem(bb));
             if (node->payload.fun.body)
-                set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
+                shd_set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
             else
                 cancel_body(bb);
             return fun;

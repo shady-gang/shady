@@ -85,7 +85,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context ctx2 = *ctx;
             ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
             if (ctx2.disable_lowering) {
-                set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+                shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
                 return fun;
             }
 
@@ -121,7 +121,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             // make sure to use the new mem from then on
             shd_register_processed(r, shd_get_abstraction_mem(node), bb_mem(bb));
-            set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
+            shd_set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
             shd_destroy_dict(ctx2.prepared_offsets);
             return fun;

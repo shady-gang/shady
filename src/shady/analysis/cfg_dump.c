@@ -43,7 +43,7 @@ static const Nodes* find_scope_info(const Node* abs) {
             if (!info || info->count > mem->payload.ext_instr.operands.count)
                 info = &mem->payload.ext_instr.operands;
         }
-        mem = get_parent_mem(mem);
+        mem = shd_get_parent_mem(mem);
     }
     return info;
 }

@@ -81,10 +81,10 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     }
 
     if (push) {
-        set_abstraction_body(fun, finish_body_with_return(bb, shd_empty(a)));
+        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_empty(a)));
     } else {
         assert(popped_value);
-        set_abstraction_body(fun, finish_body_with_return(bb, shd_singleton(popped_value)));
+        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_singleton(popped_value)));
     }
     return fun;
 }
@@ -105,7 +105,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
         shd_register_processed(r, shd_get_abstraction_mem(old), bb_mem(bb));
-        set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
+        shd_set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
         return new;
     }
 

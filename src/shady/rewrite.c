@@ -319,7 +319,7 @@ void shd_recreate_node_body(Rewriter* rewriter, const Node* old, Node* new) {
         }
         case Function_TAG: {
             assert(new->payload.fun.body == NULL);
-            set_abstraction_body(new, rewrite_op_helper(rewriter, NcTerminator, "body", old->payload.fun.body));
+            shd_set_abstraction_body(new, rewrite_op_helper(rewriter, NcTerminator, "body", old->payload.fun.body));
             break;
         }
         case NominalType_TAG: {
@@ -360,7 +360,7 @@ const Node* shd_recreate_node(Rewriter* rewriter, const Node* node) {
             Node* bb = basic_block(arena, params, node->payload.basic_block.name);
             shd_register_processed(rewriter, node, bb);
             const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.basic_block.body);
-            set_abstraction_body(bb, nterminator);
+            shd_set_abstraction_body(bb, nterminator);
             return bb;
         }
     }

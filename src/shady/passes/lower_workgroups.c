@@ -20,7 +20,7 @@ typedef struct {
 static void add_bounds_check(BodyBuilder* bb, const Node* i, const Node* max) {
     IrArena* a = bb->arena;
     Node* out_of_bounds_case = case_(a, shd_empty(a));
-    set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
+    shd_set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
         .args = shd_empty(a),
         .mem = shd_get_abstraction_mem(out_of_bounds_case)
     }));
@@ -72,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)), nannotations, shd_empty(a));
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));
-                set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));
+                shd_set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));
 
                 BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(wrapper));
                 const Node* num_workgroups_var = shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
@@ -157,7 +157,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         Node* loop_body = cases[depth];
                         BodyBuilder* body_bb = builders[depth];
 
-                        set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {
+                        shd_set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {
                             .args = shd_singleton(gen_primop_e(body_bb, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
                             .mem = bb_mem(body_bb)
                         })));
@@ -165,7 +165,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     }
                 }
 
-                set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
+                shd_set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
                 return wrapper;
             }
             return shd_recreate_node(&ctx2.rewriter, node);

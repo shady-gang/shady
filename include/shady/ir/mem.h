@@ -3,7 +3,7 @@
 
 #include "shady/ir/base.h"
 
-const Node* get_parent_mem(const Node* mem);
-const Node* get_original_mem(const Node* mem);
+const Node* shd_get_parent_mem(const Node* mem);
+const Node* shd_get_original_mem(const Node* mem);
 
 #endif

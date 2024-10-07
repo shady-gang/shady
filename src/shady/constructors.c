@@ -236,16 +236,6 @@ const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes in
     return lea;
 }
 
-const Node* unit_type(IrArena* arena) {
-     return record_type(arena, (RecordType) {
-         .members = shd_empty(arena),
-     });
-}
-
-const Node* empty_multiple_return_type(IrArena* arena) {
-    return shd_as_qualified_type(unit_type(arena), true);
-}
-
 const Type* shd_int_type_helper(IrArena* a, bool s, IntSizes w) { return int_type(a, (Int) { .width = w, .is_signed = s }); }
 
 const Type* shd_int8_type(IrArena* arena) {  return int_type(arena, (Int) { .width = IntTy8 , .is_signed = true }); }

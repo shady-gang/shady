@@ -751,14 +751,14 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* (*merge)(const Node*) = config->front_end ? make_selection_merge : NULL;
 
             Node* true_case = case_(arena, shd_nodes(arena, 0, NULL));
-            set_abstraction_body(true_case, expect_body(ctx, shd_get_abstraction_mem(true_case), merge));
+            shd_set_abstraction_body(true_case, expect_body(ctx, shd_get_abstraction_mem(true_case), merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             Node* false_case = NULL;
             if (has_else) {
                 false_case = case_(arena, shd_nodes(arena, 0, NULL));
-                set_abstraction_body(false_case, expect_body(ctx, shd_get_abstraction_mem(false_case), merge));
+                shd_set_abstraction_body(false_case, expect_body(ctx, shd_get_abstraction_mem(false_case), merge));
             }
             return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, true_case, false_case));
         }
@@ -771,7 +771,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             // by default loops continue forever
             const Node* (*default_loop_end_behaviour)(const Node*) = config->front_end ? make_loop_continue : NULL;
             Node* loop_case = case_(arena, parameters);
-            set_abstraction_body(loop_case, expect_body(ctx, shd_get_abstraction_mem(loop_case), default_loop_end_behaviour));
+            shd_set_abstraction_body(loop_case, expect_body(ctx, shd_get_abstraction_mem(loop_case), default_loop_end_behaviour));
             return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
@@ -785,7 +785,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             }), str);
             expect(accept_token(ctx, rpar_tok), "')'");
             Node* control_case = case_(arena, shd_singleton(jp));
-            set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));
+            shd_set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));
             return maybe_tuple_helper(arena, gen_control(bb, yield_types, control_case));
         }
         default: break;
@@ -1025,7 +1025,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             syntax_error("expected terminator: return, jump, branch ...");
     }
 
-    set_abstraction_body(terminator_case, finish_body(terminator_bb, terminator));
+    shd_set_abstraction_body(terminator_case, finish_body(terminator_bb, terminator));
 
     Node* cont_wrapper_case = case_(arena, shd_empty(arena));
     BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(cont_wrapper_case));
@@ -1041,7 +1041,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL, bb);
             Node* continuation = basic_block(arena, parameters, name);
-            set_abstraction_body(continuation, expect_body(ctx, shd_get_abstraction_mem(continuation), NULL));
+            shd_set_abstraction_body(continuation, expect_body(ctx, shd_get_abstraction_mem(continuation), NULL));
             ids = shd_nodes_append(arena, ids, string_lit_helper(arena, name));
             conts = shd_nodes_append(arena, conts, continuation);
         }
@@ -1050,7 +1050,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), shd_concat_nodes(arena, ids, conts));
     expect(accept_token(ctx, rbracket_tok), "']'");
 
-    set_abstraction_body(cont_wrapper_case, finish_body_with_jump(cont_wrapper_bb, terminator_case, shd_empty(arena)));
+    shd_set_abstraction_body(cont_wrapper_case, finish_body_with_jump(cont_wrapper_bb, terminator_case, shd_empty(arena)));
     return finish_body_with_jump(bb, cont_wrapper_case, shd_empty(arena));
 }
 
@@ -1149,7 +1149,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
 
     Node* fn = function(mod, parameters, name, annotations, types);
     if (!accept_token(ctx, semi_tok))
-        set_abstraction_body(fn, expect_body(ctx, shd_get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
+        shd_set_abstraction_body(fn, expect_body(ctx, shd_get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 
     return fn;
 }

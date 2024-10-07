@@ -20,7 +20,7 @@ static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     };
     Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, shady_scheduler_src, "builtin_scheduler");
     shd_debug_print("Adding builtin scheduler code");
-    link_module(dst, builtin_scheduler_mod);
+    shd_module_link(dst, builtin_scheduler_mod);
     shd_destroy_ir_arena(shd_module_get_arena(builtin_scheduler_mod));
 }
 

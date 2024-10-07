@@ -28,7 +28,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         sub_ctx.disable_lowering = shd_lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
-        set_abstraction_body(fun, shd_rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
+        shd_set_abstraction_body(fun, shd_rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
         destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
@@ -63,7 +63,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             } else {
                 assert(yield_types.count == 0);
                 false_block = basic_block(a, shd_nodes(a, 0, NULL), unique_name(a, "if_false"));
-                set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
+                shd_set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
             }
 
             Node* control_case = basic_block(a, shd_singleton(jp), NULL);
@@ -73,7 +73,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case), false_block, shd_empty(a)),
                 .mem = shd_get_abstraction_mem(control_case),
             });
-            set_abstraction_body(control_case, control_body);
+            shd_set_abstraction_body(control_case, control_body);
 
             BodyBuilder* bb = begin_body_with_mem(a, nmem);
             Nodes results = gen_control(bb, yield_types, control_case);
@@ -106,11 +106,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             BodyBuilder* inner_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, shd_singleton(continue_point));
-            set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
-                                                                 shd_rewrite_node(r, old_loop_block), new_params));
+            shd_set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
+                                                                     shd_rewrite_node(r, old_loop_block), new_params));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
-            set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
+            shd_set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
 
             Node* outer_control_case = case_(a, shd_singleton(break_point));
             const Node* first_iteration_jump = jump(a, (Jump) {
@@ -118,7 +118,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .args = shd_rewrite_nodes(r, payload.initial_args),
                 .mem = shd_get_abstraction_mem(outer_control_case),
             });
-            set_abstraction_body(outer_control_case, first_iteration_jump);
+            shd_set_abstraction_body(outer_control_case, first_iteration_jump);
 
             BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             Nodes results = gen_control(bb, yield_types, outer_control_case);
@@ -126,7 +126,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case MergeSelection_TAG: {
             MergeSelection payload = node->payload.merge_selection;
-            const Node* root_mem = get_original_mem(payload.mem);
+            const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
             CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
@@ -160,7 +160,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case MergeContinue_TAG: {
             MergeContinue payload = node->payload.merge_continue;
-            const Node* root_mem = get_original_mem(payload.mem);
+            const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
             CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
@@ -194,7 +194,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case MergeBreak_TAG: {
             MergeBreak payload = node->payload.merge_break;
-            const Node* root_mem = get_original_mem(payload.mem);
+            const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
             CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;

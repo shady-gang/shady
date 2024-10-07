@@ -100,7 +100,7 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     lo = gen_conversion(bb, dst_type, lo);
     hi = gen_conversion(bb, dst_type, hi);
     // shift hi
-    const Node* shift_by = int_literal(bb->arena, (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value = get_type_bitwidth(src_type) });
+    const Node* shift_by = int_literal(bb->arena, (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value = shd_get_type_bitwidth(src_type) });
     hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, shift_by});
     // Merge the two
     return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });

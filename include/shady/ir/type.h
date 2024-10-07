@@ -5,7 +5,11 @@
 
 /// Unit type, carries no information (equivalent to C's void)
 /// There is exactly one possible value of this type: ()
-const Node* unit_type(IrArena*);
+static inline const Node* unit_type(IrArena* arena) {
+    return record_type(arena, (RecordType) {
+        .members = shd_empty(arena),
+    });
+}
 
 Type* nominal_type(Module*, Nodes annotations, String name);
 

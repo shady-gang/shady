@@ -89,7 +89,7 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node*
     BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fn));
     const Node* result = generate(ctx, bb, scope, t, param);
     if (result) {
-        set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
+        shd_set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
             .args = shd_singleton(result),
             .mem = bb_mem(bb),
         })));

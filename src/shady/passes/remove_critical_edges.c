@@ -18,9 +18,9 @@ static const Node* process(Context* ctx, const Node* node) {
         case Jump_TAG: {
             Jump payload = node->payload.jump;
             Node* new_block = basic_block(a, shd_empty(a), NULL);
-            set_abstraction_body(new_block, jump_helper(a, shd_get_abstraction_mem(new_block),
-                                                        shd_rewrite_node(r, payload.target),
-                                                        shd_rewrite_nodes(r, payload.args)));
+            shd_set_abstraction_body(new_block, jump_helper(a, shd_get_abstraction_mem(new_block),
+                                                            shd_rewrite_node(r, payload.target),
+                                                            shd_rewrite_nodes(r, payload.args)));
             return jump_helper(a, shd_rewrite_node(r, payload.mem), new_block, shd_empty(a));
         }
         default: break;

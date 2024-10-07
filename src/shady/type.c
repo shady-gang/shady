@@ -154,7 +154,7 @@ void check_subtype(const Type* supertype, const Type* type) {
     }
 }
 
-size_t get_type_bitwidth(const Type* t) {
+size_t shd_get_type_bitwidth(const Type* t) {
     switch (t->tag) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
@@ -302,7 +302,7 @@ bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
         return false;
     if (!(is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || is_physical_ptr_type(dst_type)))
         return false;
-    assert(get_type_bitwidth(src_type) == get_type_bitwidth(dst_type));
+    assert(shd_get_type_bitwidth(src_type) == shd_get_type_bitwidth(dst_type));
     // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be
     if ((is_physical_ptr_type(src_type) && is_physical_ptr_type(dst_type)) && (is_generic_ptr_type(src_type) != is_generic_ptr_type(dst_type)))
         return false;
@@ -311,9 +311,9 @@ bool is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
 
 bool is_conversion_legal(const Type* src_type, const Type* dst_type) {
     assert(is_data_type(src_type) && is_data_type(dst_type));
-    if (!(is_arithm_type(src_type) || (is_physical_ptr_type(src_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type))))
+    if (!(is_arithm_type(src_type) || (is_physical_ptr_type(src_type) && shd_get_type_bitwidth(src_type) == shd_get_type_bitwidth(dst_type))))
         return false;
-    if (!(is_arithm_type(dst_type) || (is_physical_ptr_type(dst_type) && get_type_bitwidth(src_type) == get_type_bitwidth(dst_type))))
+    if (!(is_arithm_type(dst_type) || (is_physical_ptr_type(dst_type) && shd_get_type_bitwidth(src_type) == shd_get_type_bitwidth(dst_type))))
         return false;
     // we only allow ptr-ptr conversions, use reinterpret otherwise
     if (is_physical_ptr_type(src_type) != is_physical_ptr_type(dst_type))

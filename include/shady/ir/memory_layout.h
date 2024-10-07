@@ -33,6 +33,6 @@ const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes);
 uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes);
 IntSizes shd_float_to_int_width(FloatSizes width);
 
-size_t get_type_bitwidth(const Type* t);
+size_t shd_get_type_bitwidth(const Type* t);
 
 #endif

@@ -175,7 +175,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 .args = continue_wrapper_params,
                 .mem = shd_get_abstraction_mem(continue_wrapper),
             });
-            set_abstraction_body(continue_wrapper, continue_wrapper_body);
+            shd_set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // replace the exit nodes by the exit wrappers
             LARRAY(const Node**, cached_exits, exiting_nodes_count);
@@ -218,10 +218,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 if (exiting_nodes_count > 1)
                     gen_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
 
-                set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
+                shd_set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
             }
 
-            set_abstraction_body(inner_control_case, loop_body);
+            shd_set_abstraction_body(inner_control_case, loop_body);
 
             shd_destroy_dict(rewriter->map);
             rewriter->map = old_map;
@@ -245,9 +245,9 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 if (is_qualified_type_uniform(nparams.nodes[j]->type))
                     inner_control_results = shd_change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(inner_control_results.nodes[j])));
             }
-            set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
+            shd_set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
             Node* outer_control_case = case_(arena, shd_singleton(join_token_exit));
-            set_abstraction_body(outer_control_case, jump(arena, (Jump) {
+            shd_set_abstraction_body(outer_control_case, jump(arena, (Jump) {
                 .target = loop_outer,
                 .args = nparams,
                 .mem = shd_get_abstraction_mem(outer_control_case),
@@ -272,7 +272,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 }
 
                 exit_numbers[i] = shd_int32_literal(arena, i);
-                set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
+                shd_set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
                 exit_jumps[i] = jump_helper(arena, bb_mem(outer_bb), exit_bb, shd_empty(arena));
             }
 
@@ -289,7 +289,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .mem = bb_mem(outer_bb)
                 }));
             }
-            set_abstraction_body(loop_container, outer_body);
+            shd_set_abstraction_body(loop_container, outer_body);
             shd_destroy_list(exiting_nodes);
             return loop_container;
         }
@@ -433,7 +433,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }), true), "jp_postdom");
 
             Node* pre_join = basic_block(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_abstraction_name_safe(ctx->current_abstraction), shd_get_abstraction_name_safe(post_dominator)));
-            set_abstraction_body(pre_join, join(a, (Join) {
+            shd_set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args,
                 .mem = shd_get_abstraction_mem(pre_join),
@@ -459,7 +459,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                                           shd_rewrite_node(r, payload.false_jump->payload.jump.target),
                                           shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
-            set_abstraction_body(control_case, inner_terminator);
+            shd_set_abstraction_body(control_case, inner_terminator);
 
             shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             if (cached)

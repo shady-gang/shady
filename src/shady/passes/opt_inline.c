@@ -180,7 +180,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
                     Node* control_case = case_(a, shd_singleton(join_point));
                     const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
-                    set_abstraction_body(control_case, nbody);
+                    shd_set_abstraction_body(control_case, nbody);
 
                     BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
                     return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));

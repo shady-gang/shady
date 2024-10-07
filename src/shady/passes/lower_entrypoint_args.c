@@ -80,7 +80,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (shd_lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
                 Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
                 const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
-                set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));
+                shd_set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));
                 return new_entry_point;
             }
             break;

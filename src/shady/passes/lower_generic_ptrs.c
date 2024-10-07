@@ -50,13 +50,13 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
-    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
+    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
     //          first_non_tag_bit &= 1
     first_non_tag_bit = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          needs_sign_extension = first_non_tag_bit == 1
     const Node* needs_sign_extension = gen_primop_e(bb, eq_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          sign_extension_patch = needs_sign_extension ? ((1 << 2) - 1) << (64 - 2) : 0
-    const Node* sign_extension_patch = gen_primop_e(bb, select_op, shd_empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
+    const Node* sign_extension_patch = gen_primop_e(bb, select_op, shd_empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
     //          patched_ptr = nptr & 0b00111 ... 111
     const Node* patched_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
     //          patched_ptr = patched_ptr | sign_extension_patch
@@ -119,7 +119,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     Node* tag_case = case_(a, shd_empty(a));
-                    set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
+                    shd_set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
                     jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
                     continue;
                 }
@@ -127,22 +127,22 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_singleton(loaded_value)));
+                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_singleton(loaded_value)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, shd_empty(a));
-            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
-            set_abstraction_body(r.case_, br_switch(a, (Switch) {
+            shd_set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
+            shd_set_abstraction_body(r.case_, br_switch(a, (Switch) {
                 .mem = shd_get_abstraction_mem(r.case_),
                 .switch_value = extracted_tag,
                 .case_values = shd_nodes(a, max_tag, literals),
                 .case_jumps = shd_nodes(a, max_tag, jumps),
                 .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = bb_mem(bb) })));
             break;
         }
         case StoreFn: {
@@ -156,7 +156,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
                     Node* tag_case = case_(a, shd_empty(a));
-                    set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
+                    shd_set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
                     jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
                     continue;
                 }
@@ -164,22 +164,22 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_empty(a)));
+                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_empty(a)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
             Node* default_case = case_(a, shd_empty(a));
-            set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
-            set_abstraction_body(r.case_, br_switch(a, (Switch) {
-                    .mem = shd_get_abstraction_mem(r.case_),
-                    .switch_value = extracted_tag,
-                    .case_values = shd_nodes(a, max_tag, literals),
-                    .case_jumps = shd_nodes(a, max_tag, jumps),
-                    .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
+            shd_set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
+            shd_set_abstraction_body(r.case_, br_switch(a, (Switch) {
+                .mem = shd_get_abstraction_mem(r.case_),
+                .switch_value = extracted_tag,
+                .case_values = shd_nodes(a, max_tag, literals),
+                .case_jumps = shd_nodes(a, max_tag, jumps),
+                .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
             break;
         }
     }
@@ -251,7 +251,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
                                     generic_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));
-                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr | 01000000 ... 000
                                     generic_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
                         return yield_values_and_wrap_in_block(bb, shd_singleton(generic_ptr));

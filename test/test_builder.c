@@ -43,7 +43,7 @@ static void test_body_builder_fun_body(IrArena* a) {
     Node* true_case = case_(a, shd_empty(a));
     BodyBuilder* tc_builder = begin_body_with_mem(a, shd_get_abstraction_mem(true_case));
     gen_store(tc_builder, p1, shd_uint32_literal(a, 0));
-    set_abstraction_body(true_case, finish_body_with_selection_merge(tc_builder, shd_empty(a)));
+    shd_set_abstraction_body(true_case, finish_body_with_selection_merge(tc_builder, shd_empty(a)));
     gen_if(bb, shd_empty(a), gen_primop_e(bb, gt_op, shd_empty(a), mk_nodes(a, p1_value, shd_uint32_literal(a, 0))), true_case, NULL);
 
     const Node* p2_value = gen_load(bb, p2);
@@ -53,7 +53,7 @@ static void test_body_builder_fun_body(IrArena* a) {
         .mem = bb_mem(bb),
         .args = shd_singleton(sum)
     });
-    set_abstraction_body(fun, finish_body(bb, return_terminator));
+    shd_set_abstraction_body(fun, finish_body(bb, return_terminator));
     // set_abstraction_body(fun, finish_body_with_return(bb, singleton(sum)));
 
     shd_dump_module(m);
@@ -62,7 +62,7 @@ static void test_body_builder_fun_body(IrArena* a) {
     CFG* cfg = build_fn_cfg(fun);
     const Node* mem = get_terminator_mem(return_terminator);
     do {
-        const Node* omem = get_original_mem(mem);
+        const Node* omem = shd_get_original_mem(mem);
         if (!omem)
             break;
         mem = omem;
@@ -78,12 +78,12 @@ static void test_body_builder_fun_body(IrArena* a) {
         }
         break;
     } while (1);
-    mem = get_original_mem(mem);
+    mem = shd_get_original_mem(mem);
     CHECK(mem == shd_get_abstraction_mem(fun), exit(-1));
     destroy_cfg(cfg);
 }
 
-/// There is some "magic" code in body_builder and set_abstraction_body to enable inserting control-flow
+/// There is some "magic" code in body_builder and shd_set_abstraction_body to enable inserting control-flow
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block(IrArena* a) {
     Module* m = shd_new_module(a, "test_module");
@@ -107,7 +107,7 @@ static void test_body_builder_impure_block(IrArena* a) {
         .mem = bb_mem(bb),
         .args = shd_singleton(sum)
     });
-    set_abstraction_body(fun, finish_body(bb, return_terminator));
+    shd_set_abstraction_body(fun, finish_body(bb, return_terminator));
 
     shd_dump_module(m);
 
@@ -116,13 +116,13 @@ static void test_body_builder_impure_block(IrArena* a) {
     while (mem) {
         if (mem->tag == Store_TAG)
             found_store = true;
-        mem = get_parent_mem(mem);
+        mem = shd_get_parent_mem(mem);
     }
 
     CHECK(found_store, exit(-1));
 }
 
-/// There is some "magic" code in body_builder and set_abstraction_body to enable inserting control-flow
+/// There is some "magic" code in body_builder and shd_set_abstraction_body to enable inserting control-flow
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Module* m = shd_new_module(a, "test_module");
@@ -139,7 +139,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Node* if_true_case = case_(a, shd_empty(a));
     BodyBuilder* if_true_builder = begin_body_with_mem(a, shd_get_abstraction_mem(if_true_case));
     gen_store(if_true_builder, p1, shd_uint32_literal(a, 0));
-    set_abstraction_body(if_true_case, finish_body_with_selection_merge(if_true_builder, shd_empty(a)));
+    shd_set_abstraction_body(if_true_case, finish_body_with_selection_merge(if_true_builder, shd_empty(a)));
     gen_if(block_builder, shd_empty(a), gen_primop_e(block_builder, neq_op, shd_empty(a), mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
     bind_instruction(bb, yield_values_and_wrap_in_block(block_builder, shd_empty(a)));
 
@@ -150,7 +150,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
         .mem = bb_mem(bb),
         .args = shd_singleton(sum)
     });
-    set_abstraction_body(fun, finish_body(bb, return_terminator));
+    shd_set_abstraction_body(fun, finish_body(bb, return_terminator));
 
     shd_dump_module(m);
 }

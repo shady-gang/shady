@@ -81,7 +81,7 @@ static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const No
             }
             default: break;
         }
-        mem = get_parent_mem(mem);
+        mem = shd_get_parent_mem(mem);
     }
     return NULL;
 }

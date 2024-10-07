@@ -673,7 +673,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpConstant: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);
-            int width = get_type_bitwidth(t);
+            int width = shd_get_type_bitwidth(t);
             switch (is_type(t)) {
                 case Int_TAG: {
                     uint64_t v;
@@ -848,7 +848,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             // steal the body of the first block, it can't be jumped to anyways!
             if (first_block)
-                set_abstraction_body(fun, first_block->payload.basic_block.body);
+                shd_set_abstraction_body(fun, first_block->payload.basic_block.body);
             parser->fun = old_fun;
             break;
         }
@@ -911,7 +911,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 instruction_offset += s;
             }
             assert(parser->current_block.finished);
-            set_abstraction_body(block, parser->current_block.finished);
+            shd_set_abstraction_body(block, parser->current_block.finished);
             parser->current_block = old;
             break;
         }

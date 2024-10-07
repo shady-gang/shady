@@ -10,6 +10,6 @@ String shd_module_get_name(const Module* m);
 Nodes shd_module_get_declarations(const Module* m);
 Node* shd_module_get_declaration(const Module* m, String name);
 
-void link_module(Module* dst, Module* src);
+void shd_module_link(Module* dst, Module* src);
 
 #endif
