@@ -1,13 +1,12 @@
 #include "vcc/driver.h"
 
+#include "shady/ir/arena.h"
+#include "shady/ir/module.h"
+
 #include "log.h"
 #include "list.h"
 #include "util.h"
-#include "growy.h"
 #include "portability.h"
-
-#include <assert.h>
-#include <string.h>
 
 int main(int argc, char** argv) {
     shd_platform_specific_terminal_init_extras();

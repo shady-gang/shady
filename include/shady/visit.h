@@ -1,7 +1,7 @@
 #ifndef SHADY_VISIT_H
 #define SHADY_VISIT_H
 
-#include "shady/ir.h"
+#include "shady/ir/grammar.h"
 
 typedef struct Visitor_ Visitor;
 typedef void (*VisitNodeFn)(Visitor*, const Node*);

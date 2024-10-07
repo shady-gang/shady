@@ -1,7 +1,7 @@
 #ifndef SHADY_REWRITE_H
 #define SHADY_REWRITE_H
 
-#include "shady/ir.h"
+#include "shady/ir/grammar.h"
 
 typedef struct Rewriter_ Rewriter;
 

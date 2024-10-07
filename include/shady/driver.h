@@ -1,7 +1,7 @@
 #ifndef SHADY_CLI
 #define SHADY_CLI
 
-#include "shady/ir.h"
+#include "shady/ir/base.h"
 #include "shady/config.h"
 
 #include "shady/be/c.h"

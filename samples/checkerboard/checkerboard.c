@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "shady/ir/arena.h"
 #include "shady/runtime.h"
 #include "shady/driver.h"
 

@@ -1,7 +1,7 @@
 #ifndef SHD_BE_C_H
 #define SHD_BE_C_H
 
-#include "shady/ir.h"
+#include "shady/ir/base.h"
 
 typedef enum {
     CDialect_C11,

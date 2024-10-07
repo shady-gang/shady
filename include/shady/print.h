@@ -1,10 +1,10 @@
 #ifndef SHADY_PRINT
 #define SHADY_PRINT
 
-#include "shady/ir.h"
+#include "shady/ir/base.h"
 #include "shady/be/dump.h"
+
 #include "printer.h"
-#include <stdbool.h>
 
 typedef struct {
     bool print_builtin;

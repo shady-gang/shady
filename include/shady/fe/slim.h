@@ -1,6 +1,7 @@
 #ifndef SHADY_SLIM_H
 #define SHADY_SLIM_H
 
+#include "shady/ir/module.h"
 #include "shady/config.h"
 
 typedef enum {

@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/annotation.h"
 
 #include "portability.h"
 #include "log.h"

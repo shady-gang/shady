@@ -1,6 +1,8 @@
 #ifndef SHADY_PASS_H
 #define SHADY_PASS_H
 
+#include "shady/ir/arena.h"
+#include "shady/ir/module.h"
 #include "shady/config.h"
 #include "shady/rewrite.h"
 
