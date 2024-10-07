@@ -7,7 +7,7 @@
 
 #include "../ir_private.h"
 #include "../type.h"
-#include "../rewrite.h"
+#include "shady/rewrite.h"
 
 #include <string.h>
 #include <assert.h>

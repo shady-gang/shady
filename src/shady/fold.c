@@ -4,7 +4,7 @@
 
 #include "type.h"
 #include "portability.h"
-#include "rewrite.h"
+#include "shady/rewrite.h"
 
 #include "transform/ir_gen_helpers.h"
 

@@ -1,7 +1,7 @@
 #include "shady/ir.h"
 #include "shady/pass.h"
 
-#include "../rewrite.h"
+#include "shady/rewrite.h"
 #include "../ir_private.h"
 #include "../analysis/cfg.h"
 #include "../analysis/scheduler.h"

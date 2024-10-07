@@ -7,7 +7,7 @@
 #include "arena.h"
 #include "util.h"
 
-#include "../rewrite.h"
+#include "shady/rewrite.h"
 #include "../type.h"
 #include "../ir_private.h"
 #include "../analysis/cfg.h"

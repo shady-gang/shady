@@ -6,7 +6,7 @@
 #include "log.h"
 #include "arena.h"
 
-#include "../shady/rewrite.h"
+#include "shady/rewrite.h"
 #include "../shady/type.h"
 
 KeyHash hash_node(Node**);

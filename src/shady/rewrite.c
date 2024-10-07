@@ -1,4 +1,4 @@
-#include "rewrite.h"
+#include "shady/rewrite.h"
 
 #include "log.h"
 #include "ir_private.h"
