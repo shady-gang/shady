@@ -4,7 +4,6 @@
 #include "shady/ir/memory_layout.h"
 
 #include "../ir_private.h"
-#include "../type.h"
 
 #include "list.h"
 #include "portability.h"
@@ -13,6 +12,20 @@
 
 #include <string.h>
 #include <assert.h>
+
+const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) {
+    const Node* lea = ptr_array_element_offset(a, (PtrArrayElementOffset) {
+        .ptr = ptr,
+        .offset = offset,
+    });
+    for (size_t i = 0; i < indices.count; i++) {
+        lea = ptr_composite_element(a, (PtrCompositeElement) {
+            .ptr = lea,
+            .index = indices.nodes[i],
+        });
+    }
+    return lea;
+}
 
 Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     assert(bb->arena->config.check_types);

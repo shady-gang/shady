@@ -5,7 +5,6 @@
 #include "dict.h"
 #include "util.h"
 
-#include "../shady/type.h"
 #include "../shady/ir_private.h"
 #include "../shady/transform/ir_gen_helpers.h"
 #include "../shady/analysis/scheduler.h"

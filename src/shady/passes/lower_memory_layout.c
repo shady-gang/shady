@@ -1,7 +1,6 @@
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
-
-#include "../type.h"
+#include "shady/ir/type.h"
 
 #include "log.h"
 #include "portability.h"

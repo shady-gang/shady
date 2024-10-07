@@ -1,13 +1,10 @@
-#include <list.h>
-
 #include "shady/pass.h"
 
 #include "../ir_private.h"
-#include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/cfg.h"
 
-#include "log.h"
+#include "list.h"
 #include "portability.h"
 
 typedef struct {

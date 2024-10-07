@@ -1,11 +1,6 @@
 #include "shady/pass.h"
 
-#include "../ir_private.h"
-#include "../type.h"
 #include "../transform/ir_gen_helpers.h"
-
-#include "log.h"
-#include "portability.h"
 
 typedef struct {
     Rewriter rewriter;

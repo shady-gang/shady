@@ -1,7 +1,6 @@
 #include "shady/pass.h"
 #include "join_point_ops.h"
 
-#include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "log.h"

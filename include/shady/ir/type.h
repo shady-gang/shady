@@ -13,6 +13,8 @@ static inline const Node* unit_type(IrArena* arena) {
 
 Type* nominal_type(Module*, Nodes annotations, String name);
 
+const Type* get_actual_mask_type(IrArena* arena);
+
 String get_address_space_name(AddressSpace);
 /// Returns false iff pointers in that address space can contain different data at the same address
 /// (amongst threads in the same subgroup)

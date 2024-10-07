@@ -1,19 +1,18 @@
 #include "shady/pass.h"
 
+#include "shady/rewrite.h"
+
+#include "../ir_private.h"
+#include "../analysis/cfg.h"
+#include "../analysis/scheduler.h"
+#include "../transform/ir_gen_helpers.h"
+
 #include "portability.h"
 #include "dict.h"
 #include "list.h"
 #include "log.h"
 #include "arena.h"
 #include "util.h"
-
-#include "shady/rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-#include "../analysis/cfg.h"
-#include "../analysis/scheduler.h"
-#include "../analysis/free_frontier.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include <string.h>
 

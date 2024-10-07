@@ -1,5 +1,7 @@
 #include "shady/print.h"
 
+#include "shady/visit.h"
+
 #include "ir_private.h"
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
@@ -11,9 +13,6 @@
 #include "dict.h"
 #include "growy.h"
 #include "printer.h"
-
-#include "type.h"
-#include "shady/visit.h"
 
 #include <assert.h>
 #include <inttypes.h>

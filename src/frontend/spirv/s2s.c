@@ -3,6 +3,15 @@
 #include "shady/ir/builtin.h"
 #include "shady/ir/memory_layout.h"
 
+#include "../shady/ir_private.h"
+#include "../shady/transform/ir_gen_helpers.h"
+
+#include "log.h"
+#include "arena.h"
+#include "portability.h"
+#include "dict.h"
+#include "util.h"
+
 // this avoids polluting the namespace
 #define SpvHasResultAndType ShadySpvHasResultAndType
 
@@ -15,6 +24,10 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "spirv/unified1/OpenCL.std.h"
 #include "spirv/unified1/GLSL.std.450.h"
 
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
 // TODO: reserve real decoration IDs
 typedef enum {
     ShdDecorationName           = 999999,
@@ -22,20 +35,6 @@ typedef enum {
     ShdDecorationEntryPointType = 999997,
     ShdDecorationEntryPointName = 999996,
 } ShdDecoration;
-
-#include "log.h"
-#include "arena.h"
-#include "portability.h"
-#include "dict.h"
-#include "util.h"
-
-#include "../shady/type.h"
-#include "../shady/ir_private.h"
-#include "../shady/transform/ir_gen_helpers.h"
-
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
 
 typedef struct {
     struct {

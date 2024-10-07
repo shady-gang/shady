@@ -1,15 +1,15 @@
 #include "shady/pass.h"
 
 #include "shady/visit.h"
-#include "../type.h"
+
 #include "../ir_private.h"
+#include "../check.h"
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 
 #include "log.h"
 #include "portability.h"
-#include "list.h"
 #include "dict.h"
 #include "util.h"
 

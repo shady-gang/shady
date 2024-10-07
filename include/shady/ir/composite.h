@@ -6,8 +6,6 @@
 const Node* maybe_tuple_helper(IrArena* a, Nodes values);
 const Node* extract_helper(const Node* composite, const Node* index);
 
-const Node* maybe_tuple_helper(IrArena* a, Nodes values);
-
 const Node* tuple_helper(IrArena*, Nodes contents);
 
 void enter_composite(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack);

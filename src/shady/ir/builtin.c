@@ -1,10 +1,10 @@
-#include "shady/ir/builtin.h"
-#include "shady/ir/annotation.h"
+#include "../../../include/shady/ir/builtin.h"
+#include "../../../include/shady/ir/annotation.h"
 
-#include "spirv/unified1/spirv.h"
+#include "../../../SPIRV-Headers/include/spirv/unified1/spirv.h"
 
-#include "log.h"
-#include "portability.h"
+#include "../../common/log.h"
+#include "../../common/portability.h"
 #include <string.h>
 
 static AddressSpace builtin_as[] = {

@@ -1,14 +1,15 @@
 #include "verify.h"
+
+#include "shady/visit.h"
+
 #include "free_frontier.h"
 #include "cfg.h"
+#include "../ir_private.h"
+#include "../check.h"
 
 #include "log.h"
 #include "dict.h"
 #include "list.h"
-
-#include "shady/visit.h"
-#include "../ir_private.h"
-#include "../type.h"
 
 #include <assert.h>
 

@@ -1,14 +1,11 @@
 #include "l2s_private.h"
 
 #include "ir_private.h"
-#include "type.h"
 #include "analysis/verify.h"
 
 #include "log.h"
 #include "dict.h"
 #include "list.h"
-#include "util.h"
-#include "portability.h"
 
 #include "llvm-c/IRReader.h"
 

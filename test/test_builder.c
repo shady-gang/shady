@@ -6,7 +6,6 @@
 #include "../shady/analysis/cfg.h"
 
 #include "log.h"
-#include "type.h"
 
 #include <stdio.h>
 #include <stdlib.h>

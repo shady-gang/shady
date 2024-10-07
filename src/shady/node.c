@@ -1,8 +1,7 @@
-#include "type.h"
-#include "log.h"
 #include "ir_private.h"
-#include "portability.h"
 
+#include "log.h"
+#include "portability.h"
 #include "dict.h"
 
 #include <string.h>
@@ -28,48 +27,6 @@ void shd_set_value_name(const Node* var, String name) {
     // TODO: annotations
     // if (var->tag == Variablez_TAG)
     //     var->payload.varz.name = string(var->arena, name);
-}
-
-int64_t shd_get_int_literal_value(IntLiteral literal, bool sign_extend) {
-    if (sign_extend) {
-        switch (literal.width) {
-            case IntTy8:  return (int64_t) (int8_t)  (literal.value & 0xFF);
-            case IntTy16: return (int64_t) (int16_t) (literal.value & 0xFFFF);
-            case IntTy32: return (int64_t) (int32_t) (literal.value & 0xFFFFFFFF);
-            case IntTy64: return (int64_t) literal.value;
-            default: assert(false);
-        }
-    } else {
-        switch (literal.width) {
-            case IntTy8:  return literal.value & 0xFF;
-            case IntTy16: return literal.value & 0xFFFF;
-            case IntTy32: return literal.value & 0xFFFFFFFF;
-            case IntTy64: return literal.value;
-            default: assert(false);
-        }
-    }
-}
-
-static_assert(sizeof(float) == sizeof(uint64_t) / 2, "floats aren't the size we expect");
-double shd_get_float_literal_value(FloatLiteral literal) {
-    double r;
-    switch (literal.width) {
-        case FloatTy16:
-            shd_error_print("TODO: fp16 literals");
-            shd_error_die();
-            SHADY_UNREACHABLE;
-            break;
-        case FloatTy32: {
-            float f;
-            memcpy(&f, &literal.value, sizeof(float));
-            r = (double) f;
-            break;
-        }
-        case FloatTy64:
-            memcpy(&r, &literal.value, sizeof(double));
-            break;
-    }
-    return r;
 }
 
 static bool is_zero(const Node* node) {
@@ -190,24 +147,6 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
         break;
     }
     return node;
-}
-
-const IntLiteral* shd_resolve_to_int_literal(const Node* node) {
-    node = shd_resolve_node_to_definition(node, shd_default_node_resolve_config());
-    if (!node)
-        return NULL;
-    if (node->tag == IntLiteral_TAG)
-        return &node->payload.int_literal;
-    return NULL;
-}
-
-const FloatLiteral* shd_resolve_to_float_literal(const Node* node) {
-    node = shd_resolve_node_to_definition(node, shd_default_node_resolve_config());
-    if (!node)
-        return NULL;
-    if (node->tag == FloatLiteral_TAG)
-        return &node->payload.float_literal;
-    return NULL;
 }
 
 const char* shd_get_string_literal(IrArena* arena, const Node* node) {

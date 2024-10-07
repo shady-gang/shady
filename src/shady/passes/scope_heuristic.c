@@ -1,7 +1,6 @@
 #include "shady/pass.h"
 
 #include "../ir_private.h"
-#include "../type.h"
 #include "../analysis/cfg.h"
 #include "../analysis/looptree.h"
 #include "../transform/ir_gen_helpers.h"

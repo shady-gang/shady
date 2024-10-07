@@ -1,13 +1,12 @@
 #include "l2s_private.h"
 
+#include "shady/rewrite.h"
+
 #include "portability.h"
 #include "dict.h"
 #include "list.h"
 #include "log.h"
 #include "arena.h"
-
-#include "shady/rewrite.h"
-#include "../shady/type.h"
 
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);

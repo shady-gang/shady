@@ -1,7 +1,7 @@
-#include "ir_private.h"
+#include "../ir_private.h"
 
-#include "list.h"
-#include "portability.h"
+#include "../../common/list.h"
+#include "../../common/portability.h"
 
 #include <string.h>
 

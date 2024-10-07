@@ -1,4 +1,4 @@
-#include "shady/ir.h"
+#include "../../../include/shady/ir.h"
 
 #include <assert.h>
 

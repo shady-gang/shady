@@ -6,7 +6,6 @@
 #include "log.h"
 #include "util.h"
 
-#include "type.h"
 #include "ir_private.h"
 #include "transform/ir_gen_helpers.h"
 

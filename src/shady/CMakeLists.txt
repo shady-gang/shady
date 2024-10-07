@@ -26,26 +26,21 @@ add_library(shady STATIC)
 target_sources(shady PRIVATE
     ir.c
     node.c
-    node_helpers.c
-    constructors.c
-    type.c
-    type_helpers.c
+    check.c
     primops.c
-    builtins.c
     rewrite.c
     visit.c
     print.c
     fold.c
     body_builder.c
     compile.c
-    annotation.c
-    module.c
     config.c
 )
 
 add_subdirectory(analysis)
 add_subdirectory(transform)
 add_subdirectory(passes)
+add_subdirectory(ir)
 
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 

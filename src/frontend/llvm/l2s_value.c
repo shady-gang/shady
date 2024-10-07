@@ -1,10 +1,10 @@
 #include "l2s_private.h"
 
+#include "../../shady/transform/ir_gen_helpers.h"
+
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
-#include "../../shady/transform/ir_gen_helpers.h"
-#include "../../shady/type.h"
 
 static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
     IrArena* a = t->arena;

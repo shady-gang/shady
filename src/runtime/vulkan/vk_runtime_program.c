@@ -3,12 +3,9 @@
 #include "shady/driver.h"
 #include "shady/ir/memory_layout.h"
 
-#include "type.h"
-
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
-#include "list.h"
 #include "growy.h"
 #include "arena.h"
 #include "util.h"

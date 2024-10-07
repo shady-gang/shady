@@ -1,7 +1,5 @@
 #include "shady/pass.h"
 
-#include "../shady/type.h"
-
 #include "log.h"
 #include "portability.h"
 #include "dict.h"

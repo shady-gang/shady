@@ -1,12 +1,9 @@
 #include "shady/pass.h"
 
-#include "../type.h"
 #include "../ir_private.h"
-
 #include "../analysis/callgraph.h"
 
 #include "dict.h"
-#include "list.h"
 #include "portability.h"
 #include "util.h"
 #include "log.h"

@@ -1,5 +1,4 @@
 #include "l2s_private.h"
-#include "type.h"
 
 #include "portability.h"
 #include "log.h"

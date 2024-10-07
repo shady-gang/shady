@@ -2,6 +2,7 @@
 #define SHADY_IR_FUNCTION_H
 
 #include "shady/ir/grammar.h"
+#include "shady/ir/type.h"
 
 Node* param(IrArena*, const Type* type, const char* name);
 

@@ -2,7 +2,6 @@
 
 #include "shady/ir/memory_layout.h"
 
-#include "../shady/type.h"
 #include "../shady/transform/ir_gen_helpers.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/analysis/scheduler.h"

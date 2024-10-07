@@ -5,19 +5,17 @@
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/passes/passes.h"
-#include "../shady/type.h"
+#include "../shady/analysis/scheduler.h"
 
 #include "list.h"
 #include "dict.h"
 #include "log.h"
 #include "portability.h"
 #include "growy.h"
-#include "util.h"
 
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
-#include <analysis/scheduler.h>
 
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);

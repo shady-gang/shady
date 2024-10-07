@@ -1,6 +1,5 @@
 #include "emit_spv.h"
 
-#include "../shady/type.h"
 #include "../shady/analysis/cfg.h"
 
 #include "list.h"

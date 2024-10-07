@@ -2,7 +2,6 @@
 
 #include "shady/ir/memory_layout.h"
 
-#include "../shady/type.h"
 #include "shady/rewrite.h"
 
 #include "portability.h"

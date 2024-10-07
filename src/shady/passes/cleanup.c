@@ -3,7 +3,6 @@
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"
 #include "../ir_private.h"
-#include "../type.h"
 
 #include "portability.h"
 #include "log.h"

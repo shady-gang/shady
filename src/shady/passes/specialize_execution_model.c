@@ -1,11 +1,8 @@
 #include "shady/pass.h"
 
-#include "../ir_private.h"
-#include "../type.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
-#include "log.h"
 
 #include <string.h>
 

@@ -1,11 +1,11 @@
 #include "ir_private.h"
-#include "log.h"
-#include "portability.h"
-#include "type.h"
+
 #include "transform/ir_gen_helpers.h"
 
 #include "list.h"
 #include "dict.h"
+#include "log.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <assert.h>

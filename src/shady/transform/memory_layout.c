@@ -1,10 +1,9 @@
 #include "shady/ir/memory_layout.h"
+
 #include "ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-
-#include "../type.h"
 
 #include <assert.h>
 

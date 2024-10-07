@@ -1,6 +1,5 @@
 #include "emit_c.h"
 
-#include "../shady/type.h"
 #include "../shady/analysis/cfg.h"
 
 #include "log.h"
