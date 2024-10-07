@@ -2,6 +2,7 @@
 #define SHADY_MEMORY_LAYOUT_H
 
 #include "shady/ir/base.h"
+#include "shady/ir/grammar.h"
 #include "shady/config.h"
 
 typedef struct {

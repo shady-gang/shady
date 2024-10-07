@@ -12,6 +12,7 @@
 #endif
 
 typedef struct IrArena_ IrArena;
+typedef struct Module_ Module;
 typedef struct Node_ Node;
 typedef struct Node_ Type;
 typedef uint32_t NodeId;

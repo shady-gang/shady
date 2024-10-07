@@ -3,8 +3,6 @@
 
 #include "shady/ir/base.h"
 
-typedef struct Module_ Module;
-
 Module* new_module(IrArena*, String name);
 
 IrArena* get_module_arena(const Module*);

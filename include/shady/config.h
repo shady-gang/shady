@@ -1,7 +1,10 @@
 #ifndef SHD_CONFIG_H
 #define SHD_CONFIG_H
 
-#include "shady/ir.h"
+#include "shady/ir/base.h"
+#include "shady/ir/int.h"
+#include "shady/ir/grammar.h"
+#include "shady/ir/execution_model.h"
 
 typedef struct {
     IntSizes ptr_size;
@@ -55,6 +58,7 @@ struct ArenaConfig_ {
 };
 
 ArenaConfig shd_default_arena_config(const TargetConfig* target);
+const ArenaConfig* shd_get_arena_config(const IrArena* a);
 
 typedef struct CompilerConfig_ CompilerConfig;
 struct CompilerConfig_ {
