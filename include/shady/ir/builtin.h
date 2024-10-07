@@ -1,7 +1,9 @@
-#ifndef SHADY_EMIT_BUILTINS
-#define SHADY_EMIT_BUILTINS
+#ifndef SHADY_IR_BUILTIN_H
+#define SHADY_IR_BUILTIN_H
 
-#include "shady/ir.h"
+#include "shady/ir/grammar.h"
+#include "shady/ir/int.h"
+#include "shady/ir/float.h"
 
 #define shd_u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_uint32_type(arena) })
 #define shd_i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_int32_type(arena) })

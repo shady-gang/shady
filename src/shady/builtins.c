@@ -1,4 +1,6 @@
-#include "shady/builtins.h"
+#include "shady/ir/builtin.h"
+#include "shady/ir/annotation.h"
+
 #include "spirv/unified1/spirv.h"
 
 #include "log.h"

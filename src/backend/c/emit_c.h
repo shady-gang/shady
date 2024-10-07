@@ -2,7 +2,7 @@
 #define SHADY_EMIT_C
 
 #include "shady/ir.h"
-#include "shady/builtins.h"
+#include "shady/ir/builtin.h"
 #include "shady/be/c.h"
 
 #include "growy.h"

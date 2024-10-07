@@ -2,7 +2,7 @@
 #define SHADY_IR_GEN_HELPERS_H
 
 #include "shady/ir.h"
-#include "shady/builtins.h"
+#include "shady/ir/builtin.h"
 
 void gen_push_value_stack(BodyBuilder* bb, const Node* value);
 void gen_push_values_stack(BodyBuilder* bb, Nodes values);

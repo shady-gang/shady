@@ -6,7 +6,7 @@
 #include "dict.h"
 #include "util.h"
 
-#include "shady/builtins.h"
+#include "shady/ir/builtin.h"
 
 #include <string.h>
 #include <assert.h>

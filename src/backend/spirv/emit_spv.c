@@ -1,6 +1,6 @@
 #include "emit_spv.h"
 
-#include "shady/builtins.h"
+#include "shady/ir/builtin.h"
 
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
