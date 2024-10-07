@@ -69,7 +69,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
             shd_log_fmt(DEBUGV, "lcssa: ");
             shd_log_node(DEBUGV, fv);
             shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
-            const Node* narg = rewrite_node(&ctx->rewriter, fv);
+            const Node* narg = shd_rewrite_node(&ctx->rewriter, fv);
             const Node* nparam = param(a, narg->type, "lcssa_phi");
             *nparams = shd_nodes_append(a, *nparams, nparam);
             *lparams = shd_nodes_append(a, *lparams, fv);
@@ -109,14 +109,14 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     for (size_t i = 0; i < children_count; i++) {
         Nodes nargs;
         find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted_params[i], &nargs);
-        Nodes nparams = recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
+        Nodes nparams = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
         new_children[i] = basic_block(a, shd_concat_nodes(a, nparams, new_params[i]), get_abstraction_name(old_children[i]));
-        register_processed(&ctx->rewriter, old_children[i], new_children[i]);
-        register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
+        shd_register_processed(&ctx->rewriter, old_children[i], new_children[i]);
+        shd_register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
         shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
     }
 
-    const Node* new = rewrite_node(&ctx->rewriter, body);
+    const Node* new = shd_rewrite_node(&ctx->rewriter, body);
 
     ctx->rewriter.map = shd_clone_dict(ctx->rewriter.map);
 
@@ -124,7 +124,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
         for (size_t j = 0; j < lifted_params[i].count; j++) {
             shd_dict_remove(const Node*, ctx->rewriter.map, lifted_params[i].nodes[j]);
         }
-        register_processed_list(&ctx->rewriter, lifted_params[i], new_params[i]);
+        shd_register_processed_list(&ctx->rewriter, lifted_params[i], new_params[i]);
         new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
     }
 
@@ -144,7 +144,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             Context not_a_fn_ctx = *ctx;
             ctx = &not_a_fn_ctx;
             ctx->cfg = NULL;
-            return recreate_node_identity(&ctx->rewriter, old);
+            return shd_recreate_node(&ctx->rewriter, old);
         }
         case Function_TAG: {
             Context fn_ctx = *ctx;
@@ -155,7 +155,7 @@ const Node* process_node(Context* ctx, const Node* old) {
             ctx->scheduler = new_scheduler(ctx->cfg);
             ctx->loop_tree = build_loop_tree(ctx->cfg);
 
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+            Node* new = shd_recreate_node_head(&ctx->rewriter, old);
             new->payload.fun.body = process_abstraction_body(ctx, old, get_abstraction_body(old));
 
             destroy_loop_tree(ctx->loop_tree);
@@ -165,15 +165,15 @@ const Node* process_node(Context* ctx, const Node* old) {
         }
         case Jump_TAG: {
             Jump payload = old->payload.jump;
-            Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
+            Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
             Nodes* lifted_args = shd_dict_find_value(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
             if (lifted_args) {
                 nargs = shd_concat_nodes(a, nargs, *lifted_args);
             }
             return jump(a, (Jump) {
-                .target = rewrite_node(&ctx->rewriter, old->payload.jump.target),
+                .target = shd_rewrite_node(&ctx->rewriter, old->payload.jump.target),
                 .args = nargs,
-                .mem = rewrite_node(r, payload.mem),
+                .mem = shd_rewrite_node(r, payload.mem),
             });
         }
         case BasicBlock_TAG: {
@@ -182,7 +182,7 @@ const Node* process_node(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 KeyHash hash_node(Node**);
@@ -194,14 +194,14 @@ Module* lcssa(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .current_fn = NULL,
         .lifted_arguments = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node)
     };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.lifted_arguments);
     return dst;
 }

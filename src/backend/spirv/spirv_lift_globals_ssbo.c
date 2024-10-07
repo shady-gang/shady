@@ -21,16 +21,16 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
-            Node* newfun = recreate_decl_header_identity(r, node);
+            Node* newfun = shd_recreate_node_head(r, node);
             if (get_abstraction_body(node)) {
                 Context functx = *ctx;
                 functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
                 shd_dict_clear(functx.rewriter.map);
-                register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
+                shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
                 functx.bb = begin_body_with_mem(a, get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
-                register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
-                set_abstraction_body(post_prelude, rewrite_node(&functx.rewriter, get_abstraction_body(node)));
+                shd_register_processed(&functx.rewriter, get_abstraction_mem(node), get_abstraction_mem(post_prelude));
+                set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
                 set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
                                                                                 shd_empty(a))));
                 shd_destroy_dict(functx.rewriter.map);
@@ -42,7 +42,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
-            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), shd_int32_literal(a, 0), shd_singleton(rewrite_node(&ctx->rewriter, odecl)));
+            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), shd_int32_literal(a, 0), shd_singleton(shd_rewrite_node(&ctx->rewriter, odecl)));
             const Node* ptr = gen_load(ctx->bb, ptr_addr);
             return ptr;
         }
@@ -56,10 +56,10 @@ static const Node* process(Context* ctx, const Node* node) {
     if (is_declaration(node)) {
         Context declctx = *ctx;
         declctx.bb = NULL;
-        return recreate_node_identity(&declctx.rewriter, node);
+        return shd_recreate_node(&declctx.rewriter, node);
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -68,7 +68,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
 
@@ -89,10 +89,10 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
 
-        member_tys[lifted_globals_count] = rewrite_node(&ctx.rewriter, odecl->type);
+        member_tys[lifted_globals_count] = shd_rewrite_node(&ctx.rewriter, odecl->type);
         member_names[lifted_globals_count] = get_declaration_name(odecl);
 
-        register_processed(&ctx.rewriter, odecl, shd_int32_literal(a, lifted_globals_count));
+        shd_register_processed(&ctx.rewriter, odecl, shd_int32_literal(a, lifted_globals_count));
         lifted_globals_count++;
     }
 
@@ -105,7 +105,7 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         ctx.lifted_globals_decl = global_var(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
     }
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
 
     lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
@@ -115,12 +115,12 @@ Module* spirv_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Modul
         if (odecl->payload.global_variable.init)
             ctx.lifted_globals_decl->payload.global_variable.annotations = shd_nodes_append(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
                 .name = "InitialValue",
-                .values = mk_nodes(a, shd_int32_literal(a, lifted_globals_count), rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
+                .values = mk_nodes(a, shd_int32_literal(a, lifted_globals_count), shd_rewrite_node(&ctx.rewriter, odecl->payload.global_variable.init))
             }));
 
         lifted_globals_count++;
     }
 
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

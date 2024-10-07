@@ -211,9 +211,9 @@ static const Node* process(Context* ctx, const Node* old) {
             u &= is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
-                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
-                    .args = shd_singleton(rewrite_node(&ctx->rewriter, payload.ptr)),
-                    .mem = rewrite_node(r, payload.mem)
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = shd_singleton(shd_rewrite_node(&ctx->rewriter, payload.ptr)),
+                    .mem = shd_rewrite_node(r, payload.mem)
                 });
             }
             break;
@@ -224,9 +224,9 @@ static const Node* process(Context* ctx, const Node* old) {
             deconstruct_qualified_type(&old_ptr_t);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
-                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
-                    .args = mk_nodes(a, rewrite_node(r, payload.ptr), rewrite_node(r, payload.value)),
-                    .mem = rewrite_node(r, payload.mem),
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = mk_nodes(a, shd_rewrite_node(r, payload.ptr), shd_rewrite_node(r, payload.value)),
+                    .mem = shd_rewrite_node(r, payload.mem),
                 });
             }
             break;
@@ -246,7 +246,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         // TODO: find another way to annotate this ?
                         // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
                         // gen_comment(bb, x);
-                        const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
+                        const Node* src_ptr = shd_rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, ctx->generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
@@ -267,7 +267,7 @@ static const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 KeyHash shd_hash_string(const char** string);
@@ -278,13 +278,13 @@ Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
         .config = config,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.fns);
     return dst;
 }

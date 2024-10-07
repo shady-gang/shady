@@ -16,10 +16,10 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     deconstruct_qualified_type(&dst_type);
     size_t width = deconstruct_maybe_packed_type(&dst_type);
     if (width == 1)
-        return recreate_node_identity(&ctx->rewriter, old);
+        return shd_recreate_node(&ctx->rewriter, old);
     LARRAY(const Node*, elements, width);
     BodyBuilder* bb = begin_block_pure(a);
-    Nodes noperands = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
+    Nodes noperands = shd_rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
     for (size_t i = 0; i < width; i++) {
         LARRAY(const Node*, nops, noperands.count);
         for (size_t j = 0; j < noperands.count; j++)
@@ -27,7 +27,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
         elements[i] = gen_primop_e(bb, old->payload.prim_op.op, shd_empty(a), shd_nodes(a, noperands.count, nops));
     }
     const Type* t = arr_type(a, (ArrType) {
-        .element_type = rewrite_node(&ctx->rewriter, dst_type),
+        .element_type = shd_rewrite_node(&ctx->rewriter, dst_type),
         .size = shd_int32_literal(a, width)
     });
     return yield_values_and_wrap_in_block(bb, shd_singleton(composite_helper(a, t, shd_nodes(a, width, elements))));
@@ -39,7 +39,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case PackType_TAG: {
             return arr_type(a, (ArrType) {
-                .element_type = rewrite_node(&ctx->rewriter, node->payload.pack_type.element_type),
+                .element_type = shd_rewrite_node(&ctx->rewriter, node->payload.pack_type.element_type),
                 .size = shd_int32_literal(a, node->payload.pack_type.width)
             });
         }
@@ -50,7 +50,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_vec_arr(const CompilerConfig* config, Module* src) {
@@ -59,10 +59,10 @@ Module* lower_vec_arr(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

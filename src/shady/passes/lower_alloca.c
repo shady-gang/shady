@@ -52,7 +52,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
             if (found)
                 break;
 
-            const Type* element_type = rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
+            const Type* element_type = shd_rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(is_data_type(element_type));
             const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
             shd_list_append(const Type*, vctx->members, element_type);
@@ -78,14 +78,14 @@ static const Node* process(Context* ctx, const Node* node) {
     Module* m = r->dst_module;
     switch (node->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+            Node* fun = shd_recreate_node_head(&ctx->rewriter, node);
             if (!node->payload.fun.body)
                 return fun;
 
             Context ctx2 = *ctx;
             ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
             if (ctx2.disable_lowering) {
-                set_abstraction_body(fun, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+                set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
                 return fun;
             }
 
@@ -120,8 +120,8 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
-            register_processed(r, get_abstraction_mem(node), bb_mem(bb));
-            set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
+            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
             shd_destroy_dict(ctx2.prepared_offsets);
             return fun;
@@ -137,7 +137,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     shd_error_die();
                 }
 
-                BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, node->payload.stack_alloc.mem));
+                BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, node->payload.stack_alloc.mem));
                 if (!ctx->stack_size_on_entry) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     assert(false);
@@ -160,7 +160,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -168,11 +168,11 @@ Module* lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .stack_ptr_t = int_type(a, (Int) { .is_signed = false, .width = IntTy32 }),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

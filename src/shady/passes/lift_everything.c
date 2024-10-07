@@ -30,8 +30,8 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.scheduler = new_scheduler(fn_ctx.cfg);
 
-            Node* new_fn = recreate_decl_header_identity(r, node);
-            recreate_decl_body_identity(&fn_ctx.rewriter, node, new_fn);
+            Node* new_fn = shd_recreate_node_head(r, node);
+            shd_recreate_node_body(&fn_ctx.rewriter, node, new_fn);
 
             destroy_scheduler(fn_ctx.scheduler);
             destroy_cfg(fn_ctx.cfg);
@@ -45,21 +45,21 @@ static const Node* process(Context* ctx, const Node* node) {
             // insert_dict(const Node*, Dict*, ctx->lift, node, frontier);
 
             Nodes additional_args = shd_empty(a);
-            Nodes new_params = recreate_params(r, get_abstraction_params(node));
-            register_processed_list(r, get_abstraction_params(node), new_params);
+            Nodes new_params = shd_recreate_params(r, get_abstraction_params(node));
+            shd_register_processed_list(r, get_abstraction_params(node), new_params);
             size_t i = 0;
             const Node* value;
 
             Context bb_ctx = *ctx;
-            bb_ctx.rewriter = create_children_rewriter(&ctx->rewriter);
+            bb_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
 
             while (shd_dict_iter(frontier, &i, &value, NULL)) {
                 if (is_value(value)) {
                     additional_args = shd_nodes_append(a, additional_args, value);
-                    const Type* t = rewrite_node(r, value->type);
+                    const Type* t = shd_rewrite_node(r, value->type);
                     const Node* p = param(a, t, NULL);
                     new_params = shd_nodes_append(a, new_params, p);
-                    register_processed(&bb_ctx.rewriter, value, p);
+                    shd_register_processed(&bb_ctx.rewriter, value, p);
                 }
             }
 
@@ -76,27 +76,27 @@ static const Node* process(Context* ctx, const Node* node) {
                     break;
             }
 
-            register_processed(&fn_ctx->rewriter, node, new_bb);
-            set_abstraction_body(new_bb, rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
-            destroy_rewriter(&bb_ctx.rewriter);
+            shd_register_processed(&fn_ctx->rewriter, node, new_bb);
+            set_abstraction_body(new_bb, shd_rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
+            shd_destroy_rewriter(&bb_ctx.rewriter);
             return new_bb;
         }
         case Jump_TAG: {
             Jump payload = node->payload.jump;
-            rewrite_node(r, payload.target);
+            shd_rewrite_node(r, payload.target);
 
             Nodes* additional_args = shd_dict_find_value(const Node*, Nodes, ctx->lift, payload.target);
             assert(additional_args);
             return jump(a, (Jump) {
-                .mem = rewrite_node(r, payload.mem),
-                .target = rewrite_node(r, payload.target),
-                .args = shd_concat_nodes(a, rewrite_nodes(r, payload.args), rewrite_nodes(r, *additional_args))
+                .mem = shd_rewrite_node(r, payload.mem),
+                .target = shd_rewrite_node(r, payload.target),
+                .args = shd_concat_nodes(a, shd_rewrite_nodes(r, payload.args), shd_rewrite_nodes(r, *additional_args))
             });
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -108,12 +108,12 @@ Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) 
         todo = false;
         dst = new_module(a, get_module_name(src));
         Context ctx = {
-            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+            .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
             .lift = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
         };
-        rewrite_module(&ctx.rewriter);
+        shd_rewrite_module(&ctx.rewriter);
         shd_destroy_dict(ctx.lift);
-        destroy_rewriter(&ctx.rewriter);
+        shd_destroy_rewriter(&ctx.rewriter);
         src = dst;
     }
     return dst;

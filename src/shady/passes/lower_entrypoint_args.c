@@ -16,10 +16,10 @@ typedef struct {
 static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
-    Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+    Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
     Node* fun = function(ctx->rewriter.dst_module, shd_empty(a), node->payload.fun.name, annotations, shd_empty(a));
 
-    register_processed(&ctx->rewriter, node, fun);
+    shd_register_processed(&ctx->rewriter, node, fun);
 
     return fun;
 }
@@ -31,7 +31,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
     LARRAY(String, names, params.count);
 
     for (int i = 0; i < params.count; ++i) {
-        const Type* type = rewrite_node(rewriter, params.nodes[i]->type);
+        const Type* type = shd_rewrite_node(rewriter, params.nodes[i]->type);
 
         if (!deconstruct_qualified_type(&type))
             shd_error("EntryPoint parameters must be uniform");
@@ -67,11 +67,11 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
     for (int i = 0; i < params.count; ++i) {
         const Node* addr = gen_lea(bb, arg_struct, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, i)));
         const Node* val = gen_load(bb, addr);
-        register_processed(&ctx->rewriter, params.nodes[i], val);
+        shd_register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
-    register_processed(&ctx->rewriter, get_abstraction_mem(old_entry_point), bb_mem(bb));
-    return finish_body(bb, rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
+    shd_register_processed(&ctx->rewriter, get_abstraction_mem(old_entry_point), bb_mem(bb));
+    return finish_body(bb, shd_rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -87,7 +87,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_entrypoint_args(const CompilerConfig* config, Module* src) {
@@ -95,10 +95,10 @@ Module* lower_entrypoint_args(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

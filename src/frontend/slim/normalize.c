@@ -27,7 +27,7 @@ static const Node* force_to_be_value(Context* ctx, const Node* node) {
         case Function_TAG: {
             return fn_addr_helper(a, process_node(ctx, node));
         }
-        case Param_TAG: return find_processed(&ctx->rewriter, node);
+        case Param_TAG: return shd_find_processed(&ctx->rewriter, node);
         default:
             break;
     }
@@ -87,7 +87,7 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    const Node** already_done = search_processed(&ctx->rewriter, node);
+    const Node** already_done = shd_search_processed(&ctx->rewriter, node);
     if (already_done)
         return *already_done;
 
@@ -104,9 +104,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
         default: break;
     }
 
-    const Node* new = recreate_node_identity(&ctx->rewriter, node);
+    const Node* new = shd_recreate_node(&ctx->rewriter, node);
     if (is_instruction(new))
-        register_processed(r, node, new);
+        shd_register_processed(r, node, new);
     return new;
 }
 
@@ -116,13 +116,13 @@ Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* s
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process_op),
+        .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process_op),
     };
 
     ctx.rewriter.config.search_map = false;
     ctx.rewriter.config.write_map = false;
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

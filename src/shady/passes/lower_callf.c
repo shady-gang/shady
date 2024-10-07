@@ -30,17 +30,17 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
         if (!ctx2.disable_lowering && get_abstraction_body(old)) {
             Nodes oparams = get_abstraction_params(old);
-            Nodes nparams = recreate_params(&ctx->rewriter, oparams);
-            register_processed_list(&ctx->rewriter, oparams, nparams);
+            Nodes nparams = shd_recreate_params(&ctx->rewriter, oparams);
+            shd_register_processed_list(&ctx->rewriter, oparams, nparams);
 
-            Nodes nannots = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
+            Nodes nannots = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
 
             Node* prelude = case_(a, shd_empty(a));
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(prelude));
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(a, (JoinPointType) {
-                .yield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
+                .yield_types = strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
 
             if (shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
@@ -53,27 +53,27 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             }
 
             Node* fun = function(ctx->rewriter.dst_module, nparams, get_abstraction_name(old), nannots, shd_empty(a));
-            register_processed(&ctx->rewriter, old, fun);
+            shd_register_processed(&ctx->rewriter, old, fun);
 
-            register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
-            set_abstraction_body(prelude, finish_body(bb, rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
+            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+            set_abstraction_body(prelude, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
             set_abstraction_body(fun, jump_helper(a, get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
         }
 
-        Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
+        Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
         if (old->payload.fun.body)
-            set_abstraction_body(fun, rewrite_node(&ctx2.rewriter, old->payload.fun.body));
+            set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body));
         return fun;
     }
 
     if (ctx->disable_lowering)
-        return recreate_node_identity(&ctx->rewriter, old);
+        return shd_recreate_node(&ctx->rewriter, old);
 
     switch (old->tag) {
         case FnType_TAG: {
-            Nodes param_types = rewrite_nodes(r, old->payload.fn_type.param_types);
-            Nodes returned_types = rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
+            Nodes param_types = shd_rewrite_nodes(r, old->payload.fn_type.param_types);
+            Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
                     .is_uniform = false
@@ -85,11 +85,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
         }
         case Return_TAG: {
-            Nodes nargs = rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
+            Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
 
             const Node* return_jp = ctx->return_jp;
             if (return_jp) {
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, old->payload.fn_ret.mem));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, old->payload.fn_ret.mem));
                 return_jp = gen_primop_ce(bb, subgroup_assume_uniform_op, 1, (const Node* []) { return_jp });
                 // Join up at the return address instead of returning
                 return finish_body(bb, join(a, (Join) {
@@ -114,11 +114,11 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             bool callee_uniform = deconstruct_qualified_type(&ocallee_type);
             ocallee_type = get_pointee_type(a, ocallee_type);
             assert(ocallee_type->tag == FnType_TAG);
-            Nodes returned_types = rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
+            Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
 
             // Rewrite the callee and its arguments
-            const Node* ncallee = rewrite_node(&ctx->rewriter, ocallee);
-            Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
+            const Node* ncallee = shd_rewrite_node(&ctx->rewriter, ocallee);
+            Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
 
             // Create the body of the control that receives the appropriately typed join point
             const Type* jp_type = qualified_type(a, (QualifiedType) {
@@ -138,12 +138,12 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .mem = get_abstraction_mem(control_case),
             });
             set_abstraction_body(control_case, control_body);
-            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
             return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 Module* lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -151,10 +151,10 @@ Module* lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) lower_callf_process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) lower_callf_process),
         .disable_lowering = false,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

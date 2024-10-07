@@ -208,7 +208,7 @@ const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (strcmp(get_declaration_name(decl), name) == 0) {
-            return rewrite_node(rewriter, decl);
+            return shd_rewrite_node(rewriter, decl);
         }
     }
     assert(false);

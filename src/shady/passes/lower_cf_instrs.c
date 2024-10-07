@@ -24,11 +24,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     Context sub_ctx = *ctx;
     if (node->tag == Function_TAG) {
-        Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
+        Node* fun = shd_recreate_node_head(&ctx->rewriter, node);
         sub_ctx.disable_lowering = shd_lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
-        set_abstraction_body(fun, rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
+        set_abstraction_body(fun, shd_rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
         destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
@@ -38,14 +38,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 
     if (ctx->disable_lowering)
-        return recreate_node_identity(&ctx->rewriter, node);
+        return shd_recreate_node(&ctx->rewriter, node);
 
     switch (node->tag) {
         case If_TAG: {
             If payload = node->payload.if_instr;
             bool has_false_branch = payload.if_false;
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
-            const Node* nmem = rewrite_node(r, node->payload.if_instr.mem);
+            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
+            const Node* nmem = shd_rewrite_node(r, node->payload.if_instr.mem);
 
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
@@ -55,11 +55,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes jps = shd_singleton(jp);
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            const Node* true_block = rewrite_node(r, payload.if_true);
+            const Node* true_block = shd_rewrite_node(r, payload.if_true);
 
             const Node* false_block;
             if (has_false_branch) {
-                false_block = rewrite_node(r, payload.if_false);
+                false_block = shd_rewrite_node(r, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
                 false_block = basic_block(a, shd_nodes(a, 0, NULL), unique_name(a, "if_false"));
@@ -68,7 +68,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Node* control_case = basic_block(a, shd_singleton(jp), NULL);
             const Node* control_body = branch(a, (Branch) {
-                .condition = rewrite_node(r, node->payload.if_instr.condition),
+                .condition = shd_rewrite_node(r, node->payload.if_instr.condition),
                 .true_jump = jump_helper(a, get_abstraction_mem(control_case), true_block, shd_empty(a)),
                 .false_jump = jump_helper(a, get_abstraction_mem(control_case), false_block, shd_empty(a)),
                 .mem = get_abstraction_mem(control_case),
@@ -77,15 +77,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = begin_body_with_mem(a, nmem);
             Nodes results = gen_control(bb, yield_types, control_case);
-            return finish_body(bb, jump_helper(a, bb_mem(bb), rewrite_node(r, payload.tail), results));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
         }
         // TODO: match
         case Loop_TAG: {
             Loop payload = node->payload.loop_instr;
             const Node* old_loop_block = payload.body;
 
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
-            Nodes param_types = rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_block)));
+            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
+            Nodes param_types = shd_rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_block)));
             param_types = strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -101,13 +101,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes jps = mk_nodes(a, break_point, continue_point);
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            Nodes new_params = recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
+            Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
             Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
 
             BodyBuilder* inner_bb = begin_body_with_mem(a, get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, shd_singleton(continue_point));
             set_abstraction_body(inner_control_case, jump_helper(a, get_abstraction_mem(inner_control_case),
-                                                                 rewrite_node(r, old_loop_block), new_params));
+                                                                 shd_rewrite_node(r, old_loop_block), new_params));
             Nodes args = gen_control(inner_bb, param_types, inner_control_case);
 
             set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
@@ -115,14 +115,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* outer_control_case = case_(a, shd_singleton(break_point));
             const Node* first_iteration_jump = jump(a, (Jump) {
                 .target = loop_header_block,
-                .args = rewrite_nodes(r, payload.initial_args),
+                .args = shd_rewrite_nodes(r, payload.initial_args),
                 .mem = get_abstraction_mem(outer_control_case),
             });
             set_abstraction_body(outer_control_case, first_iteration_jump);
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             Nodes results = gen_control(bb, yield_types, outer_control_case);
-            return finish_body(bb, jump_helper(a, bb_mem(bb), rewrite_node(r, payload.tail), results));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
         }
         case MergeSelection_TAG: {
             MergeSelection payload = node->payload.merge_selection;
@@ -151,10 +151,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(jps && jps->count == 1);
             const Node* jp = shd_first(*jps);
             assert(jp);
-            const Node* nmem = rewrite_node(r, payload.mem);
+            const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
                 .mem = nmem
             });
         }
@@ -185,10 +185,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(jps && jps->count == 2);
             const Node* jp = jps->nodes[1];
             assert(jp);
-            const Node* nmem = rewrite_node(r, payload.mem);
+            const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
                 .mem = nmem,
             });
         }
@@ -219,16 +219,16 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(jps && jps->count == 2);
             const Node* jp = shd_first(*jps);
             assert(jp);
-            const Node* nmem = rewrite_node(r, payload.mem);
+            const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
                 .mem = nmem,
             });
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(const Node**);
@@ -239,11 +239,11 @@ Module* lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .structured_join_tokens = shd_new_dict(const Node*, Nodes, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.structured_join_tokens);
     return dst;
 }

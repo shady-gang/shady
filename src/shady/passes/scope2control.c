@@ -51,9 +51,9 @@ static Nodes remake_params(Context* ctx, Nodes old) {
         const Type* t = NULL;
         if (node->payload.param.type) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
-                t = rewrite_node(r, node->payload.param.type);
+                t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = shd_as_qualified_type(rewrite_node(r, node->payload.param.type), false);
+                t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
         }
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
@@ -89,15 +89,15 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         const Node* obb = dominated->node;
         assert(obb->tag == BasicBlock_TAG);
         Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
-        register_processed_list(r, get_abstraction_params(obb), nparams);
+        shd_register_processed_list(r, get_abstraction_params(obb), nparams);
         nbbs[i] = basic_block(a, nparams, get_abstraction_name_unsafe(obb));
-        register_processed(r, obb, nbbs[i]);
+        shd_register_processed(r, obb, nbbs[i]);
     }
 
     // We introduce a dummy case now because we don't know yet whether the body of the abstraction will be wrapped
     Node* c = case_(a, shd_empty(a));
     Node* oc = c;
-    register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
+    shd_register_processed(r, get_abstraction_mem(oabs), get_abstraction_mem(c));
 
     for (size_t k = 0; k < num_dom; k++) {
         CFNode* dominated = shd_read_list(CFNode*, n->dominates)[k];
@@ -107,7 +107,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
 
     Controls* controls = get_or_create_controls(ctx, oabs);
 
-    set_abstraction_body(oc, rewrite_node(r, obody));
+    set_abstraction_body(oc, shd_rewrite_node(r, obody));
 
     size_t i = 0;
     AddControl add_control;
@@ -130,7 +130,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         }
 
         c = c2;
-        set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), find_processed(r, dst), results)));
+        set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), shd_find_processed(r, dst), results)));
     }
 
     const Node* body = jump_helper(a, get_abstraction_mem(nabs), c, shd_empty(a));
@@ -220,7 +220,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                 } else {
                     Nodes wrapper_params = remake_params(ctx, get_abstraction_params(dst));
                     Nodes join_args = wrapper_params;
-                    Nodes yield_types = rewrite_nodes(r, strip_qualifiers(a, get_param_types(a, get_abstraction_params(dst))));
+                    Nodes yield_types = shd_rewrite_nodes(r, strip_qualifiers(a, get_param_types(a, get_abstraction_params(dst))));
 
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types
@@ -272,7 +272,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             CFG* cfg = build_fn_cfg(node);
             prepare_function(ctx, cfg, node);
-            Node* decl = recreate_decl_header_identity(r, node);
+            Node* decl = shd_recreate_node_head(r, node);
             wrap_in_controls(ctx, cfg, decl, node);
             destroy_cfg(cfg);
             return decl;
@@ -283,21 +283,21 @@ static const Node* process_node(Context* ctx, const Node* node) {
         // Eliminate now-useless scope instructions
         case ExtInstr_TAG: {
             if (strcmp(node->payload.ext_instr.set, "shady.scope") == 0) {
-                return rewrite_node(r, node->payload.ext_instr.mem);
+                return shd_rewrite_node(r, node->payload.ext_instr.mem);
             }
             break;
         }
         case Jump_TAG: {
             Wrapped* found = shd_dict_find_value(const Node*, Wrapped, ctx->jump2wrapper, node);
             if (found)
-                return jump_helper(a, rewrite_node(r, node->payload.jump.mem), found->wrapper,
-                                   rewrite_nodes(r, node->payload.jump.args));
+                return jump_helper(a, shd_rewrite_node(r, node->payload.jump.mem), found->wrapper,
+                                   shd_rewrite_nodes(r, node->payload.jump.args));
             break;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* scope2control(const CompilerConfig* config, Module* src) {
@@ -306,7 +306,7 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
         .arena = shd_new_arena(),
         .controls = shd_new_dict(const Node*, Controls*, (HashFn) hash_node, (CmpFn) compare_node),
@@ -315,7 +315,7 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
 
     size_t i = 0;
     Controls* controls;
@@ -331,7 +331,7 @@ Module* scope2control(const CompilerConfig* config, Module* src) {
     shd_destroy_dict(ctx.controls);
     shd_destroy_dict(ctx.jump2wrapper);
     shd_destroy_arena(ctx.arena);
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
 
     return dst;
 }

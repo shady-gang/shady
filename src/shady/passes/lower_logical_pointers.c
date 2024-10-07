@@ -50,7 +50,7 @@ static const Node* process(Context* ctx, const Node* old) {
             PtrType payload = old->payload.ptr_type;
             if (!shd_get_arena_config(a)->address_spaces[payload.address_space].physical)
                 payload.is_reference = true;
-            payload.pointed_type = rewrite_node(r, payload.pointed_type);
+            payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
         }
         /*case PtrArrayElementOffset_TAG: {
@@ -72,13 +72,13 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* optr_t = payload.ptr->type;
             deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
-            const Type* expected_type = rewrite_node(r, optr_t);
-            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* expected_type = shd_rewrite_node(r, optr_t);
+            const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, ptr_composite_element(a, (PtrCompositeElement) { .ptr = ptr, .index = rewrite_node(r, payload.index)}));
+            return bind_last_instruction_and_wrap_in_block(bb, ptr_composite_element(a, (PtrCompositeElement) { .ptr = ptr, .index = shd_rewrite_node(r, payload.index)}));
         }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
@@ -88,7 +88,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Type* osrc_t = osrc->type;
                     deconstruct_qualified_type(&osrc_t);
                     if (osrc_t->tag == PtrType_TAG && !shd_get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
-                        return rewrite_node(r, osrc);
+                        return shd_rewrite_node(r, osrc);
                     break;
                 }
                 default: break;
@@ -100,41 +100,41 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* optr_t = payload.ptr->type;
             deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
-            const Type* expected_type = rewrite_node(r, optr_t);
-            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* expected_type = shd_rewrite_node(r, optr_t);
+            const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
-            return load(a, (Load) { .ptr = yield_value_and_wrap_in_block(bb, ptr), .mem = rewrite_node(r, payload.mem) });
+            return load(a, (Load) { .ptr = yield_value_and_wrap_in_block(bb, ptr), .mem = shd_rewrite_node(r, payload.mem) });
         }
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* optr_t = payload.ptr->type;
             deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
-            const Type* expected_type = rewrite_node(r, optr_t);
-            const Node* ptr = rewrite_node(r, payload.ptr);
+            const Type* expected_type = shd_rewrite_node(r, optr_t);
+            const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { .ptr = ptr, .value = rewrite_node(r, payload.value), .mem = rewrite_node(r, payload.mem) }));
+            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { .ptr = ptr, .value = shd_rewrite_node(r, payload.value), .mem = shd_rewrite_node(r, payload.mem) }));
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;
             if (shd_get_arena_config(a)->address_spaces[as].physical)
                 break;
-            Nodes annotations = rewrite_nodes(r, old->payload.global_variable.annotations);
+            Nodes annotations = shd_rewrite_nodes(r, old->payload.global_variable.annotations);
             annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" }));
-            Node* new = global_var(ctx->rewriter.dst_module, annotations, rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
-            recreate_decl_body_identity(r, old, new);
+            Node* new = global_var(ctx->rewriter.dst_module, annotations, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
+            shd_recreate_node_body(r, old, new);
             return new;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
@@ -145,10 +145,10 @@ Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -25,9 +25,9 @@ static const Node* process(Context* ctx, const Node* old) {
             CopyBytes payload = old->payload.copy_bytes;
             const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
 
-            const Node* dst_addr = rewrite_node(&ctx->rewriter, payload.dst);
+            const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
             deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
@@ -37,7 +37,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
-            const Node* src_addr = rewrite_node(&ctx->rewriter, payload.src);
+            const Node* src_addr = shd_rewrite_node(&ctx->rewriter, payload.src);
             const Type* src_addr_type = src_addr->type;
             deconstruct_qualified_type(&src_addr_type);
             assert(src_addr_type->tag == PtrType_TAG);
@@ -47,7 +47,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
             src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
 
-            const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), rewrite_node(&ctx->rewriter, payload.count));
+            const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
@@ -76,15 +76,15 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case FillBytes_TAG: {
             FillBytes payload = old->payload.fill_bytes;
-            const Node* src_value = rewrite_node(&ctx->rewriter, payload.src);
+            const Node* src_value = shd_rewrite_node(&ctx->rewriter, payload.src);
             const Type* src_type = src_value->type;
             deconstruct_qualified_type(&src_type);
             assert(src_type->tag == Int_TAG);
             const Type* word_type = src_type;// int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
 
-            const Node* dst_addr = rewrite_node(&ctx->rewriter, payload.dst);
+            const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
             deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
@@ -94,7 +94,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
             dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
-            const Node* num = rewrite_node(&ctx->rewriter, payload.count);
+            const Node* num = shd_rewrite_node(&ctx->rewriter, payload.count);
             const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num));
 
             begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
@@ -122,7 +122,7 @@ static const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 Module* lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -131,9 +131,9 @@ Module* lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process)
+            .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process)
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

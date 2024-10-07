@@ -94,7 +94,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     IrArena* a = r->dst_arena;
 
     if (old->tag == Function_TAG && strcmp(get_abstraction_name(old), "generated_init") == 0) {
-        Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+        Node* new = shd_recreate_node_head(&ctx->rewriter, old);
         BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new));
 
         // Make sure to zero-init the stack pointers
@@ -104,8 +104,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_pointer = ctx->stack_pointer;
             gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
-        register_processed(r, get_abstraction_mem(old), bb_mem(bb));
-        set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body)));
+        shd_register_processed(r, get_abstraction_mem(old), bb_mem(bb));
+        set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
         return new;
     }
 
@@ -113,22 +113,22 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case GetStackSize_TAG: {
             assert(ctx->stack);
             GetStackSize payload = old->payload.get_stack_size;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             const Node* sp = gen_load(bb, ctx->stack_pointer);
             return yield_values_and_wrap_in_block(bb, shd_singleton(sp));
         }
         case SetStackSize_TAG: {
             assert(ctx->stack);
             SetStackSize payload = old->payload.set_stack_size;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            const Node* val = rewrite_node(r, old->payload.set_stack_size.value);
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            const Node* val = shd_rewrite_node(r, old->payload.set_stack_size.value);
             gen_store(bb, ctx->stack_pointer, val);
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
             assert(ctx->stack);
             GetStackBaseAddr payload = old->payload.get_stack_base_addr;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
             const Node* stack_base_ptr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
@@ -140,13 +140,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PushStack_TAG:{
             assert(ctx->stack);
             PushStack payload = old->payload.push_stack;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            const Type* element_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old->payload.push_stack.value->type));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            const Type* element_type = shd_rewrite_node(&ctx->rewriter, get_unqualified_type(old->payload.push_stack.value->type));
 
             bool push = true;
 
             const Node* fn = gen_fn(ctx, element_type, push);
-            Nodes args = shd_singleton(rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
+            Nodes args = shd_singleton(shd_rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
             gen_call(bb, fn_addr_helper(a, fn), args);
 
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
@@ -154,8 +154,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PopStack_TAG: {
             assert(ctx->stack);
             PopStack payload = old->payload.pop_stack;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            const Type* element_type = rewrite_node(&ctx->rewriter, old->payload.pop_stack.type);
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            const Type* element_type = shd_rewrite_node(&ctx->rewriter, old->payload.pop_stack.type);
 
             bool push = false;
 
@@ -168,7 +168,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 KeyHash hash_node(Node**);
@@ -180,7 +180,7 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
 
         .config = config,
 
@@ -209,8 +209,8 @@ Module* lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
         ctx.stack_pointer = ref_decl_helper(a, stack_ptr_decl);
     }
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
 
     shd_destroy_dict(ctx.push);
     shd_destroy_dict(ctx.pop);

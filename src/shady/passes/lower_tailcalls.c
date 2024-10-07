@@ -73,8 +73,8 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     Context ctx2 = *ctx;
     IrArena* a = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
-    Nodes rewritten_params = recreate_params(&ctx2.rewriter, old->payload.fun.params);
-    Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), shd_nodes(a, 0, NULL));
+    Nodes rewritten_params = shd_recreate_params(&ctx2.rewriter, old->payload.fun.params);
+    Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), shd_nodes(a, 0, NULL));
 
     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_entry_pt));
 
@@ -119,14 +119,14 @@ static const Node* process(Context* ctx, const Node* old) {
             // Leave leaf-calls alone :)
             ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf") || !old->payload.fun.body;
             if (ctx2.disable_lowering) {
-                Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
+                Node* fun = shd_recreate_node_head(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
                     BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(fun));
                     if (entry_point_annotation) {
                         gen_call(bb, fn_addr_helper(a, ctx2.init_fn), shd_empty(a));
                     }
-                    register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
-                    set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
+                    shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+                    set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
                 }
 
                 destroy_uses_map(ctx2.uses);
@@ -136,14 +136,14 @@ static const Node* process(Context* ctx, const Node* old) {
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
 
-            Nodes new_annotations = rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
+            Nodes new_annotations = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
             new_annotations = shd_nodes_append(a, new_annotations, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
             new_annotations = shd_nodes_append(a, new_annotations, annotation(a, (Annotation) { .name = "Leaf" }));
 
             String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
             Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
-            register_processed(&ctx->rewriter, old, fun);
+            shd_register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
                 lift_entry_point(ctx, old, fun);
@@ -152,17 +152,17 @@ static const Node* process(Context* ctx, const Node* old) {
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
-                const Type* new_param_type = rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
+                const Type* new_param_type = shd_rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
                 const Node* popped = gen_pop_value_stack(bb, new_param_type);
                 // TODO use the uniform stack instead ? or no ?
                 if (is_qualified_type_uniform(old_param->type))
                     popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
                 if (old_param->payload.param.name)
                     set_value_name((Node*) popped, old_param->payload.param.name);
-                register_processed(&ctx->rewriter, old_param, popped);
+                shd_register_processed(&ctx->rewriter, old_param, popped);
             }
-            register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
-            set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
+            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old), bb_mem(bb));
+            set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
             destroy_uses_map(ctx2.uses);
             destroy_cfg(ctx2.cfg);
             return fun;
@@ -172,9 +172,9 @@ static const Node* process(Context* ctx, const Node* old) {
             Call payload = old->payload.call;
             assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
             return call(a, (Call) {
-                .callee = fn_addr_helper(a, rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn)),
-                .args = rewrite_nodes(&ctx->rewriter, payload.args),
-                .mem = rewrite_node(r, payload.mem)
+                .callee = fn_addr_helper(a, shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn)),
+                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
+                .mem = shd_rewrite_node(r, payload.mem)
             });
         }
         case JoinPointType_TAG: return type_decl_ref(a, (TypeDeclRef) {
@@ -184,7 +184,7 @@ static const Node* process(Context* ctx, const Node* old) {
             ExtInstr payload = old->payload.ext_instr;
             if (strcmp(payload.set, "shady.internal") == 0) {
                 String callee_name = NULL;
-                Nodes args = rewrite_nodes(r, payload.operands);
+                Nodes args = shd_rewrite_nodes(r, payload.operands);
                 switch ((ShadyJoinPointOpcodes ) payload.opcode) {
                     case ShadyOpDefaultJoinPoint:
                         callee_name = "builtin_entry_join_point";
@@ -195,7 +195,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                 }
                 return call(a, (Call) {
-                    .mem = rewrite_node(r, payload.mem),
+                    .mem = shd_rewrite_node(r, payload.mem),
                     .callee = access_decl(r, callee_name),
                     .args = args,
                 });
@@ -206,9 +206,9 @@ static const Node* process(Context* ctx, const Node* old) {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
             TailCall payload = old->payload.tail_call;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, payload.args));
-            const Node* target = rewrite_node(&ctx->rewriter, payload.callee);
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            gen_push_values_stack(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
+            const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = gen_conversion(bb, shd_uint32_type(a), target);
 
             gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
@@ -219,14 +219,14 @@ static const Node* process(Context* ctx, const Node* old) {
             //if (ctx->disable_lowering)
             //    return recreate_node_identity(&ctx->rewriter, old);
 
-            const Node* jp = rewrite_node(&ctx->rewriter, old->payload.join.join_point);
+            const Node* jp = shd_rewrite_node(&ctx->rewriter, old->payload.join.join_point);
             const Node* jp_type = jp->type;
             deconstruct_qualified_type(&jp_type);
             if (jp_type->tag == JoinPointType_TAG)
                 break;
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            gen_push_values_stack(bb, rewrite_nodes(&ctx->rewriter, old->payload.join.args));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            gen_push_values_stack(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
             const Node* jp_payload = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
             gen_push_value_stack(bb, jp_payload);
             const Node* dst = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
@@ -253,20 +253,20 @@ static const Node* process(Context* ctx, const Node* old) {
                 deconstruct_qualified_type(&old_jp_type);
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
-                    .yield_types = rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
+                    .yield_types = shd_rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
                 });
                 const Node* new_jp = param(a, shd_as_qualified_type(new_jp_type, true), old_jp->payload.param.name);
-                register_processed(&ctx->rewriter, old_jp, new_jp);
+                shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = case_(a, shd_singleton(new_jp));
-                register_processed(r, payload.inside, new_control_case);
-                set_abstraction_body(new_control_case, rewrite_node(&ctx->rewriter, get_abstraction_body(payload.inside)));
+                shd_register_processed(r, payload.inside, new_control_case);
+                set_abstraction_body(new_control_case, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(payload.inside)));
                 // BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-                Nodes nyield_types = rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
+                Nodes nyield_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
                 return control(a, (Control) {
                     .yield_types = nyield_types,
                     .inside = new_control_case,
-                    .tail = rewrite_node(r, get_structured_construct_tail(old)),
-                    .mem = rewrite_node(r, payload.mem),
+                    .tail = shd_rewrite_node(r, get_structured_construct_tail(old)),
+                    .mem = shd_rewrite_node(r, payload.mem),
                 });
                 //return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
             }
@@ -275,7 +275,7 @@ static const Node* process(Context* ctx, const Node* old) {
         default:
             break;
     }
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 void generate_top_level_dispatch_fn(Context* ctx) {
@@ -387,7 +387,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
                 const Node* sid = gen_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
                 gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
-            gen_call(if_builder, fn_addr_helper(a, rewrite_node(&ctx->rewriter, decl)), shd_empty(a));
+            gen_call(if_builder, fn_addr_helper(a, shd_rewrite_node(&ctx->rewriter, decl)), shd_empty(a));
             set_abstraction_body(if_true_case, finish_body_with_join(if_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
 
             Node* if_false = case_(a, shd_empty(a));
@@ -452,7 +452,7 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Node* top_dispatcher_fn = NULL;
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,
@@ -462,13 +462,13 @@ Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) 
         .init_fn = init_fn,
     };
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
 
     // Generate the top dispatcher, but only if it is used for realsies
     if (*ctx.top_dispatcher_fn)
         generate_top_level_dispatch_fn(&ctx);
 
     shd_destroy_dict(ptrs);
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

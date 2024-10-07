@@ -38,13 +38,13 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Node*
 static const Node* infer(Context* ctx, const Node* node, const Type* expect) {
     Context ctx2 = *ctx;
     ctx2.expected_type = expect;
-    return rewrite_node(&ctx2.rewriter, node);
+    return shd_rewrite_node(&ctx2.rewriter, node);
 }
 
 static Nodes infer_nodes(Context* ctx, Nodes nodes) {
     Context ctx2 = *ctx;
     ctx2.expected_type = NULL;
-    return rewrite_nodes(&ctx->rewriter, nodes);
+    return shd_rewrite_nodes(&ctx->rewriter, nodes);
 }
 
 #define rewrite_node shd_error("don't use this directly, use the 'infer' and 'infer_node' helpers")
@@ -79,7 +79,7 @@ static const Node* infer_type(Context* ctx, const Type* type) {
             //    element_type = unit_type(a);
             return ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = type->payload.ptr_type.address_space });
         }
-        default: return recreate_node_identity(&ctx->rewriter, type);
+        default: return shd_recreate_node(&ctx->rewriter, type);
     }
 }
 
@@ -98,12 +98,12 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 const Param* old_param = &node->payload.fun.params.nodes[i]->payload.param;
                 const Type* imported_param_type = infer(ctx, old_param->type, NULL);
                 nparams[i] = param(a, imported_param_type, old_param->name);
-                register_processed(&body_context.rewriter, node->payload.fun.params.nodes[i], nparams[i]);
+                shd_register_processed(&body_context.rewriter, node->payload.fun.params.nodes[i], nparams[i]);
             }
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
             Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
-            register_processed(&ctx->rewriter, node, fun);
+            shd_register_processed(&ctx->rewriter, node, fun);
             body_context.current_fn = fun;
             set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
             return fun;
@@ -125,7 +125,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             assert(imported_hint);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
-            register_processed(&ctx->rewriter, node, nconstant);
+            shd_register_processed(&ctx->rewriter, node, nconstant);
             nconstant->payload.constant.value = instruction;
 
             return nconstant;
@@ -134,7 +134,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
              const GlobalVariable* old_gvar = &node->payload.global_variable;
              const Type* imported_ty = infer(ctx, old_gvar->type, NULL);
              Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
-             register_processed(&ctx->rewriter, node, ngvar);
+            shd_register_processed(&ctx->rewriter, node, ngvar);
 
              ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, shd_as_qualified_type(imported_ty, true));
              return ngvar;
@@ -142,7 +142,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
         case NominalType_TAG: {
             const NominalType* onom_type = &node->payload.nom_type;
             Node* nnominal_type = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, onom_type->annotations), onom_type->name);
-            register_processed(&ctx->rewriter, node, nnominal_type);
+            shd_register_processed(&ctx->rewriter, node, nnominal_type);
             nnominal_type->payload.nom_type.body = infer(ctx, onom_type->body, NULL);
             return nnominal_type;
         }
@@ -278,7 +278,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg_type) {
@@ -302,12 +302,12 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
                 param_type = inferred_arg_type.nodes[i];
             assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = param(a, param_type, old_param->name);
-            register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
+            shd_register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
         }
     }
 
     Node* new_case = basic_block(a, shd_nodes(a, inferred_arg_type.count, nparams), get_abstraction_name_unsafe(node));
-    register_processed(r, node, new_case);
+    shd_register_processed(r, node, new_case);
     set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
 }
@@ -325,12 +325,12 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
         const Type* param_type = infer(ctx, old_param->type, NULL);
         assert(param_type);
         nparams[i] = param(a, param_type, old_param->name);
-        register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
+        shd_register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
     }
 
     Node* bb = basic_block(a, shd_nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
     assert(bb);
-    register_processed(&ctx->rewriter, node, bb);
+    shd_register_processed(&ctx->rewriter, node, bb);
 
     set_abstraction_body(bb, infer(&body_context, node->payload.basic_block.body, NULL));
     return bb;
@@ -498,10 +498,10 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     });
     jpt = qualified_type(a, (QualifiedType) { .is_uniform = true, .type = jpt });
     const Node* jp = param(a, jpt, ojp->payload.param.name);
-    register_processed(&joinable_ctx.rewriter, ojp, jp);
+    shd_register_processed(&joinable_ctx.rewriter, ojp, jp);
 
     Node* new_case = basic_block(a, shd_singleton(jp), NULL);
-    register_processed(&joinable_ctx.rewriter, olam, new_case);
+    shd_register_processed(&joinable_ctx.rewriter, olam, new_case);
     set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 
     return control(a, (Control) {
@@ -517,7 +517,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
     switch (is_instruction(node)) {
         case PrimOp_TAG:       return infer_primop(ctx, node, expected_type);
         case Call_TAG:         return infer_indirect_call(ctx, node, expected_type);
-        case Instruction_Comment_TAG: return recreate_node_identity(&ctx->rewriter, node);
+        case Instruction_Comment_TAG: return shd_recreate_node(&ctx->rewriter, node);
         case Instruction_Load_TAG: {
             return load(a, (Load) { .ptr = infer(ctx, node->payload.load.ptr, NULL), .mem = infer(ctx, node->payload.load.mem, NULL) });
         }
@@ -540,7 +540,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
         default: break;
         case NotAnInstruction: shd_error("not an instruction");
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static const Node* infer_terminator(Context* ctx, const Node* node) {
@@ -566,7 +566,7 @@ static const Node* infer_terminator(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static const Node* process(Context* src_ctx, const Node* node) {
@@ -599,7 +599,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
     } else if (is_basic_block(node)) {
         return _infer_basic_block(&ctx, node);
     }else if (is_mem(node)) {
-        return recreate_node_identity(&ctx.rewriter, node);
+        return shd_recreate_node(&ctx.rewriter, node);
     }
     assert(false);
 }
@@ -613,11 +613,11 @@ Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
     //ctx.rewriter.config.search_map = false;
     //ctx.rewriter.config.write_map = false;
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

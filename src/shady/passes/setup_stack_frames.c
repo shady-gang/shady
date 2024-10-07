@@ -25,7 +25,7 @@ static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(r, node);
+            Node* fun = shd_recreate_node_head(r, node);
             Context ctx2 = *ctx;
             ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
 
@@ -34,16 +34,16 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx2.stack_size_on_entry = gen_get_stack_size(bb);
                 set_value_name((Node*) ctx2.stack_size_on_entry, shd_format_string_arena(a->arena, "saved_stack_ptr_entering_%s", get_abstraction_name(fun)));
             }
-            register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             if (node->payload.fun.body)
-                set_abstraction_body(fun, finish_body(bb, rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
+                set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
             else
                 cancel_body(bb);
             return fun;
         }
         case Return_TAG: {
             Return payload = node->payload.fn_ret;
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             if (!ctx->disable_lowering) {
                 assert(ctx->stack_size_on_entry);
                 // Restore SP before calling exit
@@ -51,12 +51,12 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             return finish_body(bb, fn_ret(a, (Return) {
                 .mem = bb_mem(bb),
-                .args = rewrite_nodes(r, payload.args),
+                .args = shd_rewrite_nodes(r, payload.args),
             }));
         }
         default: break;
     }
-    return recreate_node_identity(r, node);
+    return shd_recreate_node(r, node);
 }
 
 Module* setup_stack_frames(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -64,10 +64,10 @@ Module* setup_stack_frames(SHADY_UNUSED const CompilerConfig* config, Module* sr
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -91,10 +91,10 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = r->dst_arena;
     switch (node->tag) {
         case Function_TAG: {
-            Node* new = recreate_decl_header_identity(r, node);
+            Node* new = shd_recreate_node_head(r, node);
             Context fun_ctx = *ctx;
             fun_ctx.cfg = build_fn_cfg(node);
-            recreate_decl_body_identity(&fun_ctx.rewriter, node, new);
+            shd_recreate_node_body(&fun_ctx.rewriter, node, new);
             destroy_cfg(fun_ctx.cfg);
             return new;
         }
@@ -107,16 +107,16 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, get_unqualified_type(node->type));
             if (ovalue) {
                 *ctx->todo = true;
-                const Node* value = rewrite_node(r, ovalue);
+                const Node* value = shd_rewrite_node(r, ovalue);
                 if (is_qualified_type_uniform(node->type))
                     value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
-                return mem_and_value(a, (MemAndValue) { .mem = rewrite_node(r, payload.mem), .value = value });
+                return mem_and_value(a, (MemAndValue) { .mem = shd_rewrite_node(r, payload.mem), .value = value });
             }
         }
         default: break;
     }
 
-    return recreate_node_identity(r, node);
+    return shd_recreate_node(r, node);
 }
 
 OptPass opt_mem2reg;
@@ -129,11 +129,11 @@ bool opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     bool todo = false;
     dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .todo = &todo
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     assert(dst);
     *m = dst;
     return todo;

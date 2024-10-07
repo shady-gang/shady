@@ -8,20 +8,18 @@ typedef struct Rewriter_ Rewriter;
 typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
 typedef const Node* (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
 
-const Node* rewrite_node(Rewriter*, const Node*);
-const Node* rewrite_node_with_fn(Rewriter*, const Node*, RewriteNodeFn);
+const Node* shd_rewrite_node(Rewriter* rewriter, const Node* node);
+const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn);
 
-const Node* rewrite_op(Rewriter*, NodeClass, String, const Node*);
-const Node* rewrite_op_with_fn(Rewriter*, NodeClass, String, const Node*, RewriteOpFn);
+const Node* shd_rewrite_op(Rewriter* rewriter, NodeClass class, String op_name, const Node* node);
+const Node* shd_rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String op_name, const Node* node, RewriteOpFn fn);
 
 /// Applies the rewriter to all nodes in the collection
-Nodes rewrite_nodes(Rewriter*, Nodes);
-Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
+Nodes shd_rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
+Nodes shd_rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
 
-Nodes rewrite_ops(Rewriter*, NodeClass, String, Nodes);
-Nodes rewrite_ops_with_fn(Rewriter* rewriter, NodeClass,String, Nodes values, RewriteOpFn fn);
-
-Strings _shd_import_strings(IrArena* dst_arena, Strings old_strings);
+Nodes shd_rewrite_ops(Rewriter* rewriter, NodeClass class, String op_name, Nodes old_nodes);
+Nodes shd_rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, Nodes values, RewriteOpFn fn);
 
 struct Rewriter_ {
     RewriteNodeFn rewrite_fn;
@@ -42,38 +40,35 @@ struct Rewriter_ {
     struct Dict* decls_map;
 };
 
-Rewriter create_rewriter_base(Module* src, Module* dst);
-Rewriter create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
-Rewriter create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
-Rewriter create_importer(Module* src, Module* dst);
+Rewriter shd_create_rewriter_base(Module* src, Module* dst);
+Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
+Rewriter shd_create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
+Rewriter shd_create_importer(Module* src, Module* dst);
 
-Rewriter create_children_rewriter(Rewriter* parent);
-Rewriter create_decl_rewriter(Rewriter* parent);
-void destroy_rewriter(Rewriter*);
+Rewriter shd_create_children_rewriter(Rewriter* parent);
+Rewriter shd_create_decl_rewriter(Rewriter* parent);
+void shd_destroy_rewriter(Rewriter* r);
 
-void rewrite_module(Rewriter*);
+void shd_rewrite_module(Rewriter* rewriter);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
-const Node* recreate_node_identity(Rewriter*, const Node*);
+const Node* shd_recreate_node(Rewriter* rewriter, const Node* node);
 
 /// Rewrites a constant / function header
-Node* recreate_decl_header_identity(Rewriter*, const Node*);
-void  recreate_decl_body_identity(Rewriter*, const Node*, Node*);
+Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old);
+void  shd_recreate_node_body(Rewriter* rewriter, const Node* old, Node* new);
 
 /// Rewrites a variable under a new identity
-const Node* recreate_param(Rewriter* rewriter, const Node* old);
-Nodes recreate_params(Rewriter* rewriter, Nodes oparams);
-Nodes recreate_vars(IrArena* arena, Nodes ovars, const Node* instruction);
-Node* clone_bb_head(Rewriter*, const Node* bb);
-//const Node* rebind_let(Rewriter*, const Node* ninstruction, const Node* ocase);
+const Node* shd_recreate_param(Rewriter* rewriter, const Node* old);
+Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams);
 
 /// Looks up if the node was already processed
-const Node** search_processed(const Rewriter*, const Node*);
-/// Same as search_processed but asserts if it fails to find a mapping
-const Node* find_processed(const Rewriter*, const Node*);
-void register_processed(Rewriter*, const Node*, const Node*);
-void register_processed_list(Rewriter*, Nodes, Nodes);
+const Node** shd_search_processed(const Rewriter* ctx, const Node* old);
+/// Same as shd_search_processed but asserts if it fails to find a mapping
+const Node* shd_find_processed(const Rewriter* ctx, const Node* old);
+void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new);
+void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new);
 
-void dump_rewriter_map(Rewriter*);
+void shd_dump_rewriter_map(Rewriter* r);
 
 #endif

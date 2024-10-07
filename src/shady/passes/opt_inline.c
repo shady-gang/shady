@@ -118,10 +118,10 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
     inline_context.inlined_call = &inlined_call;
 
     Nodes oparams = get_abstraction_params(ocallee);
-    register_processed_list(&inline_context.rewriter, oparams, nargs);
-    register_processed(&inline_context.rewriter, get_abstraction_mem(ocallee), nmem);
+    shd_register_processed_list(&inline_context.rewriter, oparams, nargs);
+    shd_register_processed(&inline_context.rewriter, get_abstraction_mem(ocallee), nmem);
 
-    const Node* nbody = rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
+    const Node* nbody = shd_rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
 
     shd_destroy_dict(inline_context.rewriter.map);
 
@@ -145,9 +145,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
             }
 
-            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            register_processed(r, node, new);
+            Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+            Node* new = function(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            shd_register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
             fn_ctx.rewriter.map = shd_clone_dict(fn_ctx.rewriter.map);
@@ -155,8 +155,8 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.fun = new;
             fn_ctx.inlined_call = NULL;
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
-                register_processed(&fn_ctx.rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
-            recreate_decl_body_identity(&fn_ctx.rewriter, node, new);
+                shd_register_processed(&fn_ctx.rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
+            shd_recreate_node_body(&fn_ctx.rewriter, node, new);
             shd_destroy_dict(fn_ctx.rewriter.map);
             return new;
         }
@@ -171,10 +171,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
                     shd_debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, payload.args);
+                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
 
                     // Prepare a join point to replace the old function return
-                    Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
+                    Nodes nyield_types = strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
                     const Node* join_point = param(a, shd_as_qualified_type(jp_type, true), shd_format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
 
@@ -182,7 +182,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* nbody = inline_call(ctx, ocallee, get_abstraction_mem(control_case), nargs, join_point);
                     set_abstraction_body(control_case, nbody);
 
-                    BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
+                    BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
                     return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
                 }
             }
@@ -199,7 +199,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Return_TAG: {
             Return payload = node->payload.fn_ret;
             if (ctx->inlined_call)
-                return join(a, (Join) { .mem = rewrite_node(r, payload.mem), .join_point = ctx->inlined_call->return_jp, .args = rewrite_nodes(r, payload.args )});
+                return join(a, (Join) { .mem = shd_rewrite_node(r, payload.mem), .join_point = ctx->inlined_call->return_jp, .args = shd_rewrite_nodes(r, payload.args)});
             break;
         }
         case TailCall_TAG: {
@@ -211,8 +211,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
                     shd_debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
-                    return inline_call(ctx, ocallee, rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
+                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
+                    return inline_call(ctx, ocallee, shd_rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
                 }
             }
             break;
@@ -220,7 +220,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(const Node**);
@@ -228,7 +228,7 @@ bool compare_node(const Node**, const Node**);
 
 void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .graph = NULL,
         .fun = NULL,
@@ -236,11 +236,11 @@ void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     };
     ctx.graph = new_callgraph(src);
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
     if (ctx.graph)
         destroy_callgraph(ctx.graph);
 
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
 }
 
 Module* opt_inline(const CompilerConfig* config, Module* src) {

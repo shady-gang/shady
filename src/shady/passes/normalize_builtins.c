@@ -23,7 +23,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
                 const Type* expected_t = shd_get_builtin_type(a, b);
-                const Type* actual_t = rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
+                const Type* actual_t = shd_rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
                 if (expected_t != actual_t) {
                     shd_log_fmt(INFO, "normalize_builtins: found builtin decl '%s' not matching expected type: '", global_variable.name);
                     shd_log_node(INFO, expected_t);
@@ -65,9 +65,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (ctx->builtins[b])
                     return ctx->builtins[b];
                 const Type* t = shd_get_builtin_type(a, b);
-                Node* ndecl = global_var(r->dst_module, rewrite_nodes(r, global_variable.annotations), t, global_variable.name,
+                Node* ndecl = global_var(r->dst_module, shd_rewrite_nodes(r, global_variable.annotations), t, global_variable.name,
                                          shd_get_builtin_address_space(b));
-                register_processed(r, node, ndecl);
+                shd_register_processed(r, node, ndecl);
                 // no 'init' for builtins, right ?
                 assert(!global_variable.init);
                 ctx->builtins[b] = ndecl;
@@ -79,8 +79,8 @@ static const Node* process(Context* ctx, const Node* node) {
             const Type* req_cast = get_req_cast(ctx, node->payload.load.ptr);
             if (req_cast) {
                 assert(is_data_type(req_cast));
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.load.mem));
-                const Node* r1 = shd_first(bind_instruction(bb, recreate_node_identity(r, node)));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.load.mem));
+                const Node* r1 = shd_first(bind_instruction(bb, shd_recreate_node(r, node)));
                 const Node* r2 = shd_first(gen_primop(bb, reinterpret_op, shd_singleton(req_cast), shd_singleton(r1)));
                 return yield_values_and_wrap_in_block(bb, shd_singleton(r2));
             }
@@ -89,7 +89,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -98,11 +98,11 @@ Module* normalize_builtins(SHADY_UNUSED const CompilerConfig* config, Module* sr
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .builtins = calloc(sizeof(Node*), BuiltinsCount)
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     free(ctx.builtins);
     return dst;
 }

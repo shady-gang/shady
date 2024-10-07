@@ -19,14 +19,14 @@ static const Node* process(Context* ctx, const Node* node) {
             Jump payload = node->payload.jump;
             Node* new_block = basic_block(a, shd_empty(a), NULL);
             set_abstraction_body(new_block, jump_helper(a, get_abstraction_mem(new_block),
-                                                        rewrite_node(r, payload.target),
-                                                        rewrite_nodes(r, payload.args)));
-            return jump_helper(a, rewrite_node(r, payload.mem), new_block, shd_empty(a));
+                                                        shd_rewrite_node(r, payload.target),
+                                                        shd_rewrite_nodes(r, payload.args)));
+            return jump_helper(a, shd_rewrite_node(r, payload.mem), new_block, shd_empty(a));
         }
         default: break;
     }
 
-    return recreate_node_identity(r, node);
+    return shd_recreate_node(r, node);
 }
 
 Module* remove_critical_edges(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -34,9 +34,9 @@ Module* remove_critical_edges(SHADY_UNUSED const CompilerConfig* config, Module*
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

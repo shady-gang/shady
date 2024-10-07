@@ -42,20 +42,20 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
 
 static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
     if (!is_type(node)) {
-        register_processed(rewriter, node, node);
+        shd_register_processed(rewriter, node, node);
         return node;
     }
 
     switch (node->tag) {
-        case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) { .type = rewrite_node(rewriter, node->payload.qualified_type.type), .is_uniform = false });
-        default: return recreate_node_identity(rewriter, node);
+        case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) { .type = shd_rewrite_node(rewriter, node->payload.qualified_type.type), .is_uniform = false });
+        default: return shd_recreate_node(rewriter, node);
     }
 }
 
 const Type* spv_normalize_type(Emitter* emitter, const Type* type) {
-    Rewriter rewriter = create_node_rewriter(emitter->module, emitter->module, rewrite_normalize);
-    const Node* rewritten = rewrite_node(&rewriter, type);
-    destroy_rewriter(&rewriter);
+    Rewriter rewriter = shd_create_node_rewriter(emitter->module, emitter->module, rewrite_normalize);
+    const Node* rewritten = shd_rewrite_node(&rewriter, type);
+    shd_destroy_rewriter(&rewriter);
     return rewritten;
 }
 

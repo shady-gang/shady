@@ -44,7 +44,7 @@ static const Node* process(Context* ctx, const Node* node) {
             break;
         }
         case Constant_TAG: {
-            Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
+            Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
             if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
                 // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
                 // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
@@ -61,7 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
@@ -111,20 +111,20 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
 
     const Node* old_entry_point_decl = find_entry_point(src, config);
-    rewrite_node(&ctx.rewriter, old_entry_point_decl);
+    shd_rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
     Nodes old_decls = get_module_declarations(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
         if (shd_lookup_annotation(old_decl, "RetainAfterSpecialization"))
-            rewrite_node(&ctx.rewriter, old_decl);
+            shd_rewrite_node(&ctx.rewriter, old_decl);
     }
 
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

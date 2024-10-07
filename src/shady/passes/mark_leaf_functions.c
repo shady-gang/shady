@@ -102,12 +102,12 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
-            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+            Node* new = function(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
-                register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
-            register_processed(&ctx->rewriter, node, new);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
+                shd_register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
+            shd_register_processed(&ctx->rewriter, node, new);
+            shd_recreate_node_body(&ctx->rewriter, node, new);
 
             if (fn_ctx.is_leaf) {
                 shd_debugv_print("Function %s is a leaf function!\n", get_abstraction_name(node));
@@ -145,7 +145,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default:
             break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(Node**);
@@ -156,13 +156,13 @@ Module* mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, Module* s
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(const Node*, FnInfo, (HashFn) hash_node, (CmpFn) compare_node),
         .graph = new_callgraph(src)
     };
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
     shd_destroy_dict(ctx.fns);
     destroy_callgraph(ctx.graph);
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

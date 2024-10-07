@@ -138,10 +138,10 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
 
-    const Node* nmem = rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem);
+    const Node* nmem = shd_rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem);
 
     AllocaInfo* k = shd_arena_alloc(ctx->arena, sizeof(AllocaInfo));
-    *k = (AllocaInfo) { .type = rewrite_node(r, old_type) };
+    *k = (AllocaInfo) { .type = shd_rewrite_node(r, old_type) };
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
     shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
@@ -151,19 +151,19 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     if (!k->leaks) {
         if (!k->read_from/* this should include killing dead stores! */) {
             *ctx->todo |= true;
-            const Node* new = undef(a, (Undef) { .type = get_unqualified_type(rewrite_node(r, old->type)) });
+            const Node* new = undef(a, (Undef) { .type = get_unqualified_type(shd_rewrite_node(r, old->type)) });
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
         }
         if (!k->non_logical_use && shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
             *ctx->todo |= old->tag != LocalAlloc_TAG;
-            const Node* new = local_alloc(a, (LocalAlloc) { .type = rewrite_node(r, old_type), .mem = nmem });
+            const Node* new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = nmem });
             k->new = new;
             return new;
         }
     }
-    const Node* new = recreate_node_identity(r, old);
+    const Node* new = shd_recreate_node(r, old);
     k->new = new;
     return new;
 }
@@ -174,31 +174,31 @@ static const Node* process(Context* ctx, const Node* old) {
 
     switch (old->tag) {
         case Function_TAG: {
-            Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
+            Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
             fun_ctx.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
             fun_ctx.disable_lowering = shd_lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
-                set_abstraction_body(fun, rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
+                set_abstraction_body(fun, shd_rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
             destroy_uses_map(fun_ctx.uses);
             return fun;
         }
         case Constant_TAG: {
             Context fun_ctx = *ctx;
             fun_ctx.uses = NULL;
-            return recreate_node_identity(&fun_ctx.rewriter, old);
+            return shd_recreate_node(&fun_ctx.rewriter, old);
         }
         case Load_TAG: {
             Load payload = old->payload.load;
-            rewrite_node(r, payload.mem);
+            shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
+                const Type* access_type = get_pointer_type_element(get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
                 if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                    if (k.src_alloca->new == rewrite_node(r, payload.ptr))
+                    if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
-                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+                    BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
                     const Node* data = gen_load(bb, k.src_alloca->new);
                     data = gen_reinterpret_cast(bb, access_type, data);
                     return yield_value_and_wrap_in_block(bb, data);
@@ -208,16 +208,16 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Store_TAG: {
             Store payload = old->payload.store;
-            rewrite_node(r, payload.mem);
+            shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(get_unqualified_type(rewrite_node(r, payload.ptr->type)));
+                const Type* access_type = get_pointer_type_element(get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
                 if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
-                    if (k.src_alloca->new == rewrite_node(r, payload.ptr))
+                    if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
-                    BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-                    const Node* data = gen_reinterpret_cast(bb, access_type, rewrite_node(r, payload.value));
+                    BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+                    const Node* data = gen_reinterpret_cast(bb, access_type, shd_rewrite_node(r, payload.value));
                     gen_store(bb, k.src_alloca->new, data);
                     return yield_values_and_wrap_in_block(bb, shd_empty(a));
                 }
@@ -228,7 +228,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case StackAlloc_TAG: return handle_alloc(ctx, old, old->payload.stack_alloc.type);
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 KeyHash hash_node(const Node**);
@@ -240,14 +240,14 @@ bool opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     IrArena* a = get_module_arena(src);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .arena = shd_new_arena(),
         .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) hash_node, (CmpFn) compare_node),
         .todo = &todo
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.alloca_info);
     shd_destroy_arena(ctx.arena);
     *m = dst;

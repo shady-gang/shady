@@ -18,7 +18,7 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     switch (node->tag) {
         case Constant_TAG: {
-            Node* ncnst = (Node*) recreate_node_identity(&ctx->rewriter, node);
+            Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
             if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
                 ncnst->payload.constant.value = shd_uint32_literal(a, ctx->config->specialization.subgroup_size);
             }
@@ -26,7 +26,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static void specialize_arena_config(const CompilerConfig* config, Module* m, ArenaConfig* target) {
@@ -50,11 +50,11 @@ Module* specialize_execution_model(const CompilerConfig* config, Module* src) {
     assert(subgroup_size);
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
     };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -135,14 +135,14 @@ static const Node* process(Context* ctx, const Node* node) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
                 return yield_values_and_wrap_in_block(bb, shd_singleton(
-                    build_subgroup_first(ctx, bb, rewrite_node(r, payload.operands.nodes[0]), rewrite_node(r, payload.operands.nodes[1]))));
+                    build_subgroup_first(ctx, bb, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1]))));
             }
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(Node**);
@@ -154,12 +154,12 @@ Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .fns =  shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node)
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.fns);
     return dst;
 }

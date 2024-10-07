@@ -28,9 +28,9 @@ static Nodes remake_params(Context* ctx, Nodes old) {
         const Type* t = NULL;
         if (node->payload.param.type) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
-                t = rewrite_node(r, node->payload.param.type);
+                t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = shd_as_qualified_type(rewrite_node(r, node->payload.param.type), false);
+                t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
         }
         nvars[i] = param(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
@@ -46,7 +46,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(false);
         }
         case Constant_TAG: {
-            Node* new = (Node*) recreate_node_identity(r, node);
+            Node* new = (Node*) shd_recreate_node(r, node);
             BodyBuilder* bb = begin_block_pure(a);
             const Node* value = new->payload.constant.value;
             value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
@@ -79,17 +79,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 old_annotations = shd_nodes_append(a, old_annotations, an->payload);
                 an = an->next;
             }
-            register_processed_list(r, node->payload.fun.params, new_params);
-            Nodes new_annotations = rewrite_nodes(r, old_annotations);
-            Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            register_processed(&ctx->rewriter, node, decl);
+            shd_register_processed_list(r, node->payload.fun.params, new_params);
+            Nodes new_annotations = shd_rewrite_nodes(r, old_annotations);
+            Node* decl = function(ctx->rewriter.dst_module, new_params, get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            shd_register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 set_abstraction_body(decl, fn_ret(a, (Return) {
                     .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(decl))),
                     .mem = get_abstraction_mem(decl),
                 }));
             } else if (get_abstraction_body(node))
-                set_abstraction_body(decl, rewrite_node(r, get_abstraction_body(node)));
+                set_abstraction_body(decl, shd_rewrite_node(r, get_abstraction_body(node)));
             return decl;
         }
         case GlobalVariable_TAG: {
@@ -97,12 +97,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
             //     return NULL;
             AddressSpace as = node->payload.global_variable.address_space;
             const Node* old_init = node->payload.global_variable.init;
-            Nodes annotations = rewrite_nodes(r, node->payload.global_variable.annotations);
-            const Type* type = rewrite_node(r, node->payload.global_variable.type);
+            Nodes annotations = shd_rewrite_nodes(r, node->payload.global_variable.annotations);
+            const Type* type = shd_rewrite_node(r, node->payload.global_variable.type);
             ParsedAnnotation* an = find_annotation(ctx->p, node);
             AddressSpace old_as = as;
             while (an) {
-                annotations = shd_nodes_append(a, annotations, rewrite_node(r, an->payload));
+                annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
@@ -121,21 +121,21 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 result = c;
             }
 
-            register_processed(r, node, result);
+            shd_register_processed(r, node, result);
             if (old_init)
-                decl->payload.global_variable.init = rewrite_node(r, old_init);
+                decl->payload.global_variable.init = shd_rewrite_node(r, old_init);
             return result;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 void postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = p->config,
         .p = p,
         .arena = shd_new_arena(),
@@ -143,7 +143,7 @@ void postprocess(Parser* p, Module* src, Module* dst) {
 
     ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
     shd_destroy_arena(ctx.arena);
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
 }

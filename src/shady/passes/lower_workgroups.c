@@ -36,16 +36,16 @@ static const Node* process(Context* ctx, const Node* node) {
         case GlobalVariable_TAG: {
             const Node* ba = shd_lookup_annotation(node, "Builtin");
             if (ba) {
-                Nodes filtered_as = rewrite_nodes(&ctx->rewriter, shd_filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
+                Nodes filtered_as = shd_rewrite_nodes(&ctx->rewriter, shd_filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinSubgroupId:
                     case BuiltinWorkgroupId:
                     case BuiltinGlobalInvocationId:
                     case BuiltinLocalInvocationId:
-                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate);
+                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate);
                     case BuiltinNumWorkgroups:
-                        return global_var(m, filtered_as, rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
+                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
                     default:
                         break;
                 }
@@ -61,21 +61,21 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx2.is_entry_point = true;
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
-                Nodes wannotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-                Nodes wparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
+                Nodes wannotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+                Nodes wparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* wrapper = function(m, wparams, get_abstraction_name(node), wannotations, shd_empty(a));
-                register_processed(&ctx->rewriter, node, wrapper);
+                shd_register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = shd_filter_out_annotation(a, wannotations, "EntryPoint");
-                Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
+                Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, shd_empty(a));
-                register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
-                register_processed(&ctx->rewriter, get_abstraction_mem(node), get_abstraction_mem(inner));
-                set_abstraction_body(inner, recreate_node_identity(&ctx->rewriter, node->payload.fun.body));
+                shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
+                shd_register_processed(&ctx->rewriter, get_abstraction_mem(node), get_abstraction_mem(inner));
+                set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));
 
                 BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(wrapper));
-                const Node* num_workgroups_var = rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
+                const Node* num_workgroups_var = shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
                 const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, num_workgroups_var));
 
                 // prepare variables for iterating over workgroups
@@ -127,19 +127,19 @@ static const Node* process(Context* ctx, const Node* node) {
                 // BodyBuilder* bb2 = begin_block_with_side_effects(a, bb_mem(builders[5]));
                 BodyBuilder* bb2 = builders[5];
                 // write the workgroup ID
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
+                gen_store(bb2, ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinWorkgroupId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, workgroup_id[0], workgroup_id[1], workgroup_id[2])));
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
                 local_id[0] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), gen_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
+                gen_store(bb2, ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
                     global_id[dim] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
-                gen_store(bb2, ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
+                gen_store(bb2, ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
                 gen_call(bb2, fn_addr_helper(a, inner), wparams);
 
@@ -168,7 +168,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
                 return wrapper;
             }
-            return recreate_node_identity(&ctx2.rewriter, node);
+            return shd_recreate_node(&ctx2.rewriter, node);
         }
         case Load_TAG: {
             Load payload = node->payload.load;
@@ -176,8 +176,8 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ptr->tag == RefDecl_TAG)
                 ptr = ptr->payload.ref_decl.decl;
             if (ptr == get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-                const Node* loaded = shd_first(bind_instruction(bb, recreate_node_identity(&ctx->rewriter, node)));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+                const Node* loaded = shd_first(bind_instruction(bb, shd_recreate_node(&ctx->rewriter, node)));
                 const Node* uniformized = shd_first(gen_primop(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(loaded)));
                 return yield_values_and_wrap_in_block(bb, shd_singleton(uniformized));
             }
@@ -185,7 +185,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_workgroups(const CompilerConfig* config, Module* src) {
@@ -193,12 +193,12 @@ Module* lower_workgroups(const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
     free(ctx.globals);
-    destroy_rewriter(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

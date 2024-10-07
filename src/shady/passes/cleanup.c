@@ -48,7 +48,7 @@ const Node* process(Context* ctx, const Node* old) {
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
         c.map = create_fn_uses_map(old, NcType | NcDeclaration);
-        const Node* new = recreate_node_identity(&c.rewriter, old);
+        const Node* new = shd_recreate_node(&c.rewriter, old);
         destroy_uses_map(c.map);
         return new;
     }
@@ -65,13 +65,13 @@ const Node* process(Context* ctx, const Node* old) {
         }
         case Jump_TAG: {
             const Node* otarget = old->payload.jump.target;
-            const Node* ntarget = rewrite_node(r, otarget);
+            const Node* ntarget = shd_rewrite_node(r, otarget);
             if (!ntarget) {
                 // it's been inlined away! just steal the body
-                Nodes nargs = rewrite_nodes(r, old->payload.jump.args);
-                register_processed_list(r, get_abstraction_params(otarget), nargs);
-                register_processed(r, get_abstraction_mem(otarget), rewrite_node(r, old->payload.jump.mem));
-                return rewrite_node(r, get_abstraction_body(otarget));
+                Nodes nargs = shd_rewrite_nodes(r, old->payload.jump.args);
+                shd_register_processed_list(r, get_abstraction_params(otarget), nargs);
+                shd_register_processed(r, get_abstraction_mem(otarget), shd_rewrite_node(r, old->payload.jump.mem));
+                return shd_rewrite_node(r, get_abstraction_body(otarget));
             }
             break;
         }
@@ -84,10 +84,10 @@ const Node* process(Context* ctx, const Node* old) {
                     Join payload_join = term->payload.join;
                     if (payload_join.join_point == shd_first(get_abstraction_params(control_inside))) {
                         // if we immediately consume the join point and it's never leaked, this control block does nothing and can be eliminated
-                        register_processed(r, get_abstraction_mem(control_inside), rewrite_node(r, payload.mem));
-                        register_processed(r, control_inside, NULL);
+                        shd_register_processed(r, get_abstraction_mem(control_inside), shd_rewrite_node(r, payload.mem));
+                        shd_register_processed(r, control_inside, NULL);
                         *ctx->todo = true;
-                        return rewrite_node(r, term);
+                        return shd_rewrite_node(r, term);
                     }
                 }
             }
@@ -99,22 +99,22 @@ const Node* process(Context* ctx, const Node* old) {
             if (control) {
                 Control old_control_payload = control->payload.control;
                 // there was a control but now there is not anymore - jump to the tail!
-                if (rewrite_node(r, old_control_payload.inside) == NULL) {
-                    return jump_helper(a, rewrite_node(r, payload.mem), rewrite_node(r, old_control_payload.tail),
-                                       rewrite_nodes(r, payload.args));
+                if (shd_rewrite_node(r, old_control_payload.inside) == NULL) {
+                    return jump_helper(a, shd_rewrite_node(r, payload.mem), shd_rewrite_node(r, old_control_payload.tail),
+                                       shd_rewrite_nodes(r, payload.args));
                 }
             }
             break;
         }
         case Load_TAG: {
             if (!is_used_as_value(ctx->map, old))
-                return rewrite_node(r, old->payload.load.mem);
+                return shd_rewrite_node(r, old->payload.load.mem);
             break;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 OptPass simplify;
@@ -126,9 +126,9 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     *m = new_module(a, get_module_name(*m));
     bool todo = false;
     Context ctx = { .todo = &todo };
-    ctx.rewriter = create_node_rewriter(src, *m, (RewriteNodeFn) process);
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    ctx.rewriter = shd_create_node_rewriter(src, *m, (RewriteNodeFn) process);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return todo;
 }
 

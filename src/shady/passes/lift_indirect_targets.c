@@ -49,7 +49,7 @@ typedef struct {
 static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes spilled_vars) {
     for (size_t i = 0; i < spilled_vars.count; i++) {
         const Node* ovar = spilled_vars.nodes[i];
-        const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
+        const Node* nvar = shd_rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
         deconstruct_qualified_type(&t);
         assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
@@ -91,7 +91,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = create_decl_rewriter(&ctx->rewriter);
+    lifting_ctx.rewriter = shd_create_decl_rewriter(&ctx->rewriter);
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
@@ -111,7 +111,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     // Create and register new parameters for the lifted continuation
     LARRAY(const Node*, new_params_arr, ovariables.count);
     for (size_t i = 0; i < ovariables.count; i++)
-        new_params_arr[i] = param(a, rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), get_value_name_unsafe(ovariables.nodes[i]));
+        new_params_arr[i] = param(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), get_value_name_unsafe(ovariables.nodes[i]));
     Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
@@ -119,7 +119,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     lifted_cont->save_values = frontier;
     shd_dict_insert(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
 
-    register_processed_list(r, ovariables, new_params);
+    shd_register_processed_list(r, ovariables, new_params);
 
     const Node* payload = param(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
 
@@ -136,7 +136,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         const Node* ovar = frontier.nodes[i];
         // assert(ovar->tag == Variable_TAG);
 
-        const Type* value_type = rewrite_node(r, ovar->type);
+        const Type* value_type = shd_rewrite_node(r, ovar->type);
 
         //String param_name = get_value_name_unsafe(ovar);
         const Node* recovered_value = gen_pop_value_stack(bb, get_unqualified_type(value_type));
@@ -146,13 +146,13 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         if (is_qualified_type_uniform(ovar->type))
             recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = shd_singleton(recovered_value) });
 
-        register_processed(r, ovar, recovered_value);
+        shd_register_processed(r, ovar, recovered_value);
     }
 
-    register_processed(r, get_abstraction_mem(liftee), bb_mem(bb));
-    register_processed(r, liftee, new_fn);
-    const Node* substituted = rewrite_node(r, obody);
-    destroy_rewriter(r);
+    shd_register_processed(r, get_abstraction_mem(liftee), bb_mem(bb));
+    shd_register_processed(r, liftee, new_fn);
+    const Node* substituted = shd_rewrite_node(r, obody);
+    shd_destroy_rewriter(r);
 
     assert(is_terminator(substituted));
     set_abstraction_body(new_fn, finish_body(bb, substituted));
@@ -175,8 +175,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             fn_ctx.disable_lowering = shd_lookup_annotation(node, "Internal");
             ctx = &fn_ctx;
 
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            Node* new = shd_recreate_node_head(&ctx->rewriter, node);
+            shd_recreate_node_body(&ctx->rewriter, node, new);
 
             destroy_uses_map(ctx->uses);
             destroy_cfg(ctx->cfg);
@@ -187,7 +187,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     }
 
     if (ctx->disable_lowering)
-         return recreate_node_identity(&ctx->rewriter, node);
+         return shd_recreate_node(&ctx->rewriter, node);
 
     switch (node->tag) {
         case Control_TAG: {
@@ -196,29 +196,29 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 *ctx->todo = true;
 
                 const Node* otail = get_structured_construct_tail(node);
-                BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, node->payload.control.mem));
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.control.mem));
                 LiftedCont* lifted_tail = lambda_lift(ctx, ctx->cfg, otail);
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
                 const Type* jp_type = join_point_type(a, (JoinPointType) {
-                    .yield_types = rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
+                    .yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
                 });
                 const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
                                                      shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
-                register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
-                register_processed(r, get_abstraction_mem(oinside), bb_mem(bb));
-                register_processed(r, oinside, NULL);
-                return finish_body(bb, rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
+                shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
+                shd_register_processed(r, get_abstraction_mem(oinside), bb_mem(bb));
+                shd_register_processed(r, oinside, NULL);
+                return finish_body(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }
             break;
         }
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
@@ -234,14 +234,14 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         dst = new_module(a, get_module_name(src));
         bool todo = false;
         Context ctx = {
-            .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+            .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
             .lifted = shd_new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
             .config = config,
 
             .todo = &todo
         };
 
-        rewrite_module(&ctx.rewriter);
+        shd_rewrite_module(&ctx.rewriter);
 
         size_t iter = 0;
         LiftedCont* lifted_cont;
@@ -249,7 +249,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
             free(lifted_cont);
         }
         shd_destroy_dict(ctx.lifted);
-        destroy_rewriter(&ctx.rewriter);
+        shd_destroy_rewriter(&ctx.rewriter);
         verify_module(config, dst);
         src = dst;
         if (oa)
@@ -263,9 +263,9 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     aconfig.optimisations.weaken_non_leaking_allocas = true;
     IrArena* a2 = shd_new_ir_arena(&aconfig);
     dst = new_module(a2, get_module_name(src));
-    Rewriter r = create_importer(src, dst);
-    rewrite_module(&r);
-    destroy_rewriter(&r);
+    Rewriter r = shd_create_importer(src, dst);
+    shd_rewrite_module(&r);
+    shd_destroy_rewriter(&r);
     shd_destroy_ir_arena(a);
     return dst;
 }

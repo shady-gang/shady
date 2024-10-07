@@ -26,8 +26,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
                     BodyBuilder* bb = begin_block_pure(a);
-                    const Node* mask = rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
-                    const Node* index = rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
+                    const Node* mask = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
+                    const Node* index = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_conversion(bb, get_actual_mask_type(ctx->rewriter.dst_arena), index);
                     const Node* acc = mask;
                     // acc >>= index
@@ -45,7 +45,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -58,11 +58,11 @@ Module* lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     assert(mask_type->tag == Int_TAG);
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .zero = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 0 }),
         .one = int_literal(a, (IntLiteral) { .width = mask_type->payload.int_type.width, .value = 1 }),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -121,7 +121,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         }
         prior_encounter->loop_header = true;
         return merge_continue(a, (MergeContinue) {
-            .args = rewrite_nodes(r, oargs),
+            .args = shd_rewrite_nodes(r, oargs),
             .mem = mem,
         });
     } else {
@@ -142,8 +142,8 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
         ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
-            nparams[i] = param(a, rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
-            register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
+            nparams[i] = param(a, shd_rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
+            shd_register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
         }
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
@@ -151,7 +151,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         // Just jumps to the actual ladder
         Node* structured_target = case_(a, shd_nodes(a, oargs.count, nparams));
-        register_processed(&ctx2.rewriter, get_abstraction_mem(old_target), get_abstraction_mem(structured_target));
+        shd_register_processed(&ctx2.rewriter, get_abstraction_mem(old_target), get_abstraction_mem(structured_target));
         const Node* structured = structure(&ctx2, get_abstraction_body(old_target), inner_exit_ladder_bb);
         assert(is_terminator(structured));
         set_abstraction_body(structured_target, structured);
@@ -163,7 +163,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         if (dfs_entry.loop_header) {
             // Use the structured target as the body of a loop
-            gen_loop(bb, shd_empty(a), rewrite_nodes(&ctx->rewriter, oargs), structured_target);
+            gen_loop(bb, shd_empty(a), shd_rewrite_nodes(&ctx->rewriter, oargs), structured_target);
             // The exit ladder must exit that new loop
             set_abstraction_body(inner_exit_ladder_bb, merge_break(a, (MergeBreak) { .args = shd_empty(a), .mem = get_abstraction_mem(inner_exit_ladder_bb) }));
             // After that we jump to the parent exit
@@ -173,7 +173,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
             set_abstraction_body(inner_exit_ladder_bb, jump_helper(a, get_abstraction_mem(inner_exit_ladder_bb), exit,
                                                                    shd_empty(a)));
             // Jump into the new structured target
-            return finish_body(bb, jump_helper(a, bb_mem(bb), structured_target, rewrite_nodes(&ctx->rewriter, oargs)));
+            return finish_body(bb, jump_helper(a, bb_mem(bb), structured_target, shd_rewrite_nodes(&ctx->rewriter, oargs)));
         }
     }
 }
@@ -198,15 +198,15 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         case NotATerminator:
         case Jump_TAG: {
             Jump payload = body->payload.jump;
-            return handle_bb_callsite(ctx, payload, rewrite_node(r, payload.mem), exit);
+            return handle_bb_callsite(ctx, payload, shd_rewrite_node(r, payload.mem), exit);
         }
         // br(cond, true_bb, false_bb, args)
         // becomes
         // let(if(cond, _ => handle_bb_callsite[true_bb, args], _ => handle_bb_callsite[false_bb, args]), _ => unreachable)
         case Branch_TAG: {
             Branch payload = body->payload.branch;
-            const Node* condition = rewrite_node(&ctx->rewriter, payload.condition);
-            rewrite_node(r, payload.mem);
+            const Node* condition = shd_rewrite_node(&ctx->rewriter, payload.condition);
+            shd_rewrite_node(r, payload.mem);
 
             Node* true_case = case_(a, shd_empty(a));
             set_abstraction_body(true_case, handle_bb_callsite(ctx, payload.true_jump->payload.jump, get_abstraction_mem(true_case), make_selection_merge_case(a)));
@@ -214,14 +214,14 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             Node* false_case = case_(a, shd_empty(a));
             set_abstraction_body(false_case, handle_bb_callsite(ctx, payload.false_jump->payload.jump, get_abstraction_mem(false_case), make_selection_merge_case(a)));
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             gen_if(bb, shd_empty(a), condition, true_case, false_case);
             return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         }
         case Switch_TAG: {
             Switch payload = body->payload.br_switch;
-            const Node* switch_value = rewrite_node(r, payload.switch_value);
-            rewrite_node(r, payload.mem);
+            const Node* switch_value = shd_rewrite_node(r, payload.switch_value);
+            shd_rewrite_node(r, payload.mem);
 
             Node* default_case = case_(a, shd_empty(a));
             set_abstraction_body(default_case, handle_bb_callsite(ctx, payload.default_jump->payload.jump, get_abstraction_mem(default_case), make_selection_merge_case(a)));
@@ -232,8 +232,8 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
                 set_abstraction_body(cases[i], handle_bb_callsite(ctx, payload.case_jumps.nodes[i]->payload.jump, get_abstraction_mem(cases[i]), make_selection_merge_case(a)));
             }
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            gen_match(bb, shd_empty(a), switch_value, rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), shd_nodes(a, body->payload.br_switch.case_jumps.count, (const Node**) cases), default_case);
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            gen_match(bb, shd_empty(a), switch_value, shd_rewrite_nodes(&ctx->rewriter, body->payload.br_switch.case_values), shd_nodes(a, body->payload.br_switch.case_jumps.count, (const Node**) cases), default_case);
             return finish_body(bb, jump_helper(a, bb_mem(bb), exit, shd_empty(a)));
         }
         // let(control(body), tail)
@@ -245,8 +245,8 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             assert(old_control_params.count == 1);
 
             // Create N temporary variables to hold the join point arguments
-            BodyBuilder* bb_prelude = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, body->payload.control.yield_types);
+            BodyBuilder* bb_prelude = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, body->payload.control.yield_types);
             LARRAY(const Node*, phis, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 const Type* type = yield_types.nodes[i];
@@ -274,19 +274,19 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             LARRAY(const Node*, phi_values, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 phi_values[i] = gen_load(bb_tail, phis[i]);
-                register_processed(&ctx->rewriter, get_abstraction_params(get_structured_construct_tail(body)).nodes[i], phi_values[i]);
+                shd_register_processed(&ctx->rewriter, get_abstraction_params(get_structured_construct_tail(body)).nodes[i], phi_values[i]);
             }
 
             // Wrap the tail in a guarded if, to handle 'far' joins
             const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
             const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, shd_int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
             Node* true_case = case_(a, shd_empty(a));
-            register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
+            shd_register_processed(r, get_abstraction_mem(get_structured_construct_tail(body)), get_abstraction_mem(true_case));
             set_abstraction_body(true_case, structure(ctx, get_abstraction_body(get_structured_construct_tail(body)), make_selection_merge_case(a)));
             gen_if(bb_tail, shd_empty(a), guard, true_case, NULL);
             set_abstraction_body(tail, finish_body(bb_tail, jump_helper(a, bb_mem(bb_tail), exit, shd_empty(a))));
 
-            register_processed(r, get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
+            shd_register_processed(r, get_abstraction_mem(old_control_case), bb_mem(bb_prelude));
             return finish_body(bb_prelude, structure(&control_ctx, get_abstraction_body(old_control_case), tail));
         }
         case Join_TAG: {
@@ -295,10 +295,10 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             if (!control)
                 longjmp(ctx->bail, 1);
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             gen_store(bb, ctx->level_ptr, shd_int32_literal(a, control->depth - 1));
 
-            Nodes args = rewrite_nodes(&ctx->rewriter, body->payload.join.args);
+            Nodes args = shd_rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
                 gen_store(bb, control->phis[i], args.nodes[i]);
             }
@@ -307,7 +307,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         }
 
         case Return_TAG:
-        case Unreachable_TAG: return recreate_node_identity(&ctx->rewriter, body);
+        case Unreachable_TAG: return shd_recreate_node(&ctx->rewriter, body);
 
         case TailCall_TAG: longjmp(ctx->bail, 1);
 
@@ -336,7 +336,7 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     if (node->tag == Function_TAG) {
-        Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
+        Node* new = shd_recreate_node_head(&ctx->rewriter, node);
 
         size_t alloc_stack_size_now = shd_list_count(ctx->cleanup_stack);
 
@@ -349,7 +349,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.lower = false;
             ctx2.rewriter.map = ctx->rewriter.map;
             if (node->payload.fun.body)
-                set_abstraction_body(new, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+                set_abstraction_body(new, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
             // builtin functions are always considered leaf functions
             is_leaf = is_builtin || !node->payload.fun.body;
         } else {
@@ -366,7 +366,7 @@ static const Node* process(Context* ctx, const Node* node) {
             TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             ctx2.rewriter.map = tmp_processed;
-            register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, get_abstraction_mem(node), bb_mem(bb));
             set_abstraction_body(new, finish_body(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
@@ -390,7 +390,7 @@ static const Node* process(Context* ctx, const Node* node) {
     }
 
     if (!ctx->lower)
-        return recreate_node_identity(&ctx->rewriter, node);
+        return shd_recreate_node(&ctx->rewriter, node);
 
     // These should all be manually visited by 'structure'
     // assert(!is_terminator(node) && !is_instruction(node));
@@ -399,7 +399,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Instruction_Call_TAG: {
             const Node* callee = node->payload.call.callee;
             if (callee->tag == FnAddr_TAG) {
-                const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
+                const Node* fn = shd_rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
                 // leave leaf calls alone
                 if (shd_lookup_annotation(fn, "Leaf")) {
                     break;
@@ -412,7 +412,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case BasicBlock_TAG: shd_error("All basic blocks should be processed explicitly")
         default: break;
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -421,11 +421,11 @@ Module* opt_restructurize(SHADY_UNUSED const CompilerConfig* config, Module* src
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .cleanup_stack = shd_new_list(TmpAllocCleanupClosure),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_list(ctx.cleanup_stack);
     return dst;
 }

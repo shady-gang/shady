@@ -136,9 +136,9 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Match_TAG: {
             Match payload = node->payload.match_instr;
-            Nodes yield_types = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.yield_types);
-            Nodes literals = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.literals);
-            Nodes cases = rewrite_nodes(&ctx->rewriter, node->payload.match_instr.cases);
+            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.match_instr.yield_types);
+            Nodes literals = shd_rewrite_nodes(&ctx->rewriter, node->payload.match_instr.literals);
+            Nodes cases = shd_rewrite_nodes(&ctx->rewriter, node->payload.match_instr.cases);
 
             // TODO handle degenerate no-cases case ?
             // TODO or maybe do that in fold()
@@ -153,7 +153,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 root = insert(root, t);
             }
 
-            BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
             const Node* run_default_case = gen_stack_alloc(bb, bool_type(a));
             gen_store(bb, run_default_case, false_lit(a));
 
@@ -177,7 +177,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* lower_switch_btree(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -186,9 +186,9 @@ Module* lower_switch_btree(SHADY_UNUSED const CompilerConfig* config, Module* sr
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

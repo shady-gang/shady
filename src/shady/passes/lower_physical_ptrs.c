@@ -298,9 +298,9 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
-            const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
-            const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
+            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+            const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
+            const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
             Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_singleton(pointer_as_offset));
             return yield_values_and_wrap_in_block(bb, results);
@@ -312,13 +312,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_block_with_side_effects(a, rewrite_node(r, payload.mem));
+            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
 
-            const Type* element_type = rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
-            const Node* pointer_as_offset = rewrite_node(&ctx->rewriter, payload.ptr);
+            const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
+            const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, true, ptr_type->payload.ptr_type.address_space);
 
-            const Node* value = rewrite_node(&ctx->rewriter, payload.value);
+            const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
             gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
             return yield_values_and_wrap_in_block(bb, shd_empty(a));
         }
@@ -343,14 +343,14 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case Function_TAG: {
             if (strcmp(get_abstraction_name(old), "generated_init") == 0) {
-                Node* new = recreate_decl_header_identity(&ctx->rewriter, old);
+                Node* new = shd_recreate_node_head(&ctx->rewriter, old);
                 BodyBuilder *bb = begin_body_with_mem(a, get_abstraction_mem(new));
                 for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
                     if (is_as_emulated(ctx, as))
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
-                register_processed(&ctx->rewriter, get_abstraction_mem(old), bb_mem(bb));
-                set_abstraction_body(new, finish_body(bb, rewrite_node(&ctx->rewriter, old->payload.fun.body)));
+                shd_register_processed(&ctx->rewriter, get_abstraction_mem(old), bb_mem(bb));
+                set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
                 return new;
             }
             break;
@@ -358,7 +358,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
 KeyHash hash_node(Node**);
@@ -397,12 +397,12 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         const Node* decl = collected.nodes[i];
         const Type* type = decl->payload.global_variable.type;
 
-        member_tys[i] = rewrite_node(&ctx->rewriter, type);
+        member_tys[i] = shd_rewrite_node(&ctx->rewriter, type);
         member_names[i] = decl->payload.global_variable.name;
 
         // Turn the old global variable into a pointer (which are also now integers)
         const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
-        Nodes annotations = rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
+        Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
         Node* new_address = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
 
         // we need to compute the actual pointer by getting the offset and dividing it
@@ -411,7 +411,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         const Node* offset = gen_primop_e(bb, offset_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_singleton(size_t_literal(a, i)));
         new_address->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(offset));
 
-        register_processed(&ctx->rewriter, decl, new_address);
+        shd_register_processed(&ctx->rewriter, decl, new_address);
     }
 
     const Type* record_t = record_type(a, (RecordType) {
@@ -433,9 +433,9 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         assert(old_decl->tag == GlobalVariable_TAG);
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
-            const Node* value = rewrite_node(r, old_init);
+            const Node* value = shd_rewrite_node(r, old_init);
             const Node* fn = gen_serdes_fn(ctx, get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
-            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
+            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
         }
     }
 }
@@ -490,7 +490,7 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
     };
 
@@ -509,8 +509,8 @@ Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
         }
     }
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         if (is_as_emulated(&ctx, i)) {

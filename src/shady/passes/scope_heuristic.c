@@ -172,31 +172,31 @@ static const Node* process(Context* ctx, const Node* node) {
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.depth_per_rpo = compute_scope_depth(a, fn_ctx.cfg);
-            Node* new_fn = recreate_decl_header_identity(r, node);
+            Node* new_fn = shd_recreate_node_head(r, node);
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_fn));
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), shd_empty(a));
-            register_processed(r, get_abstraction_mem(node), bb_mem(bb));
-            set_abstraction_body(new_fn, finish_body(bb, rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
+            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            set_abstraction_body(new_fn, finish_body(bb, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
             destroy_cfg(fn_ctx.cfg);
             free(fn_ctx.depth_per_rpo);
             return new_fn;
         }
         case BasicBlock_TAG: {
-            Nodes nparams = recreate_params(r, get_abstraction_params(node));
-            register_processed_list(r, get_abstraction_params(node), nparams);
+            Nodes nparams = shd_recreate_params(r, get_abstraction_params(node));
+            shd_register_processed_list(r, get_abstraction_params(node), nparams);
             Node* new_bb = basic_block(a, nparams, get_abstraction_name_unsafe(node));
-            register_processed(r, node, new_bb);
+            shd_register_processed(r, node, new_bb);
             BodyBuilder* bb = begin_body_with_mem(a, get_abstraction_mem(new_bb));
             CFNode* n = cfg_lookup(ctx->cfg, node);
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), ctx->depth_per_rpo[n->rpo_index]);
-            register_processed(r, get_abstraction_mem(node), bb_mem(bb));
-            set_abstraction_body(new_bb, finish_body(bb, rewrite_node(r, get_abstraction_body(node))));
+            shd_register_processed(r, get_abstraction_mem(node), bb_mem(bb));
+            set_abstraction_body(new_bb, finish_body(bb, shd_rewrite_node(r, get_abstraction_body(node))));
             return new_bb;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 Module* scope_heuristic(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -204,9 +204,9 @@ Module* scope_heuristic(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

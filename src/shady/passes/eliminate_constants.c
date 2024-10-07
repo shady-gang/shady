@@ -22,14 +22,14 @@ static const Node* process(Context* ctx, const Node* node) {
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
             if (decl->tag == Constant_TAG && decl->payload.constant.value) {
-                return rewrite_node(&ctx->rewriter, decl->payload.constant.value);
+                return shd_rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             }
             break;
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
@@ -37,12 +37,12 @@ static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, M
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .all = all,
     };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }
 

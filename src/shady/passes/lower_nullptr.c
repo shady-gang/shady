@@ -35,14 +35,14 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = r->dst_arena;
     switch (node->tag) {
         case NullPtr_TAG: {
-            const Type* t = rewrite_node(r, node->payload.null_ptr.ptr_type);
+            const Type* t = shd_rewrite_node(r, node->payload.null_ptr.ptr_type);
             assert(t->tag == PtrType_TAG);
             return make_nullptr(ctx, t);
         }
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 KeyHash hash_node(Node**);
@@ -53,11 +53,11 @@ Module* lower_nullptr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
-        .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .map = shd_new_dict(const Node*, Node*, (HashFn) hash_node, (CmpFn) compare_node),
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.map);
     return dst;
 }
