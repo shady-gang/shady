@@ -3,6 +3,8 @@
 
 #include "shady/ir.h"
 
+#include <stdio.h>
+
 typedef struct CFNode_ CFNode;
 
 typedef enum {

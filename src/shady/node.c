@@ -145,7 +145,7 @@ const Node* resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) {
     return NULL;
 }
 
-NodeResolveConfig default_node_resolve_config() {
+NodeResolveConfig default_node_resolve_config(void) {
     return (NodeResolveConfig) {
         .enter_loads = true,
         .allow_incompatible_types = false,
