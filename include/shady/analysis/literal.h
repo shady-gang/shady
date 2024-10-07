@@ -1,7 +1,7 @@
 #ifndef SHADY_ANALYSIS_LITERAL_H
 #define SHADY_ANALYSIS_LITERAL_H
 
-#include "shady/ir/base.h"
+#include "shady/ir/grammar.h"
 
 const char* shd_get_string_literal(IrArena* arena, const Node* node);
 

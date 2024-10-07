@@ -8,4 +8,5 @@ target_sources(shady PRIVATE
     looptree.c
     leak.c
     scheduler.c
+    literal.c
 )

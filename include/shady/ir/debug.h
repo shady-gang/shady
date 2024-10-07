@@ -1,7 +1,7 @@
 #ifndef SHADY_IR_DEBUG_H
 #define SHADY_IR_DEBUG_H
 
-#include "shady/ir/base.h"
+#include "shady/ir/grammar.h"
 
 /// Get the name out of a global variable, function or constant
 String shd_get_value_name_safe(const Node* v);
