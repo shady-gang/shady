@@ -30,5 +30,5 @@ void generate(Growy* g, json_object* src) {
             free(alloc);
     }
 
-    shd_growy_append_formatted(g, "const Type* check_type_generated(IrArena* a, const Node* node);\n");
+    shd_growy_append_formatted(g, "const Type* _shd_check_type_generated(IrArena* a, const Node* node);\n");
 }

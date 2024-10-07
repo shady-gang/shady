@@ -393,7 +393,7 @@ static bool is_unreachable_destination(const Node* j) {
     return b->tag == Unreachable_TAG;
 }
 
-const Node* fold_node(IrArena* arena, const Node* node) {
+const Node* _shd_fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
     node = fold_simplify_ptr_operand(node);
@@ -470,7 +470,7 @@ const Node* fold_node(IrArena* arena, const Node* node) {
     return node;
 }
 
-const Node* fold_node_operand(NodeTag tag, NodeClass nc, String opname, const Node* op) {
+const Node* _shd_fold_node_operand(NodeTag tag, NodeClass nc, String opname, const Node* op) {
     if (!op)
         return NULL;
     if (op->tag == MemAndValue_TAG) {

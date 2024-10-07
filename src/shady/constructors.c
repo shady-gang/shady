@@ -15,14 +15,14 @@ bool shd_compare_nodes(Nodes* a, Nodes* b);
 
 static void pre_construction_validation(IrArena* arena, Node* node);
 
-const Node* fold_node_operand(NodeTag tag, NodeClass, String, const Node* op);
+const Node* _shd_fold_node_operand(NodeTag tag, NodeClass nc, String opname, const Node* op);
 
-const Type* check_type_generated(IrArena* a, const Node* node);
+const Type* _shd_check_type_generated(IrArena* a, const Node* node);
 
 Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     pre_construction_validation(arena, &node);
     if (arena->config.check_types)
-        node.type = check_type_generated(arena, &node);
+        node.type = _shd_check_type_generated(arena, &node);
 
     if (pfresh)
         *pfresh = false;
@@ -39,7 +39,7 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         *pfresh = true;
 
     if (arena->config.allow_fold) {
-        Node* folded = (Node*) fold_node(arena, ptr);
+        Node* folded = (Node*) _shd_fold_node(arena, ptr);
         if (folded != ptr) {
             // The folding process simplified the node, we store a mapping to that simplified node and bail out !
             shd_set_insert_get_result(Node*, arena->node_set, folded);

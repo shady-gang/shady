@@ -5,7 +5,7 @@ void generate(Growy* g, json_object* src) {
 
     json_object* nodes = json_object_object_get(src, "nodes");
 
-    shd_growy_append_formatted(g, "const Type* check_type_generated(IrArena* a, const Node* node) {\n");
+    shd_growy_append_formatted(g, "const Type* _shd_check_type_generated(IrArena* a, const Node* node) {\n");
     shd_growy_append_formatted(g, "\tswitch(node->tag) {\n");
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);

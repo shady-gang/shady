@@ -45,7 +45,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     if (!list)
                         shd_growy_append_formatted(g, "\t\t\tconst Node** pop = &node->payload.%s.%s;\n", snake_name, op_name);
 
-                    shd_growy_append_formatted(g, "\t\t\t*pop = fold_node_operand(%s_TAG, Nc%s, \"%s\", *pop);\n", name, cap, op_name);
+                    shd_growy_append_formatted(g, "\t\t\t*pop = _shd_fold_node_operand(%s_TAG, Nc%s, \"%s\", *pop);\n", name, cap, op_name);
 
                     if (!(json_object_get_boolean(json_object_object_get(op, "nullable")) || json_object_get_boolean(json_object_object_get(op, "ignore")))) {
                         shd_growy_append_formatted(g, "%s\t\t\tif (!*pop) {\n", extra);
