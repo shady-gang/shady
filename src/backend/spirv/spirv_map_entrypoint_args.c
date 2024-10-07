@@ -32,7 +32,7 @@ static const Node* rewrite_args_type(Rewriter* rewriter, const Node* old_type) {
 static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG:
-            if (lookup_annotation(node, "EntryPointArgs")) {
+            if (shd_lookup_annotation(node, "EntryPointArgs")) {
                 if (node->payload.global_variable.address_space != AsExternal)
                     shd_error("EntryPointArgs address space must be extern");
 

@@ -77,7 +77,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
 static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG:
-            if (lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
+            if (shd_lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
                 Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
                 const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
                 set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));

@@ -64,7 +64,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     Op op;
                     size_t i;
                     for (i = 0; i < PRIMOPS_COUNT; i++) {
-                        if (strcmp(get_primop_name(i), get_annotation_string_payload(an->payload)) == 0) {
+                        if (strcmp(get_primop_name(i), shd_get_annotation_string_payload(an->payload)) == 0) {
                             op = (Op) i;
                             break;
                         }
@@ -106,7 +106,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
                     old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
-                    as = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(an->payload)), false);
+                    as = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
                 an = an->next;
             }
             Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as);

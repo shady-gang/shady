@@ -18,9 +18,9 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
     switch (src->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable global_variable = src->payload.global_variable;
-            const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
+            const Node* ba = shd_lookup_annotation_list(global_variable.annotations, "Builtin");
             if (ba) {
-                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
                 const Type* expected_t = shd_get_builtin_type(a, b);
                 const Type* actual_t = rewrite_node(&ctx->rewriter, src)->payload.global_variable.type;
@@ -58,9 +58,9 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable global_variable = node->payload.global_variable;
-            const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
+            const Node* ba = shd_lookup_annotation_list(global_variable.annotations, "Builtin");
             if (ba) {
-                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 assert(b != BuiltinsCount);
                 if (ctx->builtins[b])
                     return ctx->builtins[b];

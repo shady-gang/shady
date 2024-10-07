@@ -887,11 +887,11 @@ static void print_terminator(PrinterCtx* ctx, const Node* node) {
 
 static void print_decl(PrinterCtx* ctx, const Node* node) {
     assert(is_declaration(node));
-    if (!ctx->config.print_generated && lookup_annotation(node, "Generated"))
+    if (!ctx->config.print_generated && shd_lookup_annotation(node, "Generated"))
         return;
-    if (!ctx->config.print_internal && lookup_annotation(node, "Internal"))
+    if (!ctx->config.print_internal && shd_lookup_annotation(node, "Internal"))
         return;
-    if (!ctx->config.print_builtin && lookup_annotation(node, "Builtin"))
+    if (!ctx->config.print_builtin && shd_lookup_annotation(node, "Builtin"))
         return;
 
     PrinterCtx sub_ctx = *ctx;

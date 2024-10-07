@@ -336,7 +336,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case GlobalVariable_TAG: {
             const GlobalVariable* old_gvar = &old->payload.global_variable;
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
-            if (!lookup_annotation(old, "Logical") && is_as_emulated(ctx, old_gvar->address_space)) {
+            if (!shd_lookup_annotation(old, "Logical") && is_as_emulated(ctx, old_gvar->address_space)) {
                 assert(false);
             }
             break;
@@ -374,7 +374,7 @@ static Nodes collect_globals(Context* ctx, AddressSpace as) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
         if (decl->payload.global_variable.address_space != as) continue;
-        if (lookup_annotation(decl, "Logical")) continue;
+        if (shd_lookup_annotation(decl, "Logical")) continue;
         collected[members_count] = decl;
         members_count++;
     }

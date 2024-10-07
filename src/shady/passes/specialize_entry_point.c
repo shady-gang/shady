@@ -31,9 +31,9 @@ static const Node* process(Context* ctx, const Node* node) {
             break;
         }
         case GlobalVariable_TAG: {
-            const Node* ba = lookup_annotation(node, "Builtin");
+            const Node* ba = shd_lookup_annotation(node, "Builtin");
             if (ba) {
-                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
+                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinWorkgroupSize:
                         return NULL;
@@ -85,15 +85,15 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
         shd_error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
         shd_error("%s is not a function", config->specialization.entry_point);
-    const Node* ep = lookup_annotation(old_entry_point_decl, "EntryPoint");
+    const Node* ep = shd_lookup_annotation(old_entry_point_decl, "EntryPoint");
     if (!ep)
         shd_error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
-    switch (execution_model_from_string(get_annotation_string_payload(ep))) {
-        case EmNone: shd_error("Unknown entry point type: %s", get_annotation_string_payload(ep))
+    switch (shd_execution_model_from_string(shd_get_annotation_string_payload(ep))) {
+        case EmNone: shd_error("Unknown entry point type: %s", shd_get_annotation_string_payload(ep))
         case EmCompute: {
-            const Node* old_wg_size_annotation = lookup_annotation(old_entry_point_decl, "WorkgroupSize");
-            assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && get_annotation_values(old_wg_size_annotation).count == 3);
-            Nodes wg_size_nodes = get_annotation_values(old_wg_size_annotation);
+            const Node* old_wg_size_annotation = shd_lookup_annotation(old_entry_point_decl, "WorkgroupSize");
+            assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3);
+            Nodes wg_size_nodes = shd_get_annotation_values(old_wg_size_annotation);
             target->specializations.workgroup_size[0] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
             target->specializations.workgroup_size[1] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
             target->specializations.workgroup_size[2] = get_int_literal_value(*resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
@@ -121,7 +121,7 @@ Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
     Nodes old_decls = get_module_declarations(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
-        if (lookup_annotation(old_decl, "RetainAfterSpecialization"))
+        if (shd_lookup_annotation(old_decl, "RetainAfterSpecialization"))
             rewrite_node(&ctx.rewriter, old_decl);
     }
 

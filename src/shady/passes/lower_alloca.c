@@ -83,7 +83,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 return fun;
 
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
+            ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
             if (ctx2.disable_lowering) {
                 set_abstraction_body(fun, rewrite_node(&ctx2.rewriter, node->payload.fun.body));
                 return fun;

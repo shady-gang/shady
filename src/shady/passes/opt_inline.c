@@ -33,9 +33,9 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
 }
 
 static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_fn) {
-    if (lookup_annotation(src_fn, "Internal"))
+    if (shd_lookup_annotation(src_fn, "Internal"))
         return false;
-    if (lookup_annotation(dst_fn, "NoInline"))
+    if (shd_lookup_annotation(dst_fn, "NoInline"))
         return false;
     if (!dst_fn->payload.fun.body)
         return false;
@@ -43,11 +43,11 @@ static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_f
 }
 
 static bool is_call_safely_removable(const Node* fn) {
-    if (lookup_annotation(fn, "Internal"))
+    if (shd_lookup_annotation(fn, "Internal"))
         return false;
-    if (lookup_annotation(fn, "EntryPoint"))
+    if (shd_lookup_annotation(fn, "EntryPoint"))
         return false;
-    if (lookup_annotation(fn, "Exported"))
+    if (shd_lookup_annotation(fn, "Exported"))
         return false;
     return true;
 }

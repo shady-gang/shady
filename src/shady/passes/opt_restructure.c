@@ -343,9 +343,9 @@ static const Node* process(Context* ctx, const Node* node) {
         Context ctx2 = *ctx;
         ctx2.dfs_stack = NULL;
         ctx2.control_stack = NULL;
-        bool is_builtin = lookup_annotation(node, "Builtin");
+        bool is_builtin = shd_lookup_annotation(node, "Builtin");
         bool is_leaf = false;
-        if (is_builtin || !node->payload.fun.body || lookup_annotation(node, "Structured") || setjmp(ctx2.bail)) {
+        if (is_builtin || !node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(ctx2.bail)) {
             ctx2.lower = false;
             ctx2.rewriter.map = ctx->rewriter.map;
             if (node->payload.fun.body)
@@ -384,7 +384,7 @@ static const Node* process(Context* ctx, const Node* node) {
             cj.fn(cj.payload);
         }
 
-        new->payload.fun.annotations = filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
+        new->payload.fun.annotations = shd_filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
 
         return new;
     }
@@ -401,7 +401,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (callee->tag == FnAddr_TAG) {
                 const Node* fn = rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
                 // leave leaf calls alone
-                if (lookup_annotation(fn, "Leaf")) {
+                if (shd_lookup_annotation(fn, "Leaf")) {
                     break;
                 }
             }

@@ -94,7 +94,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
 
-        if (lookup_annotation(decl, "Constants")) {
+        if (shd_lookup_annotation(decl, "Constants")) {
             AddressSpace as = decl->payload.global_variable.address_space;
             switch (as) {
                 case AsShaderStorageBufferObject:
@@ -102,8 +102,8 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 default: continue;
             }
 
-            int set = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorSet"))), false);
-            int binding = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorBinding"))), false);
+            int set = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
+            int binding = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
 
             ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {
@@ -140,9 +140,9 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 Nodes annotations = get_declaration_annotations(decl);
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* a = annotations.nodes[k];
-                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(shd_first(get_annotation_values(a)))->value == j) {
+                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
                         constant_res_info->default_data = calloc(1, layout.size_in_bytes);
-                        write_value(constant_res_info->default_data, get_annotation_values(a).nodes[1]);
+                        write_value(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
                         //printf("wowie");
                     }
                 }
@@ -286,7 +286,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
 
         switch (node->tag) {
             case GlobalVariable_TAG: {
-                const Node* entry_point_args_annotation = lookup_annotation(node, "EntryPointArgs");
+                const Node* entry_point_args_annotation = shd_lookup_annotation(node, "EntryPointArgs");
                 if (entry_point_args_annotation) {
                     if (node->payload.global_variable.type->tag != RecordType_TAG) {
                         shd_error_print("EntryPointArgs must be a struct\n");
@@ -304,7 +304,7 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
                 break;
             }
             case Function_TAG: {
-                if (lookup_annotation(node, "EntryPoint")) {
+                if (shd_lookup_annotation(node, "EntryPoint")) {
                     if (node->payload.fun.params.count != 0) {
                         shd_error_print("EntryPoint cannot have parameters\n");
                         return false;

@@ -85,7 +85,7 @@ static const Node* infer_type(Context* ctx, const Type* type) {
 
 static const Node* infer_decl(Context* ctx, const Node* node) {
     assert(is_declaration(node));
-    if (lookup_annotation(node, "SkipOnInfer"))
+    if (shd_lookup_annotation(node, "SkipOnInfer"))
         return NULL;
 
     IrArena* a = ctx->rewriter.dst_arena;

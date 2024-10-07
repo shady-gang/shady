@@ -1246,9 +1246,9 @@ const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
 const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
     assert(is_type(global_variable.type));
 
-    const Node* ba = lookup_annotation_list(global_variable.annotations, "Builtin");
+    const Node* ba = shd_lookup_annotation_list(global_variable.annotations, "Builtin");
     if (ba && arena->config.validate_builtin_types) {
-        Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
+        Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
         assert(b != BuiltinsCount);
         const Type* t = shd_get_builtin_type(arena, b);
         if (t != global_variable.type) {
@@ -1266,7 +1266,7 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
     return ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
-        .is_reference = lookup_annotation_list(global_variable.annotations, "Logical"),
+        .is_reference = shd_lookup_annotation_list(global_variable.annotations, "Logical"),
     });
 }
 

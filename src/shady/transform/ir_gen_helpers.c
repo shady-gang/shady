@@ -150,10 +150,10 @@ const Node* get_builtin(Module* m, Builtin b) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG)
             continue;
-        const Node* a = lookup_annotation(decl, "Builtin");
+        const Node* a = shd_lookup_annotation(decl, "Builtin");
         if (!a)
             continue;
-        String builtin_name = get_annotation_string_payload(a);
+        String builtin_name = shd_get_annotation_string_payload(a);
         assert(builtin_name);
         if (strcmp(builtin_name, shd_get_builtin_name(b)) == 0)
             return decl;
@@ -188,9 +188,9 @@ bool is_builtin_load_op(const Node* n, Builtin* out) {
         if (src->tag == RefDecl_TAG)
             src = src->payload.ref_decl.decl;
         if (src->tag == GlobalVariable_TAG) {
-            const Node* a = lookup_annotation(src, "Builtin");
+            const Node* a = shd_lookup_annotation(src, "Builtin");
             if (a) {
-                String bn = get_annotation_string_payload(a);
+                String bn = shd_get_annotation_string_payload(a);
                 assert(bn);
                 Builtin b = shd_get_builtin_by_name(bn);
                 if (b != BuiltinsCount) {

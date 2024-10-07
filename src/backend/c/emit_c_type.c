@@ -48,7 +48,7 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
     assert(!fn || fn->type == fn_type);
     Nodes codom = fn_type->payload.fn_type.return_types;
 
-    const Node* entry_point = fn ? lookup_annotation(fn, "EntryPoint") : NULL;
+    const Node* entry_point = fn ? shd_lookup_annotation(fn, "EntryPoint") : NULL;
 
     Growy* paramg = shd_new_growy();
     Printer* paramp = shd_new_printer_from_growy(paramg);

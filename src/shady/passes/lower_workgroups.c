@@ -34,10 +34,10 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case GlobalVariable_TAG: {
-            const Node* ba = lookup_annotation(node, "Builtin");
+            const Node* ba = shd_lookup_annotation(node, "Builtin");
             if (ba) {
-                Nodes filtered_as = rewrite_nodes(&ctx->rewriter, filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
-                Builtin b = shd_get_builtin_by_name(get_annotation_string_payload(ba));
+                Nodes filtered_as = rewrite_nodes(&ctx->rewriter, shd_filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
+                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
                 switch (b) {
                     case BuiltinSubgroupId:
                     case BuiltinWorkgroupId:
@@ -56,8 +56,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.is_entry_point = false;
-            const Node* epa = lookup_annotation(node, "EntryPoint");
-            if (epa && strcmp(get_annotation_string_payload(epa), "Compute") == 0) {
+            const Node* epa = shd_lookup_annotation(node, "EntryPoint");
+            if (epa && strcmp(shd_get_annotation_string_payload(epa), "Compute") == 0) {
                 ctx2.is_entry_point = true;
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
@@ -67,7 +67,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
-                Nodes nannotations = filter_out_annotation(a, wannotations, "EntryPoint");
+                Nodes nannotations = shd_filter_out_annotation(a, wannotations, "EntryPoint");
                 Nodes nparams = recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", get_abstraction_name(node)), nannotations, shd_empty(a));
                 register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);

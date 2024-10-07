@@ -177,7 +177,7 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* fun = recreate_decl_header_identity(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
             fun_ctx.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
-            fun_ctx.disable_lowering = lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
+            fun_ctx.disable_lowering = shd_lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 set_abstraction_body(fun, rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
             destroy_uses_map(fun_ctx.uses);

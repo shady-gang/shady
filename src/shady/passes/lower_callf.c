@@ -25,7 +25,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
     if (old->tag == Function_TAG) {
         Context ctx2 = *ctx;
-        ctx2.disable_lowering = lookup_annotation(old, "Leaf");
+        ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf");
         ctx2.return_jp = NULL;
 
         if (!ctx2.disable_lowering && get_abstraction_body(old)) {
@@ -43,7 +43,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .yield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
 
-            if (lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
+            if (shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
                 ctx2.return_jp = gen_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
                                                      shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
@@ -107,7 +107,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Call payload = old->payload.call;
             const Node* ocallee = payload.callee;
             // if we know the callee and it's a leaf - then we don't change the call
-            if (ocallee->tag == FnAddr_TAG && lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))
+            if (ocallee->tag == FnAddr_TAG && shd_lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))
                 break;
 
             const Type* ocallee_type = ocallee->type;

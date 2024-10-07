@@ -167,7 +167,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 assert(is_annotation(a));
                 String name = get_annotation_name(a);
                 if (strcmp(name, "Builtin") == 0) {
-                    String builtin_name = get_annotation_string_payload(a);
+                    String builtin_name = shd_get_annotation_string_payload(a);
                     assert(builtin_name);
                     assert(b == BuiltinsCount && "Only one @Builtin annotation permitted.");
                     b = shd_get_builtin_by_name(builtin_name);
@@ -176,15 +176,15 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
                 } else if (strcmp(name, "Location") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationLocation, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorSet") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t[]) { loc });
                 } else if (strcmp(name, "DescriptorBinding") == 0) {
-                    size_t loc = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(a)), false);
+                    size_t loc = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                 }
@@ -197,8 +197,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 case SpvStorageClassStorageBuffer:
                 case SpvStorageClassUniform:
                 case SpvStorageClassUniformConstant: {
-                    const Node* descriptor_set = lookup_annotation(decl, "DescriptorSet");
-                    const Node* descriptor_binding = lookup_annotation(decl, "DescriptorBinding");
+                    const Node* descriptor_set = shd_lookup_annotation(decl, "DescriptorSet");
+                    const Node* descriptor_binding = shd_lookup_annotation(decl, "DescriptorBinding");
                     assert(descriptor_set && descriptor_binding && "DescriptorSet and/or DescriptorBinding annotations are missing");
                     break;
                 }
@@ -266,19 +266,19 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
         if (decl->tag != Function_TAG) continue;
         SpvId fn_id = spv_find_emitted(emitter, NULL, decl);
 
-        const Node* entry_point = lookup_annotation(decl, "EntryPoint");
+        const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            ExecutionModel execution_model = execution_model_from_string(get_string_literal(emitter->arena, get_annotation_value(entry_point)));
+            ExecutionModel execution_model = shd_execution_model_from_string(get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
             assert(execution_model != EmNone);
 
             spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, interface_size, interface_arr);
             emitter->num_entry_pts++;
 
-            const Node* workgroup_size = lookup_annotation(decl, "WorkgroupSize");
+            const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
             if (execution_model == EmCompute)
                 assert(workgroup_size);
             if (workgroup_size) {
-                Nodes values = get_annotation_values(workgroup_size);
+                Nodes values = shd_get_annotation_values(workgroup_size);
                 assert(values.count == 3);
                 uint32_t wg_x_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[0]), false);
                 uint32_t wg_y_dim = (uint32_t) get_int_literal_value(*resolve_to_int_literal(values.nodes[1]), false);

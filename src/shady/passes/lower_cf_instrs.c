@@ -25,7 +25,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     Context sub_ctx = *ctx;
     if (node->tag == Function_TAG) {
         Node* fun = recreate_decl_header_identity(&ctx->rewriter, node);
-        sub_ctx.disable_lowering = lookup_annotation(fun, "Structured");
+        sub_ctx.disable_lowering = shd_lookup_annotation(fun, "Structured");
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
         set_abstraction_body(fun, rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));

@@ -61,7 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     .size = ref_decl_helper(a, rewrite_node(&ctx->rewriter, get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
                 });
 
-                assert(lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
+                assert(shd_lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
                 Node* new = global_var(ctx->rewriter.dst_module, rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared);
                 register_processed(&ctx->rewriter, node, new);
 

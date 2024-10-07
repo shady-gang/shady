@@ -273,7 +273,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
             }
 
             if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
-                int location = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "Location"))), false);
+                int location = get_int_literal_value(*resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 register_emitted(emitter, NULL, decl, t);
                 return;
@@ -328,7 +328,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                     fn_body = shd_format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
                 } else if (emitter->config.dialect == CDialect_CUDA) {
-                    if (lookup_annotation(decl, "EntryPoint")) {
+                    if (shd_lookup_annotation(decl, "EntryPoint")) {
                         // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
                         if (emitter->use_private_globals) {
                             fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);

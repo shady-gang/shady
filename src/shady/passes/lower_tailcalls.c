@@ -114,10 +114,10 @@ static const Node* process(Context* ctx, const Node* old) {
             ctx2.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
-            const Node* entry_point_annotation = lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
+            const Node* entry_point_annotation = shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
 
             // Leave leaf-calls alone :)
-            ctx2.disable_lowering = lookup_annotation(old, "Leaf") || !old->payload.fun.body;
+            ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf") || !old->payload.fun.body;
             if (ctx2.disable_lowering) {
                 Node* fun = recreate_decl_header_identity(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
@@ -142,7 +142,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
-            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
+            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
             register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)
@@ -376,7 +376,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
         if (decl->tag == Function_TAG) {
-            if (lookup_annotation(decl, "Leaf"))
+            if (shd_lookup_annotation(decl, "Leaf"))
                 continue;
 
             const Node* fn_lit = shd_uint32_literal(a, get_fn_ptr(ctx, decl));

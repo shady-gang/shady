@@ -243,7 +243,7 @@ void rewrite_module(Rewriter* rewriter) {
     assert(rewriter->dst_module != rewriter->src_module);
     Nodes old_decls = get_module_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
-        if (!lookup_annotation(old_decls.nodes[i], "Exported")) continue;
+        if (!shd_lookup_annotation(old_decls.nodes[i], "Exported")) continue;
         rewrite_op_helper(rewriter, NcDeclaration, "decl", old_decls.nodes[i]);
     }
 }
