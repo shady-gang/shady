@@ -54,6 +54,6 @@ Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_con
 void unload_program(Program* program) {
     // TODO iterate over the specialized stuff
     if (program->arena) // if the program owns an arena
-        destroy_ir_arena(program->arena);
+        shd_destroy_ir_arena(program->arena);
     free(program);
 }

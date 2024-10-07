@@ -156,7 +156,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
             k->new = new;
             return new;
         }
-        if (!k->non_logical_use && get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
+        if (!k->non_logical_use && shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
             *ctx->todo |= old->tag != LocalAlloc_TAG;
             const Node* new = local_alloc(a, (LocalAlloc) { .type = rewrite_node(r, old_type), .mem = nmem });
             k->new = new;

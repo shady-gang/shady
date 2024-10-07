@@ -96,8 +96,8 @@ struct SpvbFileBuilder_ {
 static KeyHash hash_u32(uint32_t* p) { return shd_hash_murmur(p, sizeof(uint32_t)); }
 static bool compare_u32s(uint32_t* a, uint32_t* b) { return *a == *b; }
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
 SpvbFileBuilder* spvb_begin() {
     SpvbFileBuilder* file_builder = (SpvbFileBuilder*) malloc(sizeof(SpvbFileBuilder));
@@ -117,7 +117,7 @@ SpvbFileBuilder* spvb_begin() {
         .fn_defs = shd_new_growy(),
 
         .capabilities_set = shd_new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
-        .extensions_set = shd_new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+        .extensions_set = shd_new_set(const char*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
 
         .memory_model = SpvMemoryModelGLSL450,
     };

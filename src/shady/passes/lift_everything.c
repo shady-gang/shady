@@ -100,8 +100,8 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(&aconfig);
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
     bool todo = true;
     Module* dst;
     while (todo) {

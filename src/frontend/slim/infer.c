@@ -605,11 +605,11 @@ static const Node* process(Context* src_ctx, const Node* node) {
 }
 
 Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
     aconfig.allow_fold = true; // TODO was moved here because a refactor, does this cause issues ?
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

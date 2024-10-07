@@ -137,7 +137,7 @@ OptPass opt_mem2reg;
 RewritePass import;
 
 Module* cleanup(const CompilerConfig* config, Module* const src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     if (!aconfig.check_types)
         return src;
     bool todo;

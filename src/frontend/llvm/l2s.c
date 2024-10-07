@@ -267,7 +267,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
             decl->payload.global_variable.init = convert_value(p, value);
 
         if (UNTYPED_POINTERS) {
-            Node* untyped_wrapper = constant(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, format_string_interned(a, "%s_untyped", name));
+            Node* untyped_wrapper = constant(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, shd_fmt_string_irarena(a, "%s_untyped", name));
             untyped_wrapper->payload.constant.value = ref_decl_helper(a, decl);
             untyped_wrapper->payload.constant.value = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(ref_decl_helper(a, decl)));
             decl = untyped_wrapper;
@@ -302,7 +302,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     aconfig.allow_fold = false;
     aconfig.optimisations.inline_single_use_bbs = false;
 
-    IrArena* arena = new_ir_arena(&aconfig);
+    IrArena* arena = shd_new_ir_arena(&aconfig);
     Module* dirty = new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
@@ -334,13 +334,13 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
-    IrArena* arena2 = new_ir_arena(&aconfig);
+    IrArena* arena2 = shd_new_ir_arena(&aconfig);
     *dst = new_module(arena2, name);
     postprocess(&p, dirty, *dst);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
     shd_log_module(DEBUGVV, config, *dst);
     verify_module(config, *dst);
-    destroy_ir_arena(arena);
+    shd_destroy_ir_arena(arena);
 
     shd_destroy_dict(p.map);
     shd_destroy_dict(p.annotations);

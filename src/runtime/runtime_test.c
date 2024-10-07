@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
     Program* program;
     IrArena* arena = NULL;
     ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.config.target);
-    arena = new_ir_arena(&aconfig);
+    arena = shd_new_ir_arena(&aconfig);
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
         Module* module;
         shd_driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader,
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     shutdown_runtime(runtime);
     if (arena)
-        destroy_ir_arena(arena);
+        shd_destroy_ir_arena(arena);
     shd_destroy_driver_config(&args.driver_config);
     return 0;
 }

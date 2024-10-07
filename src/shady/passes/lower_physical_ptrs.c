@@ -92,7 +92,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = format_string_interned(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), acc);
@@ -195,7 +195,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = format_string_interned(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                String template = shd_fmt_string_irarena(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), value);
@@ -468,7 +468,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     const Node* size_of = gen_primop_e(bb, size_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_empty(a));
     const Node* size_in_words = bytes_to_words(bb, size_of);
 
-    Node* constant_decl = constant(m, annotations, ptr_size_type, format_string_interned(a, "memory_%s_size", as_name));
+    Node* constant_decl = constant(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
     constant_decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
@@ -482,12 +482,12 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 }
 
 Module* lower_physical_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     aconfig.address_spaces[AsPrivate].physical = false;
     aconfig.address_spaces[AsShared].physical = false;
     aconfig.address_spaces[AsSubgroup].physical = false;
 
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

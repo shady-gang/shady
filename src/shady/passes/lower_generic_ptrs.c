@@ -81,8 +81,8 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = format_string_interned(a, "generated_load_Generic_%s%s", name_type_safe(a, t), uniform_ptr ? "_uniform" : ""); break;
-        case StoreFn: name = format_string_interned(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
+        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s%s", name_type_safe(a, t), uniform_ptr ? "_uniform" : ""); break;
+        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
     }
 
     const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, name);
@@ -270,16 +270,16 @@ static const Node* process(Context* ctx, const Node* old) {
     return recreate_node_identity(&ctx->rewriter, old);
 }
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
 Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(&aconfig);
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .fns = shd_new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
+        .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
         .config = config,
     };

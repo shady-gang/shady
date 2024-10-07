@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     }
 
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
-    IrArena* arena = new_ir_arena(&aconfig);
+    IrArena* arena = shd_new_ir_arena(&aconfig);
 
     vcc_check_clang();
 
@@ -37,12 +37,12 @@ int main(int argc, char** argv) {
     if (!vcc_options.only_run_clang) {
         Module* mod = vcc_parse_back_into_module(&args.config, &vcc_options, "my_module");
         shd_driver_compile(&args, mod);
-        destroy_ir_arena(get_module_arena(mod));
+        shd_destroy_ir_arena(get_module_arena(mod));
     }
 
     shd_info_print("Done\n");
 
     destroy_vcc_options(vcc_options);
-    destroy_ir_arena(arena);
+    shd_destroy_ir_arena(arena);
     shd_destroy_driver_config(&args);
 }

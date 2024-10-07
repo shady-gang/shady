@@ -274,7 +274,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
 
             if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
                 int location = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "Location"))), false);
-                CTerm t = term_from_cvar(format_string_interned(emitter->arena, "gl_FragData[%d]", location));
+                CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 register_emitted(emitter, NULL, decl, t);
                 return;
             }
@@ -288,9 +288,9 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                     // HACK
                     return;
                 }
-                emit_as = term_from_cvar(format_string_interned(emitter->arena, "__shady_thread_local_access(%s)", name));
+                emit_as = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "__shady_thread_local_access(%s)", name));
                 if (init)
-                    init = format_string_interned(emitter->arena, "__shady_replicate_thread_local(%s)", init);
+                    init = shd_fmt_string_irarena(emitter->arena, "__shady_replicate_thread_local(%s)", init);
                 register_emitted(emitter, NULL, decl, emit_as);
             }
             register_emitted(emitter, NULL, decl, emit_as);
@@ -317,7 +317,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
                     String variable_name = get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
-                    param_name = format_string_interned(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
+                    param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }
 
@@ -535,5 +535,5 @@ void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Mo
     if (new_mod)
         *new_mod = mod;
     else if (initial_arena != arena)
-        destroy_ir_arena(arena);
+        shd_destroy_ir_arena(arena);
 }

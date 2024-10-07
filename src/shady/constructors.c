@@ -10,8 +10,8 @@
 #include <string.h>
 #include <assert.h>
 
-Strings import_strings(IrArena*, Strings);
-bool compare_nodes(Nodes* a, Nodes* b);
+Strings _shd_import_strings(IrArena* dst_arena, Strings old_strings);
+bool shd_compare_nodes(Nodes* a, Nodes* b);
 
 static void pre_construction_validation(IrArena* arena, Node* node);
 
@@ -53,7 +53,7 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     // place the node in the arena and return it
     Node* alloc = (Node*) shd_arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
-    alloc->id = allocate_node_id(arena, alloc);
+    alloc->id = _shd_allocate_node_id(arena, alloc);
     shd_set_insert_get_result(const Node*, arena->node_set, alloc);
 
     return alloc;
@@ -175,7 +175,7 @@ Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* n
         assert(existing->tag == GlobalVariable_TAG);
         assert(existing->payload.global_variable.type == type);
         assert(existing->payload.global_variable.address_space == as);
-        assert(!mod->arena->config.check_types || compare_nodes((Nodes*) &existing->payload.global_variable.annotations, &annotations));
+        assert(!mod->arena->config.check_types || shd_compare_nodes((Nodes*) &existing->payload.global_variable.annotations, &annotations));
         return (Node*) existing;
     }
 

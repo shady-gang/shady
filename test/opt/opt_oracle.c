@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
     aconfig.optimisations.weaken_non_leaking_allocas = true;
-    IrArena* arena = new_ir_arena(&aconfig);
+    IrArena* arena = shd_new_ir_arena(&aconfig);
     Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
     ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
@@ -93,12 +93,12 @@ int main(int argc, char** argv) {
         exit(err);
 
     Module* mod2 = oracle_passes(&args.config, mod);
-    destroy_ir_arena(get_module_arena(mod2));
+    shd_destroy_ir_arena(get_module_arena(mod2));
 
     if (err)
         exit(err);
     shd_info_print("Compilation successful\n");
 
-    destroy_ir_arena(arena);
+    shd_destroy_ir_arena(arena);
     shd_destroy_driver_config(&args);
 }

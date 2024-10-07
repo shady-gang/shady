@@ -23,7 +23,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
     const Node* nul = gen_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
     Node* decl = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
         .name = "Generated",
-    })), t, format_string_interned(a, "nullptr_%s", name_type_safe(a, t)));
+    })), t, shd_fmt_string_irarena(a, "nullptr_%s", name_type_safe(a, t)));
     decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(nul));
     const Node* ref = ref_decl_helper(a, decl);
     shd_dict_insert(const Type*, const Node*, ctx->map, t, ref);
@@ -49,8 +49,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_nullptr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(&aconfig);
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

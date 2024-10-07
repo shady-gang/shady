@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     ArenaConfig aconfig = shd_default_arena_config(&compiler_config.target);
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* m;
     if (shd_driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src,
                                     "checkerboard", &m) != NoError)
@@ -82,6 +82,6 @@ int main(int argc, char **argv)
 
     shutdown_runtime(runtime);
     saveppm("checkerboard.ppm", WIDTH, HEIGHT, img);
-    destroy_ir_arena(a);
+    shd_destroy_ir_arena(a);
     free(img);
 }

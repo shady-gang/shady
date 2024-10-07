@@ -22,8 +22,8 @@
 KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -346,7 +346,7 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
         .num_entry_pts = 0,
     };
 
-    emitter.extended_instruction_sets = shd_new_dict(const char*, SpvId, (HashFn) hash_string, (CmpFn) compare_string);
+    emitter.extended_instruction_sets = shd_new_dict(const char*, SpvId, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);
 
     emitter.void_t = spvb_void_type(emitter.file_builder);
 
@@ -371,5 +371,5 @@ void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, 
     if (new_mod)
         *new_mod = mod;
     else if (initial_arena != arena)
-        destroy_ir_arena(arena);
+        shd_destroy_ir_arena(arena);
 }

@@ -367,10 +367,10 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 }
 
 Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     assert(!src->arena->config.name_bound);
     aconfig.name_bound = true;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {

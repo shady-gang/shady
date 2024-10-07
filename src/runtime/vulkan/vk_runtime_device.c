@@ -208,11 +208,11 @@ static bool get_physical_device_caps(SHADY_UNUSED VkrBackend* runtime, VkPhysica
     return false;
 }
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return shd_hash_murmur(ptr->base, sizeof(Program*)) ^ hash_string(&ptr->entry_point);
+    return shd_hash_murmur(ptr->base, sizeof(Program*)) ^ shd_hash_string(&ptr->entry_point);
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {

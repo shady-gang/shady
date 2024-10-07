@@ -515,7 +515,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
     free( (void*) spec->parameters.arg_offset);
     free(spec->spirv_bytes);
     if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
-        destroy_ir_arena(get_module_arena(spec->specialized_module));
+        shd_destroy_ir_arena(get_module_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)

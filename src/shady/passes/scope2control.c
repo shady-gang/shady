@@ -162,7 +162,7 @@ static const Nodes* find_scope_info(const Node* abs) {
     return info;
 }
 
-bool compare_nodes(Nodes* a, Nodes* b);
+bool shd_compare_nodes(Nodes* a, Nodes* b);
 
 static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge edge) {
     assert(edge.type == JumpEdge && edge.jump);
@@ -204,7 +204,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                 continue;
             } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
                 shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", get_abstraction_name_safe(dom->node));
-            } else if (compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
+            } else if (shd_compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                 // if (cfg_is_dominated(target_cfnode, dom)) {
                 if (!cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
                     // assert(false);
@@ -301,9 +301,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* scope2control(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process_node),

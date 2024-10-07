@@ -23,7 +23,7 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     aconfig.check_types = false;
     aconfig.validate_builtin_types = false;
     aconfig.allow_fold = false;
-    IrArena* initial_arena = new_ir_arena(&aconfig);
+    IrArena* initial_arena = shd_new_ir_arena(&aconfig);
     Module* m = new_module(initial_arena, name);
     slim_parse_string(pconfig, contents, m);
     Module** pmod = &m;
@@ -41,6 +41,6 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     RUN_PASS(slim_pass_infer)
     RUN_PASS(lower_cf_instrs)
 
-    destroy_ir_arena(initial_arena);
+    shd_destroy_ir_arena(initial_arena);
     return *pmod;
 }

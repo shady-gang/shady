@@ -222,7 +222,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     IrArena* a = NULL;
     Module* dst;
 
@@ -230,7 +230,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
     while (true) {
         shd_debugv_print("lift_indirect_target: round %d\n", round++);
         IrArena* oa = a;
-        a = new_ir_arena(&aconfig);
+        a = shd_new_ir_arena(&aconfig);
         dst = new_module(a, get_module_name(src));
         bool todo = false;
         Context ctx = {
@@ -253,7 +253,7 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
         verify_module(config, dst);
         src = dst;
         if (oa)
-            destroy_ir_arena(oa);
+            shd_destroy_ir_arena(oa);
         if (!todo) {
             break;
         }
@@ -261,11 +261,11 @@ Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
 
     // this will be safe now since we won't lift any more code after this pass
     aconfig.optimisations.weaken_non_leaking_allocas = true;
-    IrArena* a2 = new_ir_arena(&aconfig);
+    IrArena* a2 = shd_new_ir_arena(&aconfig);
     dst = new_module(a2, get_module_name(src));
     Rewriter r = create_importer(src, dst);
     rewrite_module(&r);
     destroy_rewriter(&r);
-    destroy_ir_arena(a);
+    shd_destroy_ir_arena(a);
     return dst;
 }

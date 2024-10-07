@@ -118,7 +118,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         fn = *found;
     else {
         const Node* src_param = param(a, shd_as_qualified_type(t, false), "src");
-        fn = function(m, shd_singleton(src_param), format_string_interned(a, "subgroup_first_%s", name_type_safe(a, t)),
+        fn = function(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "subgroup_first_%s", name_type_safe(a, t)),
                       mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(
                         shd_as_qualified_type(t, true)));
         shd_dict_insert(const Node*, Node*, ctx->fns, t, fn);
@@ -149,8 +149,8 @@ KeyHash hash_node(Node**);
 bool compare_node(Node**, Node**);
 
 Module* lower_subgroup_ops(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(&aconfig);
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     assert(!config->lower.emulate_subgroup_ops && "TODO");
     Context ctx = {

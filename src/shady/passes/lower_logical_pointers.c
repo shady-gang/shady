@@ -48,7 +48,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case PtrType_TAG: {
             PtrType payload = old->payload.ptr_type;
-            if (!get_arena_config(a)->address_spaces[payload.address_space].physical)
+            if (!shd_get_arena_config(a)->address_spaces[payload.address_space].physical)
                 payload.is_reference = true;
             payload.pointed_type = rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
@@ -87,7 +87,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     const Node* osrc = shd_first(payload.operands);
                     const Type* osrc_t = osrc->type;
                     deconstruct_qualified_type(&osrc_t);
-                    if (osrc_t->tag == PtrType_TAG && !get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
+                    if (osrc_t->tag == PtrType_TAG && !shd_get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
                         return rewrite_node(r, osrc);
                     break;
                 }
@@ -123,7 +123,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;
-            if (get_arena_config(a)->address_spaces[as].physical)
+            if (shd_get_arena_config(a)->address_spaces[as].physical)
                 break;
             Nodes annotations = rewrite_nodes(r, old->payload.global_variable.annotations);
             annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" }));
@@ -138,11 +138,11 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     aconfig.address_spaces[AsInput].physical = false;
     aconfig.address_spaces[AsOutput].physical = false;
     aconfig.address_spaces[AsUniformConstant].physical = false;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_node_rewriter(src, dst, (RewriteNodeFn) process),

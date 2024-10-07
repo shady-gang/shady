@@ -41,9 +41,9 @@ static void specialize_arena_config(const CompilerConfig* config, Module* m, Are
 }
 
 Module* specialize_execution_model(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     specialize_arena_config(config, src, &aconfig);
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     size_t subgroup_size = config->specialization.subgroup_size;

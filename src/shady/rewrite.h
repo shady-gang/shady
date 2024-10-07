@@ -21,7 +21,7 @@ Nodes rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
 Nodes rewrite_ops(Rewriter*, NodeClass, String, Nodes);
 Nodes rewrite_ops_with_fn(Rewriter* rewriter, NodeClass,String, Nodes values, RewriteOpFn fn);
 
-Strings import_strings(IrArena*, Strings);
+Strings _shd_import_strings(IrArena* dst_arena, Strings old_strings);
 
 struct Rewriter_ {
     RewriteNodeFn rewrite_fn;

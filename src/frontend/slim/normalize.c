@@ -111,9 +111,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     aconfig.check_op_classes = true;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
     Context ctx = {
         .rewriter = create_op_rewriter(src, dst, (RewriteOpFn) process_op),

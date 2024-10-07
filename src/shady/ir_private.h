@@ -43,9 +43,9 @@ struct BodyBuilder_ {
     Node* tail_block;
 };
 
-NodeId allocate_node_id(IrArena*, const Node* n);
+NodeId _shd_allocate_node_id(IrArena* arena, const Node* n);
 
 struct List;
-Nodes list_to_nodes(IrArena*, struct List*);
+Nodes shd_list_to_nodes(IrArena* arena, struct List* list);
 
 #endif

@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
     ArenaConfig aconfig = shd_default_arena_config(&target_config);
     aconfig.check_types = true;
     aconfig.allow_fold = true;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     test_int_literals(a);
-    destroy_ir_arena(a);
+    shd_destroy_ir_arena(a);
 }

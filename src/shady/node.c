@@ -20,7 +20,7 @@ String get_value_name_safe(const Node* v) {
     if (name && strlen(name) > 0)
         return name;
     //if (v->tag == Variable_TAG)
-    return format_string_interned(v->arena, "%%%d", v->id);
+    return shd_fmt_string_irarena(v->arena, "%%%d", v->id);
     //return node_tags[v->tag];
 }
 
@@ -291,7 +291,7 @@ String get_abstraction_name_safe(const Node* abs) {
     String name = get_abstraction_name_unsafe(abs);
     if (name)
         return name;
-    return format_string_interned(abs->arena, "%%%d", abs->id);
+    return shd_fmt_string_irarena(abs->arena, "%%%d", abs->id);
 }
 
 const Node* finish_block_body(BodyBuilder* bb, const Node* terminator);

@@ -434,7 +434,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
     const PrimOp* prim_op = &node->payload.prim_op;
-    CTerm term = term_from_cvalue(format_string_interned(emitter->arena, "/* todo %s */", get_primop_name(prim_op->op)));
+    CTerm term = term_from_cvalue(shd_fmt_string_irarena(emitter->arena, "/* todo %s */", get_primop_name(prim_op->op)));
     const ISelTableEntry* isel_entry = lookup_entry(emitter, prim_op->op);
     switch (prim_op->op) {
         case add_carry_op:
@@ -955,7 +955,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;
             c_emit_mem(emitter, fn, payload.mem);
-            String args_list = format_string_interned(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
+            String args_list = shd_fmt_string_irarena(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++) {
                 CValue str = to_cvalue(emitter, c_emit_value(emitter, fn, instruction->payload.debug_printf.args.nodes[i]));
 

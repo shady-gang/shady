@@ -1028,9 +1028,9 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         print_def = false;
     } else if (is_param(node) || is_basic_block(node) || node->tag == RefDecl_TAG || node->tag == FnAddr_TAG) {
         print_def = false;
-        r = format_string_interned(node->arena, "%%%d", node->id);
+        r = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
     } else {
-        r = format_string_interned(node->arena, "%%%d", node->id);
+        r = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
     }
     shd_dict_insert(const Node*, String, ctx->emitted, node, r);
 

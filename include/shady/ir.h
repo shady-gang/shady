@@ -42,7 +42,7 @@ bool shd_find_in_nodes(Nodes nodes, const Node* n);
 String string_sized(IrArena*, size_t size, const char* start);
 String string(IrArena*, const char*);
 // see also: format_string in util.h
-String format_string_interned(IrArena*, const char* str, ...);
+String shd_fmt_string_irarena(IrArena* arena, const char* str, ...);
 String unique_name(IrArena*, const char* base_name);
 String name_type_safe(IrArena*, const Type*);
 
@@ -152,10 +152,10 @@ inline static bool is_function(const Node* node) { return node->tag == Function_
 /// See config.h for definition of ArenaConfig
 typedef struct ArenaConfig_ ArenaConfig;
 
-IrArena* new_ir_arena(const ArenaConfig*);
-void destroy_ir_arena(IrArena*);
-const ArenaConfig* get_arena_config(const IrArena*);
-const Node* get_node_by_id(const IrArena*, NodeId);
+IrArena* shd_new_ir_arena(const ArenaConfig* config);
+void shd_destroy_ir_arena(IrArena* arena);
+const ArenaConfig* shd_get_arena_config(const IrArena* a);
+const Node* shd_get_node_by_id(const IrArena* a, NodeId id);
 
 //////////////////////////////// Getters ////////////////////////////////
 

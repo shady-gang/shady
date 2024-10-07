@@ -10,19 +10,19 @@
 #include <assert.h>
 #include <stdarg.h>
 
-static KeyHash hash_nodes(Nodes* nodes);
-bool compare_nodes(Nodes* a, Nodes* b);
+static KeyHash shd_hash_nodes(Nodes* nodes);
+bool shd_compare_nodes(Nodes* a, Nodes* b);
 
-static KeyHash hash_strings(Strings* strings);
-static bool compare_strings(Strings* a, Strings* b);
+static KeyHash shd_hash_strings(Strings* strings);
+static bool shd_compare_strings(Strings* a, Strings* b);
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
 KeyHash hash_node(const Node**);
 bool compare_node(const Node** a, const Node** b);
 
-IrArena* new_ir_arena(const ArenaConfig* config) {
+IrArena* shd_new_ir_arena(const ArenaConfig* config) {
     IrArena* arena = malloc(sizeof(IrArena));
     *arena = (IrArena) {
         .arena = shd_new_arena(),
@@ -31,21 +31,21 @@ IrArena* new_ir_arena(const ArenaConfig* config) {
         .modules = shd_new_list(Module*),
 
         .node_set = shd_new_set(const Node*, (HashFn) hash_node, (CmpFn) compare_node),
-        .string_set = shd_new_set(const char*, (HashFn) hash_string, (CmpFn) compare_string),
+        .string_set = shd_new_set(const char*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
 
-        .nodes_set   = shd_new_set(Nodes, (HashFn) hash_nodes, (CmpFn) compare_nodes),
-        .strings_set = shd_new_set(Strings, (HashFn) hash_strings, (CmpFn) compare_strings),
+        .nodes_set   = shd_new_set(Nodes, (HashFn) shd_hash_nodes, (CmpFn) shd_compare_nodes),
+        .strings_set = shd_new_set(Strings, (HashFn) shd_hash_strings, (CmpFn) shd_compare_strings),
 
         .ids = shd_new_growy(),
     };
     return arena;
 }
 
-const Node* get_node_by_id(const IrArena* a, NodeId id) {
+const Node* shd_get_node_by_id(const IrArena* a, NodeId id) {
     return ((const Node**) shd_growy_data(a->ids))[id];
 }
 
-void destroy_ir_arena(IrArena* arena) {
+void shd_destroy_ir_arena(IrArena* arena) {
     for (size_t i = 0; i < shd_list_count(arena->modules); i++) {
         destroy_module(shd_read_list(Module*, arena->modules)[i]);
     }
@@ -60,11 +60,11 @@ void destroy_ir_arena(IrArena* arena) {
     free(arena);
 }
 
-const ArenaConfig* get_arena_config(const IrArena* a) {
+const ArenaConfig* shd_get_arena_config(const IrArena* a) {
     return &a->config;
 }
 
-NodeId allocate_node_id(IrArena* arena, const Node* n) {
+NodeId _shd_allocate_node_id(IrArena* arena, const Node* n) {
     shd_growy_append_object(arena->ids, n);
     return shd_growy_size(arena->ids) / sizeof(const Node*);
 }
@@ -197,7 +197,7 @@ const char* string(IrArena* arena, const char* str) {
 }
 
 // TODO merge with strings()
-Strings import_strings(IrArena* dst_arena, Strings old_strings) {
+Strings _shd_import_strings(IrArena* dst_arena, Strings old_strings) {
     size_t count = old_strings.count;
     LARRAY(String, arr, count);
     for (size_t i = 0; i < count; i++)
@@ -217,7 +217,7 @@ static void intern_in_arena(InternInArenaPayload* uptr, size_t len, char* tmp) {
     *uptr->result = interned;
 }
 
-String format_string_interned(IrArena* arena, const char* str, ...) {
+String shd_fmt_string_irarena(IrArena* arena, const char* str, ...) {
     String result = NULL;
     InternInArenaPayload p = { .a = arena, .result = &result };
     va_list args;
@@ -228,43 +228,43 @@ String format_string_interned(IrArena* arena, const char* str, ...) {
 }
 
 const char* unique_name(IrArena* arena, const char* str) {
-    return format_string_interned(arena, "%s_%d", str, allocate_node_id(arena, NULL));
+    return shd_fmt_string_irarena(arena, "%s_%d", str, _shd_allocate_node_id(arena, NULL));
 }
 
-KeyHash hash_nodes(Nodes* nodes) {
+KeyHash shd_hash_nodes(Nodes* nodes) {
     return shd_hash_murmur(nodes->nodes, sizeof(const Node*) * nodes->count);
 }
 
-bool compare_nodes(Nodes* a, Nodes* b) {
+bool shd_compare_nodes(Nodes* a, Nodes* b) {
     if (a->count != b->count) return false;
     if (a->count == 0) return true;
     assert(a->nodes != NULL && b->nodes != NULL);
     return memcmp(a->nodes, b->nodes, sizeof(Node*) * (a->count)) == 0; // actually compare the data
 }
 
-KeyHash hash_strings(Strings* strings) {
+KeyHash shd_hash_strings(Strings* strings) {
     return shd_hash_murmur(strings->strings, sizeof(char*) * strings->count);
 }
 
-bool compare_strings(Strings* a, Strings* b) {
+bool shd_compare_strings(Strings* a, Strings* b) {
     if (a->count != b->count) return false;
     if (a->count == 0) return true;
     assert(a->strings != NULL && b->strings != NULL);
     return memcmp(a->strings, b->strings, sizeof(const char*) * a->count) == 0;
 }
 
-KeyHash hash_string(const char** string) {
+KeyHash shd_hash_string(const char** string) {
     if (!*string)
         return 0;
     return shd_hash_murmur(*string, strlen(*string));
 }
 
-bool compare_string(const char** a, const char** b) {
+bool shd_compare_string(const char** a, const char** b) {
     if (*a == NULL || *b == NULL)
         return (!*a) == (!*b);
     return strlen(*a) == strlen(*b) && strcmp(*a, *b) == 0;
 }
 
-Nodes list_to_nodes(IrArena* arena, struct List* list) {
+Nodes shd_list_to_nodes(IrArena* arena, struct List* list) {
     return shd_nodes(arena, shd_list_count(list), shd_read_list(const Node*, list));
 }

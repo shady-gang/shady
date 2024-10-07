@@ -21,7 +21,7 @@ static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, shady_scheduler_src, "builtin_scheduler");
     shd_debug_print("Adding builtin scheduler code");
     link_module(dst, builtin_scheduler_mod);
-    destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
+    shd_destroy_ir_arena(get_module_arena(builtin_scheduler_mod));
 }
 
 #ifdef NDEBUG
@@ -39,7 +39,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
     if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
-        destroy_ir_arena(get_module_arena(old_mod));
+        shd_destroy_ir_arena(get_module_arena(old_mod));
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
         *pmod = cleanup(config, *pmod);
@@ -47,7 +47,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
     if (get_module_arena(old_mod) != get_module_arena(*pmod) && get_module_arena(old_mod) != initial_arena)
-        destroy_ir_arena(get_module_arena(old_mod));
+        shd_destroy_ir_arena(get_module_arena(old_mod));
     if (config->hooks.after_pass.fn)
         config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
 }

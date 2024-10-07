@@ -160,10 +160,10 @@ int main(int argc, char** argv) {
 
     TargetConfig target_config = shd_default_target_config();
     ArenaConfig aconfig = shd_default_arena_config(&target_config);
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     test_body_builder_constants(a);
     test_body_builder_fun_body(a);
     test_body_builder_impure_block(a);
     test_body_builder_impure_block_with_control_flow(a);
-    destroy_ir_arena(a);
+    shd_destroy_ir_arena(a);
 }

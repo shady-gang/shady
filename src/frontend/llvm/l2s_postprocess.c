@@ -115,7 +115,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
                 Node* c = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
                     .name = "Inline"
-                })), pt, format_string_interned(a, "%s_proxy", get_declaration_name(decl)));
+                })), pt, shd_fmt_string_irarena(a, "%s_proxy", get_declaration_name(decl)));
                 c->payload.constant.value = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(
                     ref_decl_helper(a, decl)));
                 result = c;

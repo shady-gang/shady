@@ -482,9 +482,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
 }
 
 Module* reconvergence_heuristics(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = *get_arena_config(get_module_arena(src));
+    ArenaConfig aconfig = *shd_get_arena_config(get_module_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
-    IrArena* a = new_ir_arena(&aconfig);
+    IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = new_module(a, get_module_name(src));
 
     Context ctx = {
