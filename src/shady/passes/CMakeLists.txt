@@ -28,7 +28,7 @@ target_sources(shady PRIVATE
     lower_generic_globals.c
     mark_leaf_functions.c
     opt_inline.c
-    opt_restructure.c
+        restructure.c
     opt_demote_alloca.c
     opt_mem2reg.c
     specialize_entry_point.c

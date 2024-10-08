@@ -311,18 +311,18 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
     return new;
 }
 
-RewritePass spirv_map_entrypoint_args;
-RewritePass spirv_lift_globals_ssbo;
+RewritePass shd_spvbe_pass_map_entrypoint_args;
+RewritePass shd_spvbe_pass_lift_globals_ssbo;
 
 static Module* run_backend_specific_passes(const CompilerConfig* config, Module* initial_mod) {
     IrArena* initial_arena = initial_mod->arena;
     Module** pmod = &initial_mod;
 
-    RUN_PASS(lower_entrypoint_args)
-    RUN_PASS(spirv_map_entrypoint_args)
-    RUN_PASS(spirv_lift_globals_ssbo)
-    RUN_PASS(eliminate_constants)
-    RUN_PASS(import)
+    RUN_PASS(shd_pass_lower_entrypoint_args)
+    RUN_PASS(shd_spvbe_pass_map_entrypoint_args)
+    RUN_PASS(shd_spvbe_pass_lift_globals_ssbo)
+    RUN_PASS(shd_pass_eliminate_constants)
+    RUN_PASS(shd_import)
 
     return *pmod;
 }

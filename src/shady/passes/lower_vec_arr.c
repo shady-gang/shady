@@ -53,7 +53,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* lower_vec_arr(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_vec_arr(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.validate_builtin_types = false; // TODO: hacky
     IrArena* a = shd_new_ir_arena(&aconfig);

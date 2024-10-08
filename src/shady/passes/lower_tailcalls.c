@@ -278,7 +278,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-void generate_top_level_dispatch_fn(Context* ctx) {
+static void generate_top_level_dispatch_fn(Context* ctx) {
     assert(ctx->config->dynamic_scheduling);
     assert(*ctx->top_dispatcher_fn);
     assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
@@ -437,7 +437,7 @@ void generate_top_level_dispatch_fn(Context* ctx) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

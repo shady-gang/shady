@@ -119,9 +119,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-OptPass opt_mem2reg;
-
-bool opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+bool shd_opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
     IrArena* a = shd_module_get_arena(src);
 

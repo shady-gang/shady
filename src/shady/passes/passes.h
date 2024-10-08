@@ -6,8 +6,8 @@
 /// @name Boring, regular compiler stuff
 /// @{
 
-RewritePass import;
-RewritePass cleanup;
+RewritePass shd_import;
+RewritePass shd_cleanup;
 
 /// @}
 
@@ -15,15 +15,15 @@ RewritePass cleanup;
 /// @{
 
 /// Gets rid of structured control flow constructs, and turns them into branches, joins and tailcalls
-RewritePass lower_cf_instrs;
+RewritePass shd_pass_lower_cf_instrs;
 /// Uses shady.scope annotations to insert control blocks
-RewritePass scope2control;
-RewritePass lift_everything;
-RewritePass remove_critical_edges;
-RewritePass lcssa;
-RewritePass scope_heuristic;
+RewritePass shd_pass_scope2control;
+RewritePass shd_pass_lift_everything;
+RewritePass shd_pass_remove_critical_edges;
+RewritePass shd_pass_lcssa;
+RewritePass shd_pass_scope_heuristic;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
-RewritePass reconvergence_heuristics;
+RewritePass shd_pass_reconvergence_heuristics;
 
 /// @}
 
@@ -31,8 +31,8 @@ RewritePass reconvergence_heuristics;
 /// @{
 
 /// Extracts unstructured basic blocks into separate functions (including spilling)
-RewritePass lift_indirect_targets;
-RewritePass normalize_builtins;
+RewritePass shd_pass_lift_indirect_targets;
+RewritePass shd_pass_normalize_builtins;
 
 /// @}
 
@@ -40,9 +40,9 @@ RewritePass normalize_builtins;
 /// @{
 
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
-RewritePass lower_callf;
+RewritePass shd_pass_lower_callf;
 /// Emulates tailcalls, forks and joins using a god function
-RewritePass lower_tailcalls;
+RewritePass shd_pass_lower_tailcalls;
 
 /// @}
 
@@ -50,24 +50,24 @@ RewritePass lower_tailcalls;
 /// @{
 
 /// Implements stack frames: saves the stack size on function entry and restores it upon exit
-RewritePass setup_stack_frames;
+RewritePass shd_pass_setup_stack_frames;
 /// Implements stack frames: collects allocas into a struct placed on the stack upon function entry
-RewritePass lower_alloca;
+RewritePass shd_pass_lower_alloca;
 /// Turns stack pushes and pops into accesses into pointer load and stores
-RewritePass lower_stack;
+RewritePass shd_pass_lower_stack;
 /// Eliminates lea_op on all physical address spaces
-RewritePass lower_lea;
+RewritePass shd_pass_lower_lea;
 /// Emulates generic pointers by replacing them with tagged integers and special load/store routines that look at those tags
-RewritePass lower_generic_ptrs;
+RewritePass shd_pass_lower_generic_ptrs;
 /// Emulates physical pointers to certain address spaces by using integer indices into global arrays
-RewritePass lower_physical_ptrs;
+RewritePass shd_pass_lower_physical_ptrs;
 /// Replaces size_of, offset_of etc with their exact values
-RewritePass lower_memory_layout;
-RewritePass lower_memcpy;
+RewritePass shd_pass_lower_memory_layout;
+RewritePass shd_pass_lower_memcpy;
 /// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran shd_first!
-RewritePass lower_decay_ptrs;
-RewritePass lower_generic_globals;
-RewritePass lower_logical_pointers;
+RewritePass shd_pass_lower_decay_ptrs;
+RewritePass shd_pass_lower_generic_globals;
+RewritePass shd_pass_lower_logical_pointers;
 
 /// @}
 
@@ -75,11 +75,11 @@ RewritePass lower_logical_pointers;
 /// @{
 
 /// Emulates unsupported subgroup operations using subgroup memory
-RewritePass lower_subgroup_ops;
+RewritePass shd_pass_lower_subgroup_ops;
 /// Lowers subgroup logical variables into something that actually exists (likely a carved out portion of shared memory)
-RewritePass lower_subgroup_vars;
+RewritePass shd_pass_lower_subgroup_vars;
 /// Lowers the abstract mask type to whatever the configured target mask representation is
-RewritePass lower_mask;
+RewritePass shd_pass_lower_mask;
 
 /// @}
 
@@ -87,11 +87,11 @@ RewritePass lower_mask;
 /// @{
 
 /// Emulates unsupported integer datatypes and operations
-RewritePass lower_int;
-RewritePass lower_vec_arr;
-RewritePass lower_workgroups;
-RewritePass lower_fill;
-RewritePass lower_nullptr;
+RewritePass shd_pass_lower_int;
+RewritePass shd_pass_lower_vec_arr;
+RewritePass shd_pass_lower_workgroups;
+RewritePass shd_pass_lower_fill;
+RewritePass shd_pass_lower_nullptr;
 
 /// @}
 
@@ -99,23 +99,22 @@ RewritePass lower_nullptr;
 /// @{
 
 /// Eliminates all Constant decls
-RewritePass eliminate_constants;
+RewritePass shd_pass_eliminate_constants;
 /// Ditto but for @Inline ones only
-RewritePass eliminate_inlineable_constants;
+RewritePass shd_pass_eliminate_inlineable_constants;
 /// Tags all functions that don't need special handling
-RewritePass mark_leaf_functions;
+RewritePass shd_pass_mark_leaf_functions;
 /// In addition, also inlines function calls according to heuristics
-RewritePass opt_inline;
-OptPass opt_mem2reg;
+RewritePass shd_pass_inline;
+OptPass shd_opt_mem2reg;
 
-RewritePass opt_stack;
-RewritePass opt_restructurize;
-RewritePass lower_switch_btree;
+RewritePass shd_pass_restructurize;
+RewritePass shd_pass_lower_switch_btree;
 
-RewritePass lower_entrypoint_args;
+RewritePass shd_pass_lower_entrypoint_args;
 
-RewritePass specialize_entry_point;
-RewritePass specialize_execution_model;
+RewritePass shd_pass_specialize_entry_point;
+RewritePass shd_pass_specialize_execution_model;
 
 /// @}
 

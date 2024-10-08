@@ -378,12 +378,12 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitte
     Module** pmod = &initial_mod;
 
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
-    RUN_PASS(eliminate_constants)
+    RUN_PASS(shd_pass_eliminate_constants)
     if (econfig->dialect == CDialect_ISPC) {
-        RUN_PASS(lower_workgroups)
+        RUN_PASS(shd_pass_lower_workgroups)
     }
     if (econfig->dialect != CDialect_GLSL) {
-        RUN_PASS(lower_vec_arr)
+        RUN_PASS(shd_pass_lower_vec_arr)
     }
     return *pmod;
 }

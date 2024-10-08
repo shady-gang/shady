@@ -104,7 +104,7 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
     }
 }
 
-Module* specialize_entry_point(const CompilerConfig* config, Module* src) {
+Module* shd_pass_specialize_entry_point(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(config, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);

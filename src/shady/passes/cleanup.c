@@ -42,7 +42,7 @@ static bool is_used_as_value(const UsesMap* map, const Node* instr) {
     return false;
 }
 
-const Node* process(Context* ctx, const Node* old) {
+static const Node* process(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
@@ -117,9 +117,9 @@ const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-OptPass simplify;
+OptPass shd_opt_simplify;
 
-bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+bool shd_opt_simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     Module* src = *m;
 
     IrArena* a = shd_module_get_arena(src);
@@ -132,11 +132,11 @@ bool simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
     return todo;
 }
 
-OptPass opt_demote_alloca;
-OptPass opt_mem2reg;
-RewritePass import;
+OptPass shd_opt_demote_alloca;
+OptPass shd_opt_mem2reg;
+RewritePass shd_import;
 
-Module* cleanup(const CompilerConfig* config, Module* const src) {
+Module* shd_cleanup(const CompilerConfig* config, Module* const src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     if (!aconfig.check_types)
         return src;
@@ -148,9 +148,9 @@ Module* cleanup(const CompilerConfig* config, Module* const src) {
         todo = false;
         shd_debugv_print("Cleanup round %d\n", r);
 
-        APPLY_OPT(opt_demote_alloca);
-        APPLY_OPT(opt_mem2reg);
-        APPLY_OPT(simplify);
+        APPLY_OPT(shd_opt_demote_alloca);
+        APPLY_OPT(shd_opt_mem2reg);
+        APPLY_OPT(shd_opt_simplify);
 
         changed_at_all |= todo;
 
@@ -158,5 +158,5 @@ Module* cleanup(const CompilerConfig* config, Module* const src) {
     } while (todo);
     if (changed_at_all)
         shd_debugv_print("After %d rounds of cleanup:\n", r);
-    return import(config, m);
+    return shd_import(config, m);
 }

@@ -42,7 +42,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
-        *pmod = cleanup(config, *pmod);
+        *pmod = shd_cleanup(config, *pmod);
     shd_log_module(DEBUGVV, config, *pmod);
     if (SHADY_RUN_VERIFY)
         verify_module(config, *pmod);
@@ -66,77 +66,77 @@ CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod)
     IrArena* initial_arena = (*pmod)->arena;
 
     // we don't want to mess with the original module
-    *pmod = import(config, *pmod);
+    *pmod = shd_import(config, *pmod);
     shd_log_fmt(DEBUG, "After import:\n");
     shd_log_module(DEBUG, config, *pmod);
 
     if (config->input_cf.has_scope_annotations) {
-        // RUN_PASS(scope_heuristic)
-        RUN_PASS(lift_everything)
-        RUN_PASS(scope2control)
+        // RUN_PASS(shd_pass_scope_heuristic)
+        RUN_PASS(shd_pass_lift_everything)
+        RUN_PASS(shd_pass_scope2control)
     } else if (config->input_cf.restructure_with_heuristics) {
-        RUN_PASS(remove_critical_edges)
-        // RUN_PASS(lcssa)
-        RUN_PASS(lift_everything)
-        RUN_PASS(reconvergence_heuristics)
+        RUN_PASS(shd_pass_remove_critical_edges)
+        // RUN_PASS(shd_pass_lcssa)
+        RUN_PASS(shd_pass_lift_everything)
+        RUN_PASS(shd_pass_reconvergence_heuristics)
     }
 
     if (config->dynamic_scheduling) {
         add_scheduler_source(config, *pmod);
     }
 
-    RUN_PASS(eliminate_inlineable_constants)
+    RUN_PASS(shd_pass_eliminate_inlineable_constants)
 
-    RUN_PASS(setup_stack_frames)
+    RUN_PASS(shd_pass_setup_stack_frames)
     if (!config->hacks.force_join_point_lifting)
-        RUN_PASS(mark_leaf_functions)
+        RUN_PASS(shd_pass_mark_leaf_functions)
 
-    RUN_PASS(lower_callf)
-    RUN_PASS(opt_inline)
+    RUN_PASS(shd_pass_lower_callf)
+    RUN_PASS(shd_pass_inline)
 
-    RUN_PASS(lift_indirect_targets)
+    RUN_PASS(shd_pass_lift_indirect_targets)
 
-    RUN_PASS(specialize_execution_model)
+    RUN_PASS(shd_pass_specialize_execution_model)
 
-    //RUN_PASS(opt_stack)
+    //RUN_PASS(shd_pass_opt_stack)
 
-    RUN_PASS(lower_tailcalls)
-    //RUN_PASS(lower_switch_btree)
-    //RUN_PASS(opt_mem2reg)
+    RUN_PASS(shd_pass_lower_tailcalls)
+    //RUN_PASS(shd_pass_lower_switch_btree)
+    //RUN_PASS(shd_pass_opt_mem2reg)
 
     if (config->specialization.entry_point)
-        RUN_PASS(specialize_entry_point)
+        RUN_PASS(shd_pass_specialize_entry_point)
 
-    RUN_PASS(lower_logical_pointers)
+    RUN_PASS(shd_pass_lower_logical_pointers)
 
-    RUN_PASS(lower_mask)
-    RUN_PASS(lower_subgroup_ops)
+    RUN_PASS(shd_pass_lower_mask)
+    RUN_PASS(shd_pass_lower_subgroup_ops)
     if (config->lower.emulate_physical_memory) {
-        RUN_PASS(lower_alloca)
+        RUN_PASS(shd_pass_lower_alloca)
     }
-    RUN_PASS(lower_stack)
-    RUN_PASS(lower_memcpy)
-    RUN_PASS(lower_lea)
-    RUN_PASS(lower_generic_globals)
+    RUN_PASS(shd_pass_lower_stack)
+    RUN_PASS(shd_pass_lower_memcpy)
+    RUN_PASS(shd_pass_lower_lea)
+    RUN_PASS(shd_pass_lower_generic_globals)
     if (config->lower.emulate_generic_ptrs) {
-        RUN_PASS(lower_generic_ptrs)
+        RUN_PASS(shd_pass_lower_generic_ptrs)
     }
     if (config->lower.emulate_physical_memory) {
-        RUN_PASS(lower_physical_ptrs)
+        RUN_PASS(shd_pass_lower_physical_ptrs)
     }
-    RUN_PASS(lower_subgroup_vars)
-    RUN_PASS(lower_memory_layout)
+    RUN_PASS(shd_pass_lower_subgroup_vars)
+    RUN_PASS(shd_pass_lower_memory_layout)
 
     if (config->lower.decay_ptrs)
-        RUN_PASS(lower_decay_ptrs)
+        RUN_PASS(shd_pass_lower_decay_ptrs)
 
-    RUN_PASS(lower_int)
+    RUN_PASS(shd_pass_lower_int)
 
-    RUN_PASS(lower_fill)
-    RUN_PASS(lower_nullptr)
-    RUN_PASS(normalize_builtins)
+    RUN_PASS(shd_pass_lower_fill)
+    RUN_PASS(shd_pass_lower_nullptr)
+    RUN_PASS(shd_pass_normalize_builtins)
 
-    RUN_PASS(opt_restructurize)
+    RUN_PASS(shd_pass_restructurize)
 
     return CompilationNoError;
 }

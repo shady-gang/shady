@@ -226,7 +226,7 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
+static void simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
@@ -243,10 +243,10 @@ void opt_simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     shd_destroy_rewriter(&ctx.rewriter);
 }
 
-Module* opt_inline(const CompilerConfig* config, Module* src) {
+Module* shd_pass_inline(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
-    opt_simplify_cf(config, src, dst);
+    simplify_cf(config, src, dst);
     return dst;
 }

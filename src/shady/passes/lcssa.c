@@ -48,7 +48,7 @@ static String loop_name(const LTNode* n) {
     return "";
 }
 
-void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, Nodes* lparams, Nodes* nargs) {
+static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, Nodes* lparams, Nodes* nargs) {
     IrArena* a = ctx->rewriter.dst_arena;
     assert(old->tag == BasicBlock_TAG);
 
@@ -82,7 +82,7 @@ void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, No
         shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
 }
 
-const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
+static const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
     IrArena* a = ctx->rewriter.dst_arena;
     Context ctx2 = *ctx;
     ctx = &ctx2;
@@ -133,7 +133,7 @@ const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* 
     return new;
 }
 
-const Node* process_node(Context* ctx, const Node* old) {
+static const Node* process_node(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
@@ -188,7 +188,7 @@ const Node* process_node(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* lcssa(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lcssa(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

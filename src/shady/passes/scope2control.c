@@ -300,7 +300,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* scope2control(const CompilerConfig* config, Module* src) {
+Module* shd_pass_scope2control(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);

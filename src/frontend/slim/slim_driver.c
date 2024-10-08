@@ -37,9 +37,9 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     RUN_PASS(slim_pass_bind)
     RUN_PASS(slim_pass_normalize)
 
-    RUN_PASS(normalize_builtins)
+    RUN_PASS(shd_pass_normalize_builtins)
     RUN_PASS(slim_pass_infer)
-    RUN_PASS(lower_cf_instrs)
+    RUN_PASS(shd_pass_lower_cf_instrs)
 
     shd_destroy_ir_arena(initial_arena);
     return *pmod;

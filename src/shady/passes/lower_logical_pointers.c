@@ -137,7 +137,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* lower_logical_pointers(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.address_spaces[AsInput].physical = false;
     aconfig.address_spaces[AsOutput].physical = false;
