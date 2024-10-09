@@ -89,7 +89,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
         case Constant_TAG: {
             if (n->payload.constant.value) {
                 const Type* t = n->payload.constant.value->type;
-                bool u = deconstruct_qualified_type(&t);
+                bool u = shd_deconstruct_qualified_type(&t);
                 assert(u);
                 assert(shd_is_subtype(n->payload.constant.type_hint, t));
             }
@@ -98,7 +98,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
         case GlobalVariable_TAG: {
             if (n->payload.global_variable.init) {
                 const Type* t = n->payload.global_variable.init->type;
-                bool u = deconstruct_qualified_type(&t);
+                bool u = shd_deconstruct_qualified_type(&t);
                 assert(u);
                 assert(shd_is_subtype(n->payload.global_variable.type, t));
             }

@@ -50,7 +50,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
         const Node* ovar = spilled_vars.nodes[i];
         const Node* nvar = shd_rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
-        deconstruct_qualified_type(&t);
+        shd_deconstruct_qualified_type(&t);
         assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
         gen_push_value_stack(builder, nvar);
     }
@@ -138,11 +138,11 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         const Type* value_type = shd_rewrite_node(r, ovar->type);
 
         //String param_name = get_value_name_unsafe(ovar);
-        const Node* recovered_value = gen_pop_value_stack(bb, get_unqualified_type(value_type));
+        const Node* recovered_value = gen_pop_value_stack(bb, shd_get_unqualified_type(value_type));
         //if (param_name)
         //    set_value_name(recovered_value, param_name);
 
-        if (is_qualified_type_uniform(ovar->type))
+        if (shd_is_qualified_type_uniform(ovar->type))
             recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = shd_singleton(recovered_value) });
 
         shd_register_processed(r, ovar, recovered_value);

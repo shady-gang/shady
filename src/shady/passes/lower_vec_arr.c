@@ -12,7 +12,7 @@ typedef struct {
 static const Node* scalarify_primop(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* dst_type = old->type;
-    deconstruct_qualified_type(&dst_type);
+    shd_deconstruct_qualified_type(&dst_type);
     size_t width = deconstruct_maybe_packed_type(&dst_type);
     if (width == 1)
         return shd_recreate_node(&ctx->rewriter, old);

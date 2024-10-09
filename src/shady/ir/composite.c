@@ -21,8 +21,8 @@ const Node* tuple_helper(IrArena* a, Nodes contents) {
     const Type* t = NULL;
     if (a->config.check_types) {
         // infer the type of the tuple
-        Nodes member_types = get_values_types(a, contents);
-        t = record_type(a, (RecordType) {.members = strip_qualifiers(a, member_types)});
+        Nodes member_types = shd_get_values_types(a, contents);
+        t = record_type(a, (RecordType) {.members = shd_strip_qualifiers(a, member_types)});
     }
 
     return composite_helper(a, t, contents);
@@ -33,7 +33,7 @@ void enter_composite(const Type** datatype, bool* uniform, const Node* selector,
 
     if (selector->arena->config.check_types) {
         const Type* selector_type = selector->type;
-        bool selector_uniform = deconstruct_qualified_type(&selector_type);
+        bool selector_uniform = shd_deconstruct_qualified_type(&selector_type);
         assert(selector_type->tag == Int_TAG && "selectors must be integers");
         *uniform &= selector_uniform;
     }

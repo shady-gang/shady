@@ -15,21 +15,35 @@ Type* nominal_type(Module*, Nodes annotations, String name);
 
 const Type* shd_get_actual_mask_type(IrArena* arena);
 
-String get_address_space_name(AddressSpace);
+bool shd_is_subtype(const Type* supertype, const Type* type);
+void shd_check_subtype(const Type* supertype, const Type* type);
+
+/// Is this a type that a value in the language can have ?
+bool shd_is_value_type(const Type*);
+
+/// Is this a valid data type (for usage in other types and as type arguments) ?
+bool shd_is_data_type(const Type*);
+
+bool shd_is_arithm_type(const Type*);
+bool shd_is_shiftable_type(const Type*);
+bool shd_has_boolean_ops(const Type*);
+bool shd_is_comparable_type(const Type*);
+bool shd_is_ordered_type(const Type*);
+bool shd_is_physical_ptr_type(const Type* t);
+bool shd_is_generic_ptr_type(const Type* t);
+
+bool shd_is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type);
+bool shd_is_conversion_legal(const Type* src_type, const Type* dst_type);
+
+/// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
+const Type* shd_get_pointee_type(IrArena*, const Type*);
+
+String shd_get_address_space_name(AddressSpace);
 /// Returns false iff pointers in that address space can contain different data at the same address
 /// (amongst threads in the same subgroup)
 bool shd_is_addr_space_uniform(IrArena*, AddressSpace);
 
 String shd_get_type_name(IrArena* arena, const Type* t);
-
-/// Is this a type that a value in the language can have ?
-bool is_value_type(const Type*);
-
-/// Is this a valid data type (for usage in other types and as type arguments) ?
-bool is_data_type(const Type*);
-
-/// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
-const Type* get_pointee_type(IrArena*, const Type*);
 
 const Type* maybe_multiple_return(IrArena* arena, Nodes types);
 Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
@@ -37,20 +51,20 @@ Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 /// Collects the annotated types in the list of variables
 /// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
 /// This means this function works in untyped modules where node.type is NULL.
-Nodes get_param_types(IrArena* arena, Nodes variables);
+Nodes shd_get_param_types(IrArena* arena, Nodes variables);
 
-Nodes get_values_types(IrArena*, Nodes);
+Nodes shd_get_values_types(IrArena*, Nodes);
 
 // Qualified type helpers
 /// Ensures an operand has divergence-annotated type and extracts it
-const Type* get_unqualified_type(const Type*);
-bool is_qualified_type_uniform(const Type*);
-bool deconstruct_qualified_type(const Type**);
+const Type* shd_get_unqualified_type(const Type*);
+bool shd_is_qualified_type_uniform(const Type*);
+bool shd_deconstruct_qualified_type(const Type**);
 
 const Type* shd_as_qualified_type(const Type* type, bool uniform);
 
-Nodes strip_qualifiers(IrArena*, Nodes);
-Nodes add_qualifiers(IrArena*, Nodes, bool);
+Nodes shd_strip_qualifiers(IrArena*, Nodes);
+Nodes shd_add_qualifiers(IrArena*, Nodes, bool);
 
 // Pack (vector) type helpers
 const Type* get_packed_type_element(const Type*);

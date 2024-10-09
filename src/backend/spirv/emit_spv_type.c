@@ -32,7 +32,7 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
         case AsUniformConstant:              return SpvStorageClassUniformConstant;
 
         default: {
-            shd_error_print("Cannot emit address space %s.\n", get_address_space_name(address_space));
+            shd_error_print("Cannot emit address space %s.\n", shd_get_address_space_name(address_space));
             shd_error_die();
             SHADY_UNREACHABLE;
         }
@@ -215,7 +215,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
     }
 
-    if (is_data_type(type)) {
+    if (shd_is_data_type(type)) {
         if (type->tag == PtrType_TAG && type->payload.ptr_type.address_space == AsGlobal) {
             //TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
             //spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});

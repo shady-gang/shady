@@ -1171,7 +1171,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
         AddressSpace nas = accept_address_space(ctx);
         if (nas != NumAddressSpaces) {
             if (as != NumAddressSpaces && as != nas) {
-                syntax_error_fmt("Conflicting address spaces for definition: %s and %s", get_address_space_name(as), get_address_space_name(nas));
+                syntax_error_fmt("Conflicting address spaces for definition: %s and %s", shd_get_address_space_name(as), shd_get_address_space_name(nas));
             }
             as = nas;
             continue;

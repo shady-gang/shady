@@ -246,7 +246,7 @@ CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CT
 
 static const Type* get_first_op_scalar_type(Nodes ops) {
     const Type* t = shd_first(ops)->type;
-    deconstruct_qualified_type(&t);
+    shd_deconstruct_qualified_type(&t);
     deconstruct_maybe_packed_type(&t);
     return t;
 }
@@ -495,7 +495,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             const Node* offset = prim_op->operands.nodes[1];
             CValue c_offset = to_cvalue(emitter, c_emit_value(emitter, fn, offset));
             if (emitter->config.dialect == CDialect_GLSL) {
-                if (get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
+                if (shd_get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
                     c_offset = shd_format_string_arena(arena->arena, "int(%s)", c_offset);
             }
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s %s %s)", src, prim_op->op == lshift_op ? "<<" : ">>", c_offset));
@@ -527,7 +527,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         }
         case convert_op: {
             CTerm src = c_emit_value(emitter, fn, shd_first(prim_op->operands));
-            const Type* src_type = get_unqualified_type(shd_first(prim_op->operands)->type);
+            const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
             const Type* dst_type = shd_first(prim_op->type_arguments);
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
@@ -543,7 +543,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         }
         case reinterpret_op: {
             CTerm src_value = c_emit_value(emitter, fn, shd_first(prim_op->operands));
-            const Type* src_type = get_unqualified_type(shd_first(prim_op->operands)->type);
+            const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
             const Type* dst_type = shd_first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
                 case CDialect_CUDA:
@@ -625,7 +625,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 term = term_from_cvalue(dst);
             }
 
-            const Type* t = get_unqualified_type(shd_first(prim_op->operands)->type);
+            const Type* t = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
             for (size_t i = (insert ? 2 : 1); i < prim_op->operands.count; i++) {
                 const Node* index = prim_op->operands.nodes[i];
                 const IntLiteral* static_index = shd_resolve_to_int_literal(index);
@@ -678,8 +678,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             String rhs_e = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             const Type* lhs_t = lhs->type;
             const Type* rhs_t = rhs->type;
-            bool lhs_u = deconstruct_qualified_type(&lhs_t);
-            bool rhs_u = deconstruct_qualified_type(&rhs_t);
+            bool lhs_u = shd_deconstruct_qualified_type(&lhs_t);
+            bool rhs_u = shd_deconstruct_qualified_type(&rhs_t);
             size_t left_size = lhs_t->payload.pack_type.width;
             // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             String suffixes = "xyzw";
@@ -793,13 +793,13 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
     CTerm acc = c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
-    bool uniform = is_qualified_type_uniform(src_qtype);
-    const Type* curr_ptr_type = get_unqualified_type(src_qtype);
+    bool uniform = shd_is_qualified_type_uniform(src_qtype);
+    const Type* curr_ptr_type = shd_get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
 
-    const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
+    const Type* pointee_type = shd_get_pointee_type(arena, curr_ptr_type);
     const Node* selector = lea.index;
-    uniform &= is_qualified_type_uniform(selector->type);
+    uniform &= shd_is_qualified_type_uniform(selector->type);
     switch (is_type(pointee_type)) {
         case ArrType_TAG: {
             CTerm index = c_emit_value(emitter, fn, selector);
@@ -859,8 +859,8 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
     CTerm acc = c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
-    bool uniform = is_qualified_type_uniform(src_qtype);
-    const Type* curr_ptr_type = get_unqualified_type(src_qtype);
+    bool uniform = shd_is_qualified_type_uniform(src_qtype);
+    const Type* curr_ptr_type = shd_get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
 
     const IntLiteral* offset_static_value = shd_resolve_to_int_literal(lea.offset);
@@ -869,9 +869,9 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
         // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
         // this means such code is never going to be legal in GLSL
         // also the cast is to account for our arrays-in-structs hack
-        const Type* pointee_type = get_pointee_type(arena, curr_ptr_type);
+        const Type* pointee_type = shd_get_pointee_type(arena, curr_ptr_type);
         acc = term_from_cvalue(shd_format_string_arena(arena->arena, "((%s) &(%s)[%s])", c_emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
-        uniform &= is_qualified_type_uniform(lea.offset->type);
+        uniform &= shd_is_qualified_type_uniform(lea.offset->type);
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
@@ -893,7 +893,7 @@ static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
     c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
     if (emitter->config.dialect == CDialect_ISPC) {
-        variable = ispc_varying_ptr_helper(emitter, p, get_unqualified_type(instr->type), variable);
+        variable = ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
     }
    return variable;
 }
@@ -927,8 +927,8 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Store payload = instruction->payload.store;
             c_emit_mem(emitter, fn, payload.mem);
             const Type* addr_type = payload.ptr->type;
-            bool addr_uniform = deconstruct_qualified_type(&addr_type);
-            bool value_uniform = is_qualified_type_uniform(payload.value->type);
+            bool addr_uniform = shd_deconstruct_qualified_type(&addr_type);
+            bool value_uniform = shd_is_qualified_type_uniform(payload.value->type);
             assert(addr_type->tag == PtrType_TAG);
             CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, fn, payload.ptr));
             CValue cvalue = to_cvalue(emitter, c_emit_value(emitter, fn, payload.value));

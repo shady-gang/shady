@@ -252,7 +252,7 @@ const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
 
-    Nodes qyield_types = add_qualifiers(a, yield_types, false);
+    Nodes qyield_types = shd_add_qualifiers(a, yield_types, false);
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
         tail_params[i] = param(a, qyield_types.nodes[i], NULL);

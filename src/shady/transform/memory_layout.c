@@ -66,7 +66,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsShared:
             case AsGlobal:
             case AsGeneric: return shd_get_mem_layout(a, int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
-            default: shd_error("Pointers in address space '%s' does not have a defined memory layout", get_address_space_name(type->payload.ptr_type.address_space));
+            default: shd_error("Pointers in address space '%s' does not have a defined memory layout", shd_get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
@@ -129,4 +129,19 @@ IntSizes shd_float_to_int_width(FloatSizes width) {
         case FloatTy32: return IntTy32;
         case FloatTy64: return IntTy64;
     }
+}
+
+size_t shd_get_type_bitwidth(const Type* t) {
+    const ArenaConfig* aconfig = shd_get_arena_config(t->arena);
+    switch (t->tag) {
+        case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
+        case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
+        case PtrType_TAG: {
+            if (aconfig->address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->memory.ptr_size) * 8;
+            break;
+        }
+        default: break;
+    }
+    return SIZE_MAX;
 }

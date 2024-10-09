@@ -104,7 +104,7 @@ static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node*
 static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    const Node* t = get_unqualified_type(src->type);
+    const Node* t = shd_get_unqualified_type(src->type);
     if (is_supported_natively(ctx, t))
         return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
 

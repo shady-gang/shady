@@ -44,7 +44,7 @@ typedef struct {
 
 static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, AllocaInfo* k, const UsesMap* map) {
     const Type* ptr_type = ptr_value->type;
-    bool ptr_u = deconstruct_qualified_type(&ptr_type);
+    bool ptr_u = shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
 
     const Use* use = get_first_use(map, ptr_value);
@@ -151,7 +151,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     if (!k->leaks) {
         if (!k->read_from/* this should include killing dead stores! */) {
             *ctx->todo |= true;
-            const Node* new = undef(a, (Undef) { .type = get_unqualified_type(shd_rewrite_node(r, old->type)) });
+            const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
@@ -193,8 +193,8 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
-                if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                const Type* access_type = get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
+                if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
@@ -211,8 +211,8 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
-                if (is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                const Type* access_type = get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
+                if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;

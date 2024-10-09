@@ -126,17 +126,17 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes nparams = shd_recreate_params(rewriter, get_abstraction_params(node));
             Node* loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
             BodyBuilder* outer_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(loop_container));
-            Nodes inner_yield_types = strip_qualifiers(arena, get_param_types(arena, nparams));
+            Nodes inner_yield_types = shd_strip_qualifiers(arena, shd_get_param_types(arena, nparams));
 
             LARRAY(Exit, exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
-                Nodes exit_param_types = shd_rewrite_nodes(rewriter, get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
+                Nodes exit_param_types = shd_rewrite_nodes(rewriter, shd_get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
 
                 ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
-                    exit_params[j].alloca = gen_stack_alloc(outer_bb, get_unqualified_type(exit_param_types.nodes[j]));
-                    exit_params[j].uniform = is_qualified_type_uniform(exit_param_types.nodes[j]);
+                    exit_params[j].alloca = gen_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
+                    exit_params[j].uniform = shd_is_qualified_type_uniform(exit_param_types.nodes[j]);
                 }
                 exits[i] = (Exit) {
                     .params = exit_params,
@@ -240,7 +240,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
-                if (is_qualified_type_uniform(nparams.nodes[j]->type))
+                if (shd_is_qualified_type_uniform(nparams.nodes[j]->type))
                     inner_control_results = shd_change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(inner_control_results.nodes[j])));
             }
             shd_set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
@@ -417,8 +417,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                     //This should always contain a qualified type?
                     //if (contains_qualified_type(types[j]))
-                    types[j] = get_unqualified_type(qualified_type);
-                    uniform_param[j] = is_qualified_type_uniform(qualified_type);
+                    types[j] = shd_get_unqualified_type(qualified_type);
+                    uniform_param[j] = shd_is_qualified_type_uniform(qualified_type);
                     inner_args[j] = param(a, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 

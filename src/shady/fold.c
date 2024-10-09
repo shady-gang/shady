@@ -181,7 +181,7 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
     const Node* original_ptr = ptr;
     IrArena* a = ptr->arena;
     const Type* t = ptr->type;
-    bool u = deconstruct_qualified_type(&t);
+    bool u = shd_deconstruct_qualified_type(&t);
     assert(t->tag == PtrType_TAG);
     const Type* desired_pointee_type = t->payload.ptr_type.pointed_type;
     // const Node* last_known_good = node;
@@ -207,7 +207,7 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
                         assert(!specialize_generic && "something should not be converted to generic twice!");
                         specialize_generic = true;
                         ptr = shd_first(instruction.operands);
-                        src_as = get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
+                        src_as = shd_get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
                         continue;
                     }
                     default: break;
@@ -231,7 +231,7 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
     // if there was more than one of those pointless casts...
     if (distance > 1 || specialize_generic) {
         const Type* new_src_ptr_type = ptr->type;
-        deconstruct_qualified_type(&new_src_ptr_type);
+        shd_deconstruct_qualified_type(&new_src_ptr_type);
         if (new_src_ptr_type->tag != PtrType_TAG || new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
             PtrType payload = t->payload.ptr_type;
             payload.address_space = src_as;
@@ -244,7 +244,7 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
 
 static inline const Node* simplify_ptr_operand(IrArena* a, const Node* old_op) {
     const Type* ptr_t = old_op->type;
-    deconstruct_qualified_type(&ptr_t);
+    shd_deconstruct_qualified_type(&ptr_t);
     if (ptr_t->payload.ptr_type.is_reference)
         return NULL;
     return resolve_ptr_source(old_op);
@@ -309,7 +309,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         return node;
 
     if (!shd_is_subtype(node->type, r->type))
-        r = prim_op_helper(arena, convert_op, shd_singleton(get_unqualified_type(node->type)), shd_singleton(r));
+        r = prim_op_helper(arena, convert_op, shd_singleton(shd_get_unqualified_type(node->type)), shd_singleton(r));
     return r;
 }
 
@@ -322,14 +322,14 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         // TODO: case subgroup_broadcast_first_op:
         case subgroup_assume_uniform_op: {
             const Node* value = shd_first(payload.operands);
-            if (is_qualified_type_uniform(value->type))
+            if (shd_is_qualified_type_uniform(value->type))
                 return quote_single(arena, value);
             break;
         }
         case convert_op:
         case reinterpret_op: {
             // get rid of identity casts
-            if (payload.type_arguments.nodes[0] == get_unqualified_type(payload.operands.nodes[0]->type))
+            if (payload.type_arguments.nodes[0] == shd_get_unqualified_type(payload.operands.nodes[0]->type))
                 return quote_single(arena, payload.operands.nodes[0]);
             break;
         }
@@ -342,7 +342,7 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case Load_TAG: {
             if (node->payload.load.ptr->tag == Undef_TAG)
-                return mem_and_value(arena, (MemAndValue) { .value = undef(arena, (Undef) { .type = get_unqualified_type(node->type) }), .mem = node->payload.load.mem });
+                return mem_and_value(arena, (MemAndValue) { .value = undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }), .mem = node->payload.load.mem });
             break;
         }
         case Store_TAG: {
@@ -353,13 +353,13 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
         case PtrArrayElementOffset_TAG: {
             PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
             if (payload.ptr->tag == Undef_TAG)
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
             break;
         }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement payload = node->payload.ptr_composite_element;
             if (payload.ptr->tag == Undef_TAG)
-                return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
             break;
         }
         case PrimOp_TAG: {
@@ -368,7 +368,7 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
                 case reinterpret_op:
                 case convert_op: {
                     if (shd_first(payload.operands)->tag == Undef_TAG)
-                        return quote_single(arena, undef(arena, (Undef) { .type = get_unqualified_type(node->type) }));
+                        return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
                     break;
                 }
                 default: break;

@@ -249,7 +249,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             LARRAY(const Node*, phis, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
                 const Type* type = yield_types.nodes[i];
-                assert(is_data_type(type));
+                assert(shd_is_data_type(type));
                 phis[i] = gen_local_alloc(bb_prelude, type);
             }
 

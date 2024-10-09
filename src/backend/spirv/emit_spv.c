@@ -94,7 +94,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         const Type* param_type = param->payload.param.type;
         SpvId param_id = spvb_parameter(fn_builder.base, spv_emit_type(emitter, param_type));
         spv_register_emitted(emitter, false, param, param_id);
-        deconstruct_qualified_type(&param_type);
+        shd_deconstruct_qualified_type(&param_type);
         if (param_type->tag == PtrType_TAG && param_type->payload.ptr_type.address_space == AsGlobal) {
             spvb_decorate(emitter->file_builder, param_id, SpvDecorationAliased, 0, NULL);
         }

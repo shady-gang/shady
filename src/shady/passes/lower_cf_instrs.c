@@ -84,8 +84,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* old_loop_block = payload.body;
 
             Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
-            Nodes param_types = shd_rewrite_nodes(&ctx->rewriter, get_param_types(a, get_abstraction_params(old_loop_block)));
-            param_types = strip_qualifiers(a, param_types);
+            Nodes param_types = shd_rewrite_nodes(&ctx->rewriter, shd_get_param_types(a, get_abstraction_params(old_loop_block)));
+            param_types = shd_strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),

@@ -32,7 +32,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
     for (int i = 0; i < params.count; ++i) {
         const Type* type = shd_rewrite_node(rewriter, params.nodes[i]->type);
 
-        if (!deconstruct_qualified_type(&type))
+        if (!shd_deconstruct_qualified_type(&type))
             shd_error("EntryPoint parameters must be uniform");
 
         types[i] = type;

@@ -12,7 +12,7 @@ typedef struct {
 } Context;
 
 static bool should_convert(Context* ctx, const Type* t) {
-    t = get_unqualified_type(t);
+    t = shd_get_unqualified_type(t);
     return t->tag == Int_TAG && t->payload.int_type.width == IntTy64 && ctx->config->lower.int64;
 }
 

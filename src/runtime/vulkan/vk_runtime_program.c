@@ -67,7 +67,7 @@ static void write_value(unsigned char* tgt, const Node* value) {
                 }
             } else if (struct_t->tag == ArrType_TAG) {
                 for (size_t i = 0; i < values.count; i++) {
-                    TypeMemLayout layout = shd_get_mem_layout(value->arena, get_unqualified_type(values.nodes[i]->type));
+                    TypeMemLayout layout = shd_get_mem_layout(value->arena, shd_get_unqualified_type(values.nodes[i]->type));
                     write_value(tgt, values.nodes[i]);
                     tgt += layout.size_in_bytes;
                 }
@@ -118,7 +118,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
             for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 assert(member_t->tag == PtrType_TAG);
-                member_t = get_pointee_type(member_t->arena, member_t);
+                member_t = shd_get_pointee_type(member_t->arena, member_t);
                 TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
 
                 ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));

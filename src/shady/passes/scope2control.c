@@ -118,13 +118,13 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         Node* c2 = case_(a, shd_empty(a));
         BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(c2));
         const Type* jp_type = add_control.token->type;
-        deconstruct_qualified_type(&jp_type);
+        shd_deconstruct_qualified_type(&jp_type);
         assert(jp_type->tag == JoinPointType_TAG);
         Nodes results = gen_control(bb, jp_type->payload.join_point_type.yield_types, control_case);
 
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
-            if (is_qualified_type_uniform(original_params.nodes[j]->type))
+            if (shd_is_qualified_type_uniform(original_params.nodes[j]->type))
                 results = shd_change_node_at_index(a, results, j, gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
         }
 
@@ -219,7 +219,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                 } else {
                     Nodes wrapper_params = remake_params(ctx, get_abstraction_params(dst));
                     Nodes join_args = wrapper_params;
-                    Nodes yield_types = shd_rewrite_nodes(r, strip_qualifiers(a, get_param_types(a, get_abstraction_params(dst))));
+                    Nodes yield_types = shd_rewrite_nodes(r, shd_strip_qualifiers(a, shd_get_param_types(a, get_abstraction_params(dst))));
 
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types

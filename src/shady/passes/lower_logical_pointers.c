@@ -17,7 +17,7 @@ typedef struct {
 static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node* ptr, const Type* expected_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     while (true) {
-        const Type* actual_type = get_unqualified_type(ptr->type);
+        const Type* actual_type = shd_get_unqualified_type(ptr->type);
         assert(actual_type->tag == PtrType_TAG);
         actual_type = get_pointer_type_element(actual_type);
         if (expected_type == actual_type)
@@ -69,11 +69,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case PtrCompositeElement_TAG: {
             PtrCompositeElement payload = old->payload.ptr_composite_element;
             const Type* optr_t = payload.ptr->type;
-            deconstruct_qualified_type(&optr_t);
+            shd_deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
-            const Type* actual_type = get_unqualified_type(ptr->type);
+            const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
@@ -85,7 +85,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case reinterpret_op: {
                     const Node* osrc = shd_first(payload.operands);
                     const Type* osrc_t = osrc->type;
-                    deconstruct_qualified_type(&osrc_t);
+                    shd_deconstruct_qualified_type(&osrc_t);
                     if (osrc_t->tag == PtrType_TAG && !shd_get_arena_config(a)->address_spaces[osrc_t->payload.ptr_type.address_space].physical)
                         return shd_rewrite_node(r, osrc);
                     break;
@@ -97,11 +97,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* optr_t = payload.ptr->type;
-            deconstruct_qualified_type(&optr_t);
+            shd_deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
-            const Type* actual_type = get_unqualified_type(ptr->type);
+            const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
@@ -110,11 +110,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* optr_t = payload.ptr->type;
-            deconstruct_qualified_type(&optr_t);
+            shd_deconstruct_qualified_type(&optr_t);
             assert(optr_t->tag == PtrType_TAG);
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
-            const Type* actual_type = get_unqualified_type(ptr->type);
+            const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));

@@ -130,7 +130,7 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
 const char* shd_get_string_literal(IrArena* arena, const Node* node) {
     if (!node)
         return NULL;
-    if (node->type && get_unqualified_type(node->type)->tag == PtrType_TAG) {
+    if (node->type && shd_get_unqualified_type(node->type)->tag == PtrType_TAG) {
         NodeResolveConfig nrc = shd_default_node_resolve_config();
         const Node* ptr = shd_chase_ptr_to_source(node, nrc);
         const Node* value = shd_resolve_ptr_to_value(ptr, nrc);

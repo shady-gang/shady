@@ -89,8 +89,8 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 shift = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
             }
             if (config->printf_trace.memory_accesses) {
-                AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
+                String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), acc);
@@ -192,8 +192,8 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 shift = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
             }
             if (config->printf_trace.memory_accesses) {
-                AddressSpace as = get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = shd_fmt_string_irarena(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", get_address_space_name(as), "%lx");
+                AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
+                String template = shd_fmt_string_irarena(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), value);
@@ -268,7 +268,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && shd_is_addr_space_uniform(a, as)), .type = element_type });
     Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
 
-    String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
+    String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", shd_get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
@@ -293,7 +293,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* ptr_type = payload.ptr->type;
-            bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
+            bool uniform_ptr = shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
@@ -307,7 +307,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* ptr_type = payload.ptr->type;
-            bool uniform_ptr = deconstruct_qualified_type(&ptr_type);
+            bool uniform_ptr = shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
@@ -386,7 +386,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
 
-    String as_name = get_address_space_name(as);
+    String as_name = shd_get_address_space_name(as);
     Node* global_struct_t = nominal_type(m, shd_singleton(annotation(a, (Annotation) { .name = "Generated" })), shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
 
     LARRAY(String, member_names, collected.count);
@@ -433,7 +433,7 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
             const Node* value = shd_rewrite_node(r, old_init);
-            const Node* fn = gen_serdes_fn(ctx, get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
+            const Node* fn = gen_serdes_fn(ctx, shd_get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
             gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
         }
     }
@@ -442,7 +442,7 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
 static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    String as_name = get_address_space_name(as);
+    String as_name = shd_get_address_space_name(as);
 
     const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
     const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });

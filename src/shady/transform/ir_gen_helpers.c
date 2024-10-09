@@ -103,8 +103,8 @@ const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
 }
 
 const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
-    const Type* src_type = get_unqualified_type(lo->type);
-    assert(get_unqualified_type(hi->type) == src_type);
+    const Type* src_type = shd_get_unqualified_type(lo->type);
+    assert(shd_get_unqualified_type(hi->type) == src_type);
     assert(src_type->tag == Int_TAG);
     IntSizes size = src_type->payload.int_type.width;
     assert(size != IntSizeMax);
@@ -238,7 +238,7 @@ const Node* access_decl(Rewriter* rewriter, const char* name) {
 }
 
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
+    const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 
@@ -251,7 +251,7 @@ const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* d
 }
 
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
+    const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 
@@ -264,7 +264,7 @@ const Node* convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* d
 }
 
 const Node* convert_int_zero_extend(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
+    const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 
@@ -278,7 +278,7 @@ const Node* convert_int_zero_extend(BodyBuilder* bb, const Type* dst_type, const
 }
 
 const Node* convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type,  const Node* src) {
-    const Type* src_type = get_unqualified_type(src->type);
+    const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 

@@ -189,7 +189,7 @@ static void generate_getters_for_class(Growy* g, json_object* src, json_object* 
 }
 
 void generate_address_space_name_fn(Growy* g, json_object* address_spaces) {
-    shd_growy_append_formatted(g, "String get_address_space_name(AddressSpace as) {\n");
+    shd_growy_append_formatted(g, "String shd_get_address_space_name(AddressSpace as) {\n");
     shd_growy_append_formatted(g, "\tswitch (as) {\n");
     for (size_t i = 0; i < json_object_array_length(address_spaces); i++) {
         json_object* as = json_object_array_get_idx(address_spaces, i);

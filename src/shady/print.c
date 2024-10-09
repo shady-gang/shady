@@ -430,7 +430,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             printf("(");
             printf(BLUE);
-            printf(get_address_space_name(node->payload.ptr_type.address_space));
+            printf(shd_get_address_space_name(node->payload.ptr_type.address_space));
             printf(RESET);
             printf(", ");
             print_node(node->payload.ptr_type.pointed_type);
@@ -906,7 +906,7 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
             printf(BLUE);
             printf("var ");
             printf(BLUE);
-            printf(get_address_space_name(gvar->address_space));
+            printf(shd_get_address_space_name(gvar->address_space));
             printf(" ");
             print_node(gvar->type);
             printf(BYELLOW);
@@ -1168,7 +1168,7 @@ void _shd_print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, N
 
 void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
     print_operand_name_helper(ctx, name);
-    shd_print(ctx->printer, "%s", get_address_space_name(as));
+    shd_print(ctx->printer, "%s", shd_get_address_space_name(as));
 }
 
 void _shd_print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {

@@ -52,13 +52,13 @@ static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_bui
     spv_emit_mem(emitter, fn_builder, match.mem);
     SpvId join_bb_id = spv_find_emitted(emitter, fn_builder, match.tail);
 
-    assert(get_unqualified_type(match.inspect->type)->tag == Int_TAG);
+    assert(shd_get_unqualified_type(match.inspect->type)->tag == Int_TAG);
     SpvId inspectee = spv_emit_value(emitter, fn_builder, match.inspect);
 
     SpvId default_id = spv_find_emitted(emitter, fn_builder, match.default_case);
 
     const Type* inspectee_t = match.inspect->type;
-    deconstruct_qualified_type(&inspectee_t);
+    shd_deconstruct_qualified_type(&inspectee_t);
     assert(inspectee_t->tag == Int_TAG);
     size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
     size_t literal_case_entry_size = literal_width + 1;
@@ -93,7 +93,7 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
     Nodes body_params = get_abstraction_params(loop_instr.body);
     LARRAY(SpvbPhi*, loop_continue_phis, body_params.count);
     for (size_t i = 0; i < body_params.count; i++) {
-        SpvId loop_param_type = spv_emit_type(emitter, get_unqualified_type(body_params.nodes[i]->type));
+        SpvId loop_param_type = spv_emit_type(emitter, shd_get_unqualified_type(body_params.nodes[i]->type));
 
         SpvId continue_phi_id = spvb_fresh_id(emitter->file_builder);
         SpvbPhi* continue_phi = spvb_add_phi(continue_builder, loop_param_type, continue_phi_id);

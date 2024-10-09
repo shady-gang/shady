@@ -148,7 +148,7 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
             arr[i] = unique_name(emitter->arena, "phi");
     }
     Strings param_names = shd_strings(emitter->arena, variables.count, arr);
-    Strings eparams = emit_variable_declarations(emitter, fn, p, NULL, &param_names, get_param_types(emitter->arena, params), true, &loop.initial_args);
+    Strings eparams = emit_variable_declarations(emitter, fn, p, NULL, &param_names, shd_get_param_types(emitter->arena, params), true, &loop.initial_args);
     for (size_t i = 0; i < params.count; i++)
         register_emitted(&sub_emiter, fn, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 

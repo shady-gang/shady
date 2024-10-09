@@ -38,7 +38,7 @@ static const Node* get_ptr_source(const Node* ptr) {
                     case reinterpret_op:
                     case convert_op: {
                         const Node* src = shd_first(payload.operands);
-                        if (get_unqualified_type(src->type)->tag == PtrType_TAG) {
+                        if (shd_get_unqualified_type(src->type)->tag == PtrType_TAG) {
                             ptr = src;
                             continue;
                         }
@@ -101,11 +101,11 @@ static const Node* process(Context* ctx, const Node* node) {
             if (src->tag != LocalAlloc_TAG)
                 break;
             // for now, only simplify loads from non-leaking allocas
-            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, get_unqualified_type(node->type));
+            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, shd_get_unqualified_type(node->type));
             if (ovalue) {
                 *ctx->todo = true;
                 const Node* value = shd_rewrite_node(r, ovalue);
-                if (is_qualified_type_uniform(node->type))
+                if (shd_is_qualified_type_uniform(node->type))
                     value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
                 return mem_and_value(a, (MemAndValue) { .mem = shd_rewrite_node(r, payload.mem), .value = value });
             }

@@ -73,7 +73,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < new_params.count; i++)
                         new_params = shd_change_node_at_index(a, new_params, i, param(a, shd_as_qualified_type(
-                                get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
+                                shd_get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
                 old_annotations = shd_nodes_append(a, old_annotations, an->payload);
                 an = an->next;

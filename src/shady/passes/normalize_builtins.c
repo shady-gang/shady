@@ -38,7 +38,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
         case PtrCompositeElement_TAG: {
             const Type* src_req_cast = get_req_cast(ctx, src->payload.ptr_composite_element.ptr);
             if (src_req_cast) {
-                bool u = deconstruct_qualified_type(&src_req_cast);
+                bool u = shd_deconstruct_qualified_type(&src_req_cast);
                 enter_composite(&src_req_cast, &u, src->payload.ptr_composite_element.index, false);
                 return src_req_cast;
             }
@@ -77,7 +77,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Load_TAG: {
             const Type* req_cast = get_req_cast(ctx, node->payload.load.ptr);
             if (req_cast) {
-                assert(is_data_type(req_cast));
+                assert(shd_is_data_type(req_cast));
                 BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.load.mem));
                 const Node* r1 = shd_first(bind_instruction(bb, shd_recreate_node(r, node)));
                 const Node* r2 = shd_first(gen_primop(bb, reinterpret_op, shd_singleton(req_cast), shd_singleton(r1)));

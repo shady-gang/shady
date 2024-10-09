@@ -34,7 +34,7 @@ typedef enum {
 } OperandClass;
 
 static OperandClass classify_operand_type(const Type* type) {
-    assert(is_type(type) && is_data_type(type));
+    assert(is_type(type) && shd_is_data_type(type));
 
     if (type->tag == PackType_TAG)
         return classify_operand_type(type->payload.pack_type.element_type);
@@ -146,8 +146,8 @@ static const IselTableEntry isel_table[] = {
 
 static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.result_kind) {
-        case Same:      return get_unqualified_type(shd_first(args)->type);
-        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, get_unqualified_type(shd_first(args)->type), get_unqualified_type(shd_first(args)->type)) });
+        case Same:      return shd_get_unqualified_type(shd_first(args)->type);
+        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, shd_get_unqualified_type(shd_first(args)->type), shd_get_unqualified_type(shd_first(args)->type)) });
         case Bool:      return bool_type(emitter->arena);
         case TyOperand: return shd_first(type_arguments);
         case Void:      return unit_type(emitter->arena);
@@ -160,13 +160,13 @@ static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nod
         case Monomorphic: return entry.op;
         case FirstOp: {
             assert(args.count >= 1);
-            OperandClass op_class = classify_operand_type(get_unqualified_type(shd_first(args)->type));
+            OperandClass op_class = classify_operand_type(shd_get_unqualified_type(shd_first(args)->type));
             return entry.fo[op_class];
         }
         case FirstAndResult: {
             assert(args.count >= 1);
             assert(type_arguments.count == 1);
-            OperandClass op_class = classify_operand_type(get_unqualified_type(shd_first(args)->type));
+            OperandClass op_class = classify_operand_type(shd_get_unqualified_type(shd_first(args)->type));
             OperandClass return_t_class = classify_operand_type(shd_first(type_arguments));
             return entry.foar[op_class][return_t_class];
         }
@@ -212,7 +212,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
     switch (the_op.op) {
         case reinterpret_op: {
             const Type* dst = shd_first(the_op.type_arguments);
-            const Type* src = get_unqualified_type(shd_first(the_op.operands)->type);
+            const Type* src = shd_get_unqualified_type(shd_first(the_op.operands)->type);
             assert(dst->tag == PtrType_TAG && src->tag == PtrType_TAG);
             assert(src != dst);
             return spvb_op(bb_builder, SpvOpBitcast, spv_emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, shd_first(the_op.operands)) });
@@ -295,7 +295,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 assert(instr.operands.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
-                if (get_unqualified_type(instr.result_t) == shd_get_actual_mask_type(emitter->arena)) {
+                if (shd_get_unqualified_type(instr.result_t) == shd_get_actual_mask_type(emitter->arena)) {
                     const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
                     SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(instr.operands)));
                     // TODO: why are we doing this in SPIR-V and not the IR ?
@@ -387,7 +387,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             Load payload = instruction->payload.load;
             spv_emit_mem(emitter, fn_builder, payload.mem);
             const Type* ptr_type = payload.ptr->type;
-            deconstruct_qualified_type(&ptr_type);
+            shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
 
@@ -408,7 +408,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             Store payload = instruction->payload.store;
             spv_emit_mem(emitter, fn_builder, payload.mem);
             const Type* ptr_type = payload.ptr->type;
-            deconstruct_qualified_type(&ptr_type);
+            shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
 

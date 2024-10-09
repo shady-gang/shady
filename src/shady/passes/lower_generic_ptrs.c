@@ -40,7 +40,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
         if (generic_ptr_tags[i] == as)
             return (uint64_t) i;
     }
-    shd_error("address space '%s' can't be converted to generic", get_address_space_name(as));
+    shd_error("address space '%s' can't be converted to generic", shd_get_address_space_name(as));
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -206,7 +206,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* old_ptr_t = payload.ptr->type;
-            bool u = deconstruct_qualified_type(&old_ptr_t);
+            bool u = shd_deconstruct_qualified_type(&old_ptr_t);
             u &= shd_is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
@@ -220,7 +220,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* old_ptr_t = payload.ptr->type;
-            deconstruct_qualified_type(&old_ptr_t);
+            shd_deconstruct_qualified_type(&old_ptr_t);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
                     .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
@@ -235,7 +235,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 case convert_op: {
                     const Node* old_src = shd_first(old->payload.prim_op.operands);
                     const Type* old_src_t = old_src->type;
-                    deconstruct_qualified_type(&old_src_t);
+                    shd_deconstruct_qualified_type(&old_src_t);
                     const Type* old_dst_t = shd_first(old->payload.prim_op.type_arguments);
                     if (old_dst_t->tag == PtrType_TAG && old_dst_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _into_ generic

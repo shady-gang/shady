@@ -151,10 +151,10 @@ static const Node* process(Context* ctx, const Node* old) {
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
-                const Type* new_param_type = shd_rewrite_node(&ctx->rewriter, get_unqualified_type(old_param->type));
+                const Type* new_param_type = shd_rewrite_node(&ctx->rewriter, shd_get_unqualified_type(old_param->type));
                 const Node* popped = gen_pop_value_stack(bb, new_param_type);
                 // TODO use the uniform stack instead ? or no ?
-                if (is_qualified_type_uniform(old_param->type))
+                if (shd_is_qualified_type_uniform(old_param->type))
                     popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
                 if (old_param->payload.param.name)
                     shd_set_value_name((Node*) popped, old_param->payload.param.name);
@@ -220,7 +220,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* jp = shd_rewrite_node(&ctx->rewriter, old->payload.join.join_point);
             const Node* jp_type = jp->type;
-            deconstruct_qualified_type(&jp_type);
+            shd_deconstruct_qualified_type(&jp_type);
             if (jp_type->tag == JoinPointType_TAG)
                 break;
 
@@ -249,7 +249,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* old_jp = shd_first(get_abstraction_params(payload.inside));
                 assert(old_jp->tag == Param_TAG);
                 const Node* old_jp_type = old_jp->type;
-                deconstruct_qualified_type(&old_jp_type);
+                shd_deconstruct_qualified_type(&old_jp_type);
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = shd_rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),

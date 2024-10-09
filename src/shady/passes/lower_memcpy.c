@@ -28,7 +28,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
-            deconstruct_qualified_type(&dst_addr_type);
+            shd_deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
             dst_addr_type = ptr_type(a, (PtrType) {
                 .address_space = dst_addr_type->payload.ptr_type.address_space,
@@ -38,7 +38,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* src_addr = shd_rewrite_node(&ctx->rewriter, payload.src);
             const Type* src_addr_type = src_addr->type;
-            deconstruct_qualified_type(&src_addr_type);
+            shd_deconstruct_qualified_type(&src_addr_type);
             assert(src_addr_type->tag == PtrType_TAG);
             src_addr_type = ptr_type(a, (PtrType) {
                 .address_space = src_addr_type->payload.ptr_type.address_space,
@@ -77,7 +77,7 @@ static const Node* process(Context* ctx, const Node* old) {
             FillBytes payload = old->payload.fill_bytes;
             const Node* src_value = shd_rewrite_node(&ctx->rewriter, payload.src);
             const Type* src_type = src_value->type;
-            deconstruct_qualified_type(&src_type);
+            shd_deconstruct_qualified_type(&src_type);
             assert(src_type->tag == Int_TAG);
             const Type* word_type = src_type;// int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
@@ -85,7 +85,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
-            deconstruct_qualified_type(&dst_addr_type);
+            shd_deconstruct_qualified_type(&dst_addr_type);
             assert(dst_addr_type->tag == PtrType_TAG);
             dst_addr_type = ptr_type(a, (PtrType) {
                 .address_space = dst_addr_type->payload.ptr_type.address_space,

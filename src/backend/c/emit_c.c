@@ -189,8 +189,8 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                     break;
                 }
                 default: {
-                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
-                    shd_warn_print("warning: address space %s not supported in CUDA for global variables\n", get_address_space_name(as));
+                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", shd_get_address_space_name(as));
+                    shd_warn_print("warning: address space %s not supported in CUDA for global variables\n", shd_get_address_space_name(as));
                     break;
                 }
             }
@@ -209,8 +209,8 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
                     break;
                 }
                 default: {
-                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", get_address_space_name(as));
-                    shd_warn_print("warning: address space %s not supported in GLSL for global variables\n", get_address_space_name(as));
+                    prefix = shd_format_string_arena(emitter->arena->arena, "/* %s */", shd_get_address_space_name(as));
+                    shd_warn_print("warning: address space %s not supported in GLSL for global variables\n", shd_get_address_space_name(as));
                     break;
                 }
             }

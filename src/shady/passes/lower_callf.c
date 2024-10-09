@@ -39,7 +39,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(a, (JoinPointType) {
-                .yield_types = strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
+                .yield_types = shd_strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
 
             if (shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
@@ -74,7 +74,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes param_types = shd_rewrite_nodes(r, old->payload.fn_type.param_types);
             Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
             const Type* jp_type = qualified_type(a, (QualifiedType) {
-                    .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
+                    .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
                     .is_uniform = false
             });
             param_types = shd_nodes_append(a, param_types, jp_type);
@@ -110,8 +110,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 break;
 
             const Type* ocallee_type = ocallee->type;
-            bool callee_uniform = deconstruct_qualified_type(&ocallee_type);
-            ocallee_type = get_pointee_type(a, ocallee_type);
+            bool callee_uniform = shd_deconstruct_qualified_type(&ocallee_type);
+            ocallee_type = shd_get_pointee_type(a, ocallee_type);
             assert(ocallee_type->tag == FnType_TAG);
             Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
 
@@ -121,7 +121,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             // Create the body of the control that receives the appropriately typed join point
             const Type* jp_type = qualified_type(a, (QualifiedType) {
-                    .type = join_point_type(a, (JoinPointType) { .yield_types = strip_qualifiers(a, returned_types) }),
+                    .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
                     .is_uniform = false
             });
             const Node* jp = param(a, jp_type, "fn_return_point");
@@ -138,7 +138,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
             shd_set_abstraction_body(control_case, control_body);
             BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
-            return yield_values_and_wrap_in_block(bb, gen_control(bb, strip_qualifiers(a, returned_types), control_case));
+            return yield_values_and_wrap_in_block(bb, gen_control(bb, shd_strip_qualifiers(a, returned_types), control_case));
         }
         default: break;
     }

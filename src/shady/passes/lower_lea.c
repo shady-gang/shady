@@ -116,10 +116,10 @@ static const Node* process(Context* ctx, const Node* old) {
             PtrArrayElementOffset lea = old->payload.ptr_array_element_offset;
             const Node* old_base = lea.ptr;
             const Type* old_base_ptr_t = old_base->type;
-            deconstruct_qualified_type(&old_base_ptr_t);
+            shd_deconstruct_qualified_type(&old_base_ptr_t);
             assert(old_base_ptr_t->tag == PtrType_TAG);
             const Node* old_result_t = old->type;
-            deconstruct_qualified_type(&old_result_t);
+            shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
             // we have to lower generic pointers if we emulate them using ints
             must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
@@ -139,10 +139,10 @@ static const Node* process(Context* ctx, const Node* old) {
             PtrCompositeElement lea = old->payload.ptr_composite_element;
             const Node* old_base = lea.ptr;
             const Type* old_base_ptr_t = old_base->type;
-            deconstruct_qualified_type(&old_base_ptr_t);
+            shd_deconstruct_qualified_type(&old_base_ptr_t);
             assert(old_base_ptr_t->tag == PtrType_TAG);
             const Node* old_result_t = old->type;
-            deconstruct_qualified_type(&old_result_t);
+            shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
             // we have to lower generic pointers if we emulate them using ints
             must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;

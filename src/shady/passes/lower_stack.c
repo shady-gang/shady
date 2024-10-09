@@ -57,8 +57,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
     const Node* addr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
-    assert(get_unqualified_type(addr->type)->tag == PtrType_TAG);
-    AddressSpace addr_space = get_unqualified_type(addr->type)->payload.ptr_type.address_space;
+    assert(shd_get_unqualified_type(addr->type)->tag == PtrType_TAG);
+    AddressSpace addr_space = shd_get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
     addr = gen_reinterpret_cast(bb, ptr_type(a, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr);
 
@@ -139,7 +139,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ctx->stack);
             PushStack payload = old->payload.push_stack;
             BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
-            const Type* element_type = shd_rewrite_node(&ctx->rewriter, get_unqualified_type(old->payload.push_stack.value->type));
+            const Type* element_type = shd_rewrite_node(&ctx->rewriter, shd_get_unqualified_type(old->payload.push_stack.value->type));
 
             bool push = true;
 

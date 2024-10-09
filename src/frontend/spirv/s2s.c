@@ -738,7 +738,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* contents_t = get_def_type(parser, result_t);
             AddressSpace as2 = deconstruct_pointer_type(&contents_t);
             assert(as == as2);
-            assert(is_data_type(contents_t));
+            assert(shd_is_data_type(contents_t));
 
             if (parser->fun) {
                 const Node* ptr = shd_first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = bb_mem(parser->current_block.builder) }), 1));
@@ -1086,7 +1086,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Node* cnt;
             if (op == SpvOpCopyMemory) {
                 const Type* elem_t = src->type;
-                deconstruct_qualified_type(&elem_t);
+                shd_deconstruct_qualified_type(&elem_t);
                 deconstruct_pointer_type(&elem_t);
                 cnt = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = size_of_op,

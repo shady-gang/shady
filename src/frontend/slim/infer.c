@@ -14,7 +14,7 @@
 static Nodes annotate_all_types(IrArena* a, Nodes types, bool uniform_by_default) {
     LARRAY(const Type*, ntypes, types.count);
     for (size_t i = 0; i < types.count; i++) {
-        if (is_data_type(types.nodes[i]))
+        if (shd_is_data_type(types.nodes[i]))
             ntypes[i] = qualified_type(a, (QualifiedType) {
                 .type = types.nodes[i],
                 .is_uniform = uniform_by_default,
@@ -113,7 +113,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             const Type* imported_hint = infer(ctx, oconstant->type_hint, NULL);
             const Node* instruction = NULL;
             if (imported_hint) {
-                assert(is_data_type(imported_hint));
+                assert(shd_is_data_type(imported_hint));
                 const Node* s = shd_as_qualified_type(imported_hint, true);
                 if (oconstant->value)
                     instruction = infer(ctx, oconstant->value, s);
@@ -121,7 +121,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 instruction = infer(ctx, oconstant->value, NULL);
             }
             if (instruction)
-                imported_hint = get_unqualified_type(instruction->type);
+                imported_hint = shd_get_unqualified_type(instruction->type);
             assert(imported_hint);
 
             Node* nconstant = constant(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
@@ -152,8 +152,8 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
 
 /// Like get_unqualified_type but won't error out if type wasn't qualified to begin with
 static const Type* remove_uniformity_qualifier(const Node* type) {
-    if (is_value_type(type))
-        return get_unqualified_type(type);
+    if (shd_is_value_type(type))
+        return shd_get_unqualified_type(type);
     return type;
 }
 
@@ -169,7 +169,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Type* type = infer(ctx, node->payload.constrained.type, NULL);
             bool expect_uniform = false;
             if (expected_type) {
-                expect_uniform = deconstruct_qualified_type(&expected_type);
+                expect_uniform = shd_deconstruct_qualified_type(&expected_type);
                 assert(shd_is_subtype(expected_type, type));
             }
             return infer(ctx, node->payload.constrained.value, shd_as_qualified_type(type, expect_uniform));
@@ -237,9 +237,9 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
             bool uniform = false;
             if (elem_type && expected_type) {
-                assert(shd_is_subtype(get_unqualified_type(expected_type), elem_type));
+                assert(shd_is_subtype(shd_get_unqualified_type(expected_type), elem_type));
             } else if (expected_type) {
-                uniform = deconstruct_qualified_type(&elem_type);
+                uniform = shd_deconstruct_qualified_type(&elem_type);
                 elem_type = expected_type;
             }
 
@@ -257,7 +257,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
 
             // Composites are tuples by default
             if (!elem_type)
-                elem_type = record_type(a, (RecordType) { .members = strip_qualifiers(a, get_values_types(a, nmembers)) });
+                elem_type = record_type(a, (RecordType) { .members = shd_strip_qualifiers(a, shd_get_values_types(a, nmembers)) });
 
             return composite_helper(a, elem_type, nmembers);
         }
@@ -266,9 +266,9 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             assert(composite_t);
             bool uniform = false;
             if (composite_t && expected_type) {
-                assert(shd_is_subtype(get_unqualified_type(expected_type), composite_t));
+                assert(shd_is_subtype(shd_get_unqualified_type(expected_type), composite_t));
             } else if (expected_type) {
-                uniform = deconstruct_qualified_type(&composite_t);
+                uniform = shd_deconstruct_qualified_type(&composite_t);
                 composite_t = expected_type;
             }
             assert(composite_t);
@@ -357,11 +357,11 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
         case reinterpret_op:
         case convert_op: {
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            const Type* src_pointer_type = get_unqualified_type(new_operands[0]->type);
+            const Type* src_pointer_type = shd_get_unqualified_type(new_operands[0]->type);
             const Type* old_dst_pointer_type = shd_first(old_type_args);
             const Type* dst_pointer_type = shd_first(type_args);
 
-            if (is_generic_ptr_type(src_pointer_type) != is_generic_ptr_type(dst_pointer_type))
+            if (shd_is_generic_ptr_type(src_pointer_type) != shd_is_generic_ptr_type(dst_pointer_type))
                 op = convert_op;
 
             goto rebuild;
@@ -402,7 +402,7 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
     assert(is_value(new_callee));
     LARRAY(const Node*, new_args, node->payload.call.args.count);
 
-    const Type* callee_type = get_unqualified_type(new_callee->type);
+    const Type* callee_type = shd_get_unqualified_type(new_callee->type);
     if (callee_type->tag != PtrType_TAG)
         shd_error("functions are called through function pointers");
     callee_type = callee_type->payload.ptr_type.pointed_type;
@@ -433,7 +433,7 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     Nodes join_types = infer_nodes(ctx, node->payload.if_instr.yield_types);
     Context infer_if_body_ctx = *ctx;
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
-    Nodes expected_join_types = add_qualifiers(a, join_types, false);
+    Nodes expected_join_types = shd_add_qualifiers(a, join_types, false);
 
     const Node* true_body = infer_case(&infer_if_body_ctx, node->payload.if_instr.if_true, shd_nodes(a, 0, NULL));
     // don't allow seeing the variables made available in the true branch
@@ -458,7 +458,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
     const Node* old_body = node->payload.loop_instr.body;
 
     Nodes old_params = get_abstraction_params(old_body);
-    Nodes old_params_types = get_param_types(a, old_params);
+    Nodes old_params_types = shd_get_param_types(a, old_params);
     Nodes new_params_types = infer_nodes(ctx, old_params_types);
     new_params_types = annotate_all_types(a, new_params_types, false);
 
@@ -468,7 +468,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
         new_initial_args[i] = infer(ctx, old_initial_args.nodes[i], new_params_types.nodes[i]);
 
     Nodes loop_yield_types = infer_nodes(ctx, node->payload.loop_instr.yield_types);
-    Nodes qual_yield_types = add_qualifiers(a, loop_yield_types, false);
+    Nodes qual_yield_types = shd_add_qualifiers(a, loop_yield_types, false);
 
     const Node* nbody = infer_case(&loop_body_ctx, old_body, new_params_types);
     // TODO check new body params match continue types
@@ -524,7 +524,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
         case Instruction_Store_TAG: {
             Store payload = node->payload.store;
             const Node* ptr = infer(ctx, payload.ptr, NULL);
-            const Type* ptr_type = get_unqualified_type(ptr->type);
+            const Type* ptr_type = shd_get_unqualified_type(ptr->type);
             assert(ptr_type->tag == PtrType_TAG);
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
             assert(element_t);
@@ -534,7 +534,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
         case Instruction_StackAlloc_TAG: {
             const Type* element_type = node->payload.stack_alloc.type;
             assert(is_type(element_type));
-            assert(is_data_type(element_type));
+            assert(shd_is_data_type(element_type));
             return stack_alloc(a, (StackAlloc) { .type = infer_type(ctx, element_type), .mem = infer(ctx, node->payload.stack_alloc.mem, NULL) });
         }
         default: break;
@@ -586,7 +586,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return infer_instruction(&ctx, node, NULL);
     } else if (is_value(node)) {
         const Node* value = infer_value(&ctx, node, expected_type);
-        assert(is_value_type(value->type));
+        assert(shd_is_value_type(value->type));
         return value;
     } else if (is_terminator(node)) {
         assert(expected_type == NULL);
