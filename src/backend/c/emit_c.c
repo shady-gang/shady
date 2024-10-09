@@ -221,7 +221,7 @@ void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String
 
     // ISPC wants uniform/varying annotations
     if (emitter->config.dialect == CDialect_ISPC) {
-        bool uniform = is_addr_space_uniform(emitter->arena, as);
+        bool uniform = shd_is_addr_space_uniform(emitter->arena, as);
         if (uniform)
             name = shd_format_string_arena(emitter->arena->arena, "uniform %s", name);
         else

@@ -22,7 +22,7 @@ static bool are_types_identical(size_t num_types, const Type* types[]) {
     return true;
 }
 
-bool is_subtype(const Type* supertype, const Type* type) {
+bool shd_is_subtype(const Type* supertype, const Type* type) {
     assert(supertype && type);
     if (supertype->tag != type->tag)
         return false;
@@ -34,7 +34,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             // uniform T <: varying T
             if (supertype->payload.qualified_type.is_uniform && !type->payload.qualified_type.is_uniform)
                 return false;
-            return is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
+            return shd_is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
         }
         case RecordType_TAG: {
             const Nodes* supermembers = &supertype->payload.record_type.members;
@@ -42,7 +42,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             if (supermembers->count != members->count)
                 return false;
             for (size_t i = 0; i < members->count; i++) {
-                if (!is_subtype(supermembers->nodes[i], members->nodes[i]))
+                if (!shd_is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
             return supertype->payload.record_type.special == type->payload.record_type.special;
@@ -52,7 +52,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             const Nodes* params = &type->payload.join_point_type.yield_types;
             if (params->count != superparams->count) return false;
             for (size_t i = 0; i < params->count; i++) {
-                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                if (!shd_is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
             return true;
@@ -62,14 +62,14 @@ bool is_subtype(const Type* supertype, const Type* type) {
             if (supertype->payload.fn_type.return_types.count != type->payload.fn_type.return_types.count)
                 return false;
             for (size_t i = 0; i < type->payload.fn_type.return_types.count; i++)
-                if (!is_subtype(supertype->payload.fn_type.return_types.nodes[i], type->payload.fn_type.return_types.nodes[i]))
+                if (!shd_is_subtype(supertype->payload.fn_type.return_types.nodes[i], type->payload.fn_type.return_types.nodes[i]))
                     return false;
             // check params
             const Nodes* superparams = &supertype->payload.fn_type.param_types;
             const Nodes* params = &type->payload.fn_type.param_types;
             if (params->count != superparams->count) return false;
             for (size_t i = 0; i < params->count; i++) {
-                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                if (!shd_is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
             return true;
@@ -79,7 +79,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             const Nodes* params = &type->payload.bb_type.param_types;
             if (params->count != superparams->count) return false;
             for (size_t i = 0; i < params->count; i++) {
-                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                if (!shd_is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
             return true;
@@ -89,7 +89,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             const Nodes* params = &type->payload.lam_type.param_types;
             if (params->count != superparams->count) return false;
             for (size_t i = 0; i < params->count; i++) {
-                if (!is_subtype(params->nodes[i], superparams->nodes[i]))
+                if (!shd_is_subtype(params->nodes[i], superparams->nodes[i]))
                     return false;
             }
             return true;
@@ -98,11 +98,11 @@ bool is_subtype(const Type* supertype, const Type* type) {
                 return false;
             if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
                 return false;
-            return is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
+            return shd_is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
         case ArrType_TAG: {
-            if (!is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type))
+            if (!shd_is_subtype(supertype->payload.arr_type.element_type, type->payload.arr_type.element_type))
                 return false;
             // unsized arrays are supertypes of sized arrays (even though they're not datatypes...)
             // TODO: maybe change this so it's only valid when talking about to pointer-to-arrays
@@ -112,7 +112,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size;
         }
         case PackType_TAG: {
-            if (!is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type))
+            if (!shd_is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type))
                 return false;
             return supertype->payload.pack_type.width == type->payload.pack_type.width;
         }
@@ -120,7 +120,7 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return supertype->payload.type_decl_ref.decl == type->payload.type_decl_ref.decl;
         }
         case Type_ImageType_TAG: {
-            if (!is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
+            if (!shd_is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
                 return false;
             if (supertype->payload.image_type.depth != type->payload.image_type.depth)
                 return false;
@@ -137,15 +137,15 @@ bool is_subtype(const Type* supertype, const Type* type) {
             return true;
         }
         case Type_SampledImageType_TAG:
-            return is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
+            return shd_is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
         default: break;
     }
     // Two types are always equal (and therefore subtypes of each other) if their payload matches
     return memcmp(&supertype->payload, &type->payload, sizeof(type->payload)) == 0;
 }
 
-void check_subtype(const Type* supertype, const Type* type) {
-    if (!is_subtype(supertype, type)) {
+void shd_check_subtype(const Type* supertype, const Type* type) {
+    if (!shd_is_subtype(supertype, type)) {
         shd_log_node(ERROR, type);
         shd_error_print(" isn't a subtype of ");
         shd_log_node(ERROR, supertype);
@@ -168,7 +168,7 @@ size_t shd_get_type_bitwidth(const Type* t) {
     return SIZE_MAX;
 }
 
-bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
+bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     switch (as) {
         case AsGeneric:
         case AsInput:
@@ -179,7 +179,7 @@ bool is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     }
 }
 
-const Type* get_actual_mask_type(IrArena* arena) {
+const Type* shd_get_actual_mask_type(IrArena* arena) {
     switch (arena->config.specializations.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
         case SubgroupMaskInt64: return shd_uint64_type(arena);
@@ -187,7 +187,7 @@ const Type* get_actual_mask_type(IrArena* arena) {
     }
 }
 
-String name_type_safe(IrArena* arena, const Type* t) {
+String shd_get_type_name(IrArena* arena, const Type* t) {
     switch (is_type(t)) {
         case NotAType: assert(false);
         case Type_MaskType_TAG: return "mask_t";
@@ -452,7 +452,7 @@ const Type* check_type_composite(IrArena* arena, Composite composite) {
         for (size_t i = 0; i < composite.contents.count; i++) {
             const Type* element_type = composite.contents.nodes[i]->type;
             is_uniform &= deconstruct_qualified_type(&element_type);
-            assert(is_subtype(expected_member_types.nodes[i], element_type));
+            assert(shd_is_subtype(expected_member_types.nodes[i], element_type));
         }
         return qualified_type(arena, (QualifiedType) {
             .is_uniform = is_uniform,
@@ -479,7 +479,7 @@ const Type* check_type_fill(IrArena* arena, Fill payload) {
     const Node* element_t = get_fill_type_element_type(payload.type);
     const Node* value_t = payload.value->type;
     bool u = deconstruct_qualified_type(&value_t);
-    assert(is_subtype(element_t, value_t));
+    assert(shd_is_subtype(element_t, value_t));
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = u,
         .type = payload.type
@@ -759,7 +759,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 assert(alternative_width == width);
             }
 
-            assert(is_subtype(bool_type(arena), condition_type));
+            assert(shd_is_subtype(bool_type(arena), condition_type));
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
@@ -784,7 +784,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
                 const Type* inserted_data_type = inserted_data->type;
                 bool is_uniform = uniform & deconstruct_qualified_type(&inserted_data_type);
-                assert(is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
+                assert(shd_is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
                 return qualified_type(arena, (QualifiedType) {
                     .is_uniform = is_uniform,
                     .type = get_unqualified_type(source->type),
@@ -854,7 +854,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         // Mask management
         case empty_mask_op: {
             assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
-            return shd_as_qualified_type(get_actual_mask_type(arena), true);
+            return shd_as_qualified_type(shd_get_actual_mask_type(arena), true);
         }
         case mask_is_thread_active_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -900,7 +900,7 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
     if (param_types.count != arg_types.count)
         shd_error("Mismatched number of arguments/parameters");
     for (size_t i = 0; i < param_types.count; i++)
-        check_subtype(param_types.nodes[i], arg_types.nodes[i]);
+        shd_check_subtype(param_types.nodes[i], arg_types.nodes[i]);
 }
 
 /// Shared logic between indirect calls and tailcalls
@@ -981,7 +981,7 @@ const Type* check_type_control(IrArena* arena, Control control) {
     Nodes join_point_yield_types = join_point_type->payload.join_point_type.yield_types;
     assert(join_point_yield_types.count == control.yield_types.count);
     for (size_t i = 0; i < control.yield_types.count; i++) {
-        assert(is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
+        assert(shd_is_subtype(control.yield_types.nodes[i], join_point_yield_types.nodes[i]));
     }
 
     assert(get_abstraction_params(control.tail).count == control.yield_types.count);
@@ -996,7 +996,7 @@ const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
 const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = is_addr_space_uniform(a, AsPrivate),
+        .is_uniform = shd_is_addr_space_uniform(a, AsPrivate),
         .type = ptr_type(a, (PtrType) {
             .pointed_type = alloc.type,
             .address_space = AsPrivate,
@@ -1008,7 +1008,7 @@ const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
 const Type* check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = is_addr_space_uniform(a, AsFunction),
+        .is_uniform = shd_is_addr_space_uniform(a, AsFunction),
         .type = ptr_type(a, (PtrType) {
             .pointed_type = alloc.type,
             .address_space = AsFunction,
@@ -1027,7 +1027,7 @@ const Type* check_type_load(IrArena* a, Load load) {
     const Type* elem_type = node_ptr_type_->pointed_type;
     elem_type = maybe_packed_type_helper(elem_type, width);
     return shd_as_qualified_type(elem_type,
-                                 ptr_uniform && is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
+                                 ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
 }
 
 const Type* check_type_store(IrArena* a, Store store) {
@@ -1045,7 +1045,7 @@ const Type* check_type_store(IrArena* a, Store store) {
         .type = elem_type
     });
 
-    assert(is_subtype(val_expected_type, store.value->type));
+    assert(shd_is_subtype(val_expected_type, store.value->type));
     return empty_multiple_return_type(a);
 }
 

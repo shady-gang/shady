@@ -22,7 +22,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
     const Node* nul = gen_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
     Node* decl = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
         .name = "Generated",
-    })), t, shd_fmt_string_irarena(a, "nullptr_%s", name_type_safe(a, t)));
+    })), t, shd_fmt_string_irarena(a, "nullptr_%s", shd_get_type_name(a, t)));
     decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(nul));
     const Node* ref = ref_decl_helper(a, decl);
     shd_dict_insert(const Type*, const Node*, ctx->map, t, ref);

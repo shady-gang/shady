@@ -3,8 +3,8 @@
 
 #include "shady/ir.h"
 
-bool is_subtype(const Type* supertype, const Type* type);
-void check_subtype(const Type* supertype, const Type* type);
+bool shd_is_subtype(const Type* supertype, const Type* type);
+void shd_check_subtype(const Type* supertype, const Type* type);
 
 bool is_arithm_type(const Type*);
 bool is_shiftable_type(const Type*);

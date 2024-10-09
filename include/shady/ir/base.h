@@ -50,6 +50,5 @@ String string(IrArena*, const char*);
 // see also: format_string in util.h
 String shd_fmt_string_irarena(IrArena* arena, const char* str, ...);
 String unique_name(IrArena*, const char* base_name);
-String name_type_safe(IrArena*, const Type*);
 
 #endif

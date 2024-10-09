@@ -308,7 +308,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     if (!r)
         return node;
 
-    if (!is_subtype(node->type, r->type))
+    if (!shd_is_subtype(node->type, r->type))
         r = prim_op_helper(arena, convert_op, shd_singleton(get_unqualified_type(node->type)), shd_singleton(r));
     return r;
 }
@@ -464,7 +464,7 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
     if (is_terminator(original_node)) assert(is_terminator(node));
 
     if (node->type)
-        assert(is_subtype(original_node->type, node->type));
+        assert(shd_is_subtype(original_node->type, node->type));
 
     return node;
 }

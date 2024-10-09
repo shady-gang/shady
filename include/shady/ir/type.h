@@ -13,12 +13,14 @@ static inline const Node* unit_type(IrArena* arena) {
 
 Type* nominal_type(Module*, Nodes annotations, String name);
 
-const Type* get_actual_mask_type(IrArena* arena);
+const Type* shd_get_actual_mask_type(IrArena* arena);
 
 String get_address_space_name(AddressSpace);
 /// Returns false iff pointers in that address space can contain different data at the same address
 /// (amongst threads in the same subgroup)
-bool is_addr_space_uniform(IrArena*, AddressSpace);
+bool shd_is_addr_space_uniform(IrArena*, AddressSpace);
+
+String shd_get_type_name(IrArena* arena, const Type* t);
 
 /// Is this a type that a value in the language can have ?
 bool is_value_type(const Type*);

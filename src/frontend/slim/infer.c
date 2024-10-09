@@ -170,7 +170,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             bool expect_uniform = false;
             if (expected_type) {
                 expect_uniform = deconstruct_qualified_type(&expected_type);
-                assert(is_subtype(expected_type, type));
+                assert(shd_is_subtype(expected_type, type));
             }
             return infer(ctx, node->payload.constrained.value, shd_as_qualified_type(type, expect_uniform));
         }
@@ -237,7 +237,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
             bool uniform = false;
             if (elem_type && expected_type) {
-                assert(is_subtype(get_unqualified_type(expected_type), elem_type));
+                assert(shd_is_subtype(get_unqualified_type(expected_type), elem_type));
             } else if (expected_type) {
                 uniform = deconstruct_qualified_type(&elem_type);
                 elem_type = expected_type;
@@ -266,7 +266,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             assert(composite_t);
             bool uniform = false;
             if (composite_t && expected_type) {
-                assert(is_subtype(get_unqualified_type(expected_type), composite_t));
+                assert(shd_is_subtype(get_unqualified_type(expected_type), composite_t));
             } else if (expected_type) {
                 uniform = deconstruct_qualified_type(&composite_t);
                 composite_t = expected_type;
@@ -300,7 +300,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
             // and do not use the provided param type if it is an untyped ptr
             if (!param_type || param_type->tag != PtrType_TAG || param_type->payload.ptr_type.pointed_type)
                 param_type = inferred_arg_type.nodes[i];
-            assert(is_subtype(param_type, inferred_arg_type.nodes[i]));
+            assert(shd_is_subtype(param_type, inferred_arg_type.nodes[i]));
             nparams[i] = param(a, param_type, old_param->name);
             shd_register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
         }

@@ -80,8 +80,8 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s%s", name_type_safe(a, t), uniform_ptr ? "_uniform" : ""); break;
-        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
+        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s%s", shd_get_type_name(a, t), uniform_ptr ? "_uniform" : ""); break;
+        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s", shd_get_type_name(a, t)); break;
     }
 
     const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, name);
@@ -207,7 +207,7 @@ static const Node* process(Context* ctx, const Node* old) {
             Load payload = old->payload.load;
             const Type* old_ptr_t = payload.ptr->type;
             bool u = deconstruct_qualified_type(&old_ptr_t);
-            u &= is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
+            u &= shd_is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
                     .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),

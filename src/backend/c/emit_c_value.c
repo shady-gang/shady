@@ -217,7 +217,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
-                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
+                if (!shd_is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
                         decl)) {
                     assert(fn && "ISPC backend cannot statically refer to a varying variable");
                     return ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *lookup_existing_term(emitter, NULL, decl));
@@ -933,7 +933,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, fn, payload.ptr));
             CValue cvalue = to_cvalue(emitter, c_emit_value(emitter, fn, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
-            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
+            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && shd_is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
                 cvalue = shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
@@ -987,7 +987,7 @@ static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
         if (node->tag == RefDecl_TAG) {
             const Node* decl = node->payload.ref_decl.decl;
             if (decl->tag == GlobalVariable_TAG)
-                if (!is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
+                if (!shd_is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
                         decl))
                     //if (is_value(node) && !is_qualified_type_uniform(node->type))
                         return false;

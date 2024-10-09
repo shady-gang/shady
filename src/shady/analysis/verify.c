@@ -79,7 +79,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             break;
         }
         case BasicBlock_TAG: {
-            assert(is_subtype(noret_type(n->arena), n->payload.basic_block.body->type));
+            assert(shd_is_subtype(noret_type(n->arena), n->payload.basic_block.body->type));
             break;
         }
         case NominalType_TAG: {
@@ -91,7 +91,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
                 const Type* t = n->payload.constant.value->type;
                 bool u = deconstruct_qualified_type(&t);
                 assert(u);
-                assert(is_subtype(n->payload.constant.type_hint, t));
+                assert(shd_is_subtype(n->payload.constant.type_hint, t));
             }
             break;
         }
@@ -100,7 +100,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
                 const Type* t = n->payload.global_variable.init->type;
                 bool u = deconstruct_qualified_type(&t);
                 assert(u);
-                assert(is_subtype(n->payload.global_variable.type, t));
+                assert(shd_is_subtype(n->payload.global_variable.type, t));
             }
             break;
         }
