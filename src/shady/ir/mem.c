@@ -1,4 +1,4 @@
-#include "../../../include/shady/ir.h"
+#include "shady/ir/grammar.h"
 
 #include <assert.h>
 

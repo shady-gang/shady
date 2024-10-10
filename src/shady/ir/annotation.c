@@ -1,4 +1,5 @@
 #include "ir_private.h"
+
 #include "log.h"
 #include "portability.h"
 

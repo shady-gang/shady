@@ -1,10 +1,10 @@
-#include "../../../include/shady/ir/grammar.h"
+#include "shady/ir/grammar.h"
 
 #include "../fold.h"
 
-#include "../../common/log.h"
-#include "../../common/portability.h"
-#include "../../common/dict.h"
+#include "log.h"
+#include "portability.h"
+#include "dict.h"
 
 #include <string.h>
 #include <assert.h>
@@ -57,4 +57,4 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     return alloc;
 }
 
-#include "../../../cmake-build-debug/src/shady/constructors_generated.c"
+#include "../constructors_generated.c"
