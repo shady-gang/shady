@@ -1334,7 +1334,7 @@ SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
 }
 
 KeyHash hash_spvid(SpvId* p) {
-    return shd_hash_murmur(p, sizeof(SpvId));
+    return shd_hash(p, sizeof(SpvId));
 }
 
 bool compare_spvid(SpvId* pa, SpvId* pb) {

@@ -46,7 +46,7 @@ void* shd_dict_insert_get_key_impl(struct Dict*, void* key, void* value);
 #define  shd_set_insert_get_result(K, dict, key)           shd_dict_insert_impl(dict, (void*) (&(key)), NULL)
 bool shd_dict_insert_impl(struct Dict*, void* key, void* value);
 
-KeyHash shd_hash_murmur(const void* data, size_t size);
+KeyHash shd_hash(const void* data, size_t size);
 
 KeyHash shd_hash_ptr(void**);
 bool shd_compare_ptrs(void**, void**);

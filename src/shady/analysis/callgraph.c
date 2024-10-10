@@ -16,7 +16,7 @@ KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
 KeyHash hash_cgedge(CGEdge* n) {
-    return shd_hash_murmur(n, sizeof(CGEdge));
+    return shd_hash(n, sizeof(CGEdge));
 
 }
 bool compare_cgedge(CGEdge* a, CGEdge* b) {

@@ -232,7 +232,7 @@ const char* unique_name(IrArena* arena, const char* str) {
 }
 
 KeyHash shd_hash_nodes(Nodes* nodes) {
-    return shd_hash_murmur(nodes->nodes, sizeof(const Node*) * nodes->count);
+    return shd_hash(nodes->nodes, sizeof(const Node*) * nodes->count);
 }
 
 bool shd_compare_nodes(Nodes* a, Nodes* b) {
@@ -243,7 +243,7 @@ bool shd_compare_nodes(Nodes* a, Nodes* b) {
 }
 
 KeyHash shd_hash_strings(Strings* strings) {
-    return shd_hash_murmur(strings->strings, sizeof(char*) * strings->count);
+    return shd_hash(strings->strings, sizeof(char*) * strings->count);
 }
 
 bool shd_compare_strings(Strings* a, Strings* b) {
@@ -256,7 +256,7 @@ bool shd_compare_strings(Strings* a, Strings* b) {
 KeyHash shd_hash_string(const char** string) {
     if (!*string)
         return 0;
-    return shd_hash_murmur(*string, strlen(*string));
+    return shd_hash(*string, strlen(*string));
 }
 
 bool shd_compare_string(const char** a, const char** b) {

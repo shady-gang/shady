@@ -13,7 +13,7 @@
 #define STRINGIFY(x) STRINGIFY2(x)
 #define VCC_CLANG STRINGIFY(VCC_CLANG_EXECUTABLE_NAME)
 
-uint32_t shd_hash_murmur(const void* data, size_t size);
+uint32_t shd_hash(const void* data, size_t size);
 
 void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
     int argc = *pargc;
@@ -98,7 +98,7 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
         uint32_t hash = 0;
         for (size_t i = 0; i < num_source_files; i++) {
             String filename = input_filenames[i];
-            hash ^= shd_hash_murmur(filename, strlen(filename));
+            hash ^= shd_hash(filename, strlen(filename));
         }
         srand(hash);
         for (size_t i = 0; i < 32; i++) {

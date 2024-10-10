@@ -382,22 +382,23 @@ bool shd_dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* v
     return true;
 }
 
-#include "murmur3.h"
+KeyHash shd_hash(const void* data, size_t size) {
+    const char* data_chars = (const char*) data;
+    const unsigned int fnv_prime = 0x811C9DC5;
+    unsigned int hash = 0;
+    unsigned int i = 0;
 
-KeyHash shd_hash_murmur(const void* data, size_t size) {
-    int32_t out[4];
-    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
+    for (i = 0; i < size; data++, i++)
+    {
+        hash *= fnv_prime;
+        hash ^= (*data_chars);
+    }
 
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
+    return hash;
 }
 
 KeyHash shd_hash_ptr(void** p) {
-    return shd_hash_murmur(p, sizeof(void*));
+    return shd_hash(p, sizeof(void*));
 }
 
 bool shd_compare_ptrs(void** a, void** b) {

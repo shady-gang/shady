@@ -19,7 +19,7 @@ static KeyHash hash_opaque_ptr(OpaqueRef* pvalue) {
     if (!pvalue)
         return 0;
     size_t ptr = *(size_t*) pvalue;
-    return shd_hash_murmur(&ptr, sizeof(size_t));
+    return shd_hash(&ptr, sizeof(size_t));
 }
 
 static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {

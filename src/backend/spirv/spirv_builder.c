@@ -93,7 +93,7 @@ struct SpvbFileBuilder_ {
     struct Dict* extensions_set;
 };
 
-static KeyHash hash_u32(uint32_t* p) { return shd_hash_murmur(p, sizeof(uint32_t)); }
+static KeyHash hash_u32(uint32_t* p) { return shd_hash(p, sizeof(uint32_t)); }
 static bool compare_u32s(uint32_t* a, uint32_t* b) { return *a == *b; }
 
 KeyHash shd_hash_string(const char** string);

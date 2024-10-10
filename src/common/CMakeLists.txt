@@ -1,5 +1,4 @@
 add_library(common list.c dict.c log.c portability.c util.c growy.c arena.c printer.c)
-target_link_libraries(common PRIVATE "$<BUILD_INTERFACE:murmur3>")
 set_property(TARGET common PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # We need to export 'common' because otherwise when using static libraries we will not be able to resolve those symbols

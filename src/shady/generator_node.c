@@ -57,7 +57,7 @@ static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_objec
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
                 bool ignore = json_object_get_boolean(json_object_object_get(op, "ignore"));
                 if (!ignore) {
-                    shd_growy_append_formatted(g, "\t\thash = hash ^ shd_hash_murmur(&payload.%s, sizeof(payload.%s));\n", op_name, op_name);
+                    shd_growy_append_formatted(g, "\t\thash = hash ^ shd_hash(&payload.%s, sizeof(payload.%s));\n", op_name, op_name);
                 }
             }
             shd_growy_append_formatted(g, "\t\tbreak;\n");
