@@ -45,7 +45,6 @@ typedef struct {
     struct Dict* emitted_terms;
     struct Dict* emitted_types;
 
-    int total_workgroup_size;
     bool use_private_globals;
     Printer* entrypoint_prelude;
 

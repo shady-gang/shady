@@ -698,9 +698,11 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case subgroup_assume_uniform_op: {
-            if (emitter->config.dialect != CDialect_ISPC) {
-                return c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
+            if (emitter->config.dialect == CDialect_ISPC) {
+                CTerm value = c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
             }
+            return c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
         }
         case empty_mask_op:
         case mask_is_thread_active_op: shd_error("lower_me");
@@ -721,8 +723,8 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
             case SpvOpGroupNonUniformBroadcastFirst: {
                 CValue value = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(instr.operands)));
                 switch (emitter->config.dialect) {
-                    case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value)); break;
-                    case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
+                    case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value));
+                    case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
                     case CDialect_C11:
                     case CDialect_GLSL: shd_error("TODO")
                 }
@@ -892,7 +894,10 @@ static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     String variable_name = unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
     c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
-    if (emitter->config.dialect == CDialect_ISPC) {
+    const Type* ptr_type = instr->type;
+    shd_deconstruct_qualified_type(&ptr_type);
+    assert(ptr_type->tag == PtrType_TAG);
+    if (emitter->config.dialect == CDialect_ISPC && !ptr_type->payload.ptr_type.is_reference) {
         variable = ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
     }
    return variable;

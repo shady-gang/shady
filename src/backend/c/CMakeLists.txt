@@ -14,12 +14,15 @@ target_link_libraries(shady_c INTERFACE "$<BUILD_INTERFACE:shady>")
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:common>")
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_generated>")
 
-embed_file(string shady_cuda_prelude_src cuda_prelude.cu)
-embed_file(string shady_cuda_builtins_src cuda_builtins.cu)
+embed_file(string shady_cuda_prelude_src prelude.cu)
+embed_file(string shady_cuda_runtime_src runtime.cu)
 target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_cuda_prelude_src>")
-target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_cuda_builtins_src>")
+target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_cuda_runtime_src>")
 
-embed_file(string shady_glsl_120_polyfills_src glsl_120_polyfills.glsl)
-target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_glsl_120_polyfills_src>")
+embed_file(string shady_glsl_runtime_120_src runtime_120.glsl)
+target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_glsl_runtime_120_src>")
+
+embed_file(string shady_ispc_runtime_src runtime.ispc)
+target_link_libraries(shady_c PRIVATE "$<BUILD_INTERFACE:shady_ispc_runtime_src>")
 
 target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady_c>")
