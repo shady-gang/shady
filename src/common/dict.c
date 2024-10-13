@@ -388,7 +388,7 @@ KeyHash shd_hash(const void* data, size_t size) {
     unsigned int hash = 0;
     unsigned int i = 0;
 
-    for (i = 0; i < size; data++, i++)
+    for (i = 0; i < size; data_chars++, i++)
     {
         hash *= fnv_prime;
         hash ^= (*data_chars);
