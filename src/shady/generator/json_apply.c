@@ -1,5 +1,4 @@
-#include <json-c/json_object.h>
-#include <json-c/json_object_iterator.h>
+#include <json-c/json.h>
 #include <assert.h>
 
 #include "log.h"
