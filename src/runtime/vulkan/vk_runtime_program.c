@@ -1,121 +1,17 @@
 #include "vk_runtime_private.h"
 
+#include "shady/driver.h"
+#include "shady/ir/memory_layout.h"
+
 #include "log.h"
 #include "portability.h"
 #include "dict.h"
-#include "list.h"
 #include "growy.h"
-
 #include "arena.h"
 #include "util.h"
 
-#include "../../shady/transform/memory_layout.h"
-
 #include <stdlib.h>
 #include <string.h>
-
-static bool extract_parameters_info(VkrSpecProgram* program) {
-    Nodes decls = get_module_declarations(program->specialized_module);
-
-    const Node* args_struct_annotation;
-    const Node* args_struct_type = NULL;
-    const Node* entry_point_function = NULL;
-
-    for (int i = 0; i < decls.count; ++i) {
-        const Node* node = decls.nodes[i];
-
-        switch (node->tag) {
-            case GlobalVariable_TAG: {
-                const Node* entry_point_args_annotation = lookup_annotation(node, "EntryPointArgs");
-                if (entry_point_args_annotation) {
-                    if (node->payload.global_variable.type->tag != RecordType_TAG) {
-                        error_print("EntryPointArgs must be a struct\n");
-                        return false;
-                    }
-
-                    if (args_struct_type) {
-                        error_print("there cannot be more than one EntryPointArgs\n");
-                        return false;
-                    }
-
-                    args_struct_annotation = entry_point_args_annotation;
-                    args_struct_type = node->payload.global_variable.type;
-                }
-                break;
-            }
-            case Function_TAG: {
-                if (lookup_annotation(node, "EntryPoint")) {
-                    if (node->payload.fun.params.count != 0) {
-                        error_print("EntryPoint cannot have parameters\n");
-                        return false;
-                    }
-
-                    if (entry_point_function) {
-                        error_print("there cannot be more than one EntryPoint\n");
-                        return false;
-                    }
-
-                    entry_point_function = node;
-                }
-                break;
-            }
-            default: break;
-        }
-    }
-
-    if (!entry_point_function) {
-        error_print("could not find EntryPoint\n");
-        return false;
-    }
-
-    if (!args_struct_type) {
-        program->parameters = (ProgramParamsInfo) { .num_args = 0 };
-        return true;
-    }
-
-    if (args_struct_annotation->tag != AnnotationValue_TAG) {
-        error_print("EntryPointArgs annotation must contain exactly one value\n");
-        return false;
-    }
-
-    const Node* annotation_fn = args_struct_annotation->payload.annotation_value.value;
-    assert(annotation_fn->tag == FnAddr_TAG);
-    if (annotation_fn->payload.fn_addr.fn != entry_point_function) {
-        error_print("EntryPointArgs annotation refers to different EntryPoint\n");
-        return false;
-    }
-
-    size_t num_args = args_struct_type->payload.record_type.members.count;
-
-    if (num_args == 0) {
-        error_print("EntryPointArgs cannot be empty\n");
-        return false;
-    }
-
-    IrArena* a = get_module_arena(program->specialized_module);
-
-    LARRAY(FieldLayout, fields, num_args);
-    get_record_layout(a, args_struct_type, fields);
-
-    size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
-    if (!offset_size_buffer) {
-        error_print("failed to allocate EntryPointArgs offsets and sizes array\n");
-        return false;
-    }
-    size_t* offsets = offset_size_buffer;
-    size_t* sizes = offset_size_buffer + num_args;
-
-    for (int i = 0; i < num_args; ++i) {
-        offsets[i] = fields[i].offset_in_bytes;
-        sizes[i] = fields[i].mem_layout.size_in_bytes;
-    }
-
-    program->parameters.num_args = num_args;
-    program->parameters.arg_offset = offsets;
-    program->parameters.arg_size = sizes;
-    program->parameters.args_size = offsets[num_args - 1] + sizes[num_args - 1];
-    return true;
-}
 
 static void register_required_descriptors(VkrSpecProgram* program, VkDescriptorSetLayoutBinding* binding) {
     assert(binding->descriptorCount > 0);
@@ -130,32 +26,72 @@ static void register_required_descriptors(VkrSpecProgram* program, VkDescriptorS
 
 static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Growy** bindings_lists, int set, VkDescriptorSetLayoutBinding binding) {
     if (bindings_lists[set] == NULL) {
-        bindings_lists[set] = new_growy();
-        layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) growy_data(bindings_lists[set]);
+        bindings_lists[set] = shd_new_growy();
+        layout_create_info[set].pBindings = (const VkDescriptorSetLayoutBinding*) shd_growy_data(bindings_lists[set]);
     }
     layout_create_info[set].bindingCount += 1;
-    growy_append_object(bindings_lists[set], binding);
+    shd_growy_append_object(bindings_lists[set], binding);
 }
 
 VkDescriptorType as_to_descriptor_type(AddressSpace as) {
     switch (as) {
         case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        default: error("No mapping to a descriptor type");
+        default: shd_error("No mapping to a descriptor type");
+    }
+}
+
+static void write_value(unsigned char* tgt, const Node* value) {
+    IrArena* a = value->arena;
+    switch (value->tag) {
+        case IntLiteral_TAG: {
+            switch (value->payload.int_literal.width) {
+                case IntTy8: *((uint8_t*) tgt) = (uint8_t) (value->payload.int_literal.value & 0xFF); break;
+                case IntTy16: *((uint16_t*) tgt) = (uint16_t) (value->payload.int_literal.value & 0xFFFF); break;
+                case IntTy32: *((uint32_t*) tgt) = (uint32_t) (value->payload.int_literal.value & 0xFFFFFFFF); break;
+                case IntTy64: *((uint64_t*) tgt) = (uint64_t) (value->payload.int_literal.value); break;
+            }
+            break;
+        }
+        case Composite_TAG: {
+            Nodes values = value->payload.composite.contents;
+            const Type* struct_t = value->payload.composite.type;
+            struct_t = get_maybe_nominal_type_body(struct_t);
+
+            if (struct_t->tag == RecordType_TAG) {
+                LARRAY(FieldLayout, fields, values.count);
+                shd_get_record_layout(a, struct_t, fields);
+                for (size_t i = 0; i < values.count; i++) {
+                    // TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(element->type));
+                    write_value(tgt + fields->offset_in_bytes, values.nodes[i]);
+                }
+            } else if (struct_t->tag == ArrType_TAG) {
+                for (size_t i = 0; i < values.count; i++) {
+                    TypeMemLayout layout = shd_get_mem_layout(value->arena, shd_get_unqualified_type(values.nodes[i]->type));
+                    write_value(tgt, values.nodes[i]);
+                    tgt += layout.size_in_bytes;
+                }
+            } else {
+                assert(false);
+            }
+            break;
+        }
+        default:
+            assert(false);
     }
 }
 
 static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLayout layouts[]) {
     VkDescriptorSetLayoutCreateInfo layout_create_infos[MAX_DESCRIPTOR_SETS] = { 0 };
     Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
-    Growy* resources = new_growy();
+    Growy* resources = shd_new_growy();
 
-    Nodes decls = get_module_declarations(program->specialized_module);
+    Nodes decls = shd_module_get_declarations(program->specialized_module);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
 
-        if (lookup_annotation(decl, "Constants")) {
+        if (shd_lookup_annotation(decl, "Constants")) {
             AddressSpace as = decl->payload.global_variable.address_space;
             switch (as) {
                 case AsShaderStorageBufferObject:
@@ -163,17 +99,17 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 default: continue;
             }
 
-            int set = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorSet"))), false);
-            int binding = get_int_literal_value(*resolve_to_int_literal(get_annotation_value(lookup_annotation(decl, "DescriptorBinding"))), false);
+            int set = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
+            int binding = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
 
-            ProgramResourceInfo* res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+            ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
             *res_info = (ProgramResourceInfo) {
                 .is_bound = true,
                 .as = as,
                 .set = set,
                 .binding = binding,
             };
-            growy_append_object(resources, res_info);
+            shd_growy_append_object(resources, res_info);
             program->resources.num_resources++;
 
             const Type* struct_t = decl->payload.global_variable.type;
@@ -181,14 +117,16 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
 
             for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
-                TypeMemLayout layout = get_mem_layout(program->specialized_module->arena, member_t);
+                assert(member_t->tag == PtrType_TAG);
+                member_t = shd_get_pointee_type(member_t->arena, member_t);
+                TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
 
-                ProgramResourceInfo* constant_res_info = arena_alloc(program->arena, sizeof(ProgramResourceInfo));
+                ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
                 *constant_res_info = (ProgramResourceInfo) {
                     .parent = res_info,
                     .as = as,
                 };
-                growy_append_object(resources, constant_res_info);
+                shd_growy_append_object(resources, constant_res_info);
                 program->resources.num_resources++;
 
                 constant_res_info->size = layout.size_in_bytes;
@@ -196,6 +134,15 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 res_info->size += sizeof(void*);
 
                 // TODO initial value
+                Nodes annotations = get_declaration_annotations(decl);
+                for (size_t k = 0; k < annotations.count; k++) {
+                    const Node* a = annotations.nodes[k];
+                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
+                        constant_res_info->default_data = calloc(1, layout.size_in_bytes);
+                        write_value(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
+                        //printf("wowie");
+                    }
+                }
             }
 
             if (vkr_can_import_host_memory(program->device))
@@ -216,25 +163,24 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
     }
 
     for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
-        layouts[set] = NULL;
+        layouts[set] = 0;
         layout_create_infos[set].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_create_infos[set].flags = 0;
         layout_create_infos[set].pNext = NULL;
         vkCreateDescriptorSetLayout(program->device->device, &layout_create_infos[set], NULL, &layouts[set]);
         if (bindings_lists[set] != NULL) {
-            destroy_growy(bindings_lists[set]);
+            shd_destroy_growy(bindings_lists[set]);
         }
     }
 
-    program->resources.resources = (ProgramResourceInfo**) growy_deconstruct(resources);
+    program->resources.resources = (ProgramResourceInfo**) shd_growy_deconstruct(resources);
 
     return true;
 }
 
 static bool extract_layout(VkrSpecProgram* program) {
-    CHECK(extract_parameters_info(program), return false);
     if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
-        error_print("EntryPointArgs exceed available push constant space\n");
+        shd_error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
     VkPushConstantRange push_constant_ranges[1] = {
@@ -312,34 +258,146 @@ static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const Co
     config.lower.int64 = !device->caps.features.base.features.shaderInt64;
 
     if (device->caps.implementation.is_moltenvk) {
-        warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
+        shd_warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
         config.lower.emulate_subgroup_ops_extended_types = true;
-        warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
+        shd_warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
         config.lower.decay_ptrs = true;
     }
     if (device->caps.properties.driver_properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
-        warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
+        shd_warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
         config.hacks.spv_shuffle_instead_of_broadcast_first = true;
     }
 
     return config;
 }
 
+static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) {
+    Nodes decls = shd_module_get_declarations(mod);
+
+    const Node* args_struct_annotation;
+    const Node* args_struct_type = NULL;
+    const Node* entry_point_function = NULL;
+
+    for (int i = 0; i < decls.count; ++i) {
+        const Node* node = decls.nodes[i];
+
+        switch (node->tag) {
+            case GlobalVariable_TAG: {
+                const Node* entry_point_args_annotation = shd_lookup_annotation(node, "EntryPointArgs");
+                if (entry_point_args_annotation) {
+                    if (node->payload.global_variable.type->tag != RecordType_TAG) {
+                        shd_error_print("EntryPointArgs must be a struct\n");
+                        return false;
+                    }
+
+                    if (args_struct_type) {
+                        shd_error_print("there cannot be more than one EntryPointArgs\n");
+                        return false;
+                    }
+
+                    args_struct_annotation = entry_point_args_annotation;
+                    args_struct_type = node->payload.global_variable.type;
+                }
+                break;
+            }
+            case Function_TAG: {
+                if (shd_lookup_annotation(node, "EntryPoint")) {
+                    if (node->payload.fun.params.count != 0) {
+                        shd_error_print("EntryPoint cannot have parameters\n");
+                        return false;
+                    }
+
+                    if (entry_point_function) {
+                        shd_error_print("there cannot be more than one EntryPoint\n");
+                        return false;
+                    }
+
+                    entry_point_function = node;
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+
+    if (!entry_point_function) {
+        shd_error_print("could not find EntryPoint\n");
+        return false;
+    }
+
+    if (!args_struct_type) {
+        *parameters = (ProgramParamsInfo) { .num_args = 0 };
+        return true;
+    }
+
+    if (args_struct_annotation->tag != AnnotationValue_TAG) {
+        shd_error_print("EntryPointArgs annotation must contain exactly one value\n");
+        return false;
+    }
+
+    const Node* annotation_fn = args_struct_annotation->payload.annotation_value.value;
+    assert(annotation_fn->tag == FnAddr_TAG);
+    if (annotation_fn->payload.fn_addr.fn != entry_point_function) {
+        shd_error_print("EntryPointArgs annotation refers to different EntryPoint\n");
+        return false;
+    }
+
+    size_t num_args = args_struct_type->payload.record_type.members.count;
+
+    if (num_args == 0) {
+        shd_error_print("EntryPointArgs cannot be shd_empty\n");
+        return false;
+    }
+
+    IrArena* a = shd_module_get_arena(mod);
+
+    LARRAY(FieldLayout, fields, num_args);
+    shd_get_record_layout(a, args_struct_type, fields);
+
+    size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
+    if (!offset_size_buffer) {
+        shd_error_print("failed to allocate EntryPointArgs offsets and sizes array\n");
+        return false;
+    }
+    size_t* offsets = offset_size_buffer;
+    size_t* sizes = offset_size_buffer + num_args;
+
+    for (int i = 0; i < num_args; ++i) {
+        offsets[i] = fields[i].offset_in_bytes;
+        sizes[i] = fields[i].mem_layout.size_in_bytes;
+    }
+
+    parameters->num_args = num_args;
+    parameters->arg_offset = offsets;
+    parameters->arg_size = sizes;
+    parameters->args_size = offsets[num_args - 1] + sizes[num_args - 1];
+    return true;
+}
+
 static bool compile_specialized_program(VkrSpecProgram* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
     config.specialization.entry_point = spec->key.entry_point;
 
-    CHECK(run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
+    CHECK(shd_run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
 
-    Module* new_mod;
-    emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &new_mod);
-    spec->specialized_module = new_mod;
+    Module* final_mod;
+    emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &final_mod);
+
+    CHECK(extract_parameters_info(&spec->parameters, final_mod), return false);
+
+    spec->specialized_module = final_mod;
 
     if (spec->key.base->runtime->config.dump_spv) {
-        String module_name = get_module_name(spec->specialized_module);
-        String file_name = format_string_new("%s.spv", module_name);
-        write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
+        String module_name = shd_module_get_name(spec->specialized_module);
+        String file_name = shd_format_string_new("%s.spv", module_name);
+        shd_write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
         free((void*) file_name);
+    }
+
+    String override_file = getenv("SHADY_OVERRIDE_SPV");
+    if (override_file) {
+        shd_read_file(override_file, &spec->spirv_size, &spec->spirv_bytes);
+        return true;
     }
 
     return true;
@@ -374,7 +432,7 @@ static void flush_staged_data(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
         if (resource->staging) {
-            copy_to_buffer(resource->buffer, 0, resource->buffer, resource->size);
+            copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
             free(resource->staging);
         }
     }
@@ -386,17 +444,19 @@ static bool prepare_resources(VkrSpecProgram* program) {
 
         if (resource->host_backed_allocation) {
             assert(vkr_can_import_host_memory(program->device));
-            resource->host_ptr = alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
-            resource->buffer = import_buffer_host(program->device, resource->host_ptr, resource->size);
+            resource->host_ptr = shd_alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
+            resource->buffer = vkr_import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
-            resource->buffer = allocate_buffer_device(program->device, resource->size);
+            resource->buffer = vkr_allocate_buffer_device(program->device, resource->size);
         }
 
-        // TODO: initial data!
-        // if (!resource->host_owned)
-        char* zeroes = calloc(1, resource->size);
-        copy_to_buffer(resource->buffer, 0, zeroes, resource->size);
-        free(zeroes);
+        if (resource->default_data) {
+            copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
+        } else {
+            char* zeroes = calloc(1, resource->size);
+            copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
+            free(zeroes);
+        }
 
         if (resource->parent) {
             char* dst = resource->parent->host_ptr;
@@ -404,7 +464,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
                 dst = resource->parent->staging;
             }
             assert(dst);
-            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer(resource->buffer);
+            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer((Buffer*) resource->buffer);
         }
     }
 
@@ -421,7 +481,7 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     spec_program->key = key;
     spec_program->device = device;
     spec_program->specialized_module = key.base->module;
-    spec_program->arena = new_arena();
+    spec_program->arena = shd_new_arena();
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
@@ -433,12 +493,12 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
 
 VkrSpecProgram* get_specialized_program(Program* program, String entry_point, VkrDevice* device) {
     SpecProgramKey key = { .base = program, .entry_point = entry_point };
-    VkrSpecProgram** found = find_value_dict(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
+    VkrSpecProgram** found = shd_dict_find_value(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
     if (found)
         return *found;
     VkrSpecProgram* spec = create_specialized_program(key, device);
     assert(spec);
-    insert_dict(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key, spec);
+    shd_dict_insert(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key, spec);
     return spec;
 }
 
@@ -448,19 +508,19 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
-    free(spec->parameters.arg_offset);
+    free( (void*) spec->parameters.arg_offset);
     free(spec->spirv_bytes);
-    if (get_module_arena(spec->specialized_module) != get_module_arena(spec->key.base->module))
-        destroy_ir_arena(get_module_arena(spec->specialized_module));
+    if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
+        shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)
-            destroy_buffer(resource->buffer);
+            vkr_destroy_buffer(resource->buffer);
         if (resource->host_ptr && resource->host_backed_allocation)
-            free_aligned(resource->host_ptr);
+            shd_free_aligned(resource->host_ptr);
     }
     free(spec->resources.resources);
     vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);
-    destroy_arena(spec->arena);
+    shd_destroy_arena(spec->arena);
     free(spec);
 }

@@ -4,6 +4,7 @@
 #include "log.h"
 #include "list.h"
 #include "util.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -17,41 +18,40 @@ Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_co
     program->module = mod;
 
     // TODO split the compilation pipeline into generic and non-generic parts
-    append_list(Program*, runtime->programs, program);
+    shd_list_append(Program*, runtime->programs, program);
     return program;
 }
 
 Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const char* program_src) {
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* module = new_module(arena, "my_module");
+    Module* module;
 
-    int err = driver_load_source_file(SrcShadyIR, strlen(program_src), program_src, module);
+    int err = shd_driver_load_source_file(base_config, SrcShadyIR, strlen(program_src), program_src, "my_module",
+                                          &module);
     if (err != NoError) {
         return NULL;
     }
 
     Program* program = new_program_from_module(runtime, base_config, module);
-    program->arena = arena;
+    program->arena = shd_module_get_arena(module);
     return program;
 }
 
 Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_config, const char* path) {
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* module = new_module(arena, "my_module");
+    Module* module;
 
-    int err = driver_load_source_file_from_filename(path, module);
+    int err = shd_driver_load_source_file_from_filename(base_config, path, "my_module", &module);
     if (err != NoError) {
         return NULL;
     }
 
     Program* program = new_program_from_module(runtime, base_config, module);
-    program->arena = arena;
+    program->arena = shd_module_get_arena(module);
     return program;
 }
 
 void unload_program(Program* program) {
     // TODO iterate over the specialized stuff
     if (program->arena) // if the program owns an arena
-        destroy_ir_arena(program->arena);
+        shd_destroy_ir_arena(program->arena);
     free(program);
 }

@@ -1,26 +1,25 @@
-#include "passes.h"
+#include "shady/pass.h"
+
+#include "../ir_private.h"
+#include "../analysis/callgraph.h"
 
 #include "dict.h"
-#include "list.h"
 #include "portability.h"
 #include "util.h"
 #include "log.h"
 
-#include "../rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-
-#include "../analysis/scope.h"
-#include "../analysis/callgraph.h"
+typedef struct {
+    const Node* host_fn;
+    const Node* return_jp;
+} InlinedCall;
 
 typedef struct {
     Rewriter rewriter;
-    Scope* scope;
+    const CompilerConfig* config;
     CallGraph* graph;
     const Node* old_fun;
     Node* fun;
-    bool allow_fn_inlining;
-    struct Dict* inlined_return_sites;
+    InlinedCall* inlined_call;
 } Context;
 
 static const Node* ignore_immediate_fn_addr(const Node* node) {
@@ -31,9 +30,21 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
 }
 
 static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_fn) {
-    if (lookup_annotation(src_fn, "Leaf"))
+    if (shd_lookup_annotation(src_fn, "Internal"))
         return false;
-    if (lookup_annotation(dst_fn, "NoInline"))
+    if (shd_lookup_annotation(dst_fn, "NoInline"))
+        return false;
+    if (!dst_fn->payload.fun.body)
+        return false;
+    return true;
+}
+
+static bool is_call_safely_removable(const Node* fn) {
+    if (shd_lookup_annotation(fn, "Internal"))
+        return false;
+    if (shd_lookup_annotation(fn, "EntryPoint"))
+        return false;
+    if (shd_lookup_annotation(fn, "Exported"))
         return false;
     return true;
 }
@@ -45,21 +56,19 @@ typedef struct {
     bool can_be_eliminated;
 } FnInliningCriteria;
 
-static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
+static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, CGNode* fn_node) {
     FnInliningCriteria crit = { 0 };
 
     CGEdge e;
     size_t i = 0;
-    while (dict_iter(fn_node->callers, &i, &e, NULL)) {
+    while (shd_dict_iter(fn_node->callers, &i, &e, NULL)) {
         crit.num_calls++;
         if (is_call_potentially_inlineable(e.src_fn->fn, e.dst_fn->fn))
             crit.num_inlineable_calls++;
     }
 
-    debugv_print("%s has %d callers\n", get_abstraction_name(fn_node->fn), crit.num_calls);
-
     // a function can be inlined if it has exactly one inlineable call...
-    if (crit.num_inlineable_calls == 1)
+    if (crit.num_inlineable_calls <= 1 || config->optimisations.inline_everything)
         crit.can_be_inlined = true;
 
     // avoid inlining recursive things for now
@@ -74,29 +83,44 @@ static FnInliningCriteria get_inlining_heuristic(CGNode* fn_node) {
     if (fn_node->is_address_captured)
         crit.can_be_eliminated = false;
 
+    if (!is_call_safely_removable(fn_node->fn))
+        crit.can_be_eliminated = false;
+
+    shd_debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d safely_removable=%d address_leaks=%d recursive=%d inlineable=%d can_be_eliminated=%d\n",
+                     shd_get_abstraction_name(fn_node->fn),
+                     crit.num_calls,
+                     crit.num_inlineable_calls,
+                     is_call_safely_removable(fn_node->fn),
+                     fn_node->is_address_captured,
+                     fn_node->is_recursive,
+                     crit.can_be_inlined,
+                     crit.can_be_eliminated);
+
     return crit;
 }
 
 /// inlines the abstraction with supplied arguments
-static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs, bool separate_scope) {
-    assert(is_abstraction(oabs));
+static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nmem, Nodes nargs, const Node* return_to) {
+    assert(is_abstraction(ocallee));
 
+    shd_log_fmt(DEBUG, "Inlining '%s' inside '%s'\n", shd_get_abstraction_name(ocallee), shd_get_abstraction_name(ctx->fun));
     Context inline_context = *ctx;
-    if (separate_scope)
-        inline_context.rewriter.map = clone_dict(inline_context.rewriter.map);
-    Nodes oparams = get_abstraction_params(oabs);
-    register_processed_list(&inline_context.rewriter, oparams, nargs);
+    inline_context.rewriter.map = shd_clone_dict(inline_context.rewriter.map);
 
-    if (oabs->tag == Function_TAG)
-        inline_context.scope = new_scope(oabs);
+    ctx = &inline_context;
+    InlinedCall inlined_call = {
+        .host_fn = ctx->fun,
+        .return_jp = return_to,
+    };
+    inline_context.inlined_call = &inlined_call;
 
-    const Node* nbody = rewrite_node(&inline_context.rewriter, get_abstraction_body(oabs));
+    Nodes oparams = get_abstraction_params(ocallee);
+    shd_register_processed_list(&inline_context.rewriter, oparams, nargs);
+    shd_register_processed(&inline_context.rewriter, shd_get_abstraction_mem(ocallee), nmem);
 
-    if (oabs->tag == Function_TAG)
-        destroy_scope(inline_context.scope);
+    const Node* nbody = shd_rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
 
-    if (separate_scope)
-        destroy_dict(inline_context.rewriter.map);
+    shd_destroy_dict(inline_context.rewriter.map);
 
     assert(is_terminator(nbody));
     return nbody;
@@ -104,175 +128,122 @@ static const Node* inline_call(Context* ctx, const Node* oabs, Nodes nargs, bool
 
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
-    if (!node) return NULL;
+    Rewriter* r = &ctx->rewriter;
     assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
-
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
 
     switch (node->tag) {
         case Function_TAG: {
             if (ctx->graph) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, node);
-                if (get_inlining_heuristic(fn_node).can_be_eliminated) {
-                    debugv_print("Eliminating %s because it has exactly one caller\n", get_abstraction_name(fn_node->fn));
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
+                if (get_inlining_heuristic(ctx->config, fn_node).can_be_eliminated) {
+                    shd_debugv_print("Eliminating %s because it has exactly one caller\n", shd_get_abstraction_name(fn_node->fn));
                     return NULL;
                 }
             }
 
-            Nodes annotations = rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            Node* new = function(ctx->rewriter.dst_module, recreate_variables(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            for (size_t i = 0; i < new->payload.fun.params.count; i++)
-                register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
-            register_processed(&ctx->rewriter, node, new);
+            Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+            Node* new = function(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            shd_register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
-            Scope* scope = new_scope(node);
-            fn_ctx.rewriter.map = clone_dict(fn_ctx.rewriter.map);
-            fn_ctx.scope = scope;
+            fn_ctx.rewriter.map = shd_clone_dict(fn_ctx.rewriter.map);
             fn_ctx.old_fun = node;
             fn_ctx.fun = new;
-            recreate_decl_body_identity(&fn_ctx.rewriter, node, new);
-            destroy_dict(fn_ctx.rewriter.map);
-            destroy_scope(scope);
+            fn_ctx.inlined_call = NULL;
+            for (size_t i = 0; i < new->payload.fun.params.count; i++)
+                shd_register_processed(&fn_ctx.rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
+            shd_recreate_node_body(&fn_ctx.rewriter, node, new);
+            shd_destroy_dict(fn_ctx.rewriter.map);
             return new;
-        }
-        case Jump_TAG: {
-            const Node* otarget = node->payload.jump.target;
-            assert(otarget && otarget->tag == BasicBlock_TAG);
-            assert(otarget->payload.basic_block.fn == ctx->scope->entry->node);
-            CFNode* cfnode = scope_lookup(ctx->scope, otarget);
-            assert(cfnode);
-            size_t preds_count = entries_count_list(cfnode->pred_edges);
-            assert(preds_count > 0 && "this CFG looks broken");
-            if (preds_count == 1) {
-                debugv_print("Inlining jump to %s inside function %s\n", get_abstraction_name(otarget), get_abstraction_name(ctx->old_fun));
-                Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.jump.args);
-                return inline_call(ctx, otarget, nargs, false);
-            }
-            break;
-        }
-        // do not inline jumps in branches
-        case Branch_TAG: {
-            return branch(a, (Branch) {
-                .branch_condition = rewrite_node(&ctx->rewriter, node->payload.branch.branch_condition),
-                .true_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.true_jump),
-                .false_jump = recreate_node_identity(&ctx->rewriter, node->payload.branch.false_jump),
-            });
-        }
-        case Switch_TAG: {
-            return br_switch(a, (Switch) {
-                .switch_value = rewrite_node(&ctx->rewriter, node->payload.br_switch.switch_value),
-                .case_values = rewrite_nodes(&ctx->rewriter, node->payload.br_switch.case_values),
-                .case_jumps = rewrite_nodes_with_fn(&ctx->rewriter, node->payload.br_switch.case_jumps, recreate_node_identity),
-                .default_jump = recreate_node_identity(&ctx->rewriter, node->payload.br_switch.default_jump),
-            });
         }
         case Call_TAG: {
             if (!ctx->graph)
                 break;
-            const Node* ocallee = node->payload.call.callee;
-            Nodes oargs = node->payload.call.args;
+            Call payload = node->payload.call;
+            const Node* ocallee = payload.callee;
 
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
-                if (get_inlining_heuristic(fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
-                    debugv_print("Inlining call to %s\n", get_abstraction_name(ocallee));
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, oargs);
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
+                if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
+                    shd_debugv_print("Inlining call to %s\n", shd_get_abstraction_name(ocallee));
+                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
 
                     // Prepare a join point to replace the old function return
-                    Nodes nyield_types = strip_qualifiers(a, rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
+                    Nodes nyield_types = shd_strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = var(a, qualified_type_helper(jp_type, true), format_string_arena(a->arena, "inlined_return_%s", get_abstraction_name(ocallee)));
-                    insert_dict_and_get_result(const Node*, const Node*, ctx->inlined_return_sites, ocallee, join_point);
+                    const Node* join_point = param(a, shd_as_qualified_type(jp_type, true), shd_format_string_arena(a->arena, "inlined_return_%s", shd_get_abstraction_name(ocallee)));
 
-                    const Node* nbody = inline_call(ctx, ocallee, nargs, true);
+                    Node* control_case = case_(a, shd_singleton(join_point));
+                    const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
+                    shd_set_abstraction_body(control_case, nbody);
 
-                    remove_dict(const Node*, ctx->inlined_return_sites, ocallee);
-
-                    return control(a, (Control) {
-                        .yield_types = nyield_types,
-                        .inside = case_(a, singleton(join_point), nbody)
-                    });
+                    BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+                    return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
                 }
             }
             break;
         }
+        /*case BasicBlock_TAG: {
+            Nodes nparams = recreate_params(r, get_abstraction_params(node));
+            register_processed_list(r, get_abstraction_params(node), nparams);
+            Node* bb = basic_block(a, nparams, get_abstraction_name(node));
+            register_processed(r, node, bb);
+            set_abstraction_body(bb, rewrite_node(r, get_abstraction_body(node)));
+            return bb;
+        }*/
         case Return_TAG: {
-            const Node** p_ret_jp = find_value_dict(const Node*, const Node*, ctx->inlined_return_sites, node);
-            if (p_ret_jp)
-                return join(a, (Join) { .join_point = *p_ret_jp, .args = rewrite_nodes(&ctx->rewriter, node->payload.fn_ret.args )});
+            Return payload = node->payload.fn_ret;
+            if (ctx->inlined_call)
+                return join(a, (Join) { .mem = shd_rewrite_node(r, payload.mem), .join_point = ctx->inlined_call->return_jp, .args = shd_rewrite_nodes(r, payload.args)});
             break;
         }
         case TailCall_TAG: {
             if (!ctx->graph)
                 break;
-            const Node* ocallee = node->payload.tail_call.target;
+            const Node* ocallee = node->payload.tail_call.callee;
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
-                CGNode* fn_node = *find_value_dict(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
-                if (get_inlining_heuristic(fn_node).can_be_inlined) {
-                    debugv_print("Inlining tail call to %s\n", get_abstraction_name(ocallee));
-                    Nodes nargs = rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
-
-                    return inline_call(ctx, ocallee, nargs, true);
+                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
+                if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
+                    shd_debugv_print("Inlining tail call to %s\n", shd_get_abstraction_name(ocallee));
+                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
+                    return inline_call(ctx, ocallee, shd_rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
                 }
             }
             break;
         }
-        case BasicBlock_TAG: {
-            Nodes params = recreate_variables(&ctx->rewriter, node->payload.basic_block.params);
-            register_processed_list(&ctx->rewriter, node->payload.basic_block.params, params);
-            Node* bb = basic_block(a, (Node*) ctx->fun, params, node->payload.basic_block.name);
-            register_processed(&ctx->rewriter, node, bb);
-            bb->payload.basic_block.body = process(ctx, node->payload.basic_block.body);
-            return bb;
-        }
         default: break;
     }
 
-    const Node* new = recreate_node_identity(&ctx->rewriter, node);
-    if (node->tag == Case_TAG)
-        register_processed(&ctx->rewriter, node, new);
-    return new;
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
-void opt_simplify_cf(SHADY_UNUSED const CompilerConfig* config, Module* src, Module* dst, bool allow_fn_inlining) {
+static void simplify_cf(const CompilerConfig* config, Module* src, Module* dst) {
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .config = config,
         .graph = NULL,
-        .scope = NULL,
         .fun = NULL,
-        .inlined_return_sites = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node),
+        .inlined_call = NULL,
     };
-    if (allow_fn_inlining)
-        ctx.graph = new_callgraph(src);
+    ctx.graph = new_callgraph(src);
 
-    rewrite_module(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
     if (ctx.graph)
         destroy_callgraph(ctx.graph);
 
-    destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.inlined_return_sites);
+    shd_destroy_rewriter(&ctx.rewriter);
 }
 
-Module* opt_inline_jumps(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
-    opt_simplify_cf(config, src, dst, false);
-    return dst;
-}
-
-Module* opt_inline(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
-    opt_simplify_cf(config, src, dst, true);
+Module* shd_pass_inline(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
+    simplify_cf(config, src, dst);
     return dst;
 }

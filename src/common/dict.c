@@ -1,12 +1,13 @@
 #include "dict.h"
 
+#include "log.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
 inline static size_t div_roundup(size_t a, size_t b) {
-    //return (a + b - 1) / b;
     if (a % b == 0)
         return a / b;
     else
@@ -27,6 +28,9 @@ static size_t init_size = 32;
 struct BucketTag {
     bool is_present;
     bool is_thombstone;
+#ifdef GOBLIB_DICT_DEBUG
+    KeyHash cached_hash;
+#endif
 };
 
 struct Dict {
@@ -46,7 +50,46 @@ struct Dict {
     void* alloc;
 };
 
-struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*hash_fn)(void*), bool (*cmp_fn) (void*, void*)) {
+#ifdef GOBLIB_DICT_DEBUG
+static size_t dict_count_sanity(struct Dict* dict) {
+    size_t i = 0;
+    size_t count = 0;
+    while (dict_iter(dict, &i, NULL, NULL)) {
+        count++;
+    }
+    return count;
+}
+
+static void validate_hashmap_integrity(const struct Dict* dict) {
+    const size_t alloc_base = (size_t) dict->alloc;
+    for (size_t i = 0; i < dict->size; i++) {
+        size_t bucket = alloc_base + i * dict->bucket_entry_size;
+        void* in_dict_key = (void*) bucket;
+        struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
+        if (tag.is_present) {
+            KeyHash fresh_hash = dict->hash_fn(in_dict_key);
+            if (fresh_hash != tag.cached_hash) {
+                error("hash changed under our noses");
+            }
+        }
+    }
+}
+
+static void dump_dict_keys(struct Dict* dict) {
+    const size_t alloc_base = (size_t) dict->alloc;
+    for (size_t i = 0; i < dict->size; i++) {
+        size_t bucket = alloc_base + i * dict->bucket_entry_size;
+        void* in_dict_key = (void*) bucket;
+        struct BucketTag tag = *(struct BucketTag*) (void*) (bucket + dict->tag_offset);
+        if (tag.is_present) {
+            KeyHash hash = dict->hash_fn(in_dict_key);
+            printf("@i = %zu, hash = %d\n", i, hash);
+        }
+    }
+}
+#endif
+
+struct Dict* shd_new_dict_impl(size_t key_size, size_t value_size, size_t key_align, size_t value_align, KeyHash (*hash_fn)(void*), bool (*cmp_fn) (void*, void*)) {
     // offset of key is obviously zero
     size_t value_offset = align_offset(key_size, value_align);
     size_t tag_offset = align_offset(value_offset + value_size, alignof(struct BucketTag));
@@ -80,7 +123,7 @@ struct Dict* new_dict_impl(size_t key_size, size_t value_size, size_t key_align,
     return dict;
 }
 
-struct Dict* clone_dict(struct Dict* source) {
+struct Dict* shd_clone_dict(struct Dict* source) {
     struct Dict* dict = (struct Dict*) malloc(sizeof(struct Dict));
     *dict = (struct Dict) {
         .entries_count = source->entries_count,
@@ -100,25 +143,32 @@ struct Dict* clone_dict(struct Dict* source) {
         .alloc = malloc(source->bucket_entry_size * source->size)
     };
     memcpy(dict->alloc, source->alloc, source->bucket_entry_size * source->size);
+#ifdef GOBLIB_DICT_DEBUG
+    validate_hashmap_integrity(dict);
+    validate_hashmap_integrity(source);
+#endif
     return dict;
 }
 
-void destroy_dict(struct Dict* dict) {
+void shd_destroy_dict(struct Dict* dict) {
     free(dict->alloc);
     free(dict);
 }
 
-void clear_dict(struct Dict* dict) {
+void shd_dict_clear(struct Dict* dict) {
     dict->entries_count = 0;
     dict->thombstones_count = 0;
     memset(dict->alloc, 0, dict->bucket_entry_size * dict->size);
 }
 
-size_t entries_count_dict(struct Dict* dict) {
+size_t shd_dict_count(struct Dict* dict) {
     return dict->entries_count;
 }
 
-void* find_key_dict_impl(struct Dict* dict, void* key) {
+void* shd_dict_find_impl(struct Dict* dict, void* key) {
+#ifdef GOBLIB_DICT_DEBUG_PARANOID
+    validate_hashmap_integrity(dict);
+#endif
     KeyHash hash = dict->hash_fn(key);
     size_t pos = hash % dict->size;
     const size_t init_pos = pos;
@@ -146,15 +196,15 @@ void* find_key_dict_impl(struct Dict* dict, void* key) {
     return NULL;
 }
 
-void* find_value_dict_impl(struct Dict* dict, void* key) {
-    void* found = find_key_dict_impl(dict, key);
+void* shd_dict_find_value_impl(struct Dict* dict, void* key) {
+    void* found = shd_dict_find_impl(dict, key);
     if (found)
         return (void*) ((size_t)found + dict->value_offset);
     return NULL;
 }
 
-bool remove_dict_impl(struct Dict* dict, void* key) {
-    void* found = find_key_dict_impl(dict, key);
+bool shd_dict_remove_impl(struct Dict* dict, void* key) {
+    void* found = shd_dict_find_impl(dict, key);
     if (found) {
         struct BucketTag* tag = (void *) (((size_t) found) + dict->tag_offset);
         assert(tag->is_present && !tag->is_thombstone);
@@ -167,42 +217,43 @@ bool remove_dict_impl(struct Dict* dict, void* key) {
     return false;
 }
 
-bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr);
-bool insert_dict_and_get_result_impl(struct Dict* dict, void* key, void* value) {
+static bool dict_insert(struct Dict* dict, void* key, void* value, void** out_ptr);
+
+bool shd_dict_insert_impl(struct Dict* dict, void* key, void* value) {
     void* dont_care;
-    return insert_dict_impl(dict, key, value, &dont_care);
+    return dict_insert(dict, key, value, &dont_care);
 }
 
-void* insert_dict_and_get_key_impl(struct Dict* dict, void* key, void* value) {
+void* shd_dict_insert_get_key_impl(struct Dict* dict, void* key, void* value) {
     void* do_care;
-    insert_dict_impl(dict, key, value, &do_care);
+    dict_insert(dict, key, value, &do_care);
     return do_care;
 }
 
-void* insert_dict_and_get_value_impl(struct Dict* dict, void* key, void* value) {
+void* shd_dict_insert_get_value_impl(struct Dict* dict, void* key, void* value) {
     void* do_care;
-    insert_dict_impl(dict, key, value, &do_care);
+    dict_insert(dict, key, value, &do_care);
     return (void*) ((size_t)do_care + dict->value_offset);
 }
 
 static void rehash(struct Dict* dict, void* old_alloc, size_t old_size) {
     const size_t alloc_base = (size_t) old_alloc;
     // Go over all the old entries and add them back
-    for(size_t pos = 0; pos < old_size; pos++) {
+    for (size_t pos = 0; pos < old_size; pos++) {
         size_t bucket = alloc_base + pos * dict->bucket_entry_size;
 
         struct BucketTag* tag = (struct BucketTag*) (void*) (bucket + dict->tag_offset);
         if (tag->is_present) {
             void* key = (void*) bucket;
             void* value = (void*) (bucket + dict->value_offset);
-            insert_dict_and_get_result_impl(dict, key, value);
+            bool fresh = shd_dict_insert_impl(dict, key, value);
+            assert(fresh);
         }
     }
 }
 
 static void grow_and_rehash(struct Dict* dict) {
-    //printf("grow_rehash\n");
-    size_t old_entries_count = entries_count_dict(dict);
+    size_t old_entries_count = shd_dict_count(dict);
 
     void* old_alloc = dict->alloc;
     size_t old_size = dict->size;
@@ -215,12 +266,15 @@ static void grow_and_rehash(struct Dict* dict) {
     memset(dict->alloc, 0, dict->size * dict->bucket_entry_size);
 
     rehash(dict, old_alloc, old_size);
-    assert(old_entries_count == entries_count_dict(dict));
+#ifdef GOBLIB_DICT_DEBUG
+    assert(dict_count_sanity(dict) == entries_count_dict(dict));
+#endif
+    assert(old_entries_count == shd_dict_count(dict));
 
     free(old_alloc);
 }
 
-bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr) {
+static bool dict_insert(struct Dict* dict, void* key, void* value, void** out_ptr) {
     float load_factor = (float) (dict->entries_count + dict->thombstones_count) / (float) dict->size;
     if (load_factor > 0.6)
         grow_and_rehash(dict);
@@ -290,15 +344,22 @@ bool insert_dict_impl(struct Dict* dict, void* key, void* value, void** out_ptr)
 
     dst_tag->is_present = true;
     dst_tag->is_thombstone = false;
+#ifdef GOBLIB_DICT_DEBUG
+    dst_tag->cached_hash = hash;
+#endif
     memcpy(in_dict_key, key, dict->key_size);
     if (dict->value_size)
         memcpy(in_dict_value, value, dict->value_size);
     *out_ptr = in_dict_key;
 
+#ifdef GOBLIB_DICT_DEBUG
+    validate_hashmap_integrity(dict);
+#endif
+
     return mode == Inserting;
 }
 
-bool dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value) {
+bool shd_dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value) {
     bool found_something = false;
     while (!found_something) {
         if (*iterator_state >= dict->size) {
@@ -321,16 +382,25 @@ bool dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* value
     return true;
 }
 
-#include "murmur3.h"
+KeyHash shd_hash(const void* data, size_t size) {
+    const char* data_chars = (const char*) data;
+    const unsigned int fnv_prime = 0x811C9DC5;
+    unsigned int hash = 0;
+    unsigned int i = 0;
 
-KeyHash hash_murmur(const void* data, size_t size) {
-    int32_t out[4];
-    MurmurHash3_x64_128(data, (int) size, 0x1234567, &out);
+    for (i = 0; i < size; data++, i++)
+    {
+        hash *= fnv_prime;
+        hash ^= (*data_chars);
+    }
 
-    uint32_t final = 0;
-    final ^= out[0];
-    final ^= out[1];
-    final ^= out[2];
-    final ^= out[3];
-    return final;
+    return hash;
+}
+
+KeyHash shd_hash_ptr(void** p) {
+    return shd_hash(p, sizeof(void*));
+}
+
+bool shd_compare_ptrs(void** a, void** b) {
+    return *a == *b;
 }

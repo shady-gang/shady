@@ -16,22 +16,10 @@
       "name": "math"
     },
     {
-      "name": "stack"
-    },
-    {
-      "name": "memory"
-    },
-    {
       "name": "memory_layout"
     },
     {
       "name": "subgroup_intrinsic"
-    },
-    {
-      "name": "ast"
-    },
-    {
-      "name": "join_point"
     },
     {
       "name": "mask"
@@ -64,6 +52,10 @@
     },
     {
       "name": "div",
+      "class": "arithmetic"
+    },
+    {
+      "name": "fma",
       "class": "arithmetic"
     },
     {
@@ -183,68 +175,6 @@
       "class": "math"
     },
     {
-      "name": "push_stack",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
-      "name": "pop_stack",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
-      "name": "get_stack_pointer",
-      "class": "stack"
-    },
-    {
-      "name": "get_stack_base",
-      "class": "stack"
-    },
-    {
-      "name": "set_stack_pointer",
-      "class": "stack",
-      "side-effects": true
-    },
-    {
-      "name": "alloca",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "alloca_logical",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "alloca_subgroup",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "load",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "store",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "lea",
-      "class": "memory"
-    },
-    {
-      "name": "memcpy",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
-      "name": "memset",
-      "class": "memory",
-      "side-effects": true
-    },
-    {
       "name": "size_of",
       "class": "memory_layout"
     },
@@ -257,51 +187,8 @@
       "class": "memory_layout"
     },
     {
-      "name": "subgroup_elect_first",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_broadcast_first",
-      "class": "subgroup_intrinsic"
-    },
-    {
       "name": "subgroup_assume_uniform",
       "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_reduce_sum",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_active_mask",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "subgroup_ballot",
-      "class": "subgroup_intrinsic"
-    },
-    {
-      "name": "assign",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "subscript",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "deref",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "addrof",
-      "class": "ast",
-      "side-effects": true
-    },
-    {
-      "name": "quote"
     },
     {
       "name": "select"
@@ -325,21 +212,7 @@
       "name": "shuffle"
     },
     {
-      "name": "debug_printf",
-      "side-effects": true
-    },
-    {
       "name": "sample_texture",
-      "side-effects": true
-    },
-    {
-      "name": "create_joint_point",
-      "class": "join_point",
-      "side-effects": true
-    },
-    {
-      "name": "default_join_point",
-      "class": "join_point",
       "side-effects": true
     },
     {
@@ -349,6 +222,145 @@
     {
       "name": "mask_is_thread_active",
       "class": "mask"
+    }
+  ],
+  "nodes": [
+    {
+      "name": "PrimOp",
+      "class": ["instruction", "value"],
+      "ops": [
+        { "name": "op", "type": "Op" },
+        { "name": "type_arguments", "class": "type", "list": true },
+        { "name": "operands", "class": "value", "list": true }
+      ]
+    },
+    {
+      "name": "StackAlloc",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "LocalAlloc",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "Load",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "ptr", "class": "value" }
+      ]
+    },
+    {
+      "name": "Store",
+      "class": ["instruction", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "ptr", "class": "value" },
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "PtrCompositeElement",
+      "class": ["instruction", "value"],
+      "ops": [
+        { "name": "ptr", "class": "value" },
+        { "name": "index", "class": "value" }
+      ]
+    },
+    {
+      "name": "PtrArrayElementOffset",
+      "class": ["instruction", "value"],
+      "ops": [
+        { "name": "ptr", "class": "value" },
+        { "name": "offset", "class": "value" }
+      ]
+    },
+    {
+      "name": "CopyBytes",
+      "class": ["instruction", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "dst", "class": "value" },
+        { "name": "src", "class": "value" },
+        { "name": "count", "class": "value" }
+      ]
+    },
+    {
+      "name": "FillBytes",
+      "class": ["instruction", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "dst", "class": "value" },
+        { "name": "src", "class": "value" },
+        { "name": "count", "class": "value" }
+      ]
+    },
+    {
+      "name": "PushStack",
+      "class": ["instruction", "mem", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "PopStack",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "GetStackSize",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
+    },
+    {
+      "name": "SetStackSize",
+      "class": ["instruction", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
+      ]
+    },
+    {
+      "name": "GetStackBaseAddr",
+      "class": ["instruction", "value"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
+    },
+    {
+      "name": "DebugPrintf",
+      "class": ["instruction", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "string", "class": "string" },
+        { "name": "args", "class": "value", "list": true }
+      ]
     }
   ]
 }

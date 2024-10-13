@@ -62,7 +62,7 @@ SHADY_UNUSED static const bool is_instance_ext_required[] = { INSTANCE_EXTENSION
 SHADY_UNUSED static const bool is_device_ext_required[] = { DEVICE_EXTENSIONS(R) };
 #undef R
 
-#define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
+#define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { shd_error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
 
 typedef struct VkrSpecProgram_ VkrSpecProgram;
 
@@ -172,6 +172,7 @@ typedef struct VkrBuffer_ {
 VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size);
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
 bool vkr_can_import_host_memory(VkrDevice* device);
+void vkr_destroy_buffer(VkrBuffer* buffer);
 
 typedef struct VkrCommand_ VkrCommand;
 
@@ -181,6 +182,9 @@ struct VkrCommand_ {
     VkCommandBuffer cmd_buf;
     VkFence done_fence;
     bool submitted;
+
+    uint64_t* profiled_gpu_time;
+    VkQueryPool query_pool;
 };
 
 VkrCommand* vkr_begin_command(VkrDevice* device);
@@ -188,14 +192,7 @@ bool vkr_submit_command(VkrCommand* commands);
 void vkr_destroy_command(VkrCommand* commands);
 bool vkr_wait_completion(VkrCommand* cmd);
 
-VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args);
-
-typedef struct {
-    size_t num_args;
-    const size_t* arg_offset;
-    const size_t* arg_size;
-    size_t args_size;
-} ProgramParamsInfo;
+VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
 
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {
@@ -214,7 +211,7 @@ struct ProgramResourceInfo_ {
     size_t size;
     VkrBuffer* buffer;
 
-    char* default_data;
+    unsigned char* default_data;
 };
 
 typedef struct {

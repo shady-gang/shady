@@ -1,4 +1,7 @@
-@EntryPoint("compute") @WorkgroupSize(64, 1, 1) fn main() {
+@Internal @Builtin("SubgroupLocalInvocationId")
+var input u32 subgroup_local_id;
+
+@EntryPoint("Compute") @WorkgroupSize(32, 1, 1) fn main() {
     val tid = subgroup_local_id;
     val x = tid / u32 4;
     debug_printf("tid = %d x = %d\n", tid, x);
@@ -13,6 +16,6 @@
             break();
         }
     }
-    debug_printf("Done SP=%d.\n", get_stack_pointer());
+    debug_printf("Done SP=%d.\n", get_stack_size());
     return ();
 }

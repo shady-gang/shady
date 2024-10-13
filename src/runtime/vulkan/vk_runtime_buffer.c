@@ -32,14 +32,14 @@ static uint32_t find_suitable_memory_type(VkrDevice* device, uint32_t memory_typ
             }
         }
     }
-    assert(false && "Unable to find a suitable memory type");
+    shd_error("Unable to find a suitable memory type")
 }
 
 static Buffer make_base_buffer(VkrDevice*);
 
 VkrBuffer* vkr_allocate_buffer_device_(VkrDevice* device, size_t size, AllocHeap heap) {
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
-        error_print("device buffers require VK_KHR_buffer_device_address\n");
+        shd_error_print("device buffers require VK_KHR_buffer_device_address\n");
         return NULL;
     }
 
@@ -109,12 +109,12 @@ VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
 static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
     if (!device->caps.supported_extensions[ShadySupportsEXT_external_memory_host]) {
         if (log)
-            error_print("host imported buffers require VK_EXT_external_memory_host\n");
+            shd_error_print("host imported buffers require VK_EXT_external_memory_host\n");
         return false;
     }
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         if (log)
-            error_print("host imported buffers require VK_KHR_buffer_device_address\n");
+            shd_error_print("host imported buffers require VK_KHR_buffer_device_address\n");
         return false;
     }
     return true;
@@ -126,7 +126,7 @@ bool vkr_can_import_host_memory(VkrDevice* device) {
 
 VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     if (!vkr_can_import_host_memory_(device, true)) {
-        error_die();
+        shd_error_die();
     }
 
     VkrBuffer* buffer = calloc(sizeof(VkrBuffer), 1);
@@ -140,7 +140,7 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     size_t aligned_addr = (unaligned_addr / desired_alignment) * desired_alignment;
     assert(unaligned_addr >= aligned_addr);
     buffer->offset = unaligned_addr - aligned_addr;
-    debug_print("desired alignment = %zu, offset = %zu\n", desired_alignment, buffer->offset);
+    shd_debug_print("desired alignment = %zu, offset = %zu\n", desired_alignment, buffer->offset);
 
     size_t unaligned_end = unaligned_addr + size;
     assert(unaligned_end >= aligned_addr);
@@ -149,8 +149,8 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     size_t aligned_size = aligned_end - aligned_addr;
     assert(aligned_size >= size);
     assert(aligned_size % desired_alignment == 0);
-    debug_print("unaligned start %zu end %zu\n", unaligned_addr, unaligned_end);
-    debug_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
+    shd_debug_print("unaligned start %zu end %zu\n", unaligned_addr, unaligned_end);
+    shd_debug_print("aligned start %zu end %zu\n", aligned_addr, aligned_end);
 
     buffer->host_ptr = (void*) aligned_addr;
     buffer->size = aligned_size;
@@ -176,11 +176,11 @@ VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
         .sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT,
         .pNext = NULL
     };
-    CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, ptr, &host_ptr_properties), goto err_post_buffer_create);
+    CHECK_VK(device->extensions.EXT_external_memory_host.vkGetMemoryHostPointerPropertiesEXT(device->device, VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, (void*) aligned_addr, &host_ptr_properties), goto err_post_buffer_create);
     uint32_t memory_type_index = find_suitable_memory_type(device, host_ptr_properties.memoryTypeBits, AllocHostVisible);
     VkPhysicalDeviceMemoryProperties device_memory_properties;
     vkGetPhysicalDeviceMemoryProperties(device->caps.physical_device, &device_memory_properties);
-    debug_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
+    shd_debug_print("memory type index: %d heap: %d\n", memory_type_index, device_memory_properties.memoryTypes[memory_type_index].heapIndex);
 
     VkMemoryAllocateInfo allocation_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -218,7 +218,7 @@ err_post_obj_create:
     return NULL;
 }
 
-static void vkr_destroy_buffer(VkrBuffer* buffer) {
+void vkr_destroy_buffer(VkrBuffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
     vkFreeMemory(buffer->device->device, buffer->memory, NULL);
 }
@@ -253,6 +253,7 @@ err_post_commands_create:
 }
 
 static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    CHECK(dst->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = dst->device;
 
     VkrBuffer* src_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
@@ -263,7 +264,7 @@ static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, vo
     CHECK_VK(vkMapMemory(device->device, src_buf->memory, src_buf->offset, src_buf->size, 0, &mapped), goto err_post_buffer_create);
     memcpy(mapped, src, size);
 
-    if (!wait_completion(submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+    if (!wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_create;
 
     vkUnmapMemory(device->device, src_buf->memory);
@@ -276,6 +277,7 @@ static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, vo
 }
 
 static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    CHECK(src->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = src->device;
 
     VkrBuffer* dst_buf = vkr_allocate_buffer_device_(device, size, AllocHostVisible);
@@ -285,7 +287,7 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
     void* mapped;
     CHECK_VK(vkMapMemory(device->device, dst_buf->memory, dst_buf->offset, dst_buf->size, 0, &mapped), goto err_post_buffer_create);
 
-    if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+    if (!wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_create;
 
     memcpy(dst, mapped, size);
@@ -299,13 +301,14 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
 }
 
 static bool vkr_copy_to_buffer_importing(VkrBuffer* dst, size_t buffer_offset, void* src, size_t size) {
+    CHECK(dst->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = dst->device;
 
     VkrBuffer* src_buf = vkr_import_buffer_host(device, src, size);
     if (!src_buf)
         return false;
 
-    if (!wait_completion(submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+    if (!wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_import;
 
     vkr_destroy_buffer(src_buf);
@@ -317,13 +320,14 @@ err_post_buffer_import:
 }
 
 static bool vkr_copy_from_buffer_importing(VkrBuffer* src, size_t buffer_offset, void* dst, size_t size) {
+    CHECK(src->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = src->device;
 
     VkrBuffer* dst_buf = vkr_import_buffer_host(device, dst, size);
     if (!dst_buf)
         return false;
 
-    if (!wait_completion(submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+    if (!wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_import;
 
     vkr_destroy_buffer(dst_buf);
@@ -336,6 +340,7 @@ err_post_buffer_import:
 
 static Buffer make_base_buffer(VkrDevice* device) {
     Buffer buffer = {
+        .backend_tag = VulkanRuntimeBackend,
         .destroy = (void(*)(Buffer*)) vkr_destroy_buffer,
         .get_device_ptr = (uint64_t(*)(Buffer*)) vkr_get_buffer_device_pointer,
         .get_host_ptr = (void*(*)(Buffer*)) vkr_get_buffer_host_pointer,

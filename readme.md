@@ -75,7 +75,7 @@ The grammar is defined in [grammar.json](include/shady/grammar.json), this file 
 
 ## Language syntax
 
-The textual syntax of the language is C-like in that return types come first. Variance annotations are supported.
+The textual syntax of the language is C-like in that return types come shd_first. Variance annotations are supported.
 Overall the language is structurally close to SPIR-V and LLVM, very much on purpose.
 There is a 'front-end' (slim) variant of the IR that allows for mutable variables and using instructions as values.
 

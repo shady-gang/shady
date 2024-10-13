@@ -9,7 +9,7 @@
 #include <assert.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, SHADY_UNUSED VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, SHADY_UNUSED void* pUserData) {
-    warn_print("Validation says: %s\n", pCallbackData->pMessage);
+    shd_warn_print("Validation says: %s\n", pCallbackData->pMessage);
     return VK_FALSE;
 }
 
@@ -52,7 +52,7 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
 
         // Enable validation if the config says so
         if (runtime->base.runtime->config.use_validation && strcmp(layer->layerName, "VK_LAYER_KHRONOS_validation") == 0) {
-            info_print("Enabling validation... \n");
+            shd_info_print("Enabling validation... \n");
             runtime->enabled_layers.validation.enabled = true;
             enabled_layers[enabled_layers_count++] = layer->layerName;
         }
@@ -71,7 +71,7 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
 
 #define X(is_required,  name, _) \
         if (strcmp(extension->extensionName, "VK_"#name) == 0) { \
-            info_print("Enabling instance extension VK_"#name"\n"); \
+            shd_info_print("Enabling instance extension VK_"#name"\n"); \
             runtime->instance_exts.name.enabled = true; \
             enabled_extensions[enabled_extensions_count++] = extension->extensionName; \
         }
@@ -106,12 +106,12 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
         case VK_ERROR_INCOMPATIBLE_DRIVER: {
             // Vulkan 1.0 is not worth supporting. It has many API warts and 1.1 fixes many of them.
             // the hardware support is basically identical, so you're not cutting off any devices, just stinky old drivers.
-            error_print("vkCreateInstance reported VK_ERROR_INCOMPATIBLE_DRIVER. This most certainly means you're trying to run on a Vulkan 1.0 implementation.\n");
-            error_print("This application is written with Vulkan 1.1 as the baseline, you will need to update your Vulkan loader and/or driver.");
+            shd_error_print("vkCreateInstance reported VK_ERROR_INCOMPATIBLE_DRIVER. This most certainly means you're trying to run on a Vulkan 1.0 implementation.\n");
+            shd_error_print("This application is written with Vulkan 1.1 as the baseline, you will need to update your Vulkan loader and/or driver.");
             return false;
         }
         default: {
-            error_print("vkCreateInstanced failed (%u)\n", err_create_instance);
+            shd_error_print("vkCreateInstanced failed (%u)\n", err_create_instance);
             return false;
         }
     }
@@ -144,11 +144,11 @@ Backend* initialize_vk_backend(Runtime* base) {
 
     CHECK(initialize_vk_instance(backend), goto init_fail_free)
     probe_vkr_devices(backend);
-    info_print("Shady Vulkan backend successfully initialized !\n");
+    shd_info_print("Shady Vulkan backend successfully initialized !\n");
     return &backend->base;
 
     init_fail_free:
-    error_print("Failed to initialise the Vulkan back-end.\n");
+    shd_error_print("Failed to initialise the Vulkan back-end.\n");
     free(backend);
     return NULL;
 }

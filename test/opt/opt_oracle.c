@@ -1,9 +1,12 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
+#include "shady/print.h"
+#include "shady/visit.h"
+
+#include "../shady/passes/passes.h"
 
 #include "log.h"
-
-#include "../src/shady/visit.h"
+#include "portability.h"
 
 #include <string.h>
 #include <assert.h>
@@ -13,39 +16,35 @@ static bool expect_memstuff = false;
 static bool found_memstuff = false;
 
 static void search_for_memstuff(Visitor* v, const Node* n) {
-    if (n->tag == PrimOp_TAG) {
-        PrimOp payload = n->payload.prim_op;
-        switch (payload.op) {
-            case alloca_op:
-            case alloca_logical_op:
-            case load_op:
-            case store_op:
-            case memcpy_op: {
-                found_memstuff = true;
-                break;
-            }
-            default: break;
+    switch (n->tag) {
+        case Load_TAG:
+        case Store_TAG:
+        case CopyBytes_TAG:
+        case FillBytes_TAG:
+        case StackAlloc_TAG:
+        case LocalAlloc_TAG: {
+            found_memstuff = true;
+            break;
         }
+        default: break;
     }
 
-    visit_node_operands(v, NcDeclaration, n);
+    shd_visit_node_operands(v, ~(NcMem | NcDeclaration | NcTerminator), n);
 }
 
-static void after_pass(void* uptr, String pass_name, Module* mod) {
-    if (strcmp(pass_name, "opt_mem2reg") == 0) {
-        Visitor v = {.visit_node_fn = search_for_memstuff};
-        visit_module(&v, mod);
-        if (expect_memstuff != found_memstuff) {
-            error_print("Expected ");
-            if (!expect_memstuff)
-                error_print("no more ");
-            error_print("memory primops in the output.\n");
-            dump_module(mod);
-            exit(-1);
-        }
-        dump_module(mod);
-        exit(0);
+static void check_module(Module* mod) {
+    Visitor v = { .visit_node_fn = search_for_memstuff };
+    shd_visit_module(&v, mod);
+    if (expect_memstuff != found_memstuff) {
+        shd_error_print("Expected ");
+        if (!expect_memstuff)
+            shd_error_print("no more ");
+        shd_error_print("memory primops in the output.\n");
+        shd_dump_module(mod);
+        exit(-1);
     }
+    shd_dump_module(mod);
+    exit(0);
 }
 
 static void cli_parse_oracle_args(int* pargc, char** argv) {
@@ -61,14 +60,45 @@ static void cli_parse_oracle_args(int* pargc, char** argv) {
         }
     }
 
-    cli_pack_remaining_args(pargc, argv);
+    shd_pack_remaining_args(pargc, argv);
 }
 
-static void hook(DriverConfig* args, int* pargc, char** argv) {
-    args->config.hooks.after_pass.fn = after_pass;
-    cli_parse_oracle_args(pargc, argv);
+static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) {
+    IrArena* initial_arena = shd_module_get_arena(initial_mod);
+    Module** pmod = &initial_mod;
+
+    RUN_PASS(shd_cleanup)
+    check_module(*pmod);
+
+    return *pmod;
 }
 
-#define HOOK_STUFF hook(&args, &argc, argv);
+int main(int argc, char** argv) {
+    shd_platform_specific_terminal_init_extras();
 
-#include "../../src/driver/slim.c"
+    DriverConfig args = shd_default_driver_config();
+    shd_parse_driver_args(&args, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&args.config, &argc, argv);
+    cli_parse_oracle_args(&argc, argv);
+    shd_driver_parse_input_files(args.input_filenames, &argc, argv);
+
+    ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
+    aconfig.optimisations.weaken_non_leaking_allocas = true;
+    IrArena* arena = shd_new_ir_arena(&aconfig);
+    Module* mod = shd_new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+
+    ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
+    if (err)
+        exit(err);
+
+    Module* mod2 = oracle_passes(&args.config, mod);
+    shd_destroy_ir_arena(shd_module_get_arena(mod2));
+
+    if (err)
+        exit(err);
+    shd_info_print("Compilation successful\n");
+
+    shd_destroy_ir_arena(arena);
+    shd_destroy_driver_config(&args);
+}

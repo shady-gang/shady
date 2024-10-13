@@ -1,10 +1,9 @@
-#include "memory_layout.h"
+#include "shady/ir/memory_layout.h"
+
 #include "ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-
-#include "../type.h"
 
 #include <assert.h>
 
@@ -21,7 +20,7 @@ static int maxof(int a, int b) {
     return b;
 }
 
-TypeMemLayout get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
+TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == RecordType_TAG);
 
     size_t offset = 0;
@@ -29,7 +28,7 @@ TypeMemLayout get_record_layout(IrArena* a, const Node* record_type, FieldLayout
 
     Nodes member_types = record_type->payload.record_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
-        TypeMemLayout member_layout = get_mem_layout(a, member_types.nodes[i]);
+        TypeMemLayout member_layout = shd_get_mem_layout(a, member_types.nodes[i]);
         offset = round_up(offset, member_layout.alignment_in_bytes);
         if (fields) {
             fields[i].mem_layout = member_layout;
@@ -47,27 +46,27 @@ TypeMemLayout get_record_layout(IrArena* a, const Node* record_type, FieldLayout
     };
 }
 
-size_t get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
+size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
     assert(t->tag == RecordType_TAG);
     Nodes member_types = t->payload.record_type.members;
     assert(i < member_types.count);
     LARRAY(FieldLayout, fields, member_types.count);
-    get_record_layout(a, t, fields);
+    shd_get_record_layout(a, t, fields);
     return fields[i].offset_in_bytes;
 }
 
-TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
-    size_t base_word_size = int_size_in_bytes(a->config.memory.word_size);
+TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
+    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
-        case FnType_TAG:  error("Functions have an opaque memory representation");
+        case FnType_TAG:  shd_error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
-            case AsPrivatePhysical:
-            case AsSubgroupPhysical:
-            case AsSharedPhysical:
-            case AsGlobalPhysical:
-            case AsGeneric: return get_mem_layout(a, int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false }));
-            default: error_print("as: %d", type->payload.ptr_type.address_space); error("unhandled address space")
+            case AsPrivate:
+            case AsSubgroup:
+            case AsShared:
+            case AsGlobal:
+            case AsGeneric: return shd_get_mem_layout(a, int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
+            default: shd_error("Pointers in address space '%s' does not have a defined memory layout", shd_get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
             .type = type,
@@ -87,8 +86,8 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         case ArrType_TAG: {
             const Node* size = type->payload.arr_type.size;
             assert(size && "We can't know the full layout of arrays of unknown size !");
-            size_t actual_size = get_int_literal_value(*resolve_to_int_literal(size), false);
-            TypeMemLayout element_layout = get_mem_layout(a, type->payload.arr_type.element_type);
+            size_t actual_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(size), false);
+            TypeMemLayout element_layout = shd_get_mem_layout(a, type->payload.arr_type.element_type);
             return (TypeMemLayout) {
                 .type = type,
                 .size_in_bytes = actual_size * element_layout.size_in_bytes,
@@ -97,41 +96,52 @@ TypeMemLayout get_mem_layout(IrArena* a, const Type* type) {
         }
         case PackType_TAG: {
             size_t width = type->payload.pack_type.width;
-            TypeMemLayout element_layout = get_mem_layout(a, type->payload.pack_type.element_type);
+            TypeMemLayout element_layout = shd_get_mem_layout(a, type->payload.pack_type.element_type);
             return (TypeMemLayout) {
                 .type = type,
                 .size_in_bytes = width * element_layout.size_in_bytes /* TODO Vulkan vec3 -> vec4 alignment rules ? */,
                 .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
-        case QualifiedType_TAG: return get_mem_layout(a, type->payload.qualified_type.type);
-        case TypeDeclRef_TAG: return get_mem_layout(a, type->payload.type_decl_ref.decl->payload.nom_type.body);
-        case RecordType_TAG: return get_record_layout(a, type, NULL);
-        default: error("not a known type");
+        case QualifiedType_TAG: return shd_get_mem_layout(a, type->payload.qualified_type.type);
+        case TypeDeclRef_TAG: return shd_get_mem_layout(a, type->payload.type_decl_ref.decl->payload.nom_type.body);
+        case RecordType_TAG: return shd_get_record_layout(a, type, NULL);
+        default: shd_error("not a known type");
     }
 }
 
-const Node* size_t_literal(IrArena* a, uint64_t value) {
-    return int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = value });
-}
-
-const Node* bytes_to_words(BodyBuilder* bb, const Node* bytes) {
+const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bytes->arena;
-    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
-    size_t word_width = get_type_bitwidth(word_type);
+    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.word_size, .is_signed = false });
+    size_t word_width = shd_get_type_bitwidth(word_type);
     const Node* bytes_per_word = size_t_literal(a, word_width / 8);
-    return gen_primop_e(bb, div_op, empty(a), mk_nodes(a, bytes, bytes_per_word));
+    return gen_primop_e(bb, div_op, shd_empty(a), mk_nodes(a, bytes, bytes_per_word));
 }
 
-uint64_t bytes_to_words_static(const IrArena* a, uint64_t bytes) {
-    uint64_t word_width = int_size_in_bytes(a->config.memory.word_size);
+uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes) {
+    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->memory.word_size);
     return bytes / word_width;
 }
 
-IntSizes float_to_int_width(FloatSizes width) {
+IntSizes shd_float_to_int_width(FloatSizes width) {
     switch (width) {
         case FloatTy16: return IntTy16;
         case FloatTy32: return IntTy32;
         case FloatTy64: return IntTy64;
     }
+}
+
+size_t shd_get_type_bitwidth(const Type* t) {
+    const ArenaConfig* aconfig = shd_get_arena_config(t->arena);
+    switch (t->tag) {
+        case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
+        case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
+        case PtrType_TAG: {
+            if (aconfig->address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->memory.ptr_size) * 8;
+            break;
+        }
+        default: break;
+    }
+    return SIZE_MAX;
 }

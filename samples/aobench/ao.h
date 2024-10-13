@@ -2,6 +2,8 @@
 #define HEIGHT       2048
 #define NSUBSAMPLES  1
 #define NAO_SAMPLES  8
+#define BLOCK_SIZE 16
+#define TEXEL_T unsigned char
 
 typedef float Scalar;
 
@@ -63,6 +65,6 @@ typedef struct {
     unsigned int rng;
 } Ctx;
 
-Ctx get_init_context();
-void init_scene(Ctx*);
-void render_pixel(Ctx*, int x, int y, int w, int h, int nsubsamples, unsigned char* img);
+EXTERNAL_FN Ctx get_init_context();
+EXTERNAL_FN void init_scene(Ctx*);
+EXTERNAL_FN void render_pixel(Ctx*, int x, int y, int w, int h, int nsubsamples, TEXEL_T* img);

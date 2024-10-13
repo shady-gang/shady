@@ -1,11 +1,10 @@
-#include "passes.h"
-
-#include "../transform/memory_layout.h"
-#include "../rewrite.h"
-#include "../type.h"
+#include "shady/pass.h"
+#include "shady/ir/memory_layout.h"
+#include "shady/ir/type.h"
 
 #include "log.h"
 #include "portability.h"
+
 #include <assert.h>
 
 typedef struct {
@@ -13,33 +12,30 @@ typedef struct {
 } Context;
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (old->tag) {
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case size_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    TypeMemLayout layout = get_mem_layout(a, t);
-                    return quote_helper(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value = layout.size_in_bytes})));
+                    const Type* t = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
+                    TypeMemLayout layout = shd_get_mem_layout(a, t);
+                    return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false, .value = layout.size_in_bytes});
                 }
                 case align_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    TypeMemLayout layout = get_mem_layout(a, t);
-                    return quote_helper(a, singleton(int_literal(a, (IntLiteral) {.width = a->config.memory.ptr_size, .is_signed = false, .value = layout.alignment_in_bytes})));
+                    const Type* t = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
+                    TypeMemLayout layout = shd_get_mem_layout(a, t);
+                    return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false, .value = layout.alignment_in_bytes});
                 }
                 case offset_of_op: {
-                    const Type* t = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.type_arguments));
-                    const Node* n = rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands));
-                    const IntLiteral* literal = resolve_to_int_literal(n);
+                    const Type* t = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.type_arguments));
+                    const Node* n = shd_rewrite_node(&ctx->rewriter, shd_first(old->payload.prim_op.operands));
+                    const IntLiteral* literal = shd_resolve_to_int_literal(n);
                     assert(literal);
                     t = get_maybe_nominal_type_body(t);
-                    uint64_t offset_in_bytes = (uint64_t) get_record_field_offset_in_bytes(a, t, literal->value);
-                    const Node* offset_literal = int_literal(a, (IntLiteral) { .width = a->config.memory.ptr_size, .is_signed = false, .value = offset_in_bytes });
-                    return quote_helper(a, singleton(offset_literal));
+                    uint64_t offset_in_bytes = (uint64_t) shd_get_record_field_offset_in_bytes(a, t, literal->value);
+                    const Node* offset_literal = int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false, .value = offset_in_bytes });
+                    return offset_literal;
                 }
                 default: break;
             }
@@ -48,19 +44,18 @@ static const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+Module* shd_pass_lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process)
     };
-    ctx.rewriter.config.rebind_let = true;
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -1,4 +1,9 @@
-#include "shady/ir.h"
+#include "shady/pass.h"
+
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
+#include "../analysis/cfg.h"
+#include "../analysis/looptree.h"
 
 #include "list.h"
 #include "dict.h"
@@ -6,22 +11,16 @@
 #include "portability.h"
 #include "util.h"
 
-#include "../type.h"
-#include "../rewrite.h"
-#include "../ir_private.h"
-#include "../transform/ir_gen_helpers.h"
-
-#include "../analysis/scope.h"
-#include "../analysis/looptree.h"
-
 #include <assert.h>
 
 typedef struct Context_ {
     Rewriter rewriter;
+    const CompilerConfig* config;
+    Arena* arena;
     const Node* current_fn;
     const Node* current_abstraction;
-    Scope* fwd_scope;
-    Scope* back_scope;
+    CFG* fwd_cfg;
+    CFG* rev_cfg;
     LoopTree* current_looptree;
 } Context;
 
@@ -32,10 +31,10 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
     assert(parent);
 
     while (parent) {
-        if (entries_count_list(parent->cf_nodes) != 1)
+        if (shd_list_count(parent->cf_nodes) != 1)
             return false;
 
-        if (read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
+        if (shd_read_list(CFNode*, parent->cf_nodes)[0]->node == entry)
             return true;
 
         parent = parent->parent;
@@ -47,25 +46,54 @@ static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
 //TODO: This is massively inefficient.
 static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode* block, struct List* exiting_nodes) {
     if (!in_loop(lt, entry->node, block->node)) {
-        append_list(CFNode*, exiting_nodes, block);
+        shd_list_append(CFNode*, exiting_nodes, block);
         return;
     }
 
-    for (size_t i = 0; i < entries_count_list(block->dominates); i++) {
-        const CFNode* target = read_list(CFNode*, block->dominates)[i];
+    for (size_t i = 0; i < shd_list_count(block->dominates); i++) {
+        const CFNode* target = shd_read_list(CFNode*, block->dominates)[i];
         gather_exiting_nodes(lt, entry, target, exiting_nodes);
     }
 }
 
+static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
+    const Node* v;
+    size_t i = 0;
+    while (shd_dict_iter(free_set, &i, &v, NULL)) {
+        if (shd_dict_find_key(const Node*, bound_set, v))
+            continue;
+
+        shd_log_fmt(DEBUGVV, "Found variable used outside it's control scope: ");
+        shd_log_node(DEBUGVV, v);
+        shd_log_fmt(DEBUGVV, " (exiting_node:");
+        shd_log_node(DEBUGVV, exiting_node);
+        shd_log_fmt(DEBUGVV, " )\n");
+
+        shd_list_append(const Node*, leaking, v);
+    }
+}
+
+typedef struct {
+    const Node* alloca;
+    bool uniform;
+} ExitValue;
+
+typedef struct {
+    ExitValue* params;
+    size_t params_count;
+
+    Node* wrapper;
+} Exit;
+
 static const Node* process_abstraction(Context* ctx, const Node* node) {
-    assert(is_abstraction(node));
+    assert(node && is_abstraction(node));
     Context new_context = *ctx;
     ctx = &new_context;
     ctx->current_abstraction = node;
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
-    CFNode* current_node = scope_lookup(ctx->fwd_scope, node);
+    CFNode* current_node = cfg_lookup(ctx->fwd_cfg, node);
     LTNode* lt_node = looptree_lookup(ctx->current_looptree, node);
     LTNode* loop_header = NULL;
 
@@ -74,11 +102,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
     bool is_loop_entry = false;
     if (lt_node->parent && lt_node->parent->type == LF_HEAD) {
-        if (entries_count_list(lt_node->parent->cf_nodes) == 1)
-            if (read_list(CFNode*, lt_node->parent->cf_nodes)[0]->node == node) {
+        if (shd_list_count(lt_node->parent->cf_nodes) == 1)
+            if (shd_read_list(CFNode*, lt_node->parent->cf_nodes)[0]->node == node) {
                 loop_header = lt_node->parent;
                 assert(loop_header->type == LF_HEAD);
-                assert(entries_count_list(loop_header->cf_nodes) == 1 && "only reducible loops are handled");
+                assert(shd_list_count(loop_header->cf_nodes) == 1 && "only reducible loops are handled");
                 is_loop_entry = true;
             }
     }
@@ -86,259 +114,244 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     if (is_loop_entry) {
         assert(!is_function(node));
 
-        struct List* exiting_nodes = new_list(CFNode*);
+        struct List* exiting_nodes = shd_new_list(CFNode*);
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
-        for (size_t i = 0; i < entries_count_list(exiting_nodes); i++) {
-            debugv_print("Node %s exits the loop headed at %s\n", get_abstraction_name(read_list(CFNode*, exiting_nodes)[i]->node), get_abstraction_name(node));
+        for (size_t i = 0; i < shd_list_count(exiting_nodes); i++) {
+            shd_debugv_print("Node %s exits the loop headed at %s\n", shd_get_abstraction_name_safe(shd_read_list(CFNode * , exiting_nodes)[i]->node), shd_get_abstraction_name_safe(node));
         }
 
-        BodyBuilder* outer_bb = begin_body(arena);
-
-        size_t exiting_nodes_count = entries_count_list(exiting_nodes);
+        size_t exiting_nodes_count = shd_list_count(exiting_nodes);
         if (exiting_nodes_count > 0) {
-            Nodes nparams = recreate_variables(rewriter, get_abstraction_params(node));
-            Nodes inner_yield_types = strip_qualifiers(arena, get_variables_types(arena, nparams));
+            Nodes nparams = shd_recreate_params(rewriter, get_abstraction_params(node));
+            Node* loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
+            BodyBuilder* outer_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(loop_container));
+            Nodes inner_yield_types = shd_strip_qualifiers(arena, shd_get_param_types(arena, nparams));
 
-            LARRAY(Nodes, exit_allocas, exiting_nodes_count);
+            LARRAY(Exit, exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                Nodes exit_param_types = rewrite_nodes(rewriter, get_variables_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
-                LARRAY(const Node*, allocas, exit_param_types.count);
-                for (size_t j = 0; j < exit_param_types.count; j++)
-                    allocas[j] = gen_primop_e(outer_bb, alloca_op, singleton(get_unqualified_type(exit_param_types.nodes[j])), empty(arena));
-                exit_allocas[i] = nodes(arena, exit_param_types.count, allocas);
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
+                Nodes exit_param_types = shd_rewrite_nodes(rewriter, shd_get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
+
+                ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
+                for (size_t j = 0; j < exit_param_types.count; j++) {
+                    exit_params[j].alloca = gen_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
+                    exit_params[j].uniform = shd_is_qualified_type_uniform(exit_param_types.nodes[j]);
+                }
+                exits[i] = (Exit) {
+                    .params = exit_params,
+                    .params_count = exit_param_types.count,
+                };
             }
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = gen_primop_e(outer_bb, alloca_op, singleton(int32_type(arena)), empty(arena));
+                exit_destination_alloca = gen_stack_alloc(outer_bb, shd_int32_type(arena));
 
-            Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
-
-            const Node* join_token_exit = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                    .yield_types = empty(arena)
+            const Node* join_token_exit = param(arena, shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
+                    .yield_types = shd_empty(arena)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
-                    .yield_types = inner_yield_types
-            }), true), "jp_continue");
+            const Node* join_token_continue = param(arena,
+                                                    shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
+                                                            .yield_types = inner_yield_types
+                                                    }), true), "jp_continue");
 
-
-            LARRAY(const Node*, exit_wrappers, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
-                Nodes exit_wrapper_params = recreate_variables(&ctx->rewriter, get_abstraction_params(exiting_node->node));
-                BodyBuilder* exit_wrapper_bb = begin_body(arena);
+                Nodes exit_wrapper_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
-                for (size_t j = 0; j < exit_allocas[i].count; j++)
-                    gen_store(exit_wrapper_bb, exit_allocas[i].nodes[j], exit_wrapper_params.nodes[j]);
-
-                const Node* exit_wrapper_body = finish_body(exit_wrapper_bb, join(arena, (Join) {
-                    .join_point = join_token_exit,
-                    .args = empty(arena)
-                }));
-
-                switch (exiting_node->node->tag) {
-                    case BasicBlock_TAG: {
-                        Node* pre_join_exit_bb = basic_block(arena, fn, exit_wrapper_params, format_string_arena(arena->arena, "exit_wrapper_%d", i));
-                        pre_join_exit_bb->payload.basic_block.body = exit_wrapper_body;
-                        exit_wrappers[i] = pre_join_exit_bb;
-                        break;
-                    }
-                    case Case_TAG:
-                        exit_wrappers[i] = case_(arena, exit_wrapper_params, exit_wrapper_body);
-                        break;
-                    default:
-                        assert(false);
-                }
+                Node* wrapper = basic_block(arena, exit_wrapper_params, shd_format_string_arena(arena->arena, "exit_wrapper_%d", i));
+                exits[i].wrapper = wrapper;
             }
 
-            Nodes continue_wrapper_params = recreate_variables(rewriter, get_abstraction_params(node));
+            Nodes continue_wrapper_params = shd_recreate_params(rewriter, get_abstraction_params(node));
+            Node* continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
             const Node* continue_wrapper_body = join(arena, (Join) {
                 .join_point = join_token_continue,
-                .args = continue_wrapper_params
+                .args = continue_wrapper_params,
+                .mem = shd_get_abstraction_mem(continue_wrapper),
             });
-            const Node* continue_wrapper;
-            switch (node->tag) {
-                case BasicBlock_TAG: {
-                    Node* pre_join_continue_bb = basic_block(arena, fn, continue_wrapper_params, "continue");
-                    pre_join_continue_bb->payload.basic_block.body = continue_wrapper_body;
-                    continue_wrapper = pre_join_continue_bb;
-                    break;
-                }
-                case Case_TAG:
-                    continue_wrapper = case_(arena, continue_wrapper_params, continue_wrapper_body);
-                    break;
-                default:
-                    assert(false);
-            }
+            shd_set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // replace the exit nodes by the exit wrappers
-            LARRAY(const Node*, cached_exits, exiting_nodes_count);
+            LARRAY(const Node**, cached_exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                cached_exits[i] = search_processed(rewriter, exiting_node->node);
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
+                cached_exits[i] = shd_search_processed(rewriter, exiting_node->node);
                 if (cached_exits[i])
-                    remove_dict(const Node*, rewriter->map, exiting_node->node);
-                register_processed(rewriter, exiting_node->node, exit_wrappers[i]);
+                    shd_dict_remove(const Node*, rewriter->map, exiting_node->node);
+                shd_register_processed(rewriter, exiting_node->node, exits[i].wrapper);
             }
             // ditto for the loop entry and the continue wrapper
-            const Node* cached_entry = search_processed(rewriter, node);
+            const Node** cached_entry = shd_search_processed(rewriter, node);
             if (cached_entry)
-                remove_dict(const Node*, rewriter->map, node);
-            register_processed(rewriter, node, continue_wrapper);
+                shd_dict_remove(const Node*, rewriter->map, node);
+            shd_register_processed(rewriter, node, continue_wrapper);
 
             // make sure we haven't started rewriting this...
             // for (size_t i = 0; i < old_params.count; i++) {
             //     assert(!search_processed(rewriter, old_params.nodes[i]));
             // }
 
-            Nodes inner_loop_params = recreate_variables(rewriter, get_abstraction_params(node));
-            register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
-            const Node* loop_body = recreate_node_identity(rewriter, get_abstraction_body(node));
+            struct Dict* old_map = rewriter->map;
+            rewriter->map = shd_clone_dict(rewriter->map);
+            Nodes inner_loop_params = shd_recreate_params(rewriter, get_abstraction_params(node));
+            shd_register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
+            Node* inner_control_case = case_(arena, shd_singleton(join_token_continue));
+            shd_register_processed(rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
+            const Node* loop_body = shd_rewrite_node(rewriter, get_abstraction_body(node));
+
+            // save the context
+            for (size_t i = 0; i < exiting_nodes_count; i++) {
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
+                assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
+                Nodes exit_wrapper_params = get_abstraction_params(exits[i].wrapper);
+                BodyBuilder* exit_wrapper_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(exits[i].wrapper));
+
+                for (size_t j = 0; j < exits[i].params_count; j++)
+                    gen_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
+                // Set the destination if there's more than one option
+                if (exiting_nodes_count > 1)
+                    gen_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
+
+                shd_set_abstraction_body(exits[i].wrapper, finish_body_with_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
+            }
+
+            shd_set_abstraction_body(inner_control_case, loop_body);
+
+            shd_destroy_dict(rewriter->map);
+            rewriter->map = old_map;
+            //register_processed_list(rewriter, get_abstraction_params(node), nparams);
 
             // restore the old context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                remove_dict(const Node*, rewriter->map, read_list(CFNode*, exiting_nodes)[i]->node);
+                shd_dict_remove(const Node*, rewriter->map, shd_read_list(CFNode *, exiting_nodes)[i]->node);
                 if (cached_exits[i])
-                    register_processed(rewriter, read_list(CFNode*, exiting_nodes)[i]->node, cached_exits[i]);
+                    shd_register_processed(rewriter, shd_read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
             }
-            remove_dict(const Node*, rewriter->map, node);
+            shd_dict_remove(const Node*, rewriter->map, node);
             if (cached_entry)
-                register_processed(rewriter, node, cached_entry);
+                shd_register_processed(rewriter, node, *cached_entry);
 
-            BodyBuilder* inner_bb = begin_body(arena);
-            const Node* inner_control = control (arena, (Control) {
-                .inside = case_(arena, singleton(join_token_continue), loop_body),
-                .yield_types = inner_yield_types
-            });
-            Nodes inner_control_results = bind_instruction(inner_bb, inner_control);
-
-            Node* loop_outer = basic_block(arena, fn, inner_loop_params, "loop_outer");
-
-            loop_outer->payload.basic_block.body = finish_body(inner_bb, jump(arena, (Jump) {
-                    .target = loop_outer,
-                    .args = inner_control_results
+            Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
+            BodyBuilder* inner_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(loop_outer));
+            Nodes inner_control_results = gen_control(inner_bb, inner_yield_types, inner_control_case);
+            // make sure what was uniform still is
+            for (size_t j = 0; j < inner_control_results.count; j++) {
+                if (shd_is_qualified_type_uniform(nparams.nodes[j]->type))
+                    inner_control_results = shd_change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(inner_control_results.nodes[j])));
+            }
+            shd_set_abstraction_body(loop_outer, finish_body_with_jump(inner_bb, loop_outer, inner_control_results));
+            Node* outer_control_case = case_(arena, shd_singleton(join_token_exit));
+            shd_set_abstraction_body(outer_control_case, jump(arena, (Jump) {
+                .target = loop_outer,
+                .args = nparams,
+                .mem = shd_get_abstraction_mem(outer_control_case),
             }));
-            const Node* outer_control = control (arena, (Control) {
-                .inside = case_(arena, singleton(join_token_exit), jump(arena, (Jump) {
-                        .target = loop_outer,
-                        .args = nparams
-                })),
-                .yield_types = empty(arena)
-            });
-
-            bind_instruction(outer_bb, outer_control);
-
-            const Node* outer_body;
+            gen_control(outer_bb, shd_empty(arena), outer_control_case);
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
-                BodyBuilder* exit_recover_bb = begin_body(arena);
+                CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
-                CFNode* exiting_node = read_list(CFNode*, exiting_nodes)[i];
-                const Node* recreated_exit = rewrite_node(rewriter, exiting_node->node);
+                Node* exit_bb = basic_block(arena, shd_empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", shd_get_abstraction_name_safe(exiting_node->node)));
+                BodyBuilder* exit_recover_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(exit_bb));
 
-                LARRAY(const Node*, recovered_args, exit_allocas[i].count);
-                for (size_t j = 0; j < exit_allocas[i].count; j++)
-                    recovered_args[j] = gen_load(exit_recover_bb, exit_allocas[i].nodes[j]);
+                const Node* recreated_exit = shd_rewrite_node(rewriter, exiting_node->node);
 
-                exit_numbers[i] = int32_literal(arena, i);
-                Node* exit_bb = basic_block(arena, fn, empty(arena), format_string_arena(arena->arena, "exit_recover_values_%s", get_abstraction_name(exiting_node->node)));
-                if (recreated_exit->tag == BasicBlock_TAG) {
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, jump(arena, (Jump) {
-                            .target = recreated_exit,
-                            .args = nodes(arena, exit_allocas[i].count, recovered_args),
-                    }));
-                } else {
-                    assert(recreated_exit->tag == Case_TAG);
-                    exit_bb->payload.basic_block.body = finish_body(exit_recover_bb, let(arena, quote_helper(arena, nodes(arena, exit_allocas[i].count, recovered_args)), recreated_exit));
+                LARRAY(const Node*, recovered_args, exits[i].params_count);
+                for (size_t j = 0; j < exits[i].params_count; j++) {
+                    recovered_args[j] = gen_load(exit_recover_bb, exits[i].params[j].alloca);
+                    if (exits[i].params[j].uniform)
+                        recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(recovered_args[j]));
                 }
-                exit_jumps[i] = jump_helper(arena, exit_bb, empty(arena));
+
+                exit_numbers[i] = shd_int32_literal(arena, i);
+                shd_set_abstraction_body(exit_bb, finish_body_with_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
+                exit_jumps[i] = jump_helper(arena, bb_mem(outer_bb), exit_bb, shd_empty(arena));
             }
 
+            const Node* outer_body;
             if (exiting_nodes_count == 1)
-                outer_body = finish_body(outer_bb, exit_jumps[0]->payload.jump.target->payload.basic_block.body);
+                outer_body = finish_body(outer_bb, exit_jumps[0]);
             else {
                 const Node* loaded_destination = gen_load(outer_bb, exit_destination_alloca);
                 outer_body = finish_body(outer_bb, br_switch(arena, (Switch) {
                     .switch_value = loaded_destination,
                     .default_jump = exit_jumps[0],
-                    .case_values = nodes(arena, exiting_nodes_count, exit_numbers),
-                    .case_jumps = nodes(arena, exiting_nodes_count, exit_jumps),
+                    .case_values = shd_nodes(arena, exiting_nodes_count, exit_numbers),
+                    .case_jumps = shd_nodes(arena, exiting_nodes_count, exit_jumps),
+                    .mem = bb_mem(outer_bb)
                 }));
             }
-
-            const Node* loop_container;
-            switch (node->tag) {
-                case BasicBlock_TAG: {
-                    Node* bb = basic_block(arena, fn, nparams, node->payload.basic_block.name);
-                    bb->payload.basic_block.body = outer_body;
-                    loop_container = bb;
-                    break;
-                }
-                case Case_TAG:
-                    loop_container = case_(arena, nparams, outer_body);
-                    break;
-                default:
-                    assert(false);
-            }
-            destroy_list(exiting_nodes);
+            shd_set_abstraction_body(loop_container, outer_body);
+            shd_destroy_list(exiting_nodes);
             return loop_container;
         }
 
-        destroy_list(exiting_nodes);
+        shd_destroy_list(exiting_nodes);
     }
 
-    return recreate_node_identity(&ctx->rewriter, node);
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
     assert(node);
 
-    Rewriter* rewriter = &ctx->rewriter;
-    IrArena* arena = rewriter->dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+
+    Context new_context = *ctx;
 
     switch (node->tag) {
         case Function_TAG: {
-            Context new_context = *ctx;
             ctx = &new_context;
+            ctx->current_fn = NULL;
+            if (!(shd_lookup_annotation(node, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
+                break;
+
             ctx->current_fn = node;
-            ctx->fwd_scope = new_scope(ctx->current_fn);
-            ctx->back_scope = new_scope_flipped(ctx->current_fn);
-            ctx->current_looptree = build_loop_tree(ctx->fwd_scope);
+            ctx->fwd_cfg = build_fn_cfg(ctx->current_fn);
+            ctx->rev_cfg = build_fn_cfg_flipped(ctx->current_fn);
+            ctx->current_looptree = build_loop_tree(ctx->fwd_cfg);
 
             const Node* new = process_abstraction(ctx, node);;
 
-            destroy_scope(ctx->fwd_scope);
-            destroy_scope(ctx->back_scope);
+            destroy_cfg(ctx->fwd_cfg);
+            destroy_cfg(ctx->rev_cfg);
             destroy_loop_tree(ctx->current_looptree);
             return new;
         }
-        case Case_TAG:
+        case Constant_TAG: {
+            ctx = &new_context;
+            ctx->current_fn = NULL;
+            r = &ctx->rewriter;
+            break;
+        }
         case BasicBlock_TAG:
-            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+            if (!ctx->current_fn || !(shd_lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
-            if (!ctx->current_fn || !lookup_annotation(ctx->current_fn, "Restructure"))
+            Branch payload = node->payload.branch;
+            if (!ctx->current_fn || !(shd_lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
-            assert(ctx->fwd_scope);
+            assert(ctx->fwd_cfg);
 
-            CFNode* cfnode = scope_lookup(ctx->back_scope, ctx->current_abstraction);
-            const Node* idom = NULL;
+            CFNode* cfnode = cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
+            const Node* post_dominator = NULL;
 
             LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
             assert(current_loop);
 
-            if (entries_count_list(current_loop->cf_nodes)) {
+            if (shd_list_count(current_loop->cf_nodes)) {
                 bool leaves_loop = false;
-                CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
-                for (size_t i = 0; i < entries_count_list(current_node->succ_edges); i++) {
-                    CFEdge edge = read_list(CFEdge, current_node->succ_edges)[i];
+                CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
+                for (size_t i = 0; i < shd_list_count(current_node->succ_edges); i++) {
+                    CFEdge edge = shd_read_list(CFEdge, current_node->succ_edges)[i];
                     LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
 
                     if (lt_target->parent != current_loop) {
@@ -348,141 +361,142 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 }
 
                 if (!leaves_loop) {
-                    const Node* current_loop_head = read_list(CFNode*, current_loop->cf_nodes)[0]->node;
-                    Scope* loop_scope = new_scope_lt_flipped(current_loop_head, ctx->current_looptree);
-                    CFNode* idom_cf = scope_lookup(loop_scope, ctx->current_abstraction)->idom;
+                    const Node* current_loop_head = shd_read_list(CFNode*, current_loop->cf_nodes)[0]->node;
+                    CFG* loop_cfg = build_cfg(ctx->current_fn, current_loop_head, (CFGBuildConfig) {
+                        .include_structured_tails = true,
+                        .lt = ctx->current_looptree,
+                        .flipped = true
+                    });
+                    CFNode* idom_cf = cfg_lookup(loop_cfg, ctx->current_abstraction)->idom;
                     if (idom_cf)
-                        idom = idom_cf->node;
-                    destroy_scope(loop_scope);
+                        post_dominator = idom_cf->node;
+                    destroy_cfg(loop_cfg);
                 }
             } else {
-                idom = cfnode->idom->node;
+                post_dominator = cfnode->idom->node;
             }
 
-            if(!idom) {
+            if (!post_dominator) {
                 break;
             }
 
-            if (scope_lookup(ctx->fwd_scope, idom)->idom->node!= ctx->current_abstraction)
+            if (cfg_lookup(ctx->fwd_cfg, post_dominator)->idom->node != ctx->current_abstraction)
                 break;
 
-            assert(is_abstraction(idom) && idom->tag != Function_TAG);
+            assert(is_abstraction(post_dominator) && post_dominator->tag != Function_TAG);
 
             LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, idom);
-            CFNode* current_node = scope_lookup(ctx->fwd_scope, ctx->current_abstraction);
+            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, post_dominator);
+            CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
 
             assert(lt_node);
             assert(idom_lt_node);
             assert(current_node);
 
-            Node* fn = (Node*) find_processed(rewriter, ctx->current_fn);
+            Node* fn = (Node*) shd_find_processed(r, ctx->current_fn);
 
             //Regular if/then/else case. Control flow joins at the immediate post dominator.
             Nodes yield_types;
             Nodes exit_args;
-            Nodes lambda_args;
 
-            Nodes old_params = get_abstraction_params(idom);
+            Nodes old_params = get_abstraction_params(post_dominator);
+            LARRAY(bool, uniform_param, old_params.count);
 
             if (old_params.count == 0) {
-                yield_types = empty(arena);
-                exit_args = empty(arena);
-                lambda_args = empty(arena);
+                yield_types = shd_empty(a);
+                exit_args = shd_empty(a);
             } else {
-                LARRAY(const Node*, types,old_params.count);
+                LARRAY(const Node*, types, old_params.count);
                 LARRAY(const Node*, inner_args,old_params.count);
-                LARRAY(const Node*, outer_args,old_params.count);
 
                 for (size_t j = 0; j < old_params.count; j++) {
                     //TODO: Is this correct?
-                    assert(old_params.nodes[j]->tag == Variable_TAG);
-                    const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->payload.var.type);
+                    assert(old_params.nodes[j]->tag == Param_TAG);
+                    const Node* qualified_type = shd_rewrite_node(r, old_params.nodes[j]->payload.param.type);
                     //const Node* qualified_type = rewrite_node(rewriter, old_params.nodes[j]->type);
 
                     //This should always contain a qualified type?
                     //if (contains_qualified_type(types[j]))
-                    types[j] = get_unqualified_type(qualified_type);
-
-                    inner_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
-                    outer_args[j] = var(arena, qualified_type, old_params.nodes[j]->payload.var.name);
+                    types[j] = shd_get_unqualified_type(qualified_type);
+                    uniform_param[j] = shd_is_qualified_type_uniform(qualified_type);
+                    inner_args[j] = param(a, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
-                yield_types = nodes(arena, old_params.count, types);
-                exit_args = nodes(arena, old_params.count, inner_args);
-                lambda_args = nodes(arena, old_params.count, outer_args);
+                yield_types = shd_nodes(a, old_params.count, types);
+                exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
-            const Node* join_token = var(arena, qualified_type_helper(join_point_type(arena, (JoinPointType) {
+            const Node* join_token = param(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
-            Node* pre_join = basic_block(arena, fn, exit_args, format_string_arena(arena->arena, "merge_%s_%s", get_abstraction_name(ctx->current_abstraction) , get_abstraction_name(idom)));
-            pre_join->payload.basic_block.body = join(arena, (Join) {
+            Node* pre_join = basic_block(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_abstraction_name_safe(ctx->current_abstraction), shd_get_abstraction_name_safe(post_dominator)));
+            shd_set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
-                .args = exit_args
-            });
+                .args = exit_args,
+                .mem = shd_get_abstraction_mem(pre_join),
+            }));
 
-            const Node* cached = search_processed(rewriter, idom);
+            const Node** cached = shd_search_processed(r, post_dominator);
             if (cached)
-                remove_dict(const Node*, is_declaration(idom) ? rewriter->decls_map : rewriter->map, idom);
+                shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
             for (size_t i = 0; i < old_params.count; i++) {
-                assert(!search_processed(rewriter, old_params.nodes[i]));
+                assert(!shd_search_processed(r, old_params.nodes[i]));
             }
 
-            register_processed(rewriter, idom, pre_join);
+            shd_register_processed(r, post_dominator, pre_join);
 
-            const Node* inner_terminator = recreate_node_identity(rewriter, node);
-
-            remove_dict(const Node*, is_declaration(idom) ? rewriter->decls_map : rewriter->map, idom);
-            if (cached)
-                register_processed(rewriter, idom, cached);
-
-            const Node* control_inner = case_(arena, singleton(join_token), inner_terminator);
-            const Node* new_target = control(arena, (Control) {
-                .inside = control_inner,
-                .yield_types = yield_types
+            Node* control_case = case_(a, shd_singleton(join_token));
+            const Node* inner_terminator = branch(a, (Branch) {
+                .mem = shd_get_abstraction_mem(control_case),
+                .condition = shd_rewrite_node(r, payload.condition),
+                .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
+                                         shd_rewrite_node(r, payload.true_jump->payload.jump.target),
+                                         shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
+                .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
+                                          shd_rewrite_node(r, payload.false_jump->payload.jump.target),
+                                          shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
+            shd_set_abstraction_body(control_case, inner_terminator);
 
-            const Node* recreated_join = rewrite_node(rewriter, idom);
+            shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
+            if (cached)
+                shd_register_processed(r, post_dominator, *cached);
 
-            switch (idom->tag) {
-                case BasicBlock_TAG: {
-                    const Node* outer_terminator = jump(arena, (Jump) {
-                        .target = recreated_join,
-                        .args = lambda_args
-                    });
+            const Node* join_target = shd_rewrite_node(r, post_dominator);
 
-                    const Node* c = case_(arena, lambda_args, outer_terminator);
-                    const Node* empty_let = let(arena, new_target, c);
-
-                    return empty_let;
-                }
-                case Case_TAG:
-                    return let(arena, new_target, recreated_join);
-                default:
-                    assert(false);
+            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.branch.mem));
+            Nodes results = gen_control(bb, yield_types, control_case);
+            // make sure what was uniform still is
+            for (size_t j = 0; j < old_params.count; j++) {
+                if (uniform_param[j])
+                    results = shd_change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
             }
+            return finish_body_with_jump(bb, join_target, results);
         }
         default: break;
     }
-    return recreate_node_identity(rewriter, node);
+    return shd_recreate_node(r, node);
 }
 
-Module* reconvergence_heuristics(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+Module* shd_pass_reconvergence_heuristics(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    aconfig.optimisations.inline_single_use_bbs = true;
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+        .config = config,
         .current_fn = NULL,
-        .fwd_scope = NULL,
-        .back_scope = NULL,
+        .fwd_cfg = NULL,
+        .rev_cfg = NULL,
         .current_looptree = NULL,
+        .arena = shd_new_arena(),
     };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
+    shd_destroy_arena(ctx.arena);
     return dst;
 }

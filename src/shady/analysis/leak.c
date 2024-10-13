@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../visit.h"
+#include "shady/visit.h"
 
 void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, VisitEnclosingAbsCallback fn) {
     const Use* use = get_first_use(map, n);
@@ -20,26 +20,10 @@ void visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, Visit
     }
 }
 
-const Node* get_binding_abstraction(const UsesMap* map, const Node* var) {
-    assert(var->tag == Variable_TAG);
-    const Use* use = get_first_use(map, var);
-    assert(use);
-    const Use* binding_use = NULL;
-    for (;use; use = use->next_use) {
-        if (is_abstraction(use->user) && use->operand_class == NcVariable) {
-            assert(!binding_use);
-            binding_use = use;
-        }
-    }
-    assert(binding_use && "Failed to find the binding abstraction in the uses map");
-    return binding_use->user;
-}
-
 bool is_control_static(const UsesMap* map, const Node* control) {
     assert(control->tag == Control_TAG);
     const Node* inside = control->payload.control.inside;
-    assert(is_case(inside));
-    const Node* jp = first(get_abstraction_params(inside));
+    const Node* jp = shd_first(get_abstraction_params(inside));
 
     bool found_binding_abs = false;
     const Use* use = get_first_use(map, jp);
@@ -56,4 +40,19 @@ bool is_control_static(const UsesMap* map, const Node* control) {
     }
     assert(found_binding_abs);
     return true;
+}
+
+const Node* get_control_for_jp(const UsesMap* map, const Node* jp) {
+    if (!is_param(jp))
+        return NULL;
+    const Node* abs = jp->payload.param.abs;
+    assert(is_abstraction(abs));
+
+    const Use* use = get_first_use(map, abs);
+    for (;use; use = use->next_use) {
+        if (use->user->tag == Control_TAG && use->operand_class == NcBasic_block && strcmp(use->operand_name, "inside") == 0)
+            return use->user;
+    }
+
+    return NULL;
 }

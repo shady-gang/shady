@@ -1,4 +1,4 @@
-@Restructure
+@Exported @Restructure
 fn loop_with_two_exits varying i32(varying bool b) {
     jump entry();
 
@@ -23,7 +23,7 @@ fn loop_with_two_exits varying i32(varying bool b) {
     }
 }
 
-@Restructure
+@Exported @Restructure
 fn loop_with_two_exits_and_values varying i32(varying bool b) {
     jump entry();
 

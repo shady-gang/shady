@@ -1,15 +1,13 @@
-#include "passes.h"
+#include "shady/pass.h"
+#include "shady/ir/memory_layout.h"
+
+#include "../ir_private.h"
+#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
 #include "util.h"
 #include "dict.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../ir_private.h"
-#include "../transform/ir_gen_helpers.h"
-#include "../transform/memory_layout.h"
 
 #include <assert.h>
 
@@ -20,9 +18,15 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static AddressSpace generic_ptr_tags[4] = { AsGlobalPhysical, AsSharedPhysical, AsSubgroupPhysical, AsPrivatePhysical };
+static AddressSpace generic_ptr_tags[8] = {
+    [0x0] = AsGlobal,
+    [0x1] = AsShared,
+    [0x2] = AsSubgroup,
+    [0x3] = AsPrivate,
+    [0x7] = AsGlobal
+};
 
-static size_t generic_ptr_tag_bitwidth = 2;
+static size_t generic_ptr_tag_bitwidth = 3;
 
 static AddressSpace get_addr_space_from_tag(size_t tag) {
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
@@ -36,7 +40,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
         if (generic_ptr_tags[i] == as)
             return (uint64_t) i;
     }
-    error("this address space can't be converted to generic");
+    shd_error("address space '%s' can't be converted to generic", shd_get_address_space_name(as));
 }
 
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
@@ -45,28 +49,28 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
-    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
+    const Node* first_non_tag_bit = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
     //          first_non_tag_bit &= 1
-    first_non_tag_bit = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
+    first_non_tag_bit = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          needs_sign_extension = first_non_tag_bit == 1
-    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
+    const Node* needs_sign_extension = gen_primop_e(bb, eq_op, shd_empty(a), mk_nodes(a, first_non_tag_bit, size_t_literal(a, 1)));
     //          sign_extension_patch = needs_sign_extension ? ((1 << 2) - 1) << (64 - 2) : 0
-    const Node* sign_extension_patch = gen_primop_e(bb, select_op, empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
+    const Node* sign_extension_patch = gen_primop_e(bb, select_op, shd_empty(a), mk_nodes(a, needs_sign_extension, size_t_literal(a, ((size_t) ((1 << max_tag) - 1)) << (shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth)), size_t_literal(a, 0)));
     //          patched_ptr = nptr & 0b00111 ... 111
-    const Node* patched_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
+    const Node* patched_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, SIZE_MAX >> generic_ptr_tag_bitwidth)));
     //          patched_ptr = patched_ptr | sign_extension_patch
-                patched_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
+                patched_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
     const Node* reinterpreted_ptr = gen_reinterpret_cast(bb, dst_ptr_t, patched_ptr);
     return reinterpreted_ptr;
 }
 
 static bool allowed(Context* ctx, AddressSpace as) {
-    if (as == AsGlobalPhysical && ctx->config->hacks.no_physical_global_ptrs)
+    // some tags aren't in use
+    if (as == AsGeneric)
         return false;
-    if (as == AsSharedPhysical && !ctx->rewriter.dst_arena->config.allow_shared_memory)
-        return false;
-    if (as == AsSubgroupPhysical && !ctx->rewriter.dst_arena->config.allow_subgroup_memory)
+    // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
+    if (!ctx->rewriter.dst_arena->config.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.address_spaces[as].allowed)
         return false;
     return true;
 }
@@ -76,94 +80,105 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = format_string_interned(a, "generated_load_Generic_%s", name_type_safe(a, t)); break;
-        case StoreFn: name = format_string_interned(a, "generated_store_Generic_%s", name_type_safe(a, t)); break;
+        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s%s", shd_get_type_name(a, t), uniform_ptr ? "_uniform" : ""); break;
+        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s", shd_get_type_name(a, t)); break;
     }
 
-    const Node** found = find_value_dict(String, const Node*, ctx->fns, name);
+    const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, name);
     if (found)
         return *found;
 
-    const Node* ptr_param = var(a, qualified_type_helper(ctx->generic_ptr_type, false), "ptr");
+    const Node* ptr_param = param(a, shd_as_qualified_type(ctx->generic_ptr_type, uniform_ptr), "ptr");
     const Node* value_param;
-    Nodes params = singleton(ptr_param);
-    Nodes return_ts = empty(a);
+    Nodes params = shd_singleton(ptr_param);
+    Nodes return_ts = shd_empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = singleton(qualified_type_helper(t, false));
+            return_ts = shd_singleton(shd_as_qualified_type(t, uniform_ptr));
             break;
         case StoreFn:
-            value_param = var(a, qualified_type_helper(t, false), "value");
-            params = append_nodes(a, params, value_param);
+            value_param = param(a, shd_as_qualified_type(t, false), "value");
+            params = shd_nodes_append(a, params, value_param);
             break;
     }
-    Node* new_fn = function(ctx->rewriter.dst_module, params, name, singleton(annotation(a, (Annotation) { .name = "Generated" })), return_ts);
-    insert_dict(String, const Node*, ctx->fns, name, new_fn);
+    Node* new_fn = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
+    shd_dict_insert(String, const Node*, ctx->fns, name, new_fn);
 
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     switch (which) {
         case LoadFn: {
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+            gen_comment(bb, "Generated generic ptr store");
+            begin_control_t r = begin_control(bb, shd_singleton(t));
+            const Node* final_loaded_value = shd_first(r.results);
+
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(const Node*, cases, max_tag);
+            LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a), unreachable(a));
+                    Node* tag_case = case_(a, shd_empty(a));
+                    shd_set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
+                    jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
                     continue;
                 }
-                BodyBuilder* case_bb = begin_body(a);
+                Node* tag_case = case_(a, shd_empty(a));
+                BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
-                        .args = singleton(loaded_value),
-                })));
+                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_singleton(loaded_value)));
+                jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
-
-            BodyBuilder* bb = begin_body(a);
-            gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            const Node* loaded_value = first(bind_instruction(bb, match_instr(a, (Match) {
-                    .inspect = extracted_tag,
-                    .yield_types = singleton(t),
-                    .literals = nodes(a, max_tag, literals),
-                    .cases = nodes(a, max_tag, cases),
-                    .default_case = case_(a, empty(a), unreachable(a)),
-            })));
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = singleton(loaded_value), .fn = new_fn }));
+            Node* default_case = case_(a, shd_empty(a));
+            shd_set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
+            shd_set_abstraction_body(r.case_, br_switch(a, (Switch) {
+                .mem = shd_get_abstraction_mem(r.case_),
+                .switch_value = extracted_tag,
+                .case_values = shd_nodes(a, max_tag, literals),
+                .case_jumps = shd_nodes(a, max_tag, jumps),
+                .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
+            }));
+            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = bb_mem(bb) })));
             break;
         }
         case StoreFn: {
+            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+            gen_comment(bb, "Generated generic ptr store");
+            begin_control_t r = begin_control(bb, shd_empty(a));
+
             LARRAY(const Node*, literals, max_tag);
-            LARRAY(const Node*, cases, max_tag);
+            LARRAY(const Node*, jumps, max_tag);
             for (size_t tag = 0; tag < max_tag; tag++) {
                 literals[tag] = size_t_literal(a, tag);
                 if (!allowed(ctx, generic_ptr_tags[tag])) {
-                    cases[tag] = case_(a, empty(a), unreachable(a));
+                    Node* tag_case = case_(a, shd_empty(a));
+                    shd_set_abstraction_body(tag_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(tag_case) }));
+                    jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
                     continue;
                 }
-                BodyBuilder* case_bb = begin_body(a);
+                Node* tag_case = case_(a, shd_empty(a));
+                BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                cases[tag] = case_(a, empty(a), finish_body(case_bb, yield(a, (Yield) {
-                        .args = empty(a),
-                })));
+                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_empty(a)));
+                jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
-
-            BodyBuilder* bb = begin_body(a);
-            gen_comment(bb, "Generated generic ptr store");
             //          extracted_tag = nptr >> (64 - 2), for example
-            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, empty(a), mk_nodes(a, ptr_param, size_t_literal(a, get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+            const Node* extracted_tag = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, ptr_param, size_t_literal(a, shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
 
-            bind_instruction(bb, match_instr(a, (Match) {
-                    .inspect = extracted_tag,
-                    .yield_types = empty(a),
-                    .literals = nodes(a, max_tag, literals),
-                    .cases = nodes(a, max_tag, cases),
-                    .default_case = case_(a, empty(a), unreachable(a)),
+            Node* default_case = case_(a, shd_empty(a));
+            shd_set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
+            shd_set_abstraction_body(r.case_, br_switch(a, (Switch) {
+                .mem = shd_get_abstraction_mem(r.case_),
+                .switch_value = extracted_tag,
+                .case_values = shd_nodes(a, max_tag, literals),
+                .case_jumps = shd_nodes(a, max_tag, jumps),
+                .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            new_fn->payload.fun.body = finish_body(bb, fn_ret(a, (Return) { .args = empty(a), .fn = new_fn }));
+            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
             break;
         }
     }
@@ -171,10 +186,8 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
 }
 
 static const Node* process(Context* ctx, const Node* old) {
-    const Node* found = search_processed(&ctx->rewriter, old);
-    if (found) return found;
-
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     Module* m = ctx->rewriter.dst_module;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
 
@@ -190,54 +203,60 @@ static const Node* process(Context* ctx, const Node* old) {
                 return size_t_literal(a, 0);
             break;
         }
+        case Load_TAG: {
+            Load payload = old->payload.load;
+            const Type* old_ptr_t = payload.ptr->type;
+            bool u = shd_deconstruct_qualified_type(&old_ptr_t);
+            u &= shd_is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
+            if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
+                return call(a, (Call) {
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = shd_singleton(shd_rewrite_node(&ctx->rewriter, payload.ptr)),
+                    .mem = shd_rewrite_node(r, payload.mem)
+                });
+            }
+            break;
+        }
+        case Store_TAG: {
+            Store payload = old->payload.store;
+            const Type* old_ptr_t = payload.ptr->type;
+            shd_deconstruct_qualified_type(&old_ptr_t);
+            if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
+                return call(a, (Call) {
+                    .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
+                    .args = mk_nodes(a, shd_rewrite_node(r, payload.ptr), shd_rewrite_node(r, payload.value)),
+                    .mem = shd_rewrite_node(r, payload.mem),
+                });
+            }
+            break;
+        }
         case PrimOp_TAG: {
             switch (old->payload.prim_op.op) {
                 case convert_op: {
-                    const Node* old_src = first(old->payload.prim_op.operands);
+                    const Node* old_src = shd_first(old->payload.prim_op.operands);
                     const Type* old_src_t = old_src->type;
-                    deconstruct_qualified_type(&old_src_t);
-                    const Type* old_dst_t = first(old->payload.prim_op.type_arguments);
+                    shd_deconstruct_qualified_type(&old_src_t);
+                    const Type* old_dst_t = shd_first(old->payload.prim_op.type_arguments);
                     if (old_dst_t->tag == PtrType_TAG && old_dst_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _into_ generic
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
-                        BodyBuilder* bb = begin_body(a);
-                        String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
-                        gen_comment(bb, x);
-                        const Node* src_ptr = rewrite_node(&ctx->rewriter, old_src);
+                        BodyBuilder* bb = begin_block_pure(a);
+                        // TODO: find another way to annotate this ?
+                        // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
+                        // gen_comment(bb, x);
+                        const Node* src_ptr = shd_rewrite_node(&ctx->rewriter, old_src);
                         const Node* generic_ptr = gen_reinterpret_cast(bb, ctx->generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
-                                    generic_ptr = gen_primop_e(bb, and_op, empty(a), mk_nodes(a, generic_ptr, ptr_mask));
-                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+                                    generic_ptr = gen_primop_e(bb, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));
+                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr | 01000000 ... 000
-                                    generic_ptr = gen_primop_e(bb, or_op, empty(a), mk_nodes(a, generic_ptr, shifted_tag));
-                        return yield_values_and_wrap_in_block(bb, singleton(generic_ptr));
+                                    generic_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
+                        return yield_values_and_wrap_in_block(bb, shd_singleton(generic_ptr));
                     } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _from_ generic
-                        error("TODO");
-                    }
-                    break;
-                }
-                case load_op: {
-                    const Type* old_ptr_t = first(old->payload.prim_op.operands)->type;
-                    deconstruct_qualified_type(&old_ptr_t);
-                    if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                        return call(a, (Call) {
-                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, false, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
-                            .args = singleton(rewrite_node(&ctx->rewriter, first(old->payload.prim_op.operands))),
-                        });
-                    }
-                    break;
-                }
-                case store_op: {
-                    const Type* old_ptr_t = first(old->payload.prim_op.operands)->type;
-                    deconstruct_qualified_type(&old_ptr_t);
-                    if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                        return call(a, (Call) {
-                            .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, rewrite_node(&ctx->rewriter, old_ptr_t->payload.ptr_type.pointed_type))),
-                            .args = rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands),
-                        });
+                        shd_error("TODO");
                     }
                     break;
                 }
@@ -247,24 +266,24 @@ static const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    return recreate_node_identity(&ctx->rewriter, old);
+    return shd_recreate_node(&ctx->rewriter, old);
 }
 
-KeyHash hash_string(const char** string);
-bool compare_string(const char** a, const char** b);
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
 
-Module* lower_generic_ptrs(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process),
-        .fns = new_dict(String, const Node*, (HashFn) hash_string, (CmpFn) compare_string),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
         .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
         .config = config,
     };
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
-    destroy_dict(ctx.fns);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
+    shd_destroy_dict(ctx.fns);
     return dst;
 }

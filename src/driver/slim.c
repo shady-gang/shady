@@ -6,30 +6,28 @@
 #include "util.h"
 #include "portability.h"
 
-#include <assert.h>
-
-#ifndef HOOK_STUFF
-#define HOOK_STUFF
-#endif
-
 int main(int argc, char** argv) {
-    platform_specific_terminal_init_extras();
+    shd_platform_specific_terminal_init_extras();
 
-    DriverConfig args = default_driver_config();
-    HOOK_STUFF
-    cli_parse_driver_arguments(&args, &argc, argv);
-    cli_parse_common_args(&argc, argv);
-    cli_parse_compiler_config_args(&args.config, &argc, argv);
-    cli_parse_input_files(args.input_filenames, &argc, argv);
+    DriverConfig args = shd_default_driver_config();
+    shd_parse_driver_args(&args, &argc, argv);
+    shd_parse_common_args(&argc, argv);
+    shd_parse_compiler_config_args(&args.config, &argc, argv);
+    shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
-    IrArena* arena = new_ir_arena(default_arena_config());
-    Module* mod = new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
+    ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
+    IrArena* arena = shd_new_ir_arena(&aconfig);
+    Module* mod = shd_new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
-    driver_load_source_files(&args, mod);
+    ShadyErrorCodes err = shd_driver_load_source_files(&args, mod);
+    if (err)
+        exit(err);
 
-    driver_compile(&args, mod);
-    info_print("Done\n");
+    err = shd_driver_compile(&args, mod);
+    if (err)
+        exit(err);
+    shd_info_print("Compilation successful\n");
 
-    destroy_ir_arena(arena);
-    destroy_driver_config(&args);
+    shd_destroy_ir_arena(arena);
+    shd_destroy_driver_config(&args);
 }

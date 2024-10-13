@@ -1,3 +1,3 @@
-#define global __attribute__((address_space(1)))
+#include <shady.h>
 
 global int buffer[256];

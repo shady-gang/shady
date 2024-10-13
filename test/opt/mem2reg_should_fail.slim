@@ -1,5 +1,6 @@
 fn leak(varying ptr private i32 p);
 
+@Exported
 fn f varying f32(varying i32 x) {
   var i32 i = 42;
   leak(&i);

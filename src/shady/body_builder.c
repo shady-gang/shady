@@ -1,152 +1,394 @@
-#include "ir_private.h"
-#include "log.h"
-#include "portability.h"
-#include "type.h"
+#include "shady/body_builder.h"
+
+#include "transform/ir_gen_helpers.h"
 
 #include "list.h"
 #include "dict.h"
+#include "log.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
+#pragma GCC diagnostic error "-Wswitch"
+
+struct BodyBuilder_ {
+    IrArena* arena;
+    struct List* stack;
+    const Node* block_entry_block;
+    const Node* block_entry_mem;
+    const Node* mem;
+    Node* tail_block;
+};
+
 typedef struct {
-    const Node* instr;
+    Structured_constructTag tag;
+    union NodesUnion payload;
+} BlockEntry;
+
+typedef struct {
+    BlockEntry structured;
     Nodes vars;
-    bool mut;
 } StackEntry;
 
-BodyBuilder* begin_body(IrArena* a) {
+BodyBuilder* begin_body_with_mem(IrArena* a, const Node* mem) {
     BodyBuilder* bb = malloc(sizeof(BodyBuilder));
     *bb = (BodyBuilder) {
         .arena = a,
-        .stack = new_list(StackEntry),
+        .stack = shd_new_list(StackEntry),
+        .mem = mem,
     };
     return bb;
 }
 
-static Nodes create_output_variables(IrArena* a, const Node* value, size_t outputs_count, const Node** output_types, String const output_names[]) {
-    Nodes types;
-    if (a->config.check_types) {
-        types = unwrap_multiple_yield_types(a, value->type);
-        // outputs count has to match or not be given
-        assert(outputs_count == types.count || outputs_count == SIZE_MAX);
-        if (output_types) {
-            // Check that the types we got are subtypes of what we care about
-            for (size_t i = 0; i < types.count; i++)
-                assert(is_subtype(output_types[i], types.nodes[i]));
-            types = nodes(a, outputs_count, output_types);
-        }
-        outputs_count = types.count;
-    } else {
-        assert(outputs_count != SIZE_MAX);
-        if (output_types) {
-            types = nodes(a, outputs_count, output_types);
-        } else {
-            LARRAY(const Type*, nulls, outputs_count);
-            for (size_t i = 0; i < outputs_count; i++)
-                nulls[i] = NULL;
-            types = nodes(a, outputs_count, nulls);
-        }
-    }
-
-    LARRAY(Node*, vars, types.count);
-    for (size_t i = 0; i < types.count; i++) {
-        String var_name = output_names ? output_names[i] : NULL;
-        vars[i] = (Node*) var(a, types.nodes[i], var_name);
-    }
-
-    // for (size_t i = 0; i < outputs_count; i++) {
-    //     vars[i]->payload.var.instruction = value;
-    //     vars[i]->payload.var.output = i;
-    // }
-    return nodes(a, outputs_count, (const Node**) vars);
+BodyBuilder* begin_block_with_side_effects(IrArena* a, const Node* mem) {
+    Node* block = basic_block(a, shd_empty(a), NULL);
+    BodyBuilder* builder = begin_body_with_mem(a, shd_get_abstraction_mem(block));
+    builder->tail_block = block;
+    builder->block_entry_block = block;
+    builder->block_entry_mem = mem;
+    return builder;
 }
 
-static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, bool mut, size_t outputs_count, const Node** provided_types, String const output_names[]) {
-    if (bb->arena->config.check_types) {
-        assert(is_instruction(instruction));
+BodyBuilder* begin_block_pure(IrArena* a) {
+    BodyBuilder* builder = begin_body_with_mem(a, NULL);
+    return builder;
+}
+
+IrArena* _shd_get_bb_arena(BodyBuilder* bb) {
+    return bb->arena;
+}
+
+const Node* _shd_bb_insert_mem(BodyBuilder* bb) {
+    return bb->block_entry_mem;
+}
+
+const Node* _shd_bb_insert_block(BodyBuilder* bb) {
+    return bb->block_entry_block;
+}
+
+const Node* bb_mem(BodyBuilder* bb) {
+    return bb->mem;
+}
+
+Nodes deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count) {
+    if (outputs_count > 1) {
+        LARRAY(const Node*, extracted, outputs_count);
+        for (size_t i = 0; i < outputs_count; i++)
+            extracted[i] = gen_extract_single(bb, value, shd_int32_literal(bb->arena, i));
+        return shd_nodes(bb->arena, outputs_count, extracted);
+    } else if (outputs_count == 1)
+        return shd_singleton(value);
+    else
+        return shd_empty(bb->arena);
+}
+
+static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
+    if (shd_get_arena_config(bb->arena)->check_types) {
+        assert(is_mem(instruction));
     }
-    Nodes params = create_output_variables(bb->arena, instruction, outputs_count, provided_types, output_names);
-    StackEntry entry = {
-        .instr = instruction,
-        .vars = params,
-        .mut = mut,
-    };
-    append_list(StackEntry, bb->stack, entry);
-    return params;
+    if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
+        bb->mem = instruction;
+    return deconstruct_composite(bb->arena, bb, instruction, outputs_count);
 }
 
 Nodes bind_instruction(BodyBuilder* bb, const Node* instruction) {
-    assert(bb->arena->config.check_types);
-    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, NULL);
+    assert(shd_get_arena_config(bb->arena)->check_types);
+    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
+}
+
+const Node* bind_instruction_single(BodyBuilder* bb, const Node* instr) {
+    return shd_first(bind_instruction_outputs_count(bb, instr, 1));
 }
 
 Nodes bind_instruction_named(BodyBuilder* bb, const Node* instruction, String const output_names[]) {
-    assert(bb->arena->config.check_types);
+    assert(shd_get_arena_config(bb->arena)->check_types);
     assert(output_names);
-    return bind_internal(bb, instruction, false, SIZE_MAX, NULL, output_names);
+    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
 }
 
-Nodes bind_instruction_explicit_result_types(BodyBuilder* bb, const Node* instruction, Nodes provided_types, String const output_names[], bool mut) {
-    return bind_internal(bb, instruction, mut, provided_types.count, provided_types.nodes, output_names);
+Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
+    return bind_internal(bb, instruction, outputs_count);
 }
 
-Nodes bind_instruction_outputs_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count, String const output_names[], bool mut) {
-    return bind_internal(bb, instruction, mut, outputs_count, NULL, output_names);
-}
-
-void bind_variables(BodyBuilder* bb, Nodes vars, Nodes values) {
-    StackEntry entry = {
-        .instr = quote_helper(bb->arena, values),
-        .vars = vars,
-        .mut = false,
-    };
-    append_list(StackEntry, bb->stack, entry);
+static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
+    IrArena* a = bb->arena;
+    size_t stack_size = shd_list_count(bb->stack);
+    for (size_t i = stack_size - 1; i < stack_size; i--) {
+        StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
+        const Node* t2 = terminator;
+        switch (entry.structured.tag) {
+            case NotAStructured_construct: shd_error("")
+            case Structured_construct_If_TAG: {
+                terminator = if_instr(a, entry.structured.payload.if_instr);
+                break;
+            }
+            case Structured_construct_Match_TAG: {
+                terminator = match_instr(a, entry.structured.payload.match_instr);
+                break;
+            }
+            case Structured_construct_Loop_TAG: {
+                terminator = loop_instr(a, entry.structured.payload.loop_instr);
+                break;
+            }
+            case Structured_construct_Control_TAG: {
+                terminator = control(a, entry.structured.payload.control);
+                break;
+            }
+        }
+        shd_set_abstraction_body((Node*) get_structured_construct_tail(terminator), t2);
+    }
+    return terminator;
 }
 
 const Node* finish_body(BodyBuilder* bb, const Node* terminator) {
-    size_t stack_size = entries_count_list(bb->stack);
-    for (size_t i = stack_size - 1; i < stack_size; i--) {
-        StackEntry entry = read_list(StackEntry, bb->stack)[i];
-        const Node* lam = case_(bb->arena, entry.vars, terminator);
-        terminator = (entry.mut ? let_mut : let)(bb->arena, entry.instr, lam);
-    }
-
-    destroy_list(bb->stack);
+    assert(bb->mem && !bb->block_entry_mem);
+    terminator = build_body(bb, terminator);
+    shd_destroy_list(bb->stack);
     free(bb);
     return terminator;
 }
 
-const Node* yield_values_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, Nodes values, const Nodes* types) {
-    IrArena* arena = bb->arena;
-    assert(arena->config.check_types || types);
-    const Node* terminator = yield(arena, (Yield) { .args = values });
-    const Node* lam = case_(arena, empty(arena), finish_body(bb, terminator));
-    return block(arena, (Block) {
-        .yield_types = arena->config.check_types ? get_values_types(arena, values) : *types,
-        .inside = lam,
+const Node* finish_body_with_return(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, fn_ret(bb->arena, (Return) {
+        .args = args,
+        .mem = bb_mem(bb)
+    }));
+}
+
+const Node* finish_body_with_unreachable(BodyBuilder* bb) {
+    return finish_body(bb, unreachable(bb->arena, (Unreachable) {
+        .mem = bb_mem(bb)
+    }));
+}
+
+const Node* finish_body_with_selection_merge(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, merge_selection(bb->arena, (MergeSelection) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_loop_continue(BodyBuilder* bb, Nodes args)  {
+    return finish_body(bb, merge_continue(bb->arena, (MergeContinue) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_loop_break(BodyBuilder* bb, Nodes args) {
+    return finish_body(bb, merge_break(bb->arena, (MergeBreak) {
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_join(BodyBuilder* bb, const Node* jp, Nodes args) {
+    return finish_body(bb, join(bb->arena, (Join) {
+        .join_point = jp,
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* finish_body_with_jump(BodyBuilder* bb, const Node* target, Nodes args) {
+    return finish_body(bb, jump(bb->arena, (Jump) {
+        .target = target,
+        .args = args,
+        .mem = bb_mem(bb),
+    }));
+}
+
+const Node* yield_value_and_wrap_in_block(BodyBuilder* bb, const Node* value) {
+    IrArena* a = bb->arena;
+    if (!bb->tail_block && shd_list_count(bb->stack) == 0) {
+        const Node* last_mem = bb_mem(bb);
+        cancel_body(bb);
+        if (last_mem)
+            return mem_and_value(a, (MemAndValue) {
+                .mem = last_mem,
+                .value = value
+            });
+        return value;
+    }
+    assert(bb->block_entry_mem && "This builder wasn't started with 'begin_block'");
+    bb->tail_block->payload.basic_block.insert = bb;
+    const Node* r = mem_and_value(bb->arena, (MemAndValue) {
+        .mem = bb_mem(bb),
+        .value = value
     });
+    return r;
 }
 
 const Node* yield_values_and_wrap_in_block(BodyBuilder* bb, Nodes values) {
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, values, NULL);
+    return yield_value_and_wrap_in_block(bb, maybe_tuple_helper(bb->arena, values));
 }
 
-const Node* bind_last_instruction_and_wrap_in_block_explicit_return_types(BodyBuilder* bb, const Node* instruction, const Nodes* types) {
-    size_t stack_size = entries_count_list(bb->stack);
+const Node* _shd_finish_block_body(BodyBuilder* bb, const Node* terminator) {
+    assert(bb->block_entry_mem);
+    terminator = build_body(bb, terminator);
+    shd_destroy_list(bb->stack);
+    free(bb);
+    return terminator;
+}
+
+const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
+    size_t stack_size = shd_list_count(bb->stack);
     if (stack_size == 0) {
         cancel_body(bb);
         return instruction;
     }
-    Nodes bound = bind_internal(bb, instruction, false, types ? types->count : SIZE_MAX, types ? types->nodes : NULL, NULL);
-    return yield_values_and_wrap_in_block_explicit_return_types(bb, bound, types);
+    bind_internal(bb, instruction, 0);
+    return yield_value_and_wrap_in_block(bb, instruction);
 }
 
-const Node* bind_last_instruction_and_wrap_in_block(BodyBuilder* bb, const Node* instruction) {
-    return bind_last_instruction_and_wrap_in_block_explicit_return_types(bb, instruction, NULL);
+const Node* yield_values_and_wrap_in_compound_instruction(BodyBuilder* bb, Nodes values) {
+    IrArena* arena = bb->arena;
+    assert(!bb->mem && !bb->block_entry_mem && shd_list_count(bb->stack) == 0);
+    cancel_body(bb);
+    return maybe_tuple_helper(arena, values);
+}
+
+static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
+    IrArena* a = bb->arena;
+
+    Nodes qyield_types = shd_add_qualifiers(a, yield_types, false);
+    LARRAY(const Node*, tail_params, yield_types.count);
+    for (size_t i = 0; i < yield_types.count; i++)
+        tail_params[i] = param(a, qyield_types.nodes[i], NULL);
+    return shd_nodes(a, yield_types.count, tail_params);
+}
+
+Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
+    Node* tail = basic_block(bb->arena, params, NULL);
+    StackEntry entry = {
+        .structured = {
+            .tag = tag,
+            .payload = payload,
+        },
+        .vars = params,
+    };
+    switch (entry.structured.tag) {
+        case NotAStructured_construct: shd_error("")
+        case Structured_construct_If_TAG: {
+            entry.structured.payload.if_instr.tail = tail;
+            entry.structured.payload.if_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Match_TAG: {
+            entry.structured.payload.match_instr.tail = tail;
+            entry.structured.payload.match_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Loop_TAG: {
+            entry.structured.payload.loop_instr.tail = tail;
+            entry.structured.payload.loop_instr.mem = bb_mem(bb);
+            break;
+        }
+        case Structured_construct_Control_TAG: {
+            entry.structured.payload.control.tail = tail;
+            entry.structured.payload.control.mem = bb_mem(bb);
+            break;
+        }
+    }
+    bb->mem = shd_get_abstraction_mem(tail);
+    shd_list_append(StackEntry , bb->stack, entry);
+    bb->tail_block = tail;
+    return entry.vars;
+}
+
+static Nodes gen_structured_construct(BodyBuilder* bb, Nodes yield_types, Structured_constructTag tag, union NodesUnion payload) {
+    return add_structured_construct(bb, gen_variables(bb, yield_types), tag, payload);
+}
+
+Nodes gen_if(BodyBuilder* bb, Nodes yield_types, const Node* condition, const Node* true_case, Node* false_case) {
+    return gen_structured_construct(bb, yield_types, Structured_construct_If_TAG, (union NodesUnion) {
+        .if_instr = {
+            .condition = condition,
+            .if_true = true_case,
+            .if_false = false_case,
+            .yield_types = yield_types,
+        }
+    });
+}
+
+Nodes gen_match(BodyBuilder* bb, Nodes yield_types, const Node* inspectee, Nodes literals, Nodes cases, Node* default_case) {
+    return gen_structured_construct(bb, yield_types, Structured_construct_Match_TAG, (union NodesUnion) {
+        .match_instr = {
+            .yield_types = yield_types,
+            .inspect = inspectee,
+            .literals = literals,
+            .cases = cases,
+            .default_case = default_case
+        }
+    });
+}
+
+Nodes gen_loop(BodyBuilder* bb, Nodes yield_types, Nodes initial_args, Node* body) {
+    return gen_structured_construct(bb, yield_types, Structured_construct_Loop_TAG, (union NodesUnion) {
+        .loop_instr = {
+            .yield_types = yield_types,
+            .initial_args = initial_args,
+            .body = body
+        },
+    });
+}
+
+Nodes gen_control(BodyBuilder* bb, Nodes yield_types, Node* body) {
+    return gen_structured_construct(bb, yield_types, Structured_construct_Control_TAG, (union NodesUnion) {
+        .control = {
+            .yield_types = yield_types,
+            .inside = body
+        },
+    });
+}
+
+begin_control_t begin_control(BodyBuilder* bb, Nodes yield_types) {
+    IrArena* a = bb->arena;
+    const Type* jp_type = qualified_type(a, (QualifiedType) {
+            .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
+            .is_uniform = true
+    });
+    const Node* jp = param(a, jp_type, NULL);
+    Node* c = case_(a, shd_singleton(jp));
+    return (begin_control_t) {
+        .results = gen_control(bb, yield_types, c),
+        .case_ = c,
+        .jp = jp
+    };
+}
+
+begin_loop_helper_t begin_loop_helper(BodyBuilder* bb, Nodes yield_types, Nodes arg_types, Nodes initial_values) {
+    assert(arg_types.count == initial_values.count);
+    IrArena* a = bb->arena;
+    begin_control_t outer_control = begin_control(bb, yield_types);
+    BodyBuilder* outer_control_case_builder = begin_body_with_mem(a, shd_get_abstraction_mem(outer_control.case_));
+    LARRAY(const Node*, params, arg_types.count);
+    for (size_t i = 0; i < arg_types.count; i++) {
+        params[i] = param(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
+    }
+    Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
+    shd_set_abstraction_body(outer_control.case_, finish_body_with_jump(outer_control_case_builder, loop_header, initial_values));
+    BodyBuilder* loop_header_builder = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header));
+    begin_control_t inner_control = begin_control(loop_header_builder, arg_types);
+    shd_set_abstraction_body(loop_header, finish_body_with_jump(loop_header_builder, loop_header, inner_control.results));
+
+    return (begin_loop_helper_t) {
+        .results = outer_control.results,
+        .params = shd_nodes(a, arg_types.count, params),
+        .loop_body = inner_control.case_,
+        .break_jp = outer_control.jp,
+        .continue_jp = inner_control.jp,
+    };
 }
 
 void cancel_body(BodyBuilder* bb) {
-    destroy_list(bb->stack);
+    for (size_t i = 0; i < shd_list_count(bb->stack); i++) {
+        StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
+        // if (entry.structured.tag != NotAStructured_construct)
+        //     destroy_list(entry.structured.stack);
+    }
+    shd_destroy_list(bb->stack);
+    //destroy_list(bb->stack_stack);
     free(bb);
 }

@@ -2,53 +2,32 @@
   "address-spaces": [
     {
       "name": "Generic",
-      "llvm-id": 0,
-      "physical": true
+      "llvm-id": 0
     },
     {
-      "name": "GlobalPhysical",
+      "name": "Global",
       "description": "Global memory, all threads see the same data (not necessarily consistent!)",
-      "llvm-id": 1,
-      "physical": true
+      "llvm-id": 1
     },
     {
-      "name": "SharedPhysical",
+      "name": "Shared",
       "description": "Points into workgroup-private memory (aka shared memory)",
-      "llvm-id": 3,
-      "physical": true
+      "llvm-id": 3
     },
     {
-      "name": "SubgroupPhysical",
+      "name": "Subgroup",
       "description": [
         "Points into subgroup-private memory",
         "All threads in a subgroup see the same contents for the same address, but threads in different subgroups see different data.",
         "Needs to be lowered to something else since targets do not understand this" ],
-      "llvm-id": 9,
-      "physical": true
+      "llvm-id": 9
     },
     {
-      "name": "PrivatePhysical",
+      "name": "Private",
       "description": [
         "Points into thread-private memory (all threads see different contents for the same address)"
       ],
-      "llvm-id": 5,
-      "physical": true
-    },
-    {
-      "name": "GlobalLogical",
-      "llvm-id": 388
-    },
-    {
-      "name": "SharedLogical",
-      "llvm-id": 387
-    },
-    {
-      "name": "SubgroupLogical",
-      "llvm-id": 386
-    },
-    {
-      "name": "PrivateLogical",
-      "llvm-id": 385
+      "llvm-id": 5
     },
     {
       "name": "Input",
@@ -74,8 +53,8 @@
       "llvm-id": 392
     },
     {
-      "name": "FunctionLogical",
-      "description": "Weird SPIR-V nonsense: this is like PrivateLogical, but with non-static lifetimes (ie function lifetime)",
+      "name": "Function",
+      "description": "Weird SPIR-V nonsense: this is like Private, but with non-static lifetimes (ie function lifetime)",
       "llvm-id": 393
     },
     {
@@ -106,30 +85,53 @@
       "name": "value"
     },
     {
-      "name": "variable",
+      "name": "param",
       "generate-enum": false
+    },
+    {
+      "name": "abstraction",
+      "ops": [
+        { "name": "params", "class": "param", "list": true },
+        { "name": "body", "class": "terminator", "nullable": true }
+      ]
     },
     {
       "name": "instruction"
     },
     {
-      "name": "terminator"
+      "name": "terminator",
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
     },
     {
-      "name": "declaration"
-    },
-    {
-      "name": "case"
+      "name": "declaration",
+      "ops": [
+        { "name": "annotations", "class": "annotation", "list": true },
+        { "name": "name", "class": "string" }
+      ]
     },
     {
       "name": "basic_block"
     },
     {
-      "name": "annotation"
+      "name": "annotation",
+      "ops": [
+        { "name": "name", "class": "string" }
+      ]
     },
     {
       "name": "jump",
       "generate-enum": false
+    },
+    {
+      "name": "structured_construct",
+      "ops": [
+        { "name": "tail", "class": "basic_block" }
+      ]
+    },
+    {
+      "name": "mem"
     }
   ],
   "nodes": [
@@ -148,6 +150,10 @@
     {
       "name": "NoRet",
       "snake_name": "noret_type",
+      "description": [
+        "Empty type: there are no values of this type.",
+        "Useful for the codomain of things that don't return at all"
+      ],
       "class": "type",
       "type": false
     },
@@ -218,7 +224,8 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" }
+        { "name": "pointed_type", "class": "type" },
+        { "name": "is_reference", "type": "bool" }
       ]
     },
     {
@@ -234,7 +241,7 @@
       "class": "type",
       "ops": [
         { "name": "element_type", "class": "type" },
-        { "name": "size", "class": "value" }
+        { "name": "size", "class": "value", "nullable": true }
       ]
     },
     {
@@ -242,7 +249,7 @@
       "class": "type",
       "ops": [
         { "name": "element_type", "class": "type" },
-        { "name": "width", "type": "int" }
+        { "name": "width", "type": "uint32_t" }
       ]
     },
     {
@@ -254,39 +261,12 @@
       ]
     },
     {
-      "name": "ImageType",
-      "class": "type",
-      "type": false,
-      "ops": [
-        { "name": "sampled_type", "class": "type" },
-        { "name": "dim", "type": "uint32_t" },
-        { "name": "depth", "type": "uint32_t" },
-        { "name": "onion", "type": "bool" },
-        { "name": "multisample", "type": "bool" },
-        { "name": "sampled", "type": "uint32_t" }
-      ]
-    },
-    {
-      "name": "SamplerType",
-      "class": "type",
-      "type": false
-    },
-    {
-      "name": "CombinedImageSamplerType",
-      "class": "type",
-      "type": false,
-      "ops": [
-        { "name": "image_type", "class": "type" }
-      ]
-    },
-    {
-      "name": "Variable",
-      "snake_name": "var",
-      "class": ["value", "variable"],
+      "name": "Param",
+      "class": ["value", "param"],
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "type", "class": "type" },
-        { "name": "id", "type": "VarId" },
         { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
@@ -360,7 +340,7 @@
         "Re-ordering values does not count as a computation here !"
       ],
       "ops": [
-        { "name": "type", "class": "type" },
+        { "name": "type", "class": "type", "nullable": true },
         { "name": "contents", "class": "value", "list": true }
       ]
     },
@@ -400,102 +380,86 @@
     },
     {
       "name": "Call",
-      "class": "instruction",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
     {
-      "name": "PrimOp",
-      "class": "instruction",
+      "name": "MemAndValue",
+      "class": ["value", "mem"],
+      "description": "Associate a value with a mem object, this allows adding side effects to a value",
       "ops": [
-        { "name": "op", "type": "Op" },
-        { "name": "type_arguments", "class": "type", "list": true },
-        { "name": "operands", "class": "value", "list": true }
+        { "name": "mem", "class": "mem" },
+        { "name": "value", "class": "value" }
       ]
     },
     {
       "name": "If",
       "snake_name": "if_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "condition", "class": "value" },
-        { "name": "if_true", "class": "case" },
-        { "name": "if_false", "class": "case" }
+        { "name": "if_true", "class": "basic_block" },
+        { "name": "if_false", "class": "basic_block", "nullable": true },
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Match",
       "snake_name": "match_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
         { "name": "inspect", "class": "value" },
         { "name": "literals", "class": "value", "list": true },
-        { "name": "cases", "class": "case", "list": true },
-        { "name": "default_case", "class": "case" }
+        { "name": "cases", "class": "basic_block", "list": true },
+        { "name": "default_case", "class": "basic_block" },
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Loop",
       "snake_name": "loop_instr",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "body", "class": "case" },
-        { "name": "initial_args", "class": "value", "list": true }
+        { "name": "body", "class": "basic_block" },
+        { "name": "initial_args", "class": "value", "list": true },
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Control",
-      "class": "instruction",
+      "class": ["terminator", "structured_construct"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
-      ]
-    },
-    {
-      "name": "Block",
-      "class": "instruction",
-      "description": "Used as a helper to insert multiple instructions in place of one",
-      "ops": [
-        { "name": "yield_types", "class": "type", "list": true },
-        { "name": "inside", "class": "case" }
+        { "name": "inside", "class": "basic_block" },
+        { "name": "tail", "class": "basic_block" }
       ]
     },
     {
       "name": "Comment",
-      "class": "instruction",
+      "class": ["instruction", "mem"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "string", "class": "string" }
-      ]
-    },
-    {
-      "name": "Let",
-      "class": "terminator",
-      "constructor": "custom",
-      "ops": [
-        { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "case" }
-      ]
-    },
-    {
-      "name": "LetMut",
-      "class": "terminator",
-      "constructor": "custom",
-      "front-end-only": true,
-      "ops": [
-        { "name": "instruction", "class": "instruction" },
-        { "name": "tail", "class": "case" }
       ]
     },
     {
       "name": "TailCall",
       "class": "terminator",
       "ops": [
-        { "name": "target", "class": "value" },
+        { "name": "mem", "class": "mem" },
+        { "name": "callee", "class": "value" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
@@ -503,6 +467,7 @@
       "name": "Jump",
       "class": ["terminator", "jump"],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "target", "class": "basic_block" },
         { "name": "args", "class": "value", "list": true }
       ]
@@ -515,7 +480,8 @@
         "Branch alternatives are made out of Jump terminators"
       ],
       "ops": [
-        { "name": "branch_condition", "class": "value" },
+        { "name": "mem", "class": "mem" },
+        { "name": "condition", "class": "value" },
         { "name": "true_jump", "class": "jump" },
         { "name": "false_jump", "class": "jump" }
       ]
@@ -526,6 +492,7 @@
       "class": "terminator",
       "description": "N-way variant of Branch. See Branch.",
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "switch_value", "class": "value" },
         { "name": "case_values", "class": "value", "list": true },
         { "name": "case_jumps", "class": "jump", "list": true },
@@ -541,6 +508,7 @@
         "If @p is_indirect is set, the target must be a function pointer. Otherwise, the target must be a function directly."
       ],
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "join_point", "class": "value" },
         { "name": "args", "class": "value", "list": true }
       ]
@@ -548,21 +516,27 @@
     {
       "name": "MergeContinue",
       "class": "terminator",
+      "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "MergeBreak",
       "class": "terminator",
+      "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
     {
-      "name": "Yield",
+      "name": "MergeSelection",
       "class": "terminator",
+      "nominal": true,
       "ops": [
+        { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
@@ -570,26 +544,31 @@
       "name": "Return",
       "snake_name": "fn_ret",
       "class": "terminator",
+      "nominal": true,
       "ops": [
-        { "name": "fn", "class": "declaration" },
+        { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
       ]
     },
     {
       "name": "Unreachable",
-      "class": "terminator"
+      "class": "terminator",
+      "ops": [
+        { "name": "mem", "class": "mem" }
+      ]
     },
     {
       "name": "Function",
       "snake_name": "fun",
-      "class": "declaration",
+      "class": ["abstraction", "declaration"],
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "params", "class": "variable", "list": true },
-        { "name": "body", "class": "terminator" },
+        { "name": "params", "class": "param", "list": true },
+        { "name": "body", "class": "terminator", "nullable": true },
         { "name": "return_types", "class": "type", "list": true }
       ]
     },
@@ -598,25 +577,27 @@
       "class": "declaration",
       "constructor": "custom",
       "description": "Constants are used to express possibly complicated compile-time expressions",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
-        { "name": "instruction", "class": "instruction" }
+        { "name": "value", "class": "value", "nullable": true }
       ]
     },
     {
       "name": "GlobalVariable",
       "class": "declaration",
       "constructor": "custom",
+      "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace"},
-        { "name": "init", "class": "value", "ignore": true }
+        { "name": "init", "class": "value", "nullable": true }
       ]
     },
     {
@@ -624,12 +605,13 @@
       "snake_name": "nom_type",
       "class": "declaration",
       "constructor": "custom",
+      "nominal": true,
       "type": false,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "body", "class": "type" }
+        { "name": "body", "class": "type", "nullable": true }
       ]
     },
     {
@@ -671,46 +653,33 @@
       "name": "BasicBlock",
       "constructor": "custom",
       "description": "A named abstraction that lives inside a function and can be jumped to",
-      "class": "basic_block",
+      "class": ["abstraction", "basic_block"],
+      "nominal": true,
       "ops": [
-        { "name": "params", "class": "variable", "list": true },
-        { "name": "body", "class": "terminator" },
-        { "name": "fn", "class": "declaration" },
-        { "name": "name", "class": "string" }
+        { "name": "params", "class": "param", "list": true },
+        { "name": "body", "class": "terminator", "nullable": true },
+        { "name": "name", "class": "string" },
+        { "name": "insert", "type": "BodyBuilder*", "ignore": true }
       ]
     },
     {
-      "name": "Case",
-      "snake_name": "case_",
-      "constructor": "custom",
-      "class": "case",
-      "description": [
-        "An unnamed abstraction that lives inside a function, and can be used as part of various control-flow constructs",
-        "Most notably, the tails of standard `let` nodes"
-      ],
-      "ops": [
-        { "name": "params", "class": "variable", "list": true },
-        { "name": "body", "class": "terminator" },
-        { "name": "structured_construct", "type": "const Node*", "ignored": true }
-      ]
-    },
-    {
-      "name": "Unbound",
-      "description": "Unbound identifier, obtained by parsing a file",
+      "name": "AbsMem",
+      "class": "mem",
       "type": false,
-      "front-end-only": true,
       "ops": [
-        { "name": "name", "type": "String" }
+        { "name": "abs", "class": "abstraction" }
       ]
     },
     {
-      "name": "UnboundBBs",
-      "description": "A node together with unbound basic blocks it dominates, obtained by parsing a file",
-      "type": false,
-      "front-end-only": true,
+      "name": "ExtInstr",
+      "description": "Turns a pointer into an assignable L-value",
+      "class": ["mem", "value", "instruction"],
       "ops": [
-        { "name": "body", "class": "terminator" },
-        { "name": "children_blocks", "class": "basic_block", "list": true }
+        { "name": "mem", "class": "mem", "nullable": true },
+        { "name": "result_t", "class": "type" },
+        { "name": "set", "class": "string" },
+        { "name": "opcode", "type": "uint32_t" },
+        { "name": "operands", "class": "value", "list": true }
       ]
     }
   ]

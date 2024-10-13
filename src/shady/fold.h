@@ -3,6 +3,6 @@
 
 #include "ir_private.h"
 
-const Node* fold_node(IrArena* arena, const Node* instruction);
+const Node* _shd_fold_node(IrArena* arena, const Node* node);
 
 #endif

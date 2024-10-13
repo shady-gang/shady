@@ -2,17 +2,19 @@
 #define SHADY_IR_PRIVATE_H
 
 #include "shady/ir.h"
+#include "shady/config.h"
 
 #include "arena.h"
+#include "growy.h"
 
 #include "stdlib.h"
 #include "stdio.h"
 
-typedef struct IrArena_ {
+struct IrArena_ {
     Arena* arena;
     ArenaConfig config;
 
-    VarId next_free_id;
+    Growy* ids;
     struct List* modules;
 
     struct Dict* node_set;
@@ -20,7 +22,7 @@ typedef struct IrArena_ {
 
     struct Dict* nodes_set;
     struct Dict* strings_set;
-} IrArena_;
+};
 
 struct Module_ {
     IrArena* arena;
@@ -29,17 +31,17 @@ struct Module_ {
     bool sealed;
 };
 
-void register_decl_module(Module*, Node*);
-void destroy_module(Module* m);
+void _shd_module_add_decl(Module* m, Node* node);
+void shd_destroy_module(Module* m);
 
-struct BodyBuilder_ {
-    IrArena* arena;
-    struct List* stack;
-};
+NodeId _shd_allocate_node_id(IrArena* arena, const Node* n);
 
-VarId fresh_id(IrArena*);
+IrArena* _shd_get_bb_arena(BodyBuilder* bb);
+const Node* _shd_bb_insert_mem(BodyBuilder* bb);
+const Node* _shd_bb_insert_block(BodyBuilder* bb);
+const Node* _shd_finish_block_body(BodyBuilder* bb, const Node* terminator);
 
 struct List;
-Nodes list_to_nodes(IrArena*, struct List*);
+Nodes shd_list_to_nodes(IrArena* arena, struct List* list);
 
 #endif

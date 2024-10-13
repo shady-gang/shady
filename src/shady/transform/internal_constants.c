@@ -1,14 +1,16 @@
 #include "internal_constants.h"
 
 #include "portability.h"
+#include "ir_private.h"
 
 #include <string.h>
 
-void generate_dummy_constants(SHADY_UNUSED CompilerConfig* config, Module* mod) {
-    IrArena* arena = get_module_arena(mod);
-#define X(name, T, placeholder) \
-    Node* name##_var = constant(mod, nodes(arena, 0, NULL), T, #name); \
-    name##_var->payload.constant.instruction = quote_helper(arena, singleton(placeholder));
+void shd_generate_dummy_constants(SHADY_UNUSED const CompilerConfig* config, Module* mod) {
+    IrArena* arena = shd_module_get_arena(mod);
+    Nodes annotations = mk_nodes(arena, annotation(arena, (Annotation) { .name = "RetainAfterSpecialization" }), annotation(arena, (Annotation) { .name = "Exported" }));
+#define X(constant_name, T, placeholder) \
+    Node* constant_name##_var = constant(mod, annotations, T, #constant_name); \
+    constant_name##_var->payload.constant.value = placeholder;
     INTERNAL_CONSTANTS(X)
 #undef X
 }

@@ -1,4 +1,16 @@
-#include "shady/ir.h"
+#include "shady/pass.h"
+#include "join_point_ops.h"
+
+#include "../ir_private.h"
+#include "shady/visit.h"
+
+#include "../transform/ir_gen_helpers.h"
+#include "../analysis/cfg.h"
+#include "../analysis/uses.h"
+#include "../analysis/leak.h"
+#include "../analysis/verify.h"
+#include "../analysis/scheduler.h"
+#include "../analysis/free_frontier.h"
 
 #include "log.h"
 #include "portability.h"
@@ -6,30 +18,21 @@
 #include "dict.h"
 #include "util.h"
 
-#include "../type.h"
-#include "../rewrite.h"
-#include "../ir_private.h"
-
-#include "../transform/ir_gen_helpers.h"
-#include "../analysis/scope.h"
-#include "../analysis/free_variables.h"
-#include "../analysis/uses.h"
-#include "../analysis/leak.h"
-
 #include <assert.h>
-#include <string.h>
 
-KeyHash hash_node(Node**);
-bool compare_node(Node**, Node**);
+KeyHash shd_hash_node(Node** pnode);
+bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct Context_ {
     Rewriter rewriter;
-    Scope* scope;
-    const UsesMap* scope_uses;
+    CFG* cfg;
+    const UsesMap* uses;
 
     struct Dict* lifted;
     bool disable_lowering;
     const CompilerConfig* config;
+
+    bool* todo;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node);
@@ -37,187 +40,231 @@ static const Node* process_node(Context* ctx, const Node* node);
 typedef struct {
     const Node* old_cont;
     const Node* lifted_fn;
-    struct List* save_values;
+    Nodes save_values;
 } LiftedCont;
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, struct List* spilled_vars) {
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    size_t recover_context_size = entries_count_list(spilled_vars);
-    for (size_t i = 0; i < recover_context_size; i++) {
-        const Node* ovar = read_list(const Node*, spilled_vars)[i];
-        const Node* nvar = rewrite_node(&ctx->rewriter, ovar);
+static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes spilled_vars) {
+    for (size_t i = 0; i < spilled_vars.count; i++) {
+        const Node* ovar = spilled_vars.nodes[i];
+        const Node* nvar = shd_rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
-        deconstruct_qualified_type(&t);
-        assert(t->tag != PtrType_TAG || is_physical_as(t->payload.ptr_type.address_space));
-        const Node* save_instruction = prim_op(a, (PrimOp) {
-            .op = push_stack_op,
-            .type_arguments = singleton(get_unqualified_type(nvar->type)),
-            .operands = singleton(nvar),
-        });
-        bind_instruction(builder, save_instruction);
+        shd_deconstruct_qualified_type(&t);
+        assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
+        gen_push_value_stack(builder, nvar);
     }
 
-    const Node* sp = gen_primop_ce(builder, get_stack_pointer_op, 0, NULL);
-
-    return sp;
+    return gen_get_stack_size(builder);
 }
 
-static LiftedCont* lambda_lift(Context* ctx, const Node* cont, String given_name) {
-    assert(is_basic_block(cont) || is_case(cont));
-    LiftedCont** found = find_value_dict(const Node*, LiftedCont*, ctx->lifted, cont);
+static Nodes set2nodes(IrArena* a, struct Dict* set) {
+    size_t count = shd_dict_count(set);
+    LARRAY(const Node*, tmp, count);
+    size_t i = 0, j = 0;
+    const Node* key;
+    while (shd_dict_iter(set, &i, &key, NULL)) {
+        tmp[j++] = key;
+    }
+    assert(j == count);
+    return shd_nodes(a, count, tmp);
+}
+
+static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
+    assert(is_basic_block(liftee));
+    LiftedCont** found = shd_dict_find_value(const Node*, LiftedCont*, ctx->lifted, liftee);
     if (found)
         return *found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    Nodes oparams = get_abstraction_params(cont);
-    const Node* obody = get_abstraction_body(cont);
+    const Node* obody = get_abstraction_body(liftee);
+    String name = shd_get_abstraction_name_safe(liftee);
 
-    String name = is_basic_block(cont) ? format_string_arena(a->arena, "%s_%s", get_abstraction_name(cont->payload.basic_block.fn), get_abstraction_name(cont)) : unique_name(a, given_name);
+    Scheduler* scheduler = new_scheduler(cfg);
+    struct Dict* frontier_set = free_frontier(scheduler, cfg, liftee);
+    Nodes frontier = set2nodes(a, frontier_set);
+    shd_destroy_dict(frontier_set);
 
-    // Compute the live stuff we'll need
-    Scope* scope = new_scope(cont);
-    struct List* recover_context = compute_free_variables(scope, cont);
-    size_t recover_context_size = entries_count_list(recover_context);
-    destroy_scope(scope);
+    size_t recover_context_size = frontier.count;
 
-    debugv_print("free (spilled) variables at '%s': ", name);
-    for (size_t i = 0; i < recover_context_size; i++) {
-        const Node* item = read_list(const Node*, recover_context)[i];
-        debugv_print(get_value_name_safe(item));
-        if (i + 1 < recover_context_size)
-            debugv_print(", ");
-    }
-    debugv_print("\n");
-
-    // Create and register new parameters for the lifted continuation
-    Nodes new_params = recreate_variables(&ctx->rewriter, oparams);
-
-    LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
-    lifted_cont->old_cont = cont;
-    lifted_cont->save_values = recover_context;
-    insert_dict(const Node*, LiftedCont*, ctx->lifted, cont, lifted_cont);
+    destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = create_rewriter(ctx->rewriter.src_module, ctx->rewriter.dst_module, (RewriteNodeFn) process_node);
-    register_processed_list(&lifting_ctx.rewriter, oparams, new_params);
+    lifting_ctx.rewriter = shd_create_decl_rewriter(&ctx->rewriter);
+    Rewriter* r = &lifting_ctx.rewriter;
 
-    const Node* payload = var(a, qualified_type_helper(uint32_type(a), false), "sp");
+    Nodes ovariables = get_abstraction_params(liftee);
+    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", shd_get_abstraction_name_safe(liftee), recover_context_size);
+    for (size_t i = 0; i < recover_context_size; i++) {
+        const Node* item = frontier.nodes[i];
+        if (!is_value(item)) {
+            //lambda_lift()
+            continue;
+        }
+        shd_debugv_print("%%%d", item->id);
+        if (i + 1 < recover_context_size)
+            shd_debugv_print(", ");
+    }
+    shd_debugv_print("\n");
+
+    // Create and register new parameters for the lifted continuation
+    LARRAY(const Node*, new_params_arr, ovariables.count);
+    for (size_t i = 0; i < ovariables.count; i++)
+        new_params_arr[i] = param(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), shd_get_value_name_unsafe(ovariables.nodes[i]));
+    Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
+
+    LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
+    lifted_cont->old_cont = liftee;
+    lifted_cont->save_values = frontier;
+    shd_dict_insert(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
+
+    shd_register_processed_list(r, ovariables, new_params);
+
+    const Node* payload = param(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
 
     // Keep annotations the same
-    Nodes annotations = nodes(a, 0, NULL);
-    new_params = prepend_nodes(a, new_params, payload);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, nodes(a, 0, NULL));
+    Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));
+    new_params = shd_nodes_prepend(a, new_params, payload);
+    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, shd_nodes(a, 0, NULL));
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
-    BodyBuilder* bb = begin_body(a);
-    gen_primop(bb, set_stack_pointer_op, empty(a), singleton(payload));
+    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+    gen_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
-        const Node* ovar = read_list(const Node*, recover_context)[i];
-        assert(ovar->tag == Variable_TAG);
+        const Node* ovar = frontier.nodes[i];
+        // assert(ovar->tag == Variable_TAG);
 
-        const Type* value_type = rewrite_node(&ctx->rewriter, ovar->type);
+        const Type* value_type = shd_rewrite_node(r, ovar->type);
 
-        const Node* recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) {
-            .op = pop_stack_op,
-            .type_arguments = singleton(get_unqualified_type(value_type))
-        }), &ovar->payload.var.name));
+        //String param_name = get_value_name_unsafe(ovar);
+        const Node* recovered_value = gen_pop_value_stack(bb, shd_get_unqualified_type(value_type));
+        //if (param_name)
+        //    set_value_name(recovered_value, param_name);
 
-        if (is_qualified_type_uniform(ovar->type))
-            recovered_value = first(bind_instruction_named(bb, prim_op(a, (PrimOp) { .op = subgroup_broadcast_first_op, .operands = singleton(recovered_value) }), &ovar->payload.var.name));
+        if (shd_is_qualified_type_uniform(ovar->type))
+            recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = shd_singleton(recovered_value) });
 
-        register_processed(&lifting_ctx.rewriter, ovar, recovered_value);
+        shd_register_processed(r, ovar, recovered_value);
     }
 
-    const Node* substituted = rewrite_node(&lifting_ctx.rewriter, obody);
-    //destroy_dict(lifting_ctx.rewriter.processed);
-    destroy_rewriter(&lifting_ctx.rewriter);
+    shd_register_processed(r, shd_get_abstraction_mem(liftee), bb_mem(bb));
+    shd_register_processed(r, liftee, new_fn);
+    const Node* substituted = shd_rewrite_node(r, obody);
+    shd_destroy_rewriter(r);
 
     assert(is_terminator(substituted));
-    new_fn->payload.fun.body = finish_body(bb, substituted);
+    shd_set_abstraction_body(new_fn, finish_body(bb, substituted));
 
     return lifted_cont;
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
-    // TODO: share this code
-    if (is_declaration(node)) {
-        String name = get_decl_name(node);
-        Nodes decls = get_module_declarations(ctx->rewriter.dst_module);
-        for (size_t i = 0; i < decls.count; i++) {
-            if (strcmp(get_decl_name(decls.nodes[i]), name) == 0)
-                return decls.nodes[i];
-        }
-    }
-
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
 
-    if (ctx->disable_lowering)
-         return recreate_node_identity(&ctx->rewriter, node);
-
-    switch (node->tag) {
+    switch (is_declaration(node)) {
         case Function_TAG: {
+            while (ctx->rewriter.parent)
+                ctx = (Context*) ctx->rewriter.parent;
+
             Context fn_ctx = *ctx;
-            fn_ctx.scope = new_scope(node);
-            fn_ctx.scope_uses = create_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.cfg = build_fn_cfg(node);
+            fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.disable_lowering = shd_lookup_annotation(node, "Internal");
             ctx = &fn_ctx;
 
-            Node* new = recreate_decl_header_identity(&ctx->rewriter, node);
-            recreate_decl_body_identity(&ctx->rewriter, node, new);
+            Node* new = shd_recreate_node_head(&ctx->rewriter, node);
+            shd_recreate_node_body(&ctx->rewriter, node, new);
 
-            destroy_uses_map(ctx->scope_uses);
-            destroy_scope(ctx->scope);
+            destroy_uses_map(ctx->uses);
+            destroy_cfg(ctx->cfg);
             return new;
         }
-        case Let_TAG: {
-            const Node* oinstruction = get_let_instruction(node);
-            if (oinstruction->tag == Control_TAG) {
-                const Node* oinside = oinstruction->payload.control.inside;
-                assert(is_case(oinside));
-                if (!is_control_static(ctx->scope_uses, oinstruction) || ctx->config->hacks.force_join_point_lifting) {
-                    const Node* otail = get_let_tail(node);
-                    BodyBuilder* bb = begin_body(a);
-                    LiftedCont* lifted_tail = lambda_lift(ctx, otail, unique_name(a, format_string_arena(a->arena, "post_control_%s", get_abstraction_name(ctx->scope->entry->node))));
-                    const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
-                    const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
-
-                    const Node* jp = gen_primop_e(bb, create_joint_point_op, rewrite_nodes(&ctx->rewriter, oinstruction->payload.control.yield_types), mk_nodes(a, tail_ptr, sp));
-
-                    return finish_body(bb, let(a, quote_helper(a, singleton(jp)), rewrite_node(&ctx->rewriter, oinside)));
-                }
-            }
-
-            return recreate_node_identity(&ctx->rewriter, node);
-        }
-        default: return recreate_node_identity(&ctx->rewriter, node);
+        default:
+            break;
     }
+
+    if (ctx->disable_lowering)
+         return shd_recreate_node(&ctx->rewriter, node);
+
+    switch (node->tag) {
+        case Control_TAG: {
+            const Node* oinside = node->payload.control.inside;
+            if (!is_control_static(ctx->uses, node) || ctx->config->hacks.force_join_point_lifting) {
+                *ctx->todo = true;
+
+                const Node* otail = get_structured_construct_tail(node);
+                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.control.mem));
+                LiftedCont* lifted_tail = lambda_lift(ctx, ctx->cfg, otail);
+                const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
+                const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
+
+                const Type* jp_type = join_point_type(a, (JoinPointType) {
+                    .yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
+                });
+                const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
+                                                     shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
+                // dumbass hack
+                jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
+
+                shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
+                shd_register_processed(r, shd_get_abstraction_mem(oinside), bb_mem(bb));
+                shd_register_processed(r, oinside, NULL);
+                return finish_body(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
+            }
+            break;
+        }
+        default: break;
+    }
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* lift_indirect_targets(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
-    Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .lifted = new_dict(const Node*, LiftedCont*, (HashFn) hash_node, (CmpFn) compare_node),
-        .config = config,
-    };
+Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = NULL;
+    Module* dst;
 
-    rewrite_module(&ctx.rewriter);
+    int round = 0;
+    while (true) {
+        shd_debugv_print("lift_indirect_target: round %d\n", round++);
+        IrArena* oa = a;
+        a = shd_new_ir_arena(&aconfig);
+        dst = shd_new_module(a, shd_module_get_name(src));
+        bool todo = false;
+        Context ctx = {
+            .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
+            .lifted = shd_new_dict(const Node*, LiftedCont*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+            .config = config,
 
-    size_t iter = 0;
-    LiftedCont* lifted_cont;
-    while (dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
-        destroy_list(lifted_cont->save_values);
-        free(lifted_cont);
+            .todo = &todo
+        };
+
+        shd_rewrite_module(&ctx.rewriter);
+
+        size_t iter = 0;
+        LiftedCont* lifted_cont;
+        while (shd_dict_iter(ctx.lifted, &iter, NULL, &lifted_cont)) {
+            free(lifted_cont);
+        }
+        shd_destroy_dict(ctx.lifted);
+        shd_destroy_rewriter(&ctx.rewriter);
+        verify_module(config, dst);
+        src = dst;
+        if (oa)
+            shd_destroy_ir_arena(oa);
+        if (!todo) {
+            break;
+        }
     }
-    destroy_dict(ctx.lifted);
-    destroy_rewriter(&ctx.rewriter);
+
+    // this will be safe now since we won't lift any more code after this pass
+    aconfig.optimisations.weaken_non_leaking_allocas = true;
+    IrArena* a2 = shd_new_ir_arena(&aconfig);
+    dst = shd_new_module(a2, shd_module_get_name(src));
+    Rewriter r = shd_create_importer(src, dst);
+    shd_rewrite_module(&r);
+    shd_destroy_rewriter(&r);
+    shd_destroy_ir_arena(a);
     return dst;
 }

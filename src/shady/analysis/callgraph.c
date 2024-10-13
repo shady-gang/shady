@@ -1,21 +1,22 @@
 #include "callgraph.h"
+#include "uses.h"
 
 #include "list.h"
 #include "dict.h"
-
 #include "portability.h"
 #include "log.h"
 
-#include "../visit.h"
+#include "shady/visit.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
-KeyHash hash_node(const Node**);
-bool compare_node(const Node**, const Node**);
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
 
 KeyHash hash_cgedge(CGEdge* n) {
-    return hash_murmur(n, sizeof(CGEdge));
+    return shd_hash(n, sizeof(CGEdge));
 
 }
 bool compare_cgedge(CGEdge* a, CGEdge* b) {
@@ -28,7 +29,6 @@ typedef struct {
     Visitor visitor;
     CallGraph* graph;
     CGNode* root;
-    const Node* abs;
 } CGVisitor;
 
 static const Node* ignore_immediate_fn_addr(const Node* node) {
@@ -38,7 +38,10 @@ static const Node* ignore_immediate_fn_addr(const Node* node) {
     return node;
 }
 
+static CGNode* analyze_fn(CallGraph* graph, const Node* fn);
+
 static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* instr) {
+    assert(visitor->root);
     assert(callee->tag == Function_TAG);
     CGNode* target = analyze_fn(visitor->graph, callee);
     // Immediate recursion
@@ -48,66 +51,51 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
         .src_fn = visitor->root,
         .dst_fn = target,
         .instr = instr,
-        .abs = visitor->abs,
     };
-    insert_set_get_result(CGEdge, visitor->root->callees, edge);
-    insert_set_get_result(CGEdge, target->callers, edge);
+    shd_set_insert_get_result(CGEdge, visitor->root->callees, edge);
+    shd_set_insert_get_result(CGEdge, target->callers, edge);
 }
 
 static void search_for_callsites(CGVisitor* visitor, const Node* node) {
-    assert(is_abstraction(visitor->abs));
+    if (is_abstraction(node))
+        search_for_callsites(visitor, get_abstraction_body(node));
     switch (node->tag) {
-        case Function_TAG: {
-            assert(false);
-            break;
-        }
-        case BasicBlock_TAG:
-        case Case_TAG: {
-            const Node* old_abs = visitor->abs;
-            visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
-            visitor->abs = old_abs;
-            break;
-        }
-        case FnAddr_TAG: {
-            CGNode* callee_node = analyze_fn(visitor->graph, node->payload.fn_addr.fn);
-            callee_node->is_address_captured = true;
-            break;
-        }
         case Call_TAG: {
+            assert(visitor->root && "calls can only occur in functions");
             const Node* callee = node->payload.call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_op(&visitor->visitor, NcValue, "callee", callee);
-            visit_ops(&visitor->visitor, NcValue, "args", node->payload.call.args);
+                visitor->root->calls_indirect = true;
             break;
         }
         case TailCall_TAG: {
-            const Node* callee = node->payload.tail_call.target;
+            assert(visitor->root && "tail calls can only occur in functions");
+            const Node* callee = node->payload.tail_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
             else
-                visit_node(&visitor->visitor, callee);
-            visit_nodes(&visitor->visitor, node->payload.tail_call.args);
+                visitor->root->calls_indirect = true;
             break;
         }
-        default: visit_node_operands(&visitor->visitor, IGNORE_ABSTRACTIONS_MASK, node);
+        default: break;
     }
+    shd_visit_node_operands(&visitor->visitor, ~NcMem, node);
 }
 
 static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     assert(fn && fn->tag == Function_TAG);
-    CGNode** found = find_value_dict(const Node*, CGNode*, graph->fn2cgn, fn);
+    CGNode** found = shd_dict_find_value(const Node*, CGNode*, graph->fn2cgn, fn);
     if (found)
         return *found;
     CGNode* new = calloc(1, sizeof(CGNode));
     new->fn = fn;
-    new->callees = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
-    new->callers = new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callees = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callers = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
     new->tarjan.index = -1;
-    insert_dict_and_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
+    shd_dict_insert_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
     CGVisitor v = {
         .visitor = {
@@ -115,12 +103,10 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
         },
         .graph = graph,
         .root = new,
-        .abs = fn,
     };
 
-    if (fn->payload.fun.body) {
-        search_for_callsites(&v, fn->payload.fun.body);
-        visit_function_rpo(&v.visitor, fn);
+    if (get_abstraction_body(fn)) {
+        shd_visit_function_rpo(&v.visitor, fn);
     }
 
     return new;
@@ -141,21 +127,21 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 static void strongconnect(CGNode* v, int* index, struct List* stack) {
-    debugv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
+    shd_debugv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
 
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
     (*index)++;
-    append_list(const Node*, stack, v);
+    shd_list_append(const Node*, stack, v);
     v->tarjan.on_stack = true;
 
     // Consider successors of v
     {
         size_t iter = 0;
         CGEdge e;
-        debugv_print(" has %d successors\n", entries_count_dict(v->callees));
-        while (dict_iter(v->callees, &iter, &e, NULL)) {
-            debugv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
+        shd_debugv_print(" has %d successors\n", shd_dict_count(v->callees));
+        while (shd_dict_iter(v->callees, &iter, &e, NULL)) {
+            shd_debugv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
             if (e.dst_fn->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
                 strongconnect(e.dst_fn, index, stack);
@@ -172,13 +158,13 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
 
     // If v is a root node, pop the stack and generate an SCC
     if (v->tarjan.lowlink == v->tarjan.index) {
-        LARRAY(CGNode*, scc, entries_count_list(stack));
+        LARRAY(CGNode*, scc, shd_list_count(stack));
         size_t scc_size = 0;
         {
             CGNode* w;
-            assert(entries_count_list(stack) > 0);
+            assert(shd_list_count(stack) > 0);
             do {
-                w = pop_last_list(CGNode*, stack);
+                w = shd_list_pop(CGNode*, stack);
                 w->tarjan.on_stack = false;
                 scc[scc_size++] = w;
             } while (v != w);
@@ -187,7 +173,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         if (scc_size > 1) {
             for (size_t i = 0; i < scc_size; i++) {
                 CGNode* w = scc[i];
-                debugv_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
+                shd_debugv_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
                 w->is_recursive = true;
             }
         }
@@ -196,32 +182,64 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
 
 static void tarjan(struct Dict* verts) {
     int index = 0;
-    struct List* stack = new_list(CGNode*);
+    struct List* stack = shd_new_list(CGNode*);
 
     size_t iter = 0;
     CGNode* n;
-    while (dict_iter(verts, &iter, NULL, &n)) {
+    while (shd_dict_iter(verts, &iter, NULL, &n)) {
         if (n->tarjan.index == -1)
             strongconnect(n, &index, stack);
     }
 
-    destroy_list(stack);
+    shd_destroy_list(stack);
 }
 
 CallGraph* new_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
-        .fn2cgn = new_dict(const Node*, CGNode*, (HashFn) hash_node, (CmpFn) compare_node)
+        .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
 
-    Nodes decls = get_module_declarations(mod);
+    const UsesMap* uses = create_module_uses_map(mod, NcType);
+
+    Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
-        if (decls.nodes[i]->tag == Function_TAG) {
-            analyze_fn(graph, decls.nodes[i]);
+        const Node* decl = decls.nodes[i];
+        if (decl->tag == Function_TAG) {
+            CGNode* node = analyze_fn(graph, decl);
+
+            const Use* use = get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
+            for (;use;use = use->next_use) {
+                if (use->user->tag == Call_TAG && strcmp(use->operand_name, "callee") == 0)
+                    continue;
+                if (use->user->tag == TailCall_TAG && strcmp(use->operand_name, "callee") == 0)
+                    continue;
+                node->is_address_captured = true;
+            }
+        } else if (decl->tag == GlobalVariable_TAG && decl->payload.global_variable.init) {
+            CGVisitor v = {
+                .visitor = {
+                    .visit_node_fn = (VisitNodeFn) search_for_callsites
+                },
+                .graph = graph,
+                .root = NULL,
+            };
+            search_for_callsites(&v, decl->payload.global_variable.init);
+        } else if (decl->tag == Constant_TAG && decl->payload.constant.value) {
+            CGVisitor v = {
+                .visitor = {
+                    .visit_node_fn = (VisitNodeFn) search_for_callsites
+                },
+                .graph = graph,
+                .root = NULL,
+            };
+            search_for_callsites(&v, decl->payload.constant.value);
         }
     }
 
-    debugv_print("CallGraph: done with CFG build, contains %d nodes\n", entries_count_dict(graph->fn2cgn));
+    destroy_uses_map(uses);
+
+    shd_debugv_print("CallGraph: done with CFG build, contains %d nodes\n", shd_dict_count(graph->fn2cgn));
 
     tarjan(graph->fn2cgn);
 
@@ -231,12 +249,12 @@ CallGraph* new_callgraph(Module* mod) {
 void destroy_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
-    while (dict_iter(graph->fn2cgn, &i, NULL, &node)) {
-        debugv_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
-        destroy_dict(node->callers);
-        destroy_dict(node->callees);
+    while (shd_dict_iter(graph->fn2cgn, &i, NULL, &node)) {
+        shd_debugv_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
+        shd_destroy_dict(node->callers);
+        shd_destroy_dict(node->callees);
         free(node);
     }
-    destroy_dict(graph->fn2cgn);
+    shd_destroy_dict(graph->fn2cgn);
     free(graph);
 }

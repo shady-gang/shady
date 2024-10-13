@@ -1,59 +1,73 @@
-#include "passes.h"
+#include "shady/pass.h"
 
+#include "../transform/ir_gen_helpers.h"
+
+#include "dict.h"
 #include "portability.h"
 #include "log.h"
-
-#include "../rewrite.h"
-#include "../type.h"
-#include "../transform/ir_gen_helpers.h"
 
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
-    BodyBuilder* b;
+    BodyBuilder* bb;
 } Context;
 
-static const Node* process(Context* ctx, NodeClass class, String op_name, const Node* node) {
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
-
-    IrArena* a = ctx->rewriter.dst_arena;
+static const Node* process(Context* ctx, const Node* node) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
+        case Function_TAG: {
+            Node* newfun = shd_recreate_node_head(r, node);
+            if (get_abstraction_body(node)) {
+                Context functx = *ctx;
+                functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
+                shd_dict_clear(functx.rewriter.map);
+                shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
+                functx.bb = begin_body_with_mem(a, shd_get_abstraction_mem(newfun));
+                Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
+                shd_register_processed(&functx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
+                shd_set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
+                shd_set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
+                                                                                    shd_empty(a))));
+                shd_destroy_dict(functx.rewriter.map);
+            }
+            return newfun;
+        }
         case PtrType_TAG: {
             AddressSpace as = node->payload.ptr_type.address_space;
-            if (as == AsSubgroupLogical) {
-                return ptr_type(a, (PtrType) { .pointed_type = rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type), .address_space = AsSharedLogical });
+            if (as == AsSubgroup) {
+                return ptr_type(a, (PtrType) { .pointed_type = shd_rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type), .address_space = AsShared, .is_reference = node->payload.ptr_type.is_reference });
             }
             break;
         }
         case RefDecl_TAG: {
             const Node* odecl = node->payload.ref_decl.decl;
-            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsSubgroupLogical)
+            if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsSubgroup)
                 break;
-            assert(ctx->b);
-            const Node* ndecl = rewrite_op(&ctx->rewriter, NcDeclaration, "decl", odecl);
-            const Node* index = gen_builtin_load(ctx->rewriter.dst_module, ctx->b, BuiltinSubgroupId);
-            const Node* slice = gen_lea(ctx->b, ref_decl_helper(a, ndecl), int32_literal(a, 0), mk_nodes(a, index));
+            const Node* ndecl = shd_rewrite_node(&ctx->rewriter, odecl);
+            assert(ctx->bb);
+            const Node* index = gen_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
+            const Node* slice = gen_lea(ctx->bb, ref_decl_helper(a, ndecl), shd_int32_literal(a, 0), mk_nodes(a, index));
             return slice;
         }
         case GlobalVariable_TAG: {
             AddressSpace as = node->payload.global_variable.address_space;
-            if (as == AsSubgroupLogical) {
-                const Type* ntype = rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
+            if (as == AsSubgroup) {
+                const Type* ntype = shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type);
                 const Type* atype = arr_type(a, (ArrType) {
                     .element_type = ntype,
-                    .size = ref_decl_helper(a, rewrite_op(&ctx->rewriter, NcDeclaration, "decl", get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
+                    .size = ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG")))
                 });
 
-                Node* new = global_var(ctx->rewriter.dst_module, rewrite_ops(&ctx->rewriter, NcAnnotation, "annotations", node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsSharedLogical);
-                register_processed(&ctx->rewriter, node, new);
+                assert(shd_lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
+                Node* new = global_var(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared);
+                shd_register_processed(&ctx->rewriter, node, new);
 
                 if (node->payload.global_variable.init) {
                     new->payload.global_variable.init = fill(a, (Fill) {
                         .type = atype,
-                        .value = rewrite_op(&ctx->rewriter, NcValue, "init", node->payload.global_variable.init)
+                        .value = shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.init)
                     });
                 }
                 return new;
@@ -63,25 +77,24 @@ static const Node* process(Context* ctx, NodeClass class, String op_name, const 
         default: break;
     }
 
-    if (class == NcTerminator) {
-        BodyBuilder* b = begin_body(a);
-        Context c = *ctx;
-        c.b = b;
-        return finish_body(b, recreate_node_identity(&c.rewriter, node));
+    if (is_declaration(node)) {
+        Context declctx = *ctx;
+        declctx.bb = NULL;
+        return shd_recreate_node(&declctx.rewriter, node);
     }
-    return recreate_node_identity(&ctx->rewriter, node);
+
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* lower_subgroup_vars(const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, NULL),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
-    ctx.rewriter.rewrite_op_fn = (RewriteOpFn) process;
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

@@ -1,64 +1,56 @@
-#include "passes.h"
+#include "shady/pass.h"
+#include "shady/ir/annotation.h"
 
-#include "../rewrite.h"
 #include "portability.h"
 #include "log.h"
+#include "dict.h"
 
 typedef struct {
     Rewriter rewriter;
-    BodyBuilder* bb;
+    bool all;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
-    if (!node) return NULL;
-    const Node* found = search_processed(&ctx->rewriter, node);
-    if (found) return found;
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* abs_bb = NULL;
-    Context c = *ctx;
-    ctx = &c;
-    if (is_abstraction(node)) {
-        c.bb = abs_bb = begin_body(a);
-    }
-
     switch (node->tag) {
-        case Constant_TAG: return NULL;
+        case Constant_TAG:
+            if (!node->payload.constant.value)
+                break;
+            if (!ctx->all && !shd_lookup_annotation(node, "Inline"))
+                break;
+            return NULL;
         case RefDecl_TAG: {
             const Node* decl = node->payload.ref_decl.decl;
-            if (decl->tag == Constant_TAG) {
-                const Node* value = get_quoted_value(decl->payload.constant.instruction);
-                if (value)
-                    return rewrite_node(&ctx->rewriter, value);
-                assert(ctx->bb);
-                // TODO: actually _copy_ the instruction so we can duplicate the code safely!
-                return first(bind_instruction(ctx->bb, rewrite_node(&ctx->rewriter, decl->payload.constant.instruction)));
+            if (decl->tag == Constant_TAG && decl->payload.constant.value) {
+                return shd_rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             }
             break;
         }
         default: break;
     }
 
-    Node* new = (Node*) recreate_node_identity(&ctx->rewriter, node);
-    if (abs_bb) {
-        assert(is_abstraction(new));
-        if (get_abstraction_body(new))
-            set_abstraction_body(new, finish_body(abs_bb, get_abstraction_body(new)));
-        else
-            cancel_body(abs_bb);
-    }
-    return new;
+    return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* eliminate_constants(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    ArenaConfig aconfig = get_arena_config(get_module_arena(src));
-    IrArena* a = new_ir_arena(aconfig);
-    Module* dst = new_module(a, get_module_name(src));
+static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
+    ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    IrArena* a = shd_new_ir_arena(&aconfig);
+    Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
-        .rewriter = create_rewriter(src, dst, (RewriteNodeFn) process)
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .all = all,
     };
 
-    rewrite_module(&ctx.rewriter);
-    destroy_rewriter(&ctx.rewriter);
+    shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+Module* shd_pass_eliminate_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, true);
+}
+
+Module* shd_pass_eliminate_inlineable_constants(const CompilerConfig* config, Module* src) {
+    return eliminate_constants_(config, src, false);
 }

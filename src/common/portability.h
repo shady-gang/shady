@@ -15,10 +15,12 @@ static_assert(__STDC_VERSION__ >= 201112L, "C11 support is required to build sha
     #define SHADY_UNUSED
     #define LARRAY(T, name, size) T* name = alloca(sizeof(T) * (size))
     #define alloca _alloca
+    #define popen _popen
+    #define pclose _pclose
     #define SHADY_FALLTHROUGH
     // It's mid 2022, and this typedef is missing from <stdalign.h>
     // MSVC is not a real C11 compiler.
-    typedef long long max_align_t;
+    typedef double max_align_t;
 #else
     #ifdef USE_VLAS
         #define LARRAY(T, name, size) T name[size]
@@ -29,7 +31,7 @@ static_assert(__STDC_VERSION__ >= 201112L, "C11 support is required to build sha
     #define SHADY_FALLTHROUGH __attribute__((fallthrough));
 #endif
 
-static inline void* alloc_aligned(size_t size, size_t alignment) {
+static inline void* shd_alloc_aligned(size_t size, size_t alignment) {
 #ifdef _WIN32
     return _aligned_malloc(size, alignment);
 #else
@@ -37,7 +39,7 @@ static inline void* alloc_aligned(size_t size, size_t alignment) {
 #endif
 }
 
-static inline void free_aligned(void* ptr) {
+static inline void shd_free_aligned(void* ptr) {
 #ifdef _WIN32
     _aligned_free(ptr);
 #else
@@ -45,8 +47,10 @@ static inline void free_aligned(void* ptr) {
 #endif
 }
 
-const char* get_executable_location(void);
+#include <stdint.h>
+uint64_t shd_get_time_nano(void);
+const char* shd_get_executable_location(void);
 
-void platform_specific_terminal_init_extras();
+void shd_platform_specific_terminal_init_extras(void);
 
 #endif
