@@ -16,18 +16,18 @@ option(EXTERNAL_JSON_C_INCLUDE "Include directory of external JSON-C headers" )
 option(EXTERNAL_SPIRV_HEADERS "Build using external SPIRV headers" OFF)
 
 if (MSVC)
-  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
 if (WIN32)
-  set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_SHARED_LIBS OFF)
 endif()
 
 option(BUILD_RUNTIME "Whether to build runtime components" ON)
 option(BUILD_SAMPLES "Whether to build built-in demo applications" ON)
 
 if (NOT ${EXTERNAL_SPIRV_HEADERS})
-	find_package(SPIRV-Headers REQUIRED)
+    add_subdirectory(SPIRV-Headers)
 endif ()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
@@ -110,17 +110,17 @@ add_subdirectory(zhady)
 
 include(CTest)
 if (BUILD_TESTING)
-  add_subdirectory(test)
+    add_subdirectory(test)
 endif()
 
 if (BUILD_SAMPLES)
-  add_subdirectory(samples)
+    add_subdirectory(samples)
 endif()
 
 include(CMakePackageConfigHelpers)
 
 if (TARGET vcc)
-  add_subdirectory(vcc-std)
+    add_subdirectory(vcc-std)
 endif ()
 
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)

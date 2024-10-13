@@ -58,7 +58,7 @@ target_link_libraries(shady PRIVATE "api")
 target_link_libraries(shady PRIVATE "common")
 
 if (NOT MSVC)
-	target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
+    target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
 endif ()
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/shady DESTINATION include)
