@@ -135,7 +135,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     shd_set_abstraction_body(nabs, body);
 }
 
-bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
+static bool lexical_scope_is_nested(Nodes scope, Nodes parentMaybe) {
     if (scope.count <= parentMaybe.count)
         return false;
     for (size_t i = 0; i < parentMaybe.count; i++) {

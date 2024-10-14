@@ -4,7 +4,7 @@
 #include "shady/ir/base.h"
 
 typedef struct CompilerConfig_ CompilerConfig;
-void emit_spirv(const CompilerConfig* config, Module*, size_t* output_size, char** output, Module** new_mod);
+void shd_emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod);
 
 #endif
 

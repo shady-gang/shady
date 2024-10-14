@@ -17,7 +17,7 @@ static void replace_or_compare(const Node** dst, const Node* with) {
     }
 }
 
-const Node* import_node(Rewriter* r, const Node* node) {
+static const Node* import_node(Rewriter* r, const Node* node) {
     if (is_declaration(node)) {
         Node* existing = shd_module_get_declaration(r->dst_module, get_declaration_name(node));
         if (existing) {

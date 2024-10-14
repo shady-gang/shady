@@ -14,7 +14,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-struct List* build_cfgs(Module* mod, CFGBuildConfig config) {
+struct List* shd_build_cfgs(Module* mod, CFGBuildConfig config) {
     struct List* cfgs = shd_new_list(CFG*);
 
     Nodes decls = shd_module_get_declarations(mod);

@@ -325,7 +325,7 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, Module*
     return *pmod;
 }
 
-void emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
+void shd_emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
     IrArena* initial_arena = shd_module_get_arena(mod);
     mod = run_backend_specific_passes(config, mod);
     IrArena* arena = shd_module_get_arena(mod);

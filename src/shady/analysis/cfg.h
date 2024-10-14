@@ -96,7 +96,7 @@ typedef struct CFG_ {
 /**
  * @returns @ref List of @ref CFG*
  */
-struct List* build_cfgs(Module*, CFGBuildConfig);
+struct List* shd_build_cfgs(Module* mod, CFGBuildConfig config);
 
 /** Construct the CFG starting in node.
  */

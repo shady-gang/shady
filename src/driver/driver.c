@@ -162,7 +162,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
         char* output_buffer;
         switch (args->target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: emit_spirv(&args->config, mod, &output_size, &output_buffer, NULL); break;
+            case TgtSPV: shd_emit_spirv(&args->config, mod, &output_size, &output_buffer, NULL); break;
             case TgtC:
                 args->c_emitter_config.dialect = CDialect_C11;
                 shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);

@@ -26,7 +26,7 @@ typedef struct {
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) {
+static LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) {
     LTNode* n = calloc(sizeof(LTNode), 1);
     n->parent = parent;
     n->type = type;
@@ -284,7 +284,7 @@ void shd_dump_loop_trees(FILE* output, Module* mod) {
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
+    struct List* cfgs = shd_build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         LoopTree* lt = shd_new_loop_tree(cfg);

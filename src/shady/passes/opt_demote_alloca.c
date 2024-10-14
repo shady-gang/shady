@@ -100,7 +100,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     }
 }
 
-PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
+static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr) {
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));

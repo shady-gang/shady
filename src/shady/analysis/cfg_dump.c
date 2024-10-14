@@ -153,7 +153,7 @@ void shd_dump_cfgs(FILE* output, Module* mod) {
         output = stderr;
 
     fprintf(output, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
+    struct List* cfgs = shd_build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         dump_cfg(output, cfg);
@@ -191,7 +191,7 @@ void shd_dump_domtree_cfg(Printer* p, CFG* s) {
 
 void shd_dump_domtree_module(Printer* p, Module* mod) {
     shd_print(p, "digraph G {\n");
-    struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
+    struct List* cfgs = shd_build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         shd_dump_domtree_cfg(p, cfg);
