@@ -1004,7 +1004,7 @@ CTerm c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
     CTerm* found = lookup_existing_term(emitter, fn_builder, node);
     if (found) return *found;
 
-    CFNode* where = fn_builder ? schedule_instruction(fn_builder->scheduler, node) : NULL;
+    CFNode* where = fn_builder ? shd_schedule_instruction(fn_builder->scheduler, node) : NULL;
     if (where) {
         CTerm emitted = c_emit_value_(emitter, fn_builder, fn_builder->instruction_printers[where->rpo_index], node);
         register_emitted(emitter, fn_builder, node, emitted);

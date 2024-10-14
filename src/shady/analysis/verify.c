@@ -47,8 +47,8 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
     struct List* cfgs = build_cfgs(mod, structured_scope_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
-        Scheduler* scheduler = new_scheduler(cfg);
-        struct Dict* set = free_frontier(scheduler, cfg, cfg->entry->node);
+        Scheduler* scheduler = shd_new_scheduler(cfg);
+        struct Dict* set = shd_free_frontier(scheduler, cfg, cfg->entry->node);
         if (shd_dict_count(set) > 0) {
             shd_log_fmt(ERROR, "Leaking variables in ");
             shd_log_node(ERROR, cfg->entry->node);
@@ -66,8 +66,8 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
             shd_error_die();
         }
         shd_destroy_dict(set);
-        destroy_scheduler(scheduler);
-        destroy_cfg(cfg);
+        shd_destroy_scheduler(scheduler);
+        shd_destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
 }
@@ -148,7 +148,7 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
             }
         }
 
-        destroy_cfg(cfg);
+        shd_destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
 
@@ -159,7 +159,7 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
     }
 }
 
-void verify_module(const CompilerConfig* config, Module* mod) {
+void shd_verify_module(const CompilerConfig* config, Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly

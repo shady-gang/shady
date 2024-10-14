@@ -59,7 +59,7 @@ static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const No
         switch (mem->tag) {
             case AbsMem_TAG: {
                 const Node* abs = mem->payload.abs_mem.abs;
-                CFNode* n = cfg_lookup(ctx->cfg, abs);
+                CFNode* n = shd_cfg_lookup(ctx->cfg, abs);
                 if (shd_list_count(n->pred_edges) == 1) {
                     CFEdge e = shd_read_list(CFEdge, n->pred_edges)[0];
                     mem = get_terminator_mem(e.terminator);
@@ -91,7 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context fun_ctx = *ctx;
             fun_ctx.cfg = build_fn_cfg(node);
             shd_recreate_node_body(&fun_ctx.rewriter, node, new);
-            destroy_cfg(fun_ctx.cfg);
+            shd_destroy_cfg(fun_ctx.cfg);
             return new;
         }
         case Load_TAG: {

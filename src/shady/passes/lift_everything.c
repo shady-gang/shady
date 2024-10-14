@@ -25,20 +25,20 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.scheduler = new_scheduler(fn_ctx.cfg);
+            fn_ctx.scheduler = shd_new_scheduler(fn_ctx.cfg);
 
             Node* new_fn = shd_recreate_node_head(r, node);
             shd_recreate_node_body(&fn_ctx.rewriter, node, new_fn);
 
-            destroy_scheduler(fn_ctx.scheduler);
-            destroy_cfg(fn_ctx.cfg);
+            shd_destroy_scheduler(fn_ctx.scheduler);
+            shd_destroy_cfg(fn_ctx.cfg);
             return new_fn;
         }
         case BasicBlock_TAG: {
-            CFNode* n = cfg_lookup(ctx->cfg, node);
-            if (is_cfnode_structural_target(n))
+            CFNode* n = shd_cfg_lookup(ctx->cfg, node);
+            if (shd_cfg_is_node_structural_target(n))
                 break;
-            struct Dict* frontier = free_frontier(ctx->scheduler, ctx->cfg, node);
+            struct Dict* frontier = shd_free_frontier(ctx->scheduler, ctx->cfg, node);
             // insert_dict(const Node*, Dict*, ctx->lift, node, frontier);
 
             Nodes additional_args = shd_empty(a);

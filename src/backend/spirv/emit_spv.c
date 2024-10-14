@@ -85,7 +85,7 @@ static void emit_function(Emitter* emitter, const Node* node) {
         .emitted = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .cfg = build_fn_cfg(node),
     };
-    fn_builder.scheduler = new_scheduler(fn_builder.cfg);
+    fn_builder.scheduler = shd_new_scheduler(fn_builder.cfg);
     fn_builder.per_bb = calloc(sizeof(*fn_builder.per_bb), fn_builder.cfg->size);
 
     Nodes params = node->payload.fun.params;
@@ -137,8 +137,8 @@ static void emit_function(Emitter* emitter, const Node* node) {
     }
 
     free(fn_builder.per_bb);
-    destroy_scheduler(fn_builder.scheduler);
-    destroy_cfg(fn_builder.cfg);
+    shd_destroy_scheduler(fn_builder.scheduler);
+    shd_destroy_cfg(fn_builder.cfg);
     shd_destroy_dict(fn_builder.emitted);
 }
 

@@ -249,7 +249,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
 }
 
 static bool is_used_as_value(Context* ctx, const Node* node) {
-    const Use* use = get_first_use(ctx->uses, node);
+    const Use* use = shd_get_first_use(ctx->uses, node);
     for (;use;use = use->next_use) {
         if (use->operand_class != NcMem) {
             if (use->user->tag == ExtInstr_TAG && strcmp(use->user->payload.ext_instr.set, "shady.frontend") == 0) {
@@ -377,11 +377,11 @@ Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Modul
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
         .local_variables = NULL,
         .current_function = NULL,
-        .uses = create_module_uses_map(src, 0),
+        .uses = shd_new_uses_map_module(src, 0),
     };
 
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
-    destroy_uses_map(ctx.uses);
+    shd_destroy_uses_map(ctx.uses);
     return dst;
 }

@@ -231,11 +231,11 @@ static void simplify_cf(const CompilerConfig* config, Module* src, Module* dst) 
         .fun = NULL,
         .inlined_call = NULL,
     };
-    ctx.graph = new_callgraph(src);
+    ctx.graph = shd_new_callgraph(src);
 
     shd_rewrite_module(&ctx.rewriter);
     if (ctx.graph)
-        destroy_callgraph(ctx.graph);
+        shd_destroy_callgraph(ctx.graph);
 
     shd_destroy_rewriter(&ctx.rewriter);
 }

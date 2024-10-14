@@ -129,7 +129,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");
         assert(f);
-        dump_cfgs(f, mod);
+        shd_dump_cfgs(f, mod);
         fclose(f);
         shd_debug_print("CFG dumped\n");
     }
@@ -137,7 +137,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     if (args->loop_tree_output_filename) {
         FILE* f = fopen(args->loop_tree_output_filename, "wb");
         assert(f);
-        dump_loop_trees(f, mod);
+        shd_dump_loop_trees(f, mod);
         fclose(f);
         shd_debug_print("Loop tree dumped\n");
     }

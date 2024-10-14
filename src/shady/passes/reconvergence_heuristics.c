@@ -24,7 +24,7 @@ typedef struct Context_ {
 } Context;
 
 static bool in_loop(LoopTree* lt, const Node* entry, const Node* block) {
-    LTNode* lt_node = looptree_lookup(lt, block);
+    LTNode* lt_node = shd_loop_tree_lookup(lt, block);
     assert(lt_node);
     LTNode* parent = lt_node->parent;
     assert(parent);
@@ -92,8 +92,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     Rewriter* rewriter = &ctx->rewriter;
     IrArena* arena = rewriter->dst_arena;
 
-    CFNode* current_node = cfg_lookup(ctx->fwd_cfg, node);
-    LTNode* lt_node = looptree_lookup(ctx->current_looptree, node);
+    CFNode* current_node = shd_cfg_lookup(ctx->fwd_cfg, node);
+    LTNode* lt_node = shd_loop_tree_lookup(ctx->current_looptree, node);
     LTNode* loop_header = NULL;
 
     assert(current_node);
@@ -315,13 +315,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             ctx->current_fn = node;
             ctx->fwd_cfg = build_fn_cfg(ctx->current_fn);
             ctx->rev_cfg = build_fn_cfg_flipped(ctx->current_fn);
-            ctx->current_looptree = build_loop_tree(ctx->fwd_cfg);
+            ctx->current_looptree = shd_new_loop_tree(ctx->fwd_cfg);
 
             const Node* new = process_abstraction(ctx, node);;
 
-            destroy_cfg(ctx->fwd_cfg);
-            destroy_cfg(ctx->rev_cfg);
-            destroy_loop_tree(ctx->current_looptree);
+            shd_destroy_cfg(ctx->fwd_cfg);
+            shd_destroy_cfg(ctx->rev_cfg);
+            shd_destroy_loop_tree(ctx->current_looptree);
             return new;
         }
         case Constant_TAG: {
@@ -340,18 +340,18 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             assert(ctx->fwd_cfg);
 
-            CFNode* cfnode = cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
+            CFNode* cfnode = shd_cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
             const Node* post_dominator = NULL;
 
-            LTNode* current_loop = looptree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
+            LTNode* current_loop = shd_loop_tree_lookup(ctx->current_looptree, ctx->current_abstraction)->parent;
             assert(current_loop);
 
             if (shd_list_count(current_loop->cf_nodes)) {
                 bool leaves_loop = false;
-                CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
+                CFNode* current_node = shd_cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
                 for (size_t i = 0; i < shd_list_count(current_node->succ_edges); i++) {
                     CFEdge edge = shd_read_list(CFEdge, current_node->succ_edges)[i];
-                    LTNode* lt_target = looptree_lookup(ctx->current_looptree, edge.dst->node);
+                    LTNode* lt_target = shd_loop_tree_lookup(ctx->current_looptree, edge.dst->node);
 
                     if (lt_target->parent != current_loop) {
                         leaves_loop = true;
@@ -361,15 +361,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 if (!leaves_loop) {
                     const Node* current_loop_head = shd_read_list(CFNode*, current_loop->cf_nodes)[0]->node;
-                    CFG* loop_cfg = build_cfg(ctx->current_fn, current_loop_head, (CFGBuildConfig) {
+                    CFG* loop_cfg = shd_new_cfg(ctx->current_fn, current_loop_head, (CFGBuildConfig) {
                         .include_structured_tails = true,
                         .lt = ctx->current_looptree,
                         .flipped = true
                     });
-                    CFNode* idom_cf = cfg_lookup(loop_cfg, ctx->current_abstraction)->idom;
+                    CFNode* idom_cf = shd_cfg_lookup(loop_cfg, ctx->current_abstraction)->idom;
                     if (idom_cf)
                         post_dominator = idom_cf->node;
-                    destroy_cfg(loop_cfg);
+                    shd_destroy_cfg(loop_cfg);
                 }
             } else {
                 post_dominator = cfnode->idom->node;
@@ -379,14 +379,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 break;
             }
 
-            if (cfg_lookup(ctx->fwd_cfg, post_dominator)->idom->node != ctx->current_abstraction)
+            if (shd_cfg_lookup(ctx->fwd_cfg, post_dominator)->idom->node != ctx->current_abstraction)
                 break;
 
             assert(is_abstraction(post_dominator) && post_dominator->tag != Function_TAG);
 
-            LTNode* lt_node = looptree_lookup(ctx->current_looptree, ctx->current_abstraction);
-            LTNode* idom_lt_node = looptree_lookup(ctx->current_looptree, post_dominator);
-            CFNode* current_node = cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
+            LTNode* lt_node = shd_loop_tree_lookup(ctx->current_looptree, ctx->current_abstraction);
+            LTNode* idom_lt_node = shd_loop_tree_lookup(ctx->current_looptree, post_dominator);
+            CFNode* current_node = shd_cfg_lookup(ctx->fwd_cfg, ctx->current_abstraction);
 
             assert(lt_node);
             assert(idom_lt_node);

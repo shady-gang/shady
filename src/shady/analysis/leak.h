@@ -7,10 +7,10 @@
 #include "cfg.h"
 
 typedef void (VisitEnclosingAbsCallback)(void*, const Use*);
-void visit_enclosing_abstractions(UsesMap*, const Node*, void* uptr, VisitEnclosingAbsCallback fn);
+void shd_visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, VisitEnclosingAbsCallback fn);
 
-bool is_control_static(const UsesMap*, const Node* control);
+bool shd_is_control_static(const UsesMap* map, const Node* control);
 /// Returns the Control node that defines the join point, or NULL if it's defined by something else
-const Node* get_control_for_jp(const UsesMap*, const Node* jp);
+const Node* shd_get_control_for_jp(const UsesMap* map, const Node* jp);
 
 #endif

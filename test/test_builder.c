@@ -65,7 +65,7 @@ static void test_body_builder_fun_body(IrArena* a) {
             break;
         mem = omem;
         CHECK(mem->tag == AbsMem_TAG, exit(-1));
-        CFNode* n = cfg_lookup(cfg, mem->payload.abs_mem.abs);
+        CFNode* n = shd_cfg_lookup(cfg, mem->payload.abs_mem.abs);
         if (n->idom) {
             mem = get_terminator_mem(get_abstraction_body(n->idom->node));
             continue;
@@ -78,7 +78,7 @@ static void test_body_builder_fun_body(IrArena* a) {
     } while (1);
     mem = shd_get_original_mem(mem);
     CHECK(mem == shd_get_abstraction_mem(fun), exit(-1));
-    destroy_cfg(cfg);
+    shd_destroy_cfg(cfg);
 }
 
 /// There is some "magic" code in body_builder and shd_set_abstraction_body to enable inserting control-flow

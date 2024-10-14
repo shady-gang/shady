@@ -5,6 +5,6 @@
 #include "cfg.h"
 #include "scheduler.h"
 
-struct Dict* free_frontier(Scheduler* scheduler, CFG*, const Node* abs);
+struct Dict* shd_free_frontier(Scheduler* scheduler, CFG* cfg, const Node* abs);
 
 #endif

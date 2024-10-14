@@ -31,7 +31,7 @@ typedef struct Callgraph_ {
     struct Dict* fn2cgn;
 } CallGraph;
 
-CallGraph* new_callgraph(Module*);
-void destroy_callgraph(CallGraph*);
+CallGraph* shd_new_callgraph(Module* mod);
+void shd_destroy_callgraph(CallGraph* graph);
 
 #endif

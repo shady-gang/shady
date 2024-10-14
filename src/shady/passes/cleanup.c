@@ -17,10 +17,10 @@ typedef struct {
 
 static size_t count_calls(const UsesMap* map, const Node* bb) {
     size_t count = 0;
-    const Use* use = get_first_use(map, bb);
+    const Use* use = shd_get_first_use(map, bb);
     for (; use; use = use->next_use) {
         if (use->user->tag == Jump_TAG) {
-            const Use* jump_use = get_first_use(map, use->user);
+            const Use* jump_use = shd_get_first_use(map, use->user);
             for (; jump_use; jump_use = jump_use->next_use) {
                 if (jump_use->operand_class == NcJump)
                     return SIZE_MAX; // you can never inline conditional jumps
@@ -33,7 +33,7 @@ static size_t count_calls(const UsesMap* map, const Node* bb) {
 }
 
 static bool is_used_as_value(const UsesMap* map, const Node* instr) {
-    const Use* use = get_first_use(map, instr);
+    const Use* use = shd_get_first_use(map, instr);
     for (; use; use = use->next_use) {
         if (use->operand_class == NcValue)
             return true;
@@ -46,9 +46,9 @@ static const Node* process(Context* ctx, const Node* old) {
     IrArena* a = r->dst_arena;
     if (old->tag == Function_TAG || old->tag == Constant_TAG) {
         Context c = *ctx;
-        c.map = create_fn_uses_map(old, NcType | NcDeclaration);
+        c.map = shd_new_uses_map_fn(old, NcType | NcDeclaration);
         const Node* new = shd_recreate_node(&c.rewriter, old);
-        destroy_uses_map(c.map);
+        shd_destroy_uses_map(c.map);
         return new;
     }
 
@@ -76,7 +76,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Control_TAG: {
             Control payload = old->payload.control;
-            if (is_control_static(ctx->map, old)) {
+            if (shd_is_control_static(ctx->map, old)) {
                 const Node* control_inside = payload.inside;
                 const Node* term = get_abstraction_body(control_inside);
                 if (term->tag == Join_TAG) {
@@ -94,7 +94,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Join_TAG: {
             Join payload = old->payload.join;
-            const Node* control = get_control_for_jp(ctx->map, payload.join_point);
+            const Node* control = shd_get_control_for_jp(ctx->map, payload.join_point);
             if (control) {
                 Control old_control_payload = control->payload.control;
                 // there was a control but now there is not anymore - jump to the tail!

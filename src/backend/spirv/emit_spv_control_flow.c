@@ -111,8 +111,8 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
         spvb_add_phi_source(shd_read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
     }
 
-    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_id = continue_id;
-    fn_builder->per_bb[cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_builder = continue_builder;
+    fn_builder->per_bb[shd_cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_id = continue_id;
+    fn_builder->per_bb[shd_cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_builder = continue_builder;
 
     SpvId tail_id = spv_find_emitted(emitter, fn_builder, loop_instr.tail);
 
@@ -135,7 +135,7 @@ typedef enum {
 
 static CFNode* find_surrounding_structured_construct_node(Emitter* emitter, FnBuilder* fn_builder, const Node* abs, Construct construct) {
     const Node* oabs = abs;
-    for (CFNode* n = cfg_lookup(fn_builder->cfg, abs); n; oabs = n->node, n = n->idom) {
+    for (CFNode* n = shd_cfg_lookup(fn_builder->cfg, abs); n; oabs = n->node, n = n->idom) {
         const Node* terminator = get_abstraction_body(n->node);
         assert(terminator);
         if (is_structured_construct(terminator) && get_structured_construct_tail(terminator) == oabs) {
@@ -233,7 +233,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             const Node* construct = find_construct(emitter, fn_builder, abs, LoopConstruct);
             assert(construct);
             Loop loop_payload = construct->payload.loop_instr;
-            CFNode* loop_body = cfg_lookup(fn_builder->cfg, loop_payload.body);
+            CFNode* loop_body = shd_cfg_lookup(fn_builder->cfg, loop_payload.body);
             assert(loop_body);
             Nodes args = terminator->payload.merge_continue.args;
             add_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_body->rpo_index].continue_builder, args);

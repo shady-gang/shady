@@ -37,7 +37,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
     (*pmod)->sealed = true;
     shd_debugvv_print("After pass %s: \n", pass_name);
     if (SHADY_RUN_VERIFY)
-        verify_module(config, *pmod);
+        shd_verify_module(config, *pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod) && shd_module_get_arena(old_mod) != initial_arena)
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
@@ -45,7 +45,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
         *pmod = shd_cleanup(config, *pmod);
     shd_log_module(DEBUGVV, config, *pmod);
     if (SHADY_RUN_VERIFY)
-        verify_module(config, *pmod);
+        shd_verify_module(config, *pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod) && shd_module_get_arena(old_mod) != initial_arena)
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     if (config->hooks.after_pass.fn)

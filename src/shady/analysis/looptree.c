@@ -187,13 +187,13 @@ static void build_map_recursive(struct Dict* map, LTNode* n) {
     }
 }
 
-LTNode* looptree_lookup(LoopTree* lt, const Node* block) {
+LTNode* shd_loop_tree_lookup(LoopTree* lt, const Node* block) {
     LTNode** found = shd_dict_find_value(const Node*, LTNode*, lt->map, block);
     if (found) return *found;
     assert(false);
 }
 
-LoopTree* build_loop_tree(CFG* s) {
+LoopTree* shd_new_loop_tree(CFG* s) {
     LARRAY(State, states, s->size);
     for (size_t i = 0; i < s->size; i++) {
         states[i] = (State) {
@@ -236,7 +236,7 @@ static void destroy_lt_node(LTNode* n) {
     free(n);
 }
 
-void destroy_loop_tree(LoopTree* lt) {
+void shd_destroy_loop_tree(LoopTree* lt) {
     destroy_lt_node(lt->root);
     shd_destroy_dict(lt->map);
     free(lt);
@@ -271,7 +271,7 @@ static void dump_lt_node(FILE* f, const LTNode* n) {
         fprintf(f, "}\n");
 }
 
-void dump_loop_tree(FILE* f, LoopTree* lt) {
+void shd_dump_loop_tree(FILE* f, LoopTree* lt) {
     //fprintf(f, "digraph G {\n");
     fprintf(f, "subgraph cluster_%d {\n", extra_uniqueness++);
     dump_lt_node(f, lt->root);
@@ -279,7 +279,7 @@ void dump_loop_tree(FILE* f, LoopTree* lt) {
     //fprintf(f, "}\n");
 }
 
-void dump_loop_trees(FILE* output, Module* mod) {
+void shd_dump_loop_trees(FILE* output, Module* mod) {
     if (output == NULL)
         output = stderr;
 
@@ -287,18 +287,18 @@ void dump_loop_trees(FILE* output, Module* mod) {
     struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
-        LoopTree* lt = build_loop_tree(cfg);
-        dump_loop_tree(output, lt);
-        destroy_loop_tree(lt);
-        destroy_cfg(cfg);
+        LoopTree* lt = shd_new_loop_tree(cfg);
+        shd_dump_loop_tree(output, lt);
+        shd_destroy_loop_tree(lt);
+        shd_destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
     fprintf(output, "}\n");
 }
 
 
-void dump_loop_trees_auto(Module* mod) {
+void shd_dump_loop_trees_auto(Module* mod) {
     FILE* f = fopen("loop_trees.dot", "wb");
-    dump_loop_trees(f, mod);
+    shd_dump_loop_trees(f, mod);
     fclose(f);
 }

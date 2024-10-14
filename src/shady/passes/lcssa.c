@@ -52,18 +52,18 @@ static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* npar
     IrArena* a = ctx->rewriter.dst_arena;
     assert(old->tag == BasicBlock_TAG);
 
-    const LTNode* bb_loop = get_loop(looptree_lookup(ctx->loop_tree, old));
+    const LTNode* bb_loop = get_loop(shd_loop_tree_lookup(ctx->loop_tree, old));
 
     *nparams = shd_empty(a);
     *lparams = shd_empty(a);
     *nargs = shd_empty(a);
 
-    struct Dict* fvs = free_frontier(ctx->scheduler, ctx->cfg, old);
+    struct Dict* fvs = shd_free_frontier(ctx->scheduler, ctx->cfg, old);
     const Node* fv;
     for (size_t i = 0; shd_dict_iter(fvs, &i, &fv, NULL);) {
-        const CFNode* defining_cf_node = schedule_instruction(ctx->scheduler, fv);
+        const CFNode* defining_cf_node = shd_schedule_instruction(ctx->scheduler, fv);
         assert(defining_cf_node);
-        const LTNode* defining_loop = get_loop(looptree_lookup(ctx->loop_tree, defining_cf_node->node));
+        const LTNode* defining_loop = get_loop(shd_loop_tree_lookup(ctx->loop_tree, defining_cf_node->node));
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
             shd_log_fmt(DEBUGV, "lcssa: ");
@@ -92,13 +92,13 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
         shd_log_module(ERROR, ctx->config, ctx->rewriter.src_module);
         shd_error_die();
     }
-    const CFNode* n = cfg_lookup(ctx->cfg, old);
+    const CFNode* n = shd_cfg_lookup(ctx->cfg, old);
 
     size_t children_count = 0;
     LARRAY(const Node*, old_children, shd_list_count(n->dominates));
     for (size_t i = 0; i < shd_list_count(n->dominates); i++) {
         CFNode* c = shd_read_list(CFNode*, n->dominates)[i];
-        if (is_cfnode_structural_target(c))
+        if (shd_cfg_is_node_structural_target(c))
             continue;
         old_children[children_count++] = c->node;
     }
@@ -152,15 +152,15 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             ctx->current_fn = old;
             ctx->cfg = build_fn_cfg(old);
-            ctx->scheduler = new_scheduler(ctx->cfg);
-            ctx->loop_tree = build_loop_tree(ctx->cfg);
+            ctx->scheduler = shd_new_scheduler(ctx->cfg);
+            ctx->loop_tree = shd_new_loop_tree(ctx->cfg);
 
             Node* new = shd_recreate_node_head(&ctx->rewriter, old);
             new->payload.fun.body = process_abstraction_body(ctx, old, get_abstraction_body(old));
 
-            destroy_loop_tree(ctx->loop_tree);
-            destroy_scheduler(ctx->scheduler);
-            destroy_cfg(ctx->cfg);
+            shd_destroy_loop_tree(ctx->loop_tree);
+            shd_destroy_scheduler(ctx->scheduler);
+            shd_destroy_cfg(ctx->cfg);
             return new;
         }
         case Jump_TAG: {

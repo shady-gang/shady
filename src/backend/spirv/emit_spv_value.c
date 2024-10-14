@@ -581,7 +581,7 @@ SpvId spv_emit_value(Emitter* emitter, FnBuilder* fn_builder, const Node* node) 
     if (existing)
         return *existing;
 
-    CFNode* where = fn_builder ? schedule_instruction(fn_builder->scheduler, node) : NULL;
+    CFNode* where = fn_builder ? shd_schedule_instruction(fn_builder->scheduler, node) : NULL;
     if (where) {
         BBBuilder bb_builder = spv_find_basic_block_builder(emitter, where->node);
         SpvId emitted = spv_emit_value_(emitter, fn_builder, bb_builder, node);

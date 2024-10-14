@@ -308,7 +308,7 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                     .cfg = build_fn_cfg(decl),
                     .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
                 };
-                fn.scheduler = new_scheduler(fn.cfg);
+                fn.scheduler = shd_new_scheduler(fn.cfg);
                 fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
                 // for (size_t i = 0; i < fn.cfg->size; i++)
                 //     fn.instruction_printers[i] = open_growy_as_printer(new_growy());
@@ -341,8 +341,8 @@ void c_emit_decl(Emitter* emitter, const Node* decl) {
                 shd_printer_deindent(emitter->fn_defs);
                 shd_print(emitter->fn_defs, "\n}");
 
-                destroy_scheduler(fn.scheduler);
-                destroy_cfg(fn.cfg);
+                shd_destroy_scheduler(fn.scheduler);
+                shd_destroy_cfg(fn.cfg);
                 shd_destroy_dict(fn.emitted_terms);
                 free(fn.instruction_printers);
             }

@@ -336,7 +336,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     postprocess(&p, dirty, *dst);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
     shd_log_module(DEBUGVV, config, *dst);
-    verify_module(config, *dst);
+    shd_verify_module(config, *dst);
     shd_destroy_ir_arena(arena);
 
     shd_destroy_dict(p.map);

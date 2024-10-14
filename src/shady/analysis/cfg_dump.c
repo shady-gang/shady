@@ -130,7 +130,7 @@ static void dump_cfg(FILE* output, CFG* cfg) {
     fprintf(output, "}\n");
 }
 
-void dump_existing_cfg_auto(CFG* cfg) {
+void shd_dump_existing_cfg_auto(CFG* cfg) {
     FILE* f = fopen("cfg.dot", "wb");
     fprintf(f, "digraph G {\n");
     dump_cfg(f, cfg);
@@ -138,17 +138,17 @@ void dump_existing_cfg_auto(CFG* cfg) {
     fclose(f);
 }
 
-void dump_cfg_auto(const Node* fn) {
+void shd_dump_cfg_auto(const Node* fn) {
     FILE* f = fopen("cfg.dot", "wb");
     fprintf(f, "digraph G {\n");
     CFG* cfg = build_fn_cfg(fn);
     dump_cfg(f, cfg);
-    destroy_cfg(cfg);
+    shd_destroy_cfg(cfg);
     fprintf(f, "}\n");
     fclose(f);
 }
 
-void dump_cfgs(FILE* output, Module* mod) {
+void shd_dump_cfgs(FILE* output, Module* mod) {
     if (output == NULL)
         output = stderr;
 
@@ -157,15 +157,15 @@ void dump_cfgs(FILE* output, Module* mod) {
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         dump_cfg(output, cfg);
-        destroy_cfg(cfg);
+        shd_destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
     fprintf(output, "}\n");
 }
 
-void dump_cfgs_auto(Module* mod) {
+void shd_dump_cfgs_auto(Module* mod) {
     FILE* f = fopen("cfg.dot", "wb");
-    dump_cfgs(f, mod);
+    shd_dump_cfgs(f, mod);
     fclose(f);
 }
 
@@ -183,28 +183,28 @@ static void dump_domtree_cfnode(Printer* p, CFNode* idom) {
     }
 }
 
-void dump_domtree_cfg(Printer* p, CFG* s) {
+void shd_dump_domtree_cfg(Printer* p, CFG* s) {
     shd_print(p, "subgraph cluster_%s {\n", shd_get_abstraction_name_safe(s->entry->node));
     dump_domtree_cfnode(p, s->entry);
     shd_print(p, "}\n");
 }
 
-void dump_domtree_module(Printer* p, Module* mod) {
+void shd_dump_domtree_module(Printer* p, Module* mod) {
     shd_print(p, "digraph G {\n");
     struct List* cfgs = build_cfgs(mod, default_forward_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
-        dump_domtree_cfg(p, cfg);
-        destroy_cfg(cfg);
+        shd_dump_domtree_cfg(p, cfg);
+        shd_destroy_cfg(cfg);
     }
     shd_destroy_list(cfgs);
     shd_print(p, "}\n");
 }
 
-void dump_domtree_auto(Module* mod) {
+void shd_dump_domtree_auto(Module* mod) {
     FILE* f = fopen("domtree.dot", "wb");
     Printer* p = shd_new_printer_from_file(f);
-    dump_domtree_module(p, mod);
+    shd_dump_domtree_module(p, mod);
     shd_destroy_printer(p);
     fclose(f);
 }

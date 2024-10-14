@@ -265,7 +265,7 @@ static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
 static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
-    CFNode* cfnode = ctx->cfg ? cfg_lookup(ctx->cfg, abs) : NULL;
+    CFNode* cfnode = ctx->cfg ? shd_cfg_lookup(ctx->cfg, abs) : NULL;
     if (cfnode)
         ctx->bb_printers[cfnode->rpo_index] = p;
 
@@ -305,13 +305,13 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     sub_ctx.fn = node;
     if (node->arena->config.name_bound) {
         CFGBuildConfig cfg_config = structured_scope_cfg_build();
-        CFG* cfg = build_cfg(node, node, cfg_config);
+        CFG* cfg = shd_new_cfg(node, node, cfg_config);
         sub_ctx.cfg = cfg;
-        sub_ctx.scheduler = new_scheduler(cfg);
+        sub_ctx.scheduler = shd_new_scheduler(cfg);
         sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);
         sub_ctx.bb_printers = calloc(sizeof(size_t), cfg->size);
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
-            sub_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
+            sub_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
         }
     }
     ctx = &sub_ctx;
@@ -333,11 +333,11 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)
-            destroy_uses_map(sub_ctx.uses);
+            shd_destroy_uses_map(sub_ctx.uses);
         free(sub_ctx.bb_printers);
         free(sub_ctx.bb_growies);
-        destroy_cfg(sub_ctx.cfg);
-        destroy_scheduler(sub_ctx.scheduler);
+        shd_destroy_cfg(sub_ctx.cfg);
+        shd_destroy_scheduler(sub_ctx.scheduler);
     }
 }
 
@@ -1038,7 +1038,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     String s = shd_printer_growy_unwrap(ctx2.printer);
     Printer* p = ctx->root_printer;
     if (ctx->scheduler) {
-        CFNode* dst = schedule_instruction(ctx->scheduler, node);
+        CFNode* dst = shd_schedule_instruction(ctx->scheduler, node);
         if (dst)
             p = ctx2.bb_printers[dst->rpo_index];
     }

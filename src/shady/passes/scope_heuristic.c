@@ -60,7 +60,7 @@ static void paint_dominated_up_to_postdom(CFNode* n, IrArena* a, Nodes* arr, con
 }
 
 static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* flipped, LTNode* loop, LoopTree* lt) {
-    LTNode* ltn = looptree_lookup(lt, n->node);
+    LTNode* ltn = shd_loop_tree_lookup(lt, n->node);
     if (ltn->parent != loop)
         return;
 
@@ -74,7 +74,7 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
     if (shd_list_count(src->succ_edges) < 2)
         return; // no divergence, no bother
 
-    CFNode* f_src = cfg_lookup(flipped, src->node);
+    CFNode* f_src = shd_cfg_lookup(flipped, src->node);
     CFNode* f_src_ipostdom = f_src->idom;
     if (!f_src_ipostdom)
         return;
@@ -82,8 +82,8 @@ static void visit_acyclic_cfg_domtree(CFNode* n, IrArena* a, Nodes* arr, CFG* fl
     // your post-dominator can't be yourself... can it ?
     assert(f_src_ipostdom->node != src->node);
 
-    LTNode* src_lt = looptree_lookup(lt, src->node);
-    LTNode* pst_lt = looptree_lookup(lt, f_src_ipostdom->node);
+    LTNode* src_lt = shd_loop_tree_lookup(lt, src->node);
+    LTNode* pst_lt = shd_loop_tree_lookup(lt, f_src_ipostdom->node);
     assert(src_lt->type == LF_LEAF && pst_lt->type == LF_LEAF);
     if (src_lt->parent == pst_lt->parent) {
         shd_log_fmt(DEBUGVV, "We have a candidate for reconvergence: a branch starts at %d and ends at %d\n", src->node->id, f_src_ipostdom->node->id);
@@ -107,7 +107,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
         }
 
         assert(shd_list_count(node->cf_nodes) < 2);
-        CFG* sub_cfg = build_cfg(fn, is_loop ? shd_read_list(CFNode*, node->cf_nodes)[0]->node : fn, (CFGBuildConfig) {
+        CFG* sub_cfg = shd_new_cfg(fn, is_loop ? shd_read_list(CFNode*, node->cf_nodes)[0]->node : fn, (CFGBuildConfig) {
             .include_structured_tails = true,
             .lt = lt
         });
@@ -126,7 +126,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
             arr[n->rpo_index] = shd_nodes(a, old.count - 1, &old.nodes[0]);
         }
 
-        destroy_cfg(sub_cfg);
+        shd_destroy_cfg(sub_cfg);
     }
 }
 
@@ -145,7 +145,7 @@ static bool loop_depth(LTNode* a) {
 
 static Nodes* compute_scope_depth(IrArena* a, CFG* cfg) {
     CFG* flipped = build_fn_cfg_flipped(cfg->entry->node);
-    LoopTree* lt = build_loop_tree(cfg);
+    LoopTree* lt = shd_new_loop_tree(cfg);
 
     Nodes* arr = calloc(sizeof(Nodes), cfg->size);
     for (size_t i = 0; i < cfg->size; i++)
@@ -157,8 +157,8 @@ static Nodes* compute_scope_depth(IrArena* a, CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++)
         arr[i] = to_ids(a, arr[i]);
 
-    destroy_loop_tree(lt);
-    destroy_cfg(flipped);
+    shd_destroy_loop_tree(lt);
+    shd_destroy_cfg(flipped);
 
     return arr;
 }
@@ -176,7 +176,7 @@ static const Node* process(Context* ctx, const Node* node) {
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), shd_empty(a));
             shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
             shd_set_abstraction_body(new_fn, shd_bld_finish(bb, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
-            destroy_cfg(fn_ctx.cfg);
+            shd_destroy_cfg(fn_ctx.cfg);
             free(fn_ctx.depth_per_rpo);
             return new_fn;
         }
@@ -186,7 +186,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Node* new_bb = basic_block(a, nparams, shd_get_abstraction_name_unsafe(node));
             shd_register_processed(r, node, new_bb);
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_bb));
-            CFNode* n = cfg_lookup(ctx->cfg, node);
+            CFNode* n = shd_cfg_lookup(ctx->cfg, node);
             gen_ext_instruction(bb, "shady.scope", 0, unit_type(a), ctx->depth_per_rpo[n->rpo_index]);
             shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
             shd_set_abstraction_body(new_bb, shd_bld_finish(bb, shd_rewrite_node(r, get_abstraction_body(node))));

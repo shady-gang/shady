@@ -79,7 +79,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     if (!obody)
         return;
 
-    CFNode* n = cfg_lookup(cfg, oabs);
+    CFNode* n = shd_cfg_lookup(cfg, oabs);
     size_t num_dom = shd_list_count(n->dominates);
     LARRAY(Node*, nbbs, num_dom);
     for (size_t i = 0; i < num_dom; i++) {
@@ -184,9 +184,9 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
     } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
         shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", shd_get_abstraction_name_safe(src), shd_get_abstraction_name_safe(dst));
 
-        CFNode* src_cfnode = cfg_lookup(cfg, src);
+        CFNode* src_cfnode = shd_cfg_lookup(cfg, src);
         assert(src_cfnode->node);
-        CFNode* dst_cfnode = cfg_lookup(cfg, dst);
+        CFNode* dst_cfnode = shd_cfg_lookup(cfg, dst);
         assert(src_cfnode && dst_cfnode);
 
         // if(!cfg_is_dominated(dst_cfnode, src_cfnode))
@@ -204,7 +204,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                 shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", shd_get_abstraction_name_safe(dom->node));
             } else if (shd_compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                 // if (cfg_is_dominated(target_cfnode, dom)) {
-                if (!cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
+                if (!shd_cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
                     // assert(false);
                 }
 
@@ -253,14 +253,14 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
 }
 
 static void prepare_function(Context* ctx, CFG* cfg, const Node* old_fn) {
-    Scheduler* scheduler = new_scheduler(cfg);
+    Scheduler* scheduler = shd_new_scheduler(cfg);
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = cfg->rpo[i];
         for (size_t j = 0; j < shd_list_count(n->succ_edges); j++) {
             process_edge(ctx, cfg, scheduler, shd_read_list(CFEdge, n->succ_edges)[j]);
         }
     }
-    destroy_scheduler(scheduler);
+    shd_destroy_scheduler(scheduler);
 }
 
 static const Node* process_node(Context* ctx, const Node* node) {
@@ -272,7 +272,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             prepare_function(ctx, cfg, node);
             Node* decl = shd_recreate_node_head(r, node);
             wrap_in_controls(ctx, cfg, decl, node);
-            destroy_cfg(cfg);
+            shd_destroy_cfg(cfg);
             return decl;
         }
         case BasicBlock_TAG: {

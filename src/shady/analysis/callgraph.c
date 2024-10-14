@@ -15,11 +15,11 @@
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-KeyHash hash_cgedge(CGEdge* n) {
+KeyHash shd_hash_cgedge(CGEdge* n) {
     return shd_hash(n, sizeof(CGEdge));
 
 }
-bool compare_cgedge(CGEdge* a, CGEdge* b) {
+bool shd_compare_cgedge(CGEdge* a, CGEdge* b) {
     return (a)->src_fn == (b)->src_fn && (a)->instr == (b)->instr;
 }
 
@@ -92,8 +92,8 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
         return *found;
     CGNode* new = calloc(1, sizeof(CGNode));
     new->fn = fn;
-    new->callees = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
-    new->callers = shd_new_set(CGEdge, (HashFn) hash_cgedge, (CmpFn) compare_cgedge);
+    new->callees = shd_new_set(CGEdge, (HashFn) shd_hash_cgedge, (CmpFn) shd_compare_cgedge);
+    new->callers = shd_new_set(CGEdge, (HashFn) shd_hash_cgedge, (CmpFn) shd_compare_cgedge);
     new->tarjan.index = -1;
     shd_dict_insert_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
@@ -194,13 +194,13 @@ static void tarjan(struct Dict* verts) {
     shd_destroy_list(stack);
 }
 
-CallGraph* new_callgraph(Module* mod) {
+CallGraph* shd_new_callgraph(Module* mod) {
     CallGraph* graph = calloc(sizeof(CallGraph), 1);
     *graph = (CallGraph) {
         .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
 
-    const UsesMap* uses = create_module_uses_map(mod, NcType);
+    const UsesMap* uses = shd_new_uses_map_module(mod, NcType);
 
     Nodes decls = shd_module_get_declarations(mod);
     for (size_t i = 0; i < decls.count; i++) {
@@ -208,7 +208,7 @@ CallGraph* new_callgraph(Module* mod) {
         if (decl->tag == Function_TAG) {
             CGNode* node = analyze_fn(graph, decl);
 
-            const Use* use = get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
+            const Use* use = shd_get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
             for (;use;use = use->next_use) {
                 if (use->user->tag == Call_TAG && strcmp(use->operand_name, "callee") == 0)
                     continue;
@@ -237,7 +237,7 @@ CallGraph* new_callgraph(Module* mod) {
         }
     }
 
-    destroy_uses_map(uses);
+    shd_destroy_uses_map(uses);
 
     shd_debugv_print("CallGraph: done with CFG build, contains %d nodes\n", shd_dict_count(graph->fn2cgn));
 
@@ -246,7 +246,7 @@ CallGraph* new_callgraph(Module* mod) {
     return graph;
 }
 
-void destroy_callgraph(CallGraph* graph) {
+void shd_destroy_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
     while (shd_dict_iter(graph->fn2cgn, &i, NULL, &node)) {

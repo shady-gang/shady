@@ -45,7 +45,7 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     bool ptr_u = shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
 
-    const Use* use = get_first_use(map, ptr_value);
+    const Use* use = shd_get_first_use(map, ptr_value);
     for (;use; use = use->next_use) {
         if (is_abstraction(use->user) && use->operand_class == NcParam)
             continue;
@@ -174,11 +174,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
-            fun_ctx.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
+            fun_ctx.uses = shd_new_uses_map_fn(old, (NcDeclaration | NcType));
             fun_ctx.disable_lowering = shd_lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 shd_set_abstraction_body(fun, shd_rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
-            destroy_uses_map(fun_ctx.uses);
+            shd_destroy_uses_map(fun_ctx.uses);
             return fun;
         }
         case Constant_TAG: {

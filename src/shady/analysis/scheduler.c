@@ -24,10 +24,10 @@ static void schedule_after(CFNode** scheduled, CFNode* req) {
     else {
         // TODO: validate that old post-dominates req
         if (req->rpo_index > old->rpo_index) {
-            assert(cfg_is_dominated(req, old));
+            assert(shd_cfg_is_dominated(req, old));
             *scheduled = req;
         } else {
-            assert(cfg_is_dominated(old, req));
+            assert(shd_cfg_is_dominated(old, req));
         }
     }
 }
@@ -37,14 +37,14 @@ static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node*
         // We only care about mem and value dependencies
         case NcMem:
         case NcValue:
-            schedule_after(&s->result, schedule_instruction(s, op));
+            schedule_after(&s->result, shd_schedule_instruction(s, op));
             break;
         default:
             break;
     }
 }
 
-Scheduler* new_scheduler(CFG* cfg) {
+Scheduler* shd_new_scheduler(CFG* cfg) {
     Scheduler* s = calloc(sizeof(Scheduler), 1);
     *s = (Scheduler) {
         .v = {
@@ -56,7 +56,7 @@ Scheduler* new_scheduler(CFG* cfg) {
     return s;
 }
 
-CFNode* schedule_instruction(Scheduler* s, const Node* n) {
+CFNode* shd_schedule_instruction(Scheduler* s, const Node* n) {
     //assert(n && is_instruction(n));
     CFNode** found = shd_dict_find_value(const Node*, CFNode*, s->scheduled, n);
     if (found)
@@ -66,11 +66,11 @@ CFNode* schedule_instruction(Scheduler* s, const Node* n) {
     s2.result = NULL;
 
     if (n->tag == Param_TAG) {
-        schedule_after(&s2.result, cfg_lookup(s->cfg, n->payload.param.abs));
+        schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n->payload.param.abs));
     } else if (n->tag == BasicBlock_TAG) {
-        schedule_after(&s2.result, cfg_lookup(s->cfg, n));
+        schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n));
     } else if (n->tag == AbsMem_TAG) {
-        schedule_after(&s2.result, cfg_lookup(s->cfg, n->payload.abs_mem.abs));
+        schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n->payload.abs_mem.abs));
     }
 
     shd_visit_node_operands(&s2.v, 0, n);
@@ -78,7 +78,7 @@ CFNode* schedule_instruction(Scheduler* s, const Node* n) {
     return s2.result;
 }
 
-void destroy_scheduler(Scheduler* s) {
+void shd_destroy_scheduler(Scheduler* s) {
     shd_destroy_dict(s->scheduled);
     free(s);
 }

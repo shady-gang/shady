@@ -39,7 +39,7 @@ void shd_visit_function_rpo(Visitor* visitor, const Node* function) {
         const Node* node = cfg->rpo[i]->node;
         shd_visit_node(visitor, node);
     }
-    destroy_cfg(cfg);
+    shd_destroy_cfg(cfg);
 }
 
 void shd_visit_function_bodies_rpo(Visitor* visitor, const Node* function) {
@@ -52,7 +52,7 @@ void shd_visit_function_bodies_rpo(Visitor* visitor, const Node* function) {
         if (get_abstraction_body(node))
             shd_visit_node(visitor, get_abstraction_body(node));
     }
-    destroy_cfg(cfg);
+    shd_destroy_cfg(cfg);
 }
 
 #pragma GCC diagnostic error "-Wswitch"

@@ -99,7 +99,7 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
 
             Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
@@ -116,12 +116,12 @@ static const Node* process(Context* ctx, const Node* node) {
                 }));
             }
 
-            destroy_uses_map(fn_ctx.uses);
-            destroy_cfg(fn_ctx.cfg);
+            shd_destroy_uses_map(fn_ctx.uses);
+            shd_destroy_cfg(fn_ctx.cfg);
             return new;
         }
         case Control_TAG: {
-            if (!is_control_static(ctx->uses, node)) {
+            if (!shd_is_control_static(ctx->uses, node)) {
                 shd_debugv_print("Function %s can't be a leaf function because the join point ", shd_get_abstraction_name(ctx->cfg->entry->node));
                 shd_log_node(DEBUGV, shd_first(get_abstraction_params(node->payload.control.inside)));
                 shd_debugv_print("escapes its control block, preventing restructuring.\n");
@@ -132,8 +132,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Join_TAG: {
             const Node* old_jp = node->payload.join.join_point;
             if (old_jp->tag == Param_TAG) {
-                const Node* control = get_control_for_jp(ctx->uses, old_jp);
-                if (control && is_control_static(ctx->uses, control))
+                const Node* control = shd_get_control_for_jp(ctx->uses, old_jp);
+                if (control && shd_is_control_static(ctx->uses, control))
                     break;
             }
             shd_debugv_print("Function %s can't be a leaf function because it joins with ", shd_get_abstraction_name(ctx->cfg->entry->node));
@@ -158,11 +158,11 @@ Module* shd_pass_mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(const Node*, FnInfo, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
-        .graph = new_callgraph(src)
+        .graph = shd_new_callgraph(src)
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_dict(ctx.fns);
-    destroy_callgraph(ctx.graph);
+    shd_destroy_callgraph(ctx.graph);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

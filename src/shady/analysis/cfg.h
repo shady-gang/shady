@@ -15,7 +15,7 @@ typedef enum {
     /// Join points might leak, and as a consequence, there might be no static edge to the
     /// tail of the enclosing let, which would make it look like dead code.
     /// This edge type accounts for that risk, they can be ignored where more precise info is available
-    /// (see is_control_static for example)
+    /// (see shd_is_control_static for example)
     StructuredTailEdge,
 } CFEdgeType;
 
@@ -100,7 +100,7 @@ struct List* build_cfgs(Module*, CFGBuildConfig);
 
 /** Construct the CFG starting in node.
  */
-CFG* build_cfg(const Node* fn, const Node* entry, CFGBuildConfig);
+CFG* shd_new_cfg(const Node* fn, const Node* entry, CFGBuildConfig);
 
 /** Construct the CFG starting in node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
@@ -128,24 +128,24 @@ static inline CFGBuildConfig flipped_cfg_build(void) {
     };
 }
 
-#define build_fn_cfg(node) build_cfg(node, node, default_forward_cfg_build())
+#define build_fn_cfg(node) shd_new_cfg(node, node, default_forward_cfg_build())
 
 /** Construct the CFG stating in Node.
  * Dominance will only be computed with respect to the nodes reachable by @p entry.
  * This CFG will contain post dominance information instead of regular dominance!
  */
-#define build_fn_cfg_flipped(node) build_cfg(node, node, flipped_cfg_build())
+#define build_fn_cfg_flipped(node) shd_new_cfg(node, node, flipped_cfg_build())
 
-CFNode* cfg_lookup(CFG* cfg, const Node* abs);
-void compute_rpo(CFG*);
-void compute_domtree(CFG*);
+CFNode* shd_cfg_lookup(CFG* cfg, const Node* abs);
+void shd_cfg_compute_rpo(CFG* cfg);
+void shd_cfg_compute_domtree(CFG* cfg);
 
-bool cfg_is_dominated(CFNode* dominated, CFNode* by);
+bool shd_cfg_is_dominated(CFNode* a, CFNode* b);
 
-bool is_cfnode_structural_target(CFNode*);
+bool shd_cfg_is_node_structural_target(CFNode* cfn);
 
-CFNode* least_common_ancestor(CFNode* i, CFNode* j);
+CFNode* shd_cfg_least_common_ancestor(CFNode* i, CFNode* j);
 
-void destroy_cfg(CFG* cfg);
+void shd_destroy_cfg(CFG* cfg);
 
 #endif

@@ -9,9 +9,9 @@
 
 typedef struct UsesMap_ UsesMap;
 
-const UsesMap* create_fn_uses_map(const Node* root, NodeClass exclude);
-const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude);
-void destroy_uses_map(const UsesMap*);
+const UsesMap* shd_new_uses_map_fn(const Node* root, NodeClass exclude);
+const UsesMap* shd_new_uses_map_module(const Module* m, NodeClass exclude);
+void shd_destroy_uses_map(const UsesMap* map);
 
 typedef struct Use_ Use;
 struct Use_ {
@@ -22,6 +22,6 @@ struct Use_ {
     const Use* next_use;
 };
 
-const Use* get_first_use(const UsesMap*, const Node*);
+const Use* shd_get_first_use(const UsesMap* map, const Node* n);
 
 #endif

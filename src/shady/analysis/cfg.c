@@ -21,7 +21,7 @@ struct List* build_cfgs(Module* mod, CFGBuildConfig config) {
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != Function_TAG) continue;
-        CFG* cfg = build_cfg(decl, decl, config);
+        CFG* cfg = shd_new_cfg(decl, decl, config);
         shd_list_append(CFG*, cfgs, cfg);
     }
 
@@ -49,7 +49,7 @@ typedef struct {
 
 static void process_cf_node(CfgBuildContext* ctx, CFNode* node);
 
-CFNode* cfg_lookup(CFG* cfg, const Node* abs) {
+CFNode* shd_cfg_lookup(CFG* cfg, const Node* abs) {
     CFNode** found = shd_dict_find_value(const Node*, CFNode*, cfg->map, abs);
     if (found) {
         CFNode* cfnode = *found;
@@ -90,7 +90,7 @@ static CFNode* get_or_enqueue(CfgBuildContext* ctx, const Node* abs) {
 }
 
 static bool in_loop(LoopTree* lt, const Node* fn, const Node* loopentry, const Node* block) {
-    LTNode* lt_node = looptree_lookup(lt, block);
+    LTNode* lt_node = shd_loop_tree_lookup(lt, block);
     assert(lt_node);
     LTNode* parent = lt_node->parent;
     assert(parent);
@@ -372,7 +372,7 @@ static void mark_reachable(CFNode* n) {
     }
 }
 
-CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
+CFG* shd_new_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
     assert(function && function->tag == Function_TAG);
     assert(is_abstraction(entry));
     Arena* arena = shd_new_arena();
@@ -415,13 +415,13 @@ CFG* build_cfg(const Node* function, const Node* entry, CFGBuildConfig config) {
     if (config.flipped)
         flip_cfg(cfg);
 
-    compute_rpo(cfg);
-    compute_domtree(cfg);
+    shd_cfg_compute_rpo(cfg);
+    shd_cfg_compute_domtree(cfg);
 
     return cfg;
 }
 
-void destroy_cfg(CFG* cfg) {
+void shd_destroy_cfg(CFG* cfg) {
     bool entry_destroyed = false;
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* node = shd_read_list(CFNode*, cfg->contents)[i];
@@ -465,7 +465,7 @@ static size_t post_order_visit(CFG* cfg, CFNode* n, size_t i) {
     return n->rpo_index;
 }
 
-void compute_rpo(CFG* cfg) {
+void shd_cfg_compute_rpo(CFG* cfg) {
     /*cfg->reachable_size = 0;
     for (size_t i = 0; i < entries_count_list(cfg->contents); i++) {
         CFNode* n = read_list(CFNode*, cfg->contents)[i];
@@ -485,7 +485,7 @@ void compute_rpo(CFG* cfg) {
     // debug_print("\n");
 }
 
-bool is_cfnode_structural_target(CFNode* cfn) {
+bool shd_cfg_is_node_structural_target(CFNode* cfn) {
     for (size_t i = 0; i < shd_list_count(cfn->pred_edges); i++) {
         if (shd_read_list(CFEdge, cfn->pred_edges)[i].type != JumpEdge)
             return true;
@@ -493,7 +493,7 @@ bool is_cfnode_structural_target(CFNode* cfn) {
     return false;
 }
 
-CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
+CFNode* shd_cfg_least_common_ancestor(CFNode* i, CFNode* j) {
     assert(i && j);
     while (i->rpo_index != j->rpo_index) {
         while (i->rpo_index < j->rpo_index) j = j->idom;
@@ -502,7 +502,7 @@ CFNode* least_common_ancestor(CFNode* i, CFNode* j) {
     return i;
 }
 
-bool cfg_is_dominated(CFNode* a, CFNode* b) {
+bool shd_cfg_is_dominated(CFNode* a, CFNode* b) {
     while (a) {
         if (a == b)
             return true;
@@ -516,7 +516,7 @@ bool cfg_is_dominated(CFNode* a, CFNode* b) {
     return false;
 }
 
-void compute_domtree(CFG* cfg) {
+void shd_cfg_compute_domtree(CFG* cfg) {
     for (size_t i = 0; i < cfg->size; i++) {
         CFNode* n = shd_read_list(CFNode*, cfg->contents)[i];
         if (n == cfg->entry/* || !n->reachable*/)
@@ -557,7 +557,7 @@ void compute_domtree(CFG* cfg) {
                  if (e.type == StructuredTailEdge)
                      continue;
                 CFNode* p = e.src;
-                new_idom = new_idom ? least_common_ancestor(new_idom, p) : p;
+                new_idom = new_idom ? shd_cfg_least_common_ancestor(new_idom, p) : p;
             }
             assert(new_idom);
             if (n->idom != new_idom) {

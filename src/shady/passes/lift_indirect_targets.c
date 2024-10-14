@@ -82,14 +82,14 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     const Node* obody = get_abstraction_body(liftee);
     String name = shd_get_abstraction_name_safe(liftee);
 
-    Scheduler* scheduler = new_scheduler(cfg);
-    struct Dict* frontier_set = free_frontier(scheduler, cfg, liftee);
+    Scheduler* scheduler = shd_new_scheduler(cfg);
+    struct Dict* frontier_set = shd_free_frontier(scheduler, cfg, liftee);
     Nodes frontier = set2nodes(a, frontier_set);
     shd_destroy_dict(frontier_set);
 
     size_t recover_context_size = frontier.count;
 
-    destroy_scheduler(scheduler);
+    shd_destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
     lifting_ctx.rewriter = shd_create_decl_rewriter(&ctx->rewriter);
@@ -172,15 +172,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = create_fn_uses_map(node, (NcDeclaration | NcType));
+            fn_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
             fn_ctx.disable_lowering = shd_lookup_annotation(node, "Internal");
             ctx = &fn_ctx;
 
             Node* new = shd_recreate_node_head(&ctx->rewriter, node);
             shd_recreate_node_body(&ctx->rewriter, node, new);
 
-            destroy_uses_map(ctx->uses);
-            destroy_cfg(ctx->cfg);
+            shd_destroy_uses_map(ctx->uses);
+            shd_destroy_cfg(ctx->cfg);
             return new;
         }
         default:
@@ -193,7 +193,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Control_TAG: {
             const Node* oinside = node->payload.control.inside;
-            if (!is_control_static(ctx->uses, node) || ctx->config->hacks.force_join_point_lifting) {
+            if (!shd_is_control_static(ctx->uses, node) || ctx->config->hacks.force_join_point_lifting) {
                 *ctx->todo = true;
 
                 const Node* otail = get_structured_construct_tail(node);
@@ -251,7 +251,7 @@ Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, Module* src
         }
         shd_destroy_dict(ctx.lifted);
         shd_destroy_rewriter(&ctx.rewriter);
-        verify_module(config, dst);
+        shd_verify_module(config, dst);
         src = dst;
         if (oa)
             shd_destroy_ir_arena(oa);

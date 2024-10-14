@@ -6,10 +6,10 @@
 
 typedef struct Scheduler_ Scheduler;
 
-Scheduler* new_scheduler(CFG*);
-void destroy_scheduler(Scheduler*);
+Scheduler* shd_new_scheduler(CFG* cfg);
+void shd_destroy_scheduler(Scheduler* s);
 
 /// Returns the CFNode where that instruction should be placed, or NULL if it can be computed at the top-level
-CFNode* schedule_instruction(Scheduler*, const Node*);
+CFNode* shd_schedule_instruction(Scheduler* s, const Node* n);
 
 #endif

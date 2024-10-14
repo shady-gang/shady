@@ -28,7 +28,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         sub_ctx.current_fn = fun;
         sub_ctx.cfg = build_fn_cfg(node);
         shd_set_abstraction_body(fun, shd_rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
-        destroy_cfg(sub_ctx.cfg);
+        shd_destroy_cfg(sub_ctx.cfg);
         return fun;
     } else if (node->tag == Constant_TAG) {
         sub_ctx.cfg = NULL;
@@ -127,7 +127,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             MergeSelection payload = node->payload.merge_selection;
             const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
+            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
             const Node* selection_instr = NULL;
             while (dom) {
@@ -161,7 +161,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             MergeContinue payload = node->payload.merge_continue;
             const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
+            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
             const Node* loop_start = NULL;
             while (dom) {
@@ -195,7 +195,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             MergeBreak payload = node->payload.merge_break;
             const Node* root_mem = shd_get_original_mem(payload.mem);
             assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
+            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
             CFNode* dom = cfnode->idom;
             const Node* loop_start = NULL;
             while (dom) {

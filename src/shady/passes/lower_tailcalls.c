@@ -117,7 +117,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.cfg = build_fn_cfg(old);
-            ctx2.uses = create_fn_uses_map(old, (NcDeclaration | NcType));
+            ctx2.uses = shd_new_uses_map_fn(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
             const Node* entry_point_annotation = shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
@@ -135,8 +135,8 @@ static const Node* process(Context* ctx, const Node* old) {
                     shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
                 }
 
-                destroy_uses_map(ctx2.uses);
-                destroy_cfg(ctx2.cfg);
+                shd_destroy_uses_map(ctx2.uses);
+                shd_destroy_cfg(ctx2.cfg);
                 return fun;
             }
 
@@ -169,8 +169,8 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
             shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
-            destroy_uses_map(ctx2.uses);
-            destroy_cfg(ctx2.cfg);
+            shd_destroy_uses_map(ctx2.uses);
+            shd_destroy_cfg(ctx2.cfg);
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
@@ -251,7 +251,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case Control_TAG: {
             Control payload = old->payload.control;
-            if (is_control_static(ctx->uses, old)) {
+            if (shd_is_control_static(ctx->uses, old)) {
                 // const Node* old_inside = old->payload.control.inside;
                 const Node* old_jp = shd_first(get_abstraction_params(payload.inside));
                 assert(old_jp->tag == Param_TAG);

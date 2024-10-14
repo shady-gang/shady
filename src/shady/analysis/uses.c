@@ -25,7 +25,7 @@ typedef struct {
 } UsesMapVisitor;
 
 static Use* get_last_use(UsesMap* map, const Node* n) {
-    Use* use = (Use*) get_first_use(map, n);
+    Use* use = (Use*) shd_get_first_use(map, n);
     if (!use)
         return NULL;
     while (use->next_use)
@@ -87,21 +87,21 @@ static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeCl
     return uses;
 }
 
-const UsesMap* create_fn_uses_map(const Node* root, NodeClass exclude) {
+const UsesMap* shd_new_uses_map_fn(const Node* root, NodeClass exclude) {
     return create_uses_map_(root, NULL, exclude);
 }
 
-const UsesMap* create_module_uses_map(const Module* m, NodeClass exclude) {
+const UsesMap* shd_new_uses_map_module(const Module* m, NodeClass exclude) {
     return create_uses_map_(NULL, m, exclude);
 }
 
-void destroy_uses_map(const UsesMap* map) {
+void shd_destroy_uses_map(const UsesMap* map) {
     shd_destroy_arena(map->a);
     shd_destroy_dict(map->map);
     free((void*) map);
 }
 
-const Use* get_first_use(const UsesMap* map, const Node* n) {
+const Use* shd_get_first_use(const UsesMap* map, const Node* n) {
     const Use** found = shd_dict_find_value(const Node*, const Use*, map->map, n);
     if (found)
         return *found;
