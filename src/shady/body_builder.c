@@ -1,4 +1,4 @@
-#include "shady/body_builder.h"
+#include "shady/ir/builder.h"
 
 #include "transform/ir_gen_helpers.h"
 
@@ -71,25 +71,13 @@ const Node* shd_bb_mem(BodyBuilder* bb) {
     return bb->mem;
 }
 
-Nodes shd_deconstruct_composite(IrArena* a, BodyBuilder* bb, const Node* value, size_t outputs_count) {
-    if (outputs_count > 1) {
-        LARRAY(const Node*, extracted, outputs_count);
-        for (size_t i = 0; i < outputs_count; i++)
-            extracted[i] = gen_extract_single(bb, value, shd_int32_literal(bb->arena, i));
-        return shd_nodes(bb->arena, outputs_count, extracted);
-    } else if (outputs_count == 1)
-        return shd_singleton(value);
-    else
-        return shd_empty(bb->arena);
-}
-
 static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
     if (shd_get_arena_config(bb->arena)->check_types) {
         assert(is_mem(instruction));
     }
     if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
         bb->mem = instruction;
-    return shd_deconstruct_composite(bb->arena, bb, instruction, outputs_count);
+    return shd_deconstruct_composite(bb->arena, instruction, outputs_count);
 }
 
 const Node* shd_bld_add_instruction(BodyBuilder* bb, const Node* instr) {

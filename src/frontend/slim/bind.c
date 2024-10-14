@@ -142,7 +142,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             size_t names_count = instr.operands.count - 1;
             const Node** names = &instr.operands.nodes[1];
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
-            Nodes results = shd_deconstruct_composite(a, bb, value, names_count);
+            Nodes results = shd_deconstruct_composite(a, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 shd_log_fmt(DEBUGV, "Bound immutable variable '%s'\n", name);
@@ -155,7 +155,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             const Node** names = &instr.operands.nodes[1];
             const Node** types = &instr.operands.nodes[1 + names_count];
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
-            Nodes results = shd_deconstruct_composite(a, bb, value, names_count);
+            Nodes results = shd_deconstruct_composite(a, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];

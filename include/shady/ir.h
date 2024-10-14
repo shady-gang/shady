@@ -19,7 +19,7 @@
 #include "shady/ir/function.h"
 #include "shady/ir/decl.h"
 
-#include "shady/body_builder.h"
+#include "shady/ir/builder.h"
 #include "shady/analysis/literal.h"
 
 #endif

@@ -1,8 +1,10 @@
 #include "shady/ir/composite.h"
 
 #include "ir_private.h"
+#include "transform/ir_gen_helpers.h"
 
 #include "log.h"
+#include "portability.h"
 
 #include <assert.h>
 
@@ -82,4 +84,16 @@ void shd_enter_composite_type_indices(const Type** datatype, bool* uniform, Node
         const Node* selector = indices.nodes[i];
         shd_enter_composite_type(datatype, uniform, selector, allow_entering_pack);
     }
+}
+
+Nodes shd_deconstruct_composite(IrArena* a, const Node* value, size_t outputs_count) {
+    if (outputs_count > 1) {
+        LARRAY(const Node*, extracted, outputs_count);
+        for (size_t i = 0; i < outputs_count; i++)
+            extracted[i] = gen_extract_single(a, value, shd_int32_literal(a, i));
+        return shd_nodes(a, outputs_count, extracted);
+    } else if (outputs_count == 1)
+        return shd_singleton(value);
+    else
+        return shd_empty(a);
 }

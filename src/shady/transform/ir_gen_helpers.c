@@ -113,7 +113,7 @@ const Node* gen_local_alloc(BodyBuilder* bb, const Type* type) {
     return shd_first(shd_bld_add_instruction_extract(bb, local_alloc(_shd_get_bb_arena(bb), (LocalAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
 }
 
-const Node* gen_extract_single(BodyBuilder* bb, const Node* composite, const Node* index) {
+const Node* gen_extract_single(IrArena* a, const Node* composite, const Node* index) {
     return extract_helper(composite, index);
 }
 

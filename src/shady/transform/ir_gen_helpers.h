@@ -25,12 +25,12 @@ const Node* gen_merge_halves(BodyBuilder*, const Node* lo, const Node* hi);
 const Node* gen_stack_alloc(BodyBuilder*, const Type* ptr);
 const Node* gen_local_alloc(BodyBuilder*, const Type* ptr);
 
-const Node* gen_extract_single(BodyBuilder*, const Node* composite, const Node* index);
+const Node* gen_extract(BodyBuilder*, const Node* base, Nodes selectors);
+const Node* gen_extract_single(IrArena*, const Node* composite, const Node* index);
 
 const Node* gen_load(BodyBuilder*, const Node* ptr);
 void gen_store(BodyBuilder*, const Node* ptr, const Node* value);
 const Node* gen_lea(BodyBuilder*, const Node* base, const Node* offset, Nodes selectors);
-const Node* gen_extract(BodyBuilder*, const Node* base, Nodes selectors);
 void gen_comment(BodyBuilder*, String str);
 void gen_debug_printf(BodyBuilder*, String pattern, Nodes args);
 const Node* get_builtin(Module* m, Builtin b);
