@@ -39,24 +39,6 @@ const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
     return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = convert_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
 }
 
-const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
-    IrArena* a = shd_get_bb_arena(bb);
-    const Type* src_type = shd_get_unqualified_type(lo->type);
-    assert(shd_get_unqualified_type(hi->type) == src_type);
-    assert(src_type->tag == Int_TAG);
-    IntSizes size = src_type->payload.int_type.width;
-    assert(size != IntSizeMax);
-    const Type* dst_type = int_type(shd_get_bb_arena(bb), (Int) { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed });
-    // widen them
-    lo = gen_conversion(bb, dst_type, lo);
-    hi = gen_conversion(bb, dst_type, hi);
-    // shift hi
-    const Node* shift_by = int_literal(shd_get_bb_arena(bb), (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value = shd_get_type_bitwidth(src_type) });
-    hi = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, hi, shift_by));
-    // Merge the two
-    return prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, lo, hi));
-}
-
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
     IrArena* a = shd_get_bb_arena(bb);
     const Type* src_type = shd_get_unqualified_type(src->type);
