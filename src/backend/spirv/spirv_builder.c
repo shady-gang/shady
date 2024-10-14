@@ -660,7 +660,7 @@ void spvb_add_bb(SpvbFnBuilder* fn_builder, SpvbBasicBlockBuilder* bb_builder) {
     shd_list_append(SpvbBasicBlockBuilder*, fn_builder->bbs, bb_builder);
 }
 
-SpvId get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
+SpvId spvb_get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder) {
     return basic_block_builder->label;
 }
 SpvbPhi* spvb_add_phi(SpvbBasicBlockBuilder* bb_builder, SpvId type, SpvId id) {
@@ -677,7 +677,7 @@ void spvb_add_phi_source(SpvbPhi* phi, SpvId source_block, SpvId value) {
     shd_list_append(SpvbPhi, phi->preds, op);
 }
 
-struct List* spbv_get_phis(SpvbBasicBlockBuilder* bb_builder) {
+struct List* spvb_get_phis(SpvbBasicBlockBuilder* bb_builder) {
     return bb_builder->phis;
 }
 

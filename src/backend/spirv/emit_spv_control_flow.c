@@ -16,7 +16,7 @@ BBBuilder spv_find_basic_block_builder(Emitter* emitter, const Node* bb) {
 }
 
 static void add_phis(Emitter* emitter, FnBuilder* fn_builder, SpvId src, BBBuilder dst_builder, Nodes args) {
-    struct List* phis = spbv_get_phis(dst_builder);
+    struct List* phis = spvb_get_phis(dst_builder);
     assert(shd_list_count(phis) == args.count);
     for (size_t i = 0; i < args.count; i++) {
         SpvbPhi* phi = shd_read_list(SpvbPhi*, phis)[i];
@@ -29,7 +29,7 @@ static void add_branch_phis(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
     // (which is actually a Function in this IR, not a BasicBlock)
     // we assert that the destination must be an actual BasicBlock
     assert(is_basic_block(dst));
-    add_phis(emitter, fn_builder, get_block_builder_id(bb_builder), spv_find_basic_block_builder(emitter, dst), args);
+    add_phis(emitter, fn_builder, spvb_get_block_builder_id(bb_builder), spv_find_basic_block_builder(emitter, dst), args);
 }
 
 static void add_branch_phis_from_jump(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Jump jump) {
@@ -104,11 +104,11 @@ static void emit_loop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_buil
         SpvId header_phi_id = spvb_fresh_id(emitter->file_builder);
         SpvbPhi* header_phi = spvb_add_phi(header_builder, loop_param_type, header_phi_id);
         SpvId param_initial_value = spv_emit_value(emitter, fn_builder, loop_instr.initial_args.nodes[i]);
-        spvb_add_phi_source(header_phi, get_block_builder_id(bb_builder), param_initial_value);
-        spvb_add_phi_source(header_phi, get_block_builder_id(continue_builder), continue_phi_id);
+        spvb_add_phi_source(header_phi, spvb_get_block_builder_id(bb_builder), param_initial_value);
+        spvb_add_phi_source(header_phi, spvb_get_block_builder_id(continue_builder), continue_phi_id);
 
         BBBuilder body_builder = spv_find_basic_block_builder(emitter, loop_instr.body);
-        spvb_add_phi_source(shd_read_list(SpvbPhi*, spbv_get_phis(body_builder))[i], get_block_builder_id(header_builder), header_phi_id);
+        spvb_add_phi_source(shd_read_list(SpvbPhi*, spvb_get_phis(body_builder))[i], spvb_get_block_builder_id(header_builder), header_phi_id);
     }
 
     fn_builder->per_bb[shd_cfg_lookup(fn_builder->cfg, loop_instr.body)->rpo_index].continue_id = continue_id;
@@ -236,7 +236,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             CFNode* loop_body = shd_cfg_lookup(fn_builder->cfg, loop_payload.body);
             assert(loop_body);
             Nodes args = terminator->payload.merge_continue.args;
-            add_phis(emitter, fn_builder, get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_body->rpo_index].continue_builder, args);
+            add_phis(emitter, fn_builder, spvb_get_block_builder_id(basic_block_builder), fn_builder->per_bb[loop_body->rpo_index].continue_builder, args);
             spvb_branch(basic_block_builder, fn_builder->per_bb[loop_body->rpo_index].continue_id);
             return;
         }

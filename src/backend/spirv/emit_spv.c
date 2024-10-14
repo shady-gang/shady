@@ -57,7 +57,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNo
 
     // Find the preassigned ID to this
     BBBuilder bb_builder = spv_find_basic_block_builder(emitter, bb_node);
-    SpvId bb_id = get_block_builder_id(bb_builder);
+    SpvId bb_id = spvb_get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder->base, bb_builder);
 
     String name = shd_get_abstraction_name_safe(bb_node);

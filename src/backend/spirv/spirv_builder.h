@@ -77,11 +77,11 @@ SpvbFnBuilder* spvb_get_fn_builder(SpvbBasicBlockBuilder*);
 /// Actually adds the basic block to the function
 /// This is a separate action from begin_bb because the ordering in which the basic blocks are written matters...
 void spvb_add_bb(SpvbFnBuilder*, SpvbBasicBlockBuilder*);
-SpvId get_block_builder_id(SpvbBasicBlockBuilder*);
+SpvId spvb_get_block_builder_id(SpvbBasicBlockBuilder* basic_block_builder);
 
 SpvbPhi* spvb_add_phi(SpvbBasicBlockBuilder*, SpvId type, SpvId id);
 void spvb_add_phi_source(SpvbPhi*, SpvId source_block, SpvId value);
-struct List* spbv_get_phis(SpvbBasicBlockBuilder*);
+struct List* spvb_get_phis(SpvbBasicBlockBuilder* bb_builder);
 
 // Normal instructions
 SpvId spvb_op(SpvbBasicBlockBuilder*, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]);

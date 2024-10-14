@@ -41,7 +41,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     return shd_nodes(a, ops.count, nops);
 }
 
-LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
+static LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
     while (true) {
         if (LLVMIsAInstruction(v) || LLVMIsAConstantExpr(v)) {
             if (LLVMGetInstructionOpcode(v) == LLVMBitCast) {
