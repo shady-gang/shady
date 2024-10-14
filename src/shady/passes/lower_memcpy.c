@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
 #include "../transform/ir_gen_helpers.h"
@@ -34,7 +35,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .address_space = dst_addr_type->payload.ptr_type.address_space,
                 .pointed_type = word_type,
             });
-            dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
+            dst_addr = shd_bld_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
             const Node* src_addr = shd_rewrite_node(&ctx->rewriter, payload.src);
             const Type* src_addr_type = src_addr->type;
@@ -44,10 +45,10 @@ static const Node* process(Context* ctx, const Node* old) {
                 .address_space = src_addr_type->payload.ptr_type.address_space,
                 .pointed_type = word_type,
             });
-            src_addr = gen_reinterpret_cast(bb, src_addr_type, src_addr);
+            src_addr = shd_bld_reinterpret_cast(bb, src_addr_type, src_addr);
 
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
-            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
+            const Node* num_in_words = shd_bld_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
@@ -91,10 +92,10 @@ static const Node* process(Context* ctx, const Node* old) {
                 .address_space = dst_addr_type->payload.ptr_type.address_space,
                 .pointed_type = word_type,
             });
-            dst_addr = gen_reinterpret_cast(bb, dst_addr_type, dst_addr);
+            dst_addr = shd_bld_reinterpret_cast(bb, dst_addr_type, dst_addr);
 
             const Node* num = shd_rewrite_node(&ctx->rewriter, payload.count);
-            const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num));
+            const Node* num_in_words = shd_bld_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num));
 
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 

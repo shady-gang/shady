@@ -1,5 +1,6 @@
 #include "shady/pass.h"
 #include "shady/ir/type.h"
+#include "shady/ir/cast.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -28,7 +29,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     BodyBuilder* bb = shd_bld_begin_pure(a);
                     const Node* mask = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
-                    index = gen_conversion(bb, shd_get_actual_mask_type(ctx->rewriter.dst_arena), index);
+                    index = shd_bld_conversion(bb, shd_get_actual_mask_type(ctx->rewriter.dst_arena), index);
                     const Node* acc = mask;
                     // acc >>= index
                     acc = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, acc, index));

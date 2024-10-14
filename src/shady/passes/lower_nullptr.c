@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -19,7 +20,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
         return *found;
 
     BodyBuilder* bb = shd_bld_begin_pure(a);
-    const Node* nul = gen_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
+    const Node* nul = shd_bld_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
     Node* decl = constant(ctx->rewriter.dst_module, shd_singleton(annotation(a, (Annotation) {
         .name = "Generated",
     })), t, shd_fmt_string_irarena(a, "nullptr_%s", shd_get_type_name(a, t)));

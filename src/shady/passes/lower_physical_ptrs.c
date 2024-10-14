@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
 #include "../ir_private.h"
@@ -67,7 +68,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 // TODO: add a per-as size configuration
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
-                return gen_reinterpret_cast(bb, element_type, unsigned_int);
+                return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
             }
             default: shd_error("TODO")
         }
@@ -81,7 +82,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
                 const Node* word = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
-                            word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
+                            word = shd_bld_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 word = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, word, shift)); // shift it
                 acc = prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, acc, word));
 
@@ -93,16 +94,16 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
-                    widened = gen_conversion(bb, shd_uint32_type(a), acc);
+                    widened = shd_bld_conversion(bb, shd_uint32_type(a), acc);
                 shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
-            acc = gen_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
+            acc = shd_bld_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
             return acc;
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
-            return gen_reinterpret_cast(bb, element_type, unsigned_int);
+            return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
         }
         case TypeDeclRef_TAG:
         case RecordType_TAG: {
@@ -185,7 +186,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 }*/
                 const Node* word = value;
                 word = (prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
-                word = gen_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
 
                 offset = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
@@ -196,7 +197,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 String template = shd_fmt_string_irarena(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
-                    widened = gen_conversion(bb, shd_uint32_type(a), value);
+                    widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
                 shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             return;

@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
 #include "../ir_private.h"
@@ -46,7 +47,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
     const Node* element_size = prim_op_helper(a, size_of_op, shd_singleton(element_type), shd_empty(a));
-    element_size = gen_conversion(bb, shd_uint32_type(a), element_size);
+    element_size = shd_bld_conversion(bb, shd_uint32_type(a), element_size);
 
     // TODO somehow annotate the uniform guys as uniform
     const Node* stack_pointer = ctx->stack_pointer;
@@ -61,7 +62,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     assert(shd_get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = shd_get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
-    addr = gen_reinterpret_cast(bb, ptr_type(a, (PtrType) {.address_space = addr_space, .pointed_type = element_type}), addr);
+    addr = shd_bld_reinterpret_cast(bb, ptr_type(a, (PtrType) { .address_space = addr_space, .pointed_type = element_type }), addr);
 
     const Node* popped_value = NULL;
     if (push)

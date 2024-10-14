@@ -1,5 +1,5 @@
 #include "check.h"
-#include "shady/ir/memory_layout.h"
+#include "shady/ir/cast.h"
 
 #include "log.h"
 #include "ir_private.h"

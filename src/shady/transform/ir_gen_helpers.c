@@ -29,16 +29,6 @@ const Node* gen_ext_instruction(BodyBuilder* bb, String set, int opcode, const T
     }));
 }
 
-const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
-    assert(is_type(dst));
-    return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = reinterpret_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
-}
-
-const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
-    assert(is_type(dst));
-    return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = convert_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
-}
-
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
     IrArena* a = shd_get_bb_arena(bb);
     const Type* src_type = shd_get_unqualified_type(src->type);

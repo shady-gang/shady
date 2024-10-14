@@ -2,6 +2,7 @@
 
 #include "shady/pass.h"
 #include "shady/ir/stack.h"
+#include "shady/ir/cast.h"
 
 #include "../ir_private.h"
 
@@ -215,7 +216,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = gen_conversion(bb, shd_uint32_type(a), target);
+            target = shd_bld_conversion(bb, shd_uint32_type(a), target);
 
             gen_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));

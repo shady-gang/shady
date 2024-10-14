@@ -34,9 +34,6 @@ bool shd_is_ordered_type(const Type*);
 bool shd_is_physical_ptr_type(const Type* t);
 bool shd_is_generic_ptr_type(const Type* t);
 
-bool shd_is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type);
-bool shd_is_conversion_legal(const Type* src_type, const Type* dst_type);
-
 /// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
 const Type* shd_get_pointee_type(IrArena*, const Type*);
 

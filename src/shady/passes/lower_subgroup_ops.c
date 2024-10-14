@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
 #include "../transform/ir_gen_helpers.h"
@@ -75,8 +76,8 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
             break;
         }
         case Type_PtrType_TAG: {
-            param = gen_reinterpret_cast(bb, shd_uint64_type(a), param);
-            return gen_reinterpret_cast(bb, t, generate(ctx, bb, scope, shd_uint64_type(a), param));
+            param = shd_bld_reinterpret_cast(bb, shd_uint64_type(a), param);
+            return shd_bld_reinterpret_cast(bb, t, generate(ctx, bb, scope, shd_uint64_type(a), param));
         }
         default: break;
     }

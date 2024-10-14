@@ -13,4 +13,5 @@ target_sources(shady PRIVATE
     debug.c
     memory_layout.c
     stack.c
+    cast.c
 )

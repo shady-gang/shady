@@ -1,11 +1,11 @@
 #include "shady/pass.h"
+#include "shady/ir/cast.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "portability.h"
-#include "shady/ir.h"
 
 #include <assert.h>
 
@@ -128,11 +128,11 @@ static const Node* process(Context* ctx, const Node* old) {
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
             // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
-            const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
+            const Node* cast_base = shd_bld_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
             const Type* new_base_t = shd_rewrite_node(&ctx->rewriter, old_base_ptr_t);
             const Node* result = lower_ptr_offset(ctx, bb, new_base_t, cast_base, shd_rewrite_node(r, lea.offset));
             const Type* new_ptr_t = shd_rewrite_node(&ctx->rewriter, old_result_t);
-            const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
+            const Node* cast_result = shd_bld_reinterpret_cast(bb, new_ptr_t, result);
             return shd_bld_to_instr_yield_values(bb, shd_singleton(cast_result));
         }
         case PtrCompositeElement_TAG: {
@@ -151,11 +151,11 @@ static const Node* process(Context* ctx, const Node* old) {
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
             // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
-            const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
+            const Node* cast_base = shd_bld_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
             const Type* new_base_t = shd_rewrite_node(&ctx->rewriter, old_base_ptr_t);
             const Node* result = lower_ptr_index(ctx, bb, new_base_t, cast_base, shd_rewrite_node(r, lea.index));
             const Type* new_ptr_t = shd_rewrite_node(&ctx->rewriter, old_result_t);
-            const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
+            const Node* cast_result = shd_bld_reinterpret_cast(bb, new_ptr_t, result);
             return shd_bld_to_instr_yield_values(bb, shd_singleton(cast_result));
         }
         default: break;

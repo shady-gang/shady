@@ -1,6 +1,6 @@
 #include "shady/pass.h"
-
 #include "shady/visit.h"
+#include "shady/ir/cast.h"
 
 #include "../ir_private.h"
 #include "../check.h"
@@ -200,7 +200,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     *ctx->todo |= true;
                     BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                     const Node* data = shd_bld_load(bb, k.src_alloca->new);
-                    data = gen_reinterpret_cast(bb, access_type, data);
+                    data = shd_bld_reinterpret_cast(bb, access_type, data);
                     return shd_bld_to_instr_yield_value(bb, data);
                 }
             }
@@ -217,7 +217,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                     *ctx->todo |= true;
                     BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-                    const Node* data = gen_reinterpret_cast(bb, access_type, shd_rewrite_node(r, payload.value));
+                    const Node* data = shd_bld_reinterpret_cast(bb, access_type, shd_rewrite_node(r, payload.value));
                     shd_bld_store(bb, k.src_alloca->new, data);
                     return shd_bld_to_instr_yield_values(bb, shd_empty(a));
                 }
