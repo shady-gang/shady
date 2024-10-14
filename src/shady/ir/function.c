@@ -4,7 +4,7 @@
 
 #include <assert.h>
 
-Node* param(IrArena* arena, const Type* type, const char* name) {
+Node* _shd_param(IrArena* arena, const Type* type, const char* name) {
     Param param = {
         .type = type,
         .name = string(arena, name),
@@ -20,7 +20,7 @@ Node* param(IrArena* arena, const Type* type, const char* name) {
     return _shd_create_node_helper(arena, node, NULL);
 }
 
-Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
     assert(!mod->sealed);
     IrArena* arena = mod->arena;
     Function payload = {
@@ -53,7 +53,7 @@ Node* function(Module* mod, Nodes params, const char* name, Nodes annotations, N
     return fn;
 }
 
-Node* basic_block(IrArena* arena, Nodes params, const char* name) {
+Node* _shd_basic_block(IrArena* arena, Nodes params, const char* name) {
     BasicBlock payload = {
         .params = params,
         .body = NULL,

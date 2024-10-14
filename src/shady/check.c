@@ -462,7 +462,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             const Type* t = source->type;
             bool uniform = shd_deconstruct_qualified_type(&t);
-            enter_composite_indices(&t, &uniform, indices, true);
+            shd_enter_composite_type_indices(&t, &uniform, indices, true);
 
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
@@ -766,7 +766,7 @@ const Type* check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
     const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
-    enter_composite(&pointee_type, &uniform, lea.index, true);
+    shd_enter_composite_type(&pointee_type, &uniform, lea.index, true);
 
     return qualified_type(a, (QualifiedType) {
         .is_uniform = uniform,

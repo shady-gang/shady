@@ -111,7 +111,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_Undef_TAG: {
             if (emitter->config.dialect == CDialect_GLSL)
                 return c_emit_value(emitter, fn, get_default_zero_value(emitter->arena, value->payload.undef.type));
-            String name = unique_name(emitter->arena, "undef");
+            String name = shd_make_unique_name(emitter->arena, "undef");
             // c_emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
             c_emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
@@ -156,7 +156,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                         emitted = shd_format_string_arena(emitter->arena->arena, "{ %s }", emitted);
 
                     if (p2) {
-                        String tmp = unique_name(emitter->arena, "composite");
+                        String tmp = shd_make_unique_name(emitter->arena, "composite");
                         shd_print(p2, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
@@ -239,7 +239,7 @@ CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CT
         shd_print(p, "%s;", to_cvalue(emitter, term));
         return empty_term();
     }
-    String bind_to = unique_name(emitter->arena, "");
+    String bind_to = shd_make_unique_name(emitter->arena, "");
     c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
     return term_from_cvalue(bind_to);
 }
@@ -548,8 +548,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             switch (emitter->config.dialect) {
                 case CDialect_CUDA:
                 case CDialect_C11: {
-                    String src = unique_name(arena, "bitcast_src");
-                    String dst = unique_name(arena, "bitcast_result");
+                    String src = shd_make_unique_name(arena, "bitcast_src");
+                    String dst = shd_make_unique_name(arena, "bitcast_result");
                     shd_print(p, "\n%s = %s;", c_emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
                     shd_print(p, "\n%s;", c_emit_type(emitter, dst_type, dst));
                     shd_print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
@@ -619,7 +619,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             bool insert = prim_op->op == insert_op;
 
             if (insert) {
-                String dst = unique_name(arena, "modified");
+                String dst = shd_make_unique_name(arena, "modified");
                 shd_print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
                 acc = dst;
                 term = term_from_cvalue(dst);
@@ -671,7 +671,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case shuffle_op: {
-            String dst = unique_name(arena, "shuffled");
+            String dst = shd_make_unique_name(arena, "shuffled");
             const Node* lhs = prim_op->operands.nodes[0];
             const Node* rhs = prim_op->operands.nodes[1];
             String lhs_e = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
@@ -822,7 +822,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
             // See https://github.com/ispc/ispc/issues/2496
             if (emitter->config.dialect == CDialect_ISPC) {
-                String interm = unique_name(arena, "lea_intermediary_ptr_value");
+                String interm = shd_make_unique_name(arena, "lea_intermediary_ptr_value");
                 shd_print(p, "\n%s = %s;", c_emit_type(emitter, shd_as_qualified_type(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
                 acc = term_from_cvalue(interm);
             }
@@ -891,7 +891,7 @@ static const Type* get_allocated_type(const Node* alloc) {
 }
 
 static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
-    String variable_name = unique_name(emitter->arena, "alloca");
+    String variable_name = shd_make_unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
     c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
     const Type* ptr_type = instr->type;

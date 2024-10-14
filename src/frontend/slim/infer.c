@@ -291,7 +291,7 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
     for (size_t i = 0; i < inferred_arg_type.count; i++) {
         if (node->payload.basic_block.params.count == 0) {
             // syntax sugar: make up a parameter if there was none
-            nparams[i] = param(a, inferred_arg_type.nodes[i], unique_name(a, "_"));
+            nparams[i] = param(a, inferred_arg_type.nodes[i], shd_make_unique_name(a, "_"));
         } else {
             const Param* old_param = &node->payload.basic_block.params.nodes[i]->payload.param;
             // for the param type: use the inferred one if none is already provided

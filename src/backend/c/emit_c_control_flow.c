@@ -44,7 +44,7 @@ static Strings emit_variable_declarations(Emitter* emitter, FnEmitter* fn, Print
     for (size_t i = 0; i < types.count; i++) {
         String name = given_names ? given_names->strings[i] : given_name;
         assert(name);
-        names[i] = unique_name(emitter->arena, name);
+        names[i] = shd_make_unique_name(emitter->arena, name);
         if (init_values) {
             CTerm initializer = c_emit_value(emitter, fn, init_values->nodes[i]);
             c_emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
@@ -145,7 +145,7 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
     for (size_t i = 0; i < variables.count; i++) {
         arr[i] = shd_get_value_name_unsafe(variables.nodes[i]);
         if (!arr[i])
-            arr[i] = unique_name(emitter->arena, "phi");
+            arr[i] = shd_make_unique_name(emitter->arena, "phi");
     }
     Strings param_names = shd_strings(emitter->arena, variables.count, arr);
     Strings eparams = emit_variable_declarations(emitter, fn, p, NULL, &param_names, shd_get_param_types(emitter->arena, params), true, &loop.initial_args);
@@ -192,7 +192,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             } else if (args.count == 1) {
                 shd_print(block_printer, "\nreturn %s;", to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[0])));
             } else {
-                String packed = unique_name(emitter->arena, "pack_return");
+                String packed = shd_make_unique_name(emitter->arena, "pack_return");
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
                     values[i] = to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i]));

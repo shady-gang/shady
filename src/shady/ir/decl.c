@@ -6,7 +6,7 @@
 
 bool shd_compare_nodes(Nodes* a, Nodes* b);
 
-Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
+Node* _shd_constant(Module* mod, Nodes annotations, const Type* hint, String name) {
     IrArena* arena = mod->arena;
     Constant cnst = {
         .annotations = annotations,
@@ -26,7 +26,7 @@ Node* constant(Module* mod, Nodes annotations, const Type* hint, String name) {
     return decl;
 }
 
-Node* global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
+Node* _shd_global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as) {
     const Node* existing = shd_module_get_declaration(mod, name);
     if (existing) {
         assert(existing->tag == GlobalVariable_TAG);

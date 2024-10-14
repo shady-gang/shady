@@ -213,7 +213,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             //    break;
             //}
 
-            emitted = unique_name(emitter->arena, "Record");
+            emitted = shd_make_unique_name(emitter->arena, "Record");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
@@ -247,7 +247,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             return c_emit_fn_head(emitter, type, center, NULL);
         }
         case Type_ArrType_TAG: {
-            emitted = unique_name(emitter->arena, "Array");
+            emitted = shd_make_unique_name(emitter->arena, "Array");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             Growy* g = shd_new_growy();
             Printer* p = shd_new_printer_from_growy(g);

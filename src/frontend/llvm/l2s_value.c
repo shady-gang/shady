@@ -77,7 +77,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMConstantExprValueKind: {
             String name = LLVMGetValueName(v);
             if (!name || strlen(name) == 0)
-                name = unique_name(a, "constant_expr");
+                name = shd_make_unique_name(a, "constant_expr");
             Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Inline" }));
             assert(t);
             Node* decl = constant(p->dst, annotations, t, name);

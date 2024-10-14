@@ -320,7 +320,7 @@ String shd_get_type_name(IrArena* arena, const Type* t) {
         case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
         default: break;
     }
-    return unique_name(arena, shd_get_node_tag_string(t->tag));
+    return shd_make_unique_name(arena, shd_get_node_tag_string(t->tag));
 }
 
 const Type* maybe_multiple_return(IrArena* arena, Nodes types) {
@@ -553,7 +553,7 @@ const Node* get_fill_type_size(const Type* composite_t) {
     }
 }
 
-Type* nominal_type(Module* mod, Nodes annotations, String name) {
+Type* _shd_nominal_type(Module* mod, Nodes annotations, String name) {
     IrArena* arena = shd_module_get_arena(mod);
     NominalType payload = {
         .name = string(arena, name),

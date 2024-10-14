@@ -61,7 +61,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 false_block = shd_rewrite_node(r, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
-                false_block = basic_block(a, shd_nodes(a, 0, NULL), unique_name(a, "if_false"));
+                false_block = basic_block(a, shd_nodes(a, 0, NULL), shd_make_unique_name(a, "if_false"));
                 shd_set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
             }
 
@@ -101,7 +101,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
             Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
-            Node* loop_header_block = basic_block(a, new_params, unique_name(a, "loop_header"));
+            Node* loop_header_block = basic_block(a, new_params, shd_make_unique_name(a, "loop_header"));
 
             BodyBuilder* inner_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, shd_singleton(continue_point));

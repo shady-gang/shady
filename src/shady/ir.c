@@ -227,7 +227,7 @@ String shd_fmt_string_irarena(IrArena* arena, const char* str, ...) {
     return result;
 }
 
-const char* unique_name(IrArena* arena, const char* str) {
+const char* shd_make_unique_name(IrArena* arena, const char* str) {
     return shd_fmt_string_irarena(arena, "%s_%d", str, _shd_allocate_node_id(arena, NULL));
 }
 

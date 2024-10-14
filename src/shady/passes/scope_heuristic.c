@@ -115,7 +115,7 @@ static void visit_looptree(IrArena* a, Nodes* arr, const Node* fn, CFG* flipped,
         visit_acyclic_cfg_domtree(sub_cfg->entry, a, arr, flipped, node, lt);
 
         if (is_loop > 0)
-            surrounding = shd_nodes_prepend(a, surrounding, string_lit_helper(a, unique_name(a, "loop_body")));
+            surrounding = shd_nodes_prepend(a, surrounding, string_lit_helper(a, shd_make_unique_name(a, "loop_body")));
 
         visit_looptree_prepend(a, arr, node, surrounding);
         // Remove one level of scoping for the loop headers (forcing reconvergence)

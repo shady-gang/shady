@@ -39,7 +39,7 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             const Type* src_req_cast = get_req_cast(ctx, src->payload.ptr_composite_element.ptr);
             if (src_req_cast) {
                 bool u = shd_deconstruct_qualified_type(&src_req_cast);
-                enter_composite(&src_req_cast, &u, src->payload.ptr_composite_element.index, false);
+                shd_enter_composite_type(&src_req_cast, &u, src->payload.ptr_composite_element.index, false);
                 return src_req_cast;
             }
             break;

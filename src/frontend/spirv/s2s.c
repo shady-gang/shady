@@ -626,7 +626,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpTypeStruct: {
             parser->defs[result].type = Typ;
             String name = get_name(parser, result);
-            name = name ? name : unique_name(parser->arena, "struct_type");
+            name = name ? name : shd_make_unique_name(parser->arena, "struct_type");
             Node* nominal_type_decl = nominal_type(parser->mod, shd_empty(parser->arena), name);
             const Node* nom_t_ref = type_decl_ref(parser->arena, (TypeDeclRef) {
                 .decl = nominal_type_decl
@@ -732,7 +732,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         }
         case SpvOpVariable: {
             String name = get_name(parser, result);
-            name = name ? name : unique_name(parser->arena, "global_variable");
+            name = name ? name : shd_make_unique_name(parser->arena, "global_variable");
 
             AddressSpace as = convert_storage_class(instruction[3]);
             const Type* contents_t = get_def_type(parser, result_t);
@@ -776,9 +776,9 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             String name = get_name(parser, result);
             if (!name)
-                name = unique_name(parser->arena, "function");
+                name = shd_make_unique_name(parser->arena, "function");
             else
-                name = unique_name(parser->arena, name);
+                name = shd_make_unique_name(parser->arena, name);
 
             Nodes annotations = shd_empty(parser->arena);
             annotations = shd_nodes_append(parser->arena, annotations, annotation(parser->arena, (Annotation) { .name = "Restructure" }));
@@ -896,7 +896,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             parser->defs[result].type = BB;
             String bb_name = get_name(parser, result);
-            bb_name = bb_name ? bb_name : unique_name(parser->arena, "basic_block");
+            bb_name = bb_name ? bb_name : shd_make_unique_name(parser->arena, "basic_block");
             Node* block = basic_block(parser->arena, params, bb_name);
             parser->defs[result].node = block;
 
@@ -917,7 +917,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpPhi: {
             parser->defs[result].type = Value;
             String phi_name = get_name(parser, result);
-            phi_name = phi_name ? phi_name : unique_name(parser->arena, "phi");
+            phi_name = phi_name ? phi_name : shd_make_unique_name(parser->arena, "phi");
             parser->defs[result].node = param(parser->arena,
                                               shd_as_qualified_type(get_def_type(parser, result_t), false), phi_name);
             assert(size % 2 == 1);
