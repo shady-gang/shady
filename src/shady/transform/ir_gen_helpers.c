@@ -113,25 +113,6 @@ void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
     shd_bld_add_instruction(bb, debug_printf(shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = shd_bb_mem(bb) }));
 }
 
-const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
-    Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* decl = old_decls.nodes[i];
-        if (strcmp(get_declaration_name(decl), name) == 0) {
-            return shd_rewrite_node(rewriter, decl);
-        }
-    }
-    assert(false);
-}
-
-const Node* access_decl(Rewriter* rewriter, const char* name) {
-    const Node* decl = find_or_process_decl(rewriter, name);
-    if (decl->tag == Function_TAG)
-        return fn_addr_helper(rewriter->dst_arena, decl);
-    else
-        return ref_decl_helper(rewriter->dst_arena, decl);
-}
-
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
     const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);

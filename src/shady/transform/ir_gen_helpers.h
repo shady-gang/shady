@@ -25,11 +25,6 @@ const Node* gen_merge_halves(BodyBuilder*, const Node* lo, const Node* hi);
 void gen_comment(BodyBuilder*, String str);
 void gen_debug_printf(BodyBuilder*, String pattern, Nodes args);
 
-typedef struct Rewriter_ Rewriter;
-
-const Node* find_or_process_decl(Rewriter*, const char* name);
-const Node* access_decl(Rewriter*, const char* name);
-
 const Node* convert_int_extend_according_to_src_t(BodyBuilder*, const Type* dst_type, const Node* src);
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder*, const Type* dst_type, const Node* src);
 const Node* convert_int_zero_extend(BodyBuilder*, const Type* dst_type, const Node* src);

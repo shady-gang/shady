@@ -35,6 +35,11 @@ typedef struct Context_ {
 
 static const Node* process(Context* ctx, const Node* old);
 
+static const Node* get_fn(Rewriter* rewriter, const char* name) {
+    const Node* decl = shd_find_or_process_decl(rewriter, name);
+    return fn_addr_helper(rewriter->dst_arena, decl);
+}
+
 static const Type* lowered_fn_type(Context* ctx) {
     IrArena* a = ctx->rewriter.dst_arena;
     return shd_int_type_helper(a, false, ctx->config->target.memory.ptr_size);
@@ -78,7 +83,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
 
     gen_call(bb, fn_addr_helper(a, ctx->init_fn), shd_empty(a));
-    gen_call(bb, access_decl(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
+    gen_call(bb, get_fn(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
@@ -86,7 +91,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     // Initialise next_fn/next_mask to the entry function
-    const Node* jump_fn = access_decl(&ctx->rewriter, "builtin_fork");
+    const Node* jump_fn = get_fn(&ctx->rewriter, "builtin_fork");
     const Node* fn_addr = shd_uint32_literal(a, get_fn_ptr(ctx, old));
     // fn_addr = gen_conversion(bb, lowered_fn_type(ctx), fn_addr);
     gen_call(bb, jump_fn, shd_singleton(fn_addr));
@@ -177,7 +182,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
         }
         case JoinPointType_TAG: return type_decl_ref(a, (TypeDeclRef) {
-            .decl = find_or_process_decl(&ctx->rewriter, "JoinPoint"),
+            .decl = shd_find_or_process_decl(&ctx->rewriter, "JoinPoint"),
         });
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
@@ -195,7 +200,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 }
                 return call(a, (Call) {
                     .mem = shd_rewrite_node(r, payload.mem),
-                    .callee = access_decl(r, callee_name),
+                    .callee = get_fn(r, callee_name),
                     .args = args,
                 });
             }
@@ -210,7 +215,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = gen_conversion(bb, shd_uint32_type(a), target);
 
-            gen_call(bb, access_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
+            gen_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));
         }
         case Join_TAG: {
@@ -231,7 +236,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dst = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
             const Node* tree_node = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
-            gen_call(bb, access_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
+            gen_call(bb, get_fn(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));
         }
         case PtrType_TAG: {
@@ -299,8 +304,8 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         iterations_count_param = shd_first(l.params);
     BodyBuilder* loop_body_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_inside_case));
 
-    const Node* next_function = shd_bld_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
-    const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
+    const Node* next_function = shd_bld_load(loop_body_builder, get_fn(&ctx->rewriter, "next_fn"));
+    const Node* get_active_branch_fn = get_fn(&ctx->rewriter, "builtin_get_active_branch");
     const Node* next_mask = shd_first(gen_call(loop_body_builder, get_active_branch_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));

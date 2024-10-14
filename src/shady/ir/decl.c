@@ -1,4 +1,5 @@
 #include "shady/ir/decl.h"
+#include "shady/rewrite.h"
 
 #include "../ir_private.h"
 
@@ -55,4 +56,15 @@ Node* _shd_global_var(Module* mod, Nodes annotations, const Type* type, const ch
     Node* decl = _shd_create_node_helper(arena, node, NULL);
     _shd_module_add_decl(mod, decl);
     return decl;
+}
+
+const Node* shd_find_or_process_decl(Rewriter* rewriter, const char* name) {
+    Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
+    for (size_t i = 0; i < old_decls.count; i++) {
+        const Node* decl = old_decls.nodes[i];
+        if (strcmp(get_declaration_name(decl), name) == 0) {
+            return shd_rewrite_node(rewriter, decl);
+        }
+    }
+    assert(false);
 }
