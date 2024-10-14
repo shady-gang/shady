@@ -1,5 +1,6 @@
 #include "shady/pass.h"
 #include "shady/visit.h"
+#include "shady/ir/stack.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -90,8 +91,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-            ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
-            ctx2.stack_size_on_entry = gen_get_stack_size(bb);
+            ctx2.base_stack_addr_on_entry = shd_bld_get_stack_base_addr(bb);
+            ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
             shd_set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
             Node* nom_t = nominal_type(m, shd_empty(a), shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_abstraction_name(node)));
@@ -150,7 +151,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
                 const Node* updated_stack_ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
-                gen_set_stack_size(bb, updated_stack_ptr);
+                shd_bld_set_stack_size(bb, updated_stack_ptr);
                 //}
 
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(slot));

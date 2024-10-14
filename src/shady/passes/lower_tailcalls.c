@@ -1,5 +1,7 @@
-#include "shady/pass.h"
 #include "join_point_ops.h"
+
+#include "shady/pass.h"
+#include "shady/ir/stack.h"
 
 #include "../ir_private.h"
 
@@ -87,7 +89,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
-        gen_push_value_stack(bb, rewritten_params.nodes[i]);
+        shd_bld_stack_push_value(bb, rewritten_params.nodes[i]);
     }
 
     // Initialise next_fn/next_mask to the entry function
@@ -157,7 +159,7 @@ static const Node* process(Context* ctx, const Node* old) {
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
                 const Node* old_param = old->payload.fun.params.nodes[i];
                 const Type* new_param_type = shd_rewrite_node(&ctx->rewriter, shd_get_unqualified_type(old_param->type));
-                const Node* popped = gen_pop_value_stack(bb, new_param_type);
+                const Node* popped = shd_bld_stack_pop_value(bb, new_param_type);
                 // TODO use the uniform stack instead ? or no ?
                 if (shd_is_qualified_type_uniform(old_param->type))
                     popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
@@ -211,7 +213,7 @@ static const Node* process(Context* ctx, const Node* old) {
             //    return recreate_node_identity(&ctx->rewriter, old);
             TailCall payload = old->payload.tail_call;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            gen_push_values_stack(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
+            shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = gen_conversion(bb, shd_uint32_type(a), target);
 
@@ -230,9 +232,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 break;
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            gen_push_values_stack(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
+            shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
             const Node* jp_payload = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
-            gen_push_value_stack(bb, jp_payload);
+            shd_bld_stack_push_value(bb, jp_payload);
             const Node* dst = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
             const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 

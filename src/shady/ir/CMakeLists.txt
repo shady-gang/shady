@@ -12,4 +12,5 @@ target_sources(shady PRIVATE
     grammar.c
     debug.c
     memory_layout.c
+    stack.c
 )

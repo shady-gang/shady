@@ -1,6 +1,6 @@
 #include "shady/pass.h"
-
 #include "shady/visit.h"
+#include "shady/ir/stack.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {
-                ctx2.stack_size_on_entry = gen_get_stack_size(bb);
+                ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
                 shd_set_value_name((Node*) ctx2.stack_size_on_entry, shd_format_string_arena(a->arena, "saved_stack_ptr_entering_%s", shd_get_abstraction_name(fun)));
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), shd_bb_mem(bb));
@@ -47,7 +47,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (!ctx->disable_lowering) {
                 assert(ctx->stack_size_on_entry);
                 // Restore SP before calling exit
-                gen_set_stack_size(bb, ctx->stack_size_on_entry);
+                shd_bld_set_stack_size(bb, ctx->stack_size_on_entry);
             }
             return shd_bld_finish(bb, fn_ret(a, (Return) {
                 .mem = shd_bb_mem(bb),

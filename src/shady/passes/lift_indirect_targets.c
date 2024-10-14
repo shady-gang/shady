@@ -1,8 +1,10 @@
-#include "shady/pass.h"
 #include "join_point_ops.h"
 
-#include "../ir_private.h"
+#include "shady/pass.h"
 #include "shady/visit.h"
+#include "shady/ir/stack.h"
+
+#include "../ir_private.h"
 
 #include "../transform/ir_gen_helpers.h"
 #include "../analysis/cfg.h"
@@ -52,10 +54,10 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
         const Type* t = nvar->type;
         shd_deconstruct_qualified_type(&t);
         assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
-        gen_push_value_stack(builder, nvar);
+        shd_bld_stack_push_value(builder, nvar);
     }
 
-    return gen_get_stack_size(builder);
+    return shd_bld_get_stack_size(builder);
 }
 
 static Nodes set2nodes(IrArena* a, struct Dict* set) {
@@ -130,7 +132,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     // Recover that stuff inside the new body
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
-    gen_set_stack_size(bb, payload);
+    shd_bld_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = frontier.nodes[i];
         // assert(ovar->tag == Variable_TAG);
@@ -138,7 +140,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         const Type* value_type = shd_rewrite_node(r, ovar->type);
 
         //String param_name = get_value_name_unsafe(ovar);
-        const Node* recovered_value = gen_pop_value_stack(bb, shd_get_unqualified_type(value_type));
+        const Node* recovered_value = shd_bld_stack_pop_value(bb, shd_get_unqualified_type(value_type));
         //if (param_name)
         //    set_value_name(recovered_value, param_name);
 
