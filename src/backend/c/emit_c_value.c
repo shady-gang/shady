@@ -110,7 +110,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
             if (emitter->config.dialect == CDialect_GLSL)
-                return c_emit_value(emitter, fn, get_default_zero_value(emitter->arena, value->payload.undef.type));
+                return c_emit_value(emitter, fn, shd_get_default_value(emitter->arena, value->payload.undef.type));
             String name = shd_make_unique_name(emitter->arena, "undef");
             // c_emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
             c_emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);

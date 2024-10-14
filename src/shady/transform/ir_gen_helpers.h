@@ -4,8 +4,6 @@
 #include "shady/ir.h"
 #include "shady/ir/builtin.h"
 
-const Node* lea_helper(IrArena*, const Node*, const Node*, Nodes);
-
 void gen_push_value_stack(BodyBuilder* bb, const Node* value);
 void gen_push_values_stack(BodyBuilder* bb, Nodes values);
 const Node* gen_pop_value_stack(BodyBuilder*, const Type* type);
@@ -48,9 +46,5 @@ const Node* convert_int_extend_according_to_src_t(BodyBuilder*, const Type* dst_
 const Node* convert_int_extend_according_to_dst_t(BodyBuilder*, const Type* dst_type, const Node* src);
 const Node* convert_int_zero_extend(BodyBuilder*, const Type* dst_type, const Node* src);
 const Node* convert_int_sign_extend(BodyBuilder*, const Type* dst_type, const Node* src);
-
-const Node* get_default_zero_value(IrArena*, const Type*);
-
-bool is_builtin_load_op(const Node*, Builtin*);
 
 #endif

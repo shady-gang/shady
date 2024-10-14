@@ -86,3 +86,25 @@ int32_t shd_get_builtin_spv_id(Builtin builtin) {
         return 0;
     return spv_builtins[builtin];
 }
+
+bool shd_is_builtin_load_op(const Node* n, Builtin* out) {
+    assert(is_instruction(n));
+    if (n->tag == Load_TAG) {
+        const Node* src = n->payload.load.ptr;
+        if (src->tag == RefDecl_TAG)
+            src = src->payload.ref_decl.decl;
+        if (src->tag == GlobalVariable_TAG) {
+            const Node* a = shd_lookup_annotation(src, "Builtin");
+            if (a) {
+                String bn = shd_get_annotation_string_payload(a);
+                assert(bn);
+                Builtin b = shd_get_builtin_by_name(bn);
+                if (b != BuiltinsCount) {
+                    *out = b;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}

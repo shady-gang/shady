@@ -13,20 +13,6 @@
 #include <string.h>
 #include <assert.h>
 
-const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) {
-    const Node* lea = ptr_array_element_offset(a, (PtrArrayElementOffset) {
-        .ptr = ptr,
-        .offset = offset,
-    });
-    for (size_t i = 0; i < indices.count; i++) {
-        lea = ptr_composite_element(a, (PtrCompositeElement) {
-            .ptr = lea,
-            .index = indices.nodes[i],
-        });
-    }
-    return lea;
-}
-
 Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     assert(shd_get_arena_config(_shd_get_bb_arena(bb))->check_types);
     const Node* instruction = call(_shd_get_bb_arena(bb), (Call) { .callee = callee, .args = args, .mem = bb_mem(bb) });
@@ -196,28 +182,6 @@ const Node* gen_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
     return gen_load(bb, ref_decl_helper(_shd_get_bb_arena(bb), get_or_create_builtin(m, b, NULL)));
 }
 
-bool is_builtin_load_op(const Node* n, Builtin* out) {
-    assert(is_instruction(n));
-    if (n->tag == Load_TAG) {
-        const Node* src = n->payload.load.ptr;
-        if (src->tag == RefDecl_TAG)
-            src = src->payload.ref_decl.decl;
-        if (src->tag == GlobalVariable_TAG) {
-            const Node* a = shd_lookup_annotation(src, "Builtin");
-            if (a) {
-                String bn = shd_get_annotation_string_payload(a);
-                assert(bn);
-                Builtin b = shd_get_builtin_by_name(bn);
-                if (b != BuiltinsCount) {
-                    *out = b;
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
@@ -289,30 +253,4 @@ const Node* convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type,  cons
         int_type(_shd_get_bb_arena(bb), (Int) { .width = dst_type->payload.int_type.width, .is_signed = true })), shd_singleton(val));
     val = gen_primop_e(bb, reinterpret_op, shd_singleton(dst_type), shd_singleton(val));
     return val;
-}
-
-const Node* get_default_zero_value(IrArena* a, const Type* t) {
-    switch (is_type(t)) {
-        case NotAType: shd_error("")
-        case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value = 0 });
-        case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = 0 });
-        case Type_Bool_TAG: return false_lit(a);
-        case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
-        case Type_QualifiedType_TAG: return get_default_zero_value(a, t->payload.qualified_type.type);
-        case Type_RecordType_TAG:
-        case Type_ArrType_TAG:
-        case Type_PackType_TAG:
-        case Type_TypeDeclRef_TAG: {
-            Nodes elem_tys = shd_get_composite_type_element_types(t);
-            if (elem_tys.count >= 1024) {
-                shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
-            }
-            LARRAY(const Node*, elems, elem_tys.count);
-            for (size_t i = 0; i < elem_tys.count; i++)
-                elems[i] = get_default_zero_value(a, elem_tys.nodes[i]);
-            return composite_helper(a, t, shd_nodes(a, elem_tys.count, elems));
-        }
-        default: break;
-    }
-    return NULL;
 }

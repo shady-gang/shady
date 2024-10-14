@@ -574,3 +574,29 @@ Type* _shd_nominal_type(Module* mod, Nodes annotations, String name) {
     _shd_module_add_decl(mod, decl);
     return decl;
 }
+
+const Node* shd_get_default_value(IrArena* a, const Type* t) {
+    switch (is_type(t)) {
+        case NotAType: shd_error("")
+        case Type_Int_TAG: return int_literal(a, (IntLiteral) { .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed, .value = 0 });
+        case Type_Float_TAG: return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = 0 });
+        case Type_Bool_TAG: return false_lit(a);
+        case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
+        case Type_QualifiedType_TAG: return shd_get_default_value(a, t->payload.qualified_type.type);
+        case Type_RecordType_TAG:
+        case Type_ArrType_TAG:
+        case Type_PackType_TAG:
+        case Type_TypeDeclRef_TAG: {
+            Nodes elem_tys = shd_get_composite_type_element_types(t);
+            if (elem_tys.count >= 1024) {
+                shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
+            }
+            LARRAY(const Node*, elems, elem_tys.count);
+            for (size_t i = 0; i < elem_tys.count; i++)
+                elems[i] = shd_get_default_value(a, elem_tys.nodes[i]);
+            return composite_helper(a, t, shd_nodes(a, elem_tys.count, elems));
+        }
+        default: break;
+    }
+    return NULL;
+}

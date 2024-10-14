@@ -125,7 +125,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMUndefValueValueKind:
             return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
         case LLVMConstantAggregateZeroValueKind:
-            return get_default_zero_value(a, convert_type(p, LLVMTypeOf(v)));
+            return shd_get_default_value(a, convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);

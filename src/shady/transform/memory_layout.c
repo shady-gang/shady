@@ -145,3 +145,17 @@ size_t shd_get_type_bitwidth(const Type* t) {
     }
     return SIZE_MAX;
 }
+
+const Node* _shd_lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) {
+    const Node* lea = ptr_array_element_offset(a, (PtrArrayElementOffset) {
+        .ptr = ptr,
+        .offset = offset,
+    });
+    for (size_t i = 0; i < indices.count; i++) {
+        lea = ptr_composite_element(a, (PtrCompositeElement) {
+            .ptr = lea,
+            .index = indices.nodes[i],
+        });
+    }
+    return lea;
+}

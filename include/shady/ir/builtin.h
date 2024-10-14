@@ -56,4 +56,6 @@ Builtin shd_get_decl_builtin(const Node* decl);
 
 int32_t shd_get_builtin_spv_id(Builtin builtin);
 
+bool shd_is_builtin_load_op(const Node* n, Builtin* out);
+
 #endif

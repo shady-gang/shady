@@ -707,7 +707,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpConstantNull: {
             const Type* element_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = get_default_zero_value(parser->arena, element_t);
+            parser->defs[result].node = shd_get_default_value(parser->arena, element_t);
             break;
         }
         case SpvOpConstantFalse: {

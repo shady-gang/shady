@@ -35,4 +35,7 @@ IntSizes shd_float_to_int_width(FloatSizes width);
 
 size_t shd_get_type_bitwidth(const Type* t);
 
+const Node* _shd_lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices);
+static inline const Node* lea_helper(IrArena* a, const Node* ptr, const Node* offset, Nodes indices) { return _shd_lea_helper(a, ptr, offset, indices); }
+
 #endif
