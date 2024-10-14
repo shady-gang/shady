@@ -272,15 +272,15 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
+    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
         gen_serialisation(ctx, bb, element_type, base, address_param, value_param);
-        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_empty(a)));
+        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
     } else {
         const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address_param);
         assert(loaded_value);
-        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_singleton(loaded_value)));
+        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_singleton(loaded_value)));
     }
     return fun;
 }
@@ -297,12 +297,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
             Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_singleton(pointer_as_offset));
-            return yield_values_and_wrap_in_block(bb, results);
+            return shd_bld_to_instr_yield_values(bb, results);
         }
         case Store_TAG: {
             Store payload = old->payload.store;
@@ -311,7 +311,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
-            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
@@ -319,7 +319,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
             gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
-            return yield_values_and_wrap_in_block(bb, shd_empty(a));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case StackAlloc_TAG: shd_error("This needs to be lowered (see setup_stack_frames.c)")
         case PtrType_TAG: {
@@ -343,13 +343,13 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Function_TAG: {
             if (strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
                 Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-                BodyBuilder *bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
+                BodyBuilder *bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
                 for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
                     if (is_as_emulated(ctx, as))
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
-                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), bb_mem(bb));
-                shd_set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
+                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+                shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
                 return new;
             }
             break;
@@ -406,9 +406,9 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
-        BodyBuilder* bb = begin_block_pure(a);
+        BodyBuilder* bb = shd_bld_begin_pure(a);
         const Node* offset = gen_primop_e(bb, offset_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_singleton(size_t_literal(a, i)));
-        new_address->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(offset));
+        new_address->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(offset));
 
         shd_register_processed(&ctx->rewriter, decl, new_address);
     }
@@ -462,12 +462,12 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Generated" }));
 
     // compute the size
-    BodyBuilder* bb = begin_block_pure(a);
+    BodyBuilder* bb = shd_bld_begin_pure(a);
     const Node* size_of = gen_primop_e(bb, size_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_empty(a));
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
-    constant_decl->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(size_in_words));
+    constant_decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,

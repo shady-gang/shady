@@ -280,7 +280,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             if (op != PRIMOPS_COUNT) {
                 if (!bb)
                     syntax_error("primops cannot be used outside of a function");
-                return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
+                return shd_bld_add_instruction(bb, prim_op(arena, (PrimOp) {
                     .op = op,
                     .type_arguments = accept_type_arguments(ctx),
                     .operands = expect_operands(ctx, bb)
@@ -297,32 +297,32 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 expect(type, "type");
                 expect(accept_token(ctx, rsbracket_tok), "]");
                 Nodes ops = expect_operands(ctx, bb);
-                return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
                     .result_t = type,
                     .set = set->payload.string_lit.string,
                     .opcode = strtoll(opcode->payload.untyped_number.plaintext, NULL, 10),
-                    .mem = bb_mem(bb),
+                    .mem = shd_bb_mem(bb),
                     .operands = ops,
                 }));
             } else if (strcmp(id, "alloca") == 0) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 0, "no operands");
-                return bind_instruction_single(bb, stack_alloc(arena, (StackAlloc) {
+                return shd_bld_add_instruction(bb, stack_alloc(arena, (StackAlloc) {
                     .type = type,
-                    .mem = bb_mem(bb),
+                    .mem = shd_bb_mem(bb),
                 }));
             } else if (strcmp(id, "debug_printf") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
-                return bind_instruction_single(bb, debug_printf(arena, (DebugPrintf) {
+                return shd_bld_add_instruction(bb, debug_printf(arena, (DebugPrintf) {
                     .string = shd_get_string_literal(arena, shd_first(ops)),
                     .args = shd_nodes(arena, ops.count - 1, &ops.nodes[1]),
-                    .mem = bb_mem(bb),
+                    .mem = shd_bb_mem(bb),
                 }));
             }
 
             if (bb)
-                return bind_instruction_single(bb, make_unbound(arena, bb_mem(bb), id));
+                return shd_bld_add_instruction(bb, make_unbound(arena, shd_bb_mem(bb), id));
             return make_unbound(arena, NULL, id);
         }
         case hex_lit_tok:
@@ -601,31 +601,31 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
                 .value = -shd_get_int_literal_value(*shd_resolve_to_int_literal(expr), true)
             });
         } else {
-            return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
+            return shd_bld_add_instruction(bb, prim_op(arena, (PrimOp) {
                 .op = neg_op,
-                .operands = shd_nodes(arena, 1, (const Node* []) {expr})
+                .operands = shd_nodes(arena, 1, (const Node* []) { expr })
             }));
         }
     } else if (accept_token(ctx, unary_excl_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
-        return bind_instruction_single(bb, prim_op(arena, (PrimOp) {
+        return shd_bld_add_instruction(bb, prim_op(arena, (PrimOp) {
             .op = not_op,
             .operands = shd_singleton(expr),
         }));
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
-        return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimOpDereference, .operands = shd_singleton(expr), .mem = bb_mem(bb) }));
+        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimOpDereference, .operands = shd_singleton(expr), .mem = shd_bb_mem(bb) }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
-        return bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
             .set = "shady.frontend",
             .result_t = unit_type(arena),
             .opcode = SlimOpAddrOf,
             .operands = shd_singleton(expr),
-            .mem = bb_mem(bb),
+            .mem = shd_bb_mem(bb),
         }));
     }
 
@@ -646,28 +646,28 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
             expect(rhs, "expression");
             Op primop_op;
             if (is_primop_op(infix, &primop_op)) {
-                expr = bind_instruction_single(bb, prim_op(arena, (PrimOp) {
+                expr = shd_bld_add_instruction(bb, prim_op(arena, (PrimOp) {
                     .op = primop_op,
-                    .operands = shd_nodes(arena, 2, (const Node* []) {expr, rhs})
+                    .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs })
                 }));
             } else switch (infix) {
                 case InfixAss: {
-                    expr = bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                    expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
                         .set = "shady.frontend",
                         .opcode = SlimOpAssign,
                         .result_t = unit_type(arena),
-                        .operands = shd_nodes(arena, 2, (const Node* []) {expr, rhs}),
-                        .mem = bb_mem(bb),
+                        .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
+                        .mem = shd_bb_mem(bb),
                     }));
                     break;
                 }
                 case InfixSbs: {
-                    expr = bind_instruction_single(bb, ext_instr(arena, (ExtInstr) {
+                    expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
                         .set = "shady.frontend",
                         .opcode = SlimOpSubscript,
                         .result_t = unit_type(arena),
-                        .operands = shd_nodes(arena, 2, (const Node* []) {expr, rhs}),
-                        .mem = bb_mem(bb),
+                        .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
+                        .mem = shd_bb_mem(bb),
                     }));
                     break;
                 }
@@ -679,10 +679,10 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
         switch (shd_curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes ops = expect_operands(ctx, bb);
-                expr = bind_instruction_single(bb, call(arena, (Call) {
+                expr = shd_bld_add_instruction(bb, call(arena, (Call) {
                     .callee = expr,
                     .args = ops,
-                    .mem = bb_mem(bb),
+                    .mem = shd_bb_mem(bb),
                 }));
                 continue;
             }
@@ -759,7 +759,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
                 false_case = case_(arena, shd_nodes(arena, 0, NULL));
                 shd_set_abstraction_body(false_case, expect_body(ctx, shd_get_abstraction_mem(false_case), merge));
             }
-            return maybe_tuple_helper(arena, gen_if(bb, yield_types, condition, true_case, false_case));
+            return maybe_tuple_helper(arena, shd_bld_if(bb, yield_types, condition, true_case, false_case));
         }
         case loop_tok: {
             shd_next_token(tokenizer);
@@ -771,7 +771,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* (*default_loop_end_behaviour)(const Node*) = config->front_end ? make_loop_continue : NULL;
             Node* loop_case = case_(arena, parameters);
             shd_set_abstraction_body(loop_case, expect_body(ctx, shd_get_abstraction_mem(loop_case), default_loop_end_behaviour));
-            return maybe_tuple_helper(arena, gen_loop(bb, yield_types, initial_arguments, loop_case));
+            return maybe_tuple_helper(arena, shd_bld_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
             shd_next_token(tokenizer);
@@ -785,7 +785,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect(accept_token(ctx, rpar_tok), "')'");
             Node* control_case = case_(arena, shd_singleton(jp));
             shd_set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));
-            return maybe_tuple_helper(arena, gen_control(bb, yield_types, control_case));
+            return maybe_tuple_helper(arena, shd_bld_control(bb, yield_types, control_case));
         }
         default: break;
     }
@@ -877,12 +877,12 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
     expect(target, "jump target name");
     Nodes args = expect_operands(ctx, bb);
-    const Node* tgt = make_unbound(arena, bb_mem(bb), target);
-    bind_instruction_single(bb, tgt);
+    const Node* tgt = make_unbound(arena, shd_bb_mem(bb), target);
+    shd_bld_add_instruction(bb, tgt);
     return jump(arena, (Jump) {
         .target = tgt,
         .args = args,
-        .mem = bb_mem(bb)
+        .mem = shd_bb_mem(bb)
     });
 }
 
@@ -909,7 +909,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                 .condition = condition,
                 .true_jump = true_target,
                 .false_jump = false_target,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case switch_tok: {
@@ -943,7 +943,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                 .case_values = values,
                 .case_jumps = cases,
                 .default_jump = default_jump,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case return_tok: {
@@ -951,7 +951,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = expect_operands(ctx, bb);
             return fn_ret(arena, (Return) {
                 .args = args,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case merge_selection_tok: {
@@ -959,7 +959,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_selection(arena, (MergeSelection) {
                 .args = args,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case continue_tok: {
@@ -967,7 +967,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_continue(arena, (MergeContinue) {
                 .args = args,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case break_tok: {
@@ -975,7 +975,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_break(arena, (MergeBreak) {
                 .args = args,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case join_tok: {
@@ -987,14 +987,14 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             return join(arena, (Join) {
                 .join_point = jp,
                 .args = args,
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             });
         }
         case unreachable_tok: {
             shd_next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok), "'('");
             expect(accept_token(ctx, rpar_tok), "')'");
-            return unreachable(arena, (Unreachable) { .mem = bb_mem(bb) });
+            return unreachable(arena, (Unreachable) { .mem = shd_bb_mem(bb) });
         }
         default: break;
     }
@@ -1003,7 +1003,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
 
 static const Node* expect_body(ctxparams, const Node* mem, const Node* default_terminator(const Node*)) {
     expect(accept_token(ctx, lbracket_tok), "'['");
-    BodyBuilder* bb = begin_body_with_mem(arena, mem);
+    BodyBuilder* bb = shd_bld_begin(arena, mem);
 
     while (true) {
         if (!accept_statement(ctx, bb))
@@ -1011,7 +1011,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     }
 
     Node* terminator_case = case_(arena, shd_empty(arena));
-    BodyBuilder* terminator_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(terminator_case));
+    BodyBuilder* terminator_bb = shd_bld_begin(arena, shd_get_abstraction_mem(terminator_case));
     const Node* terminator = accept_terminator(ctx, terminator_bb);
 
     if (terminator)
@@ -1019,15 +1019,15 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     if (!terminator) {
         if (default_terminator)
-            terminator = default_terminator(bb_mem(terminator_bb));
+            terminator = default_terminator(shd_bb_mem(terminator_bb));
         else
             syntax_error("expected terminator: return, jump, branch ...");
     }
 
-    shd_set_abstraction_body(terminator_case, finish_body(terminator_bb, terminator));
+    shd_set_abstraction_body(terminator_case, shd_bld_finish(terminator_bb, terminator));
 
     Node* cont_wrapper_case = case_(arena, shd_empty(arena));
-    BodyBuilder* cont_wrapper_bb = begin_body_with_mem(arena, shd_get_abstraction_mem(cont_wrapper_case));
+    BodyBuilder* cont_wrapper_bb = shd_bld_begin(arena, shd_get_abstraction_mem(cont_wrapper_case));
 
     Nodes ids = shd_empty(arena);
     Nodes conts = shd_empty(arena);
@@ -1049,8 +1049,8 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
     gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), shd_concat_nodes(arena, ids, conts));
     expect(accept_token(ctx, rbracket_tok), "']'");
 
-    shd_set_abstraction_body(cont_wrapper_case, finish_body_with_jump(cont_wrapper_bb, terminator_case, shd_empty(arena)));
-    return finish_body_with_jump(bb, cont_wrapper_case, shd_empty(arena));
+    shd_set_abstraction_body(cont_wrapper_case, shd_bld_jump(cont_wrapper_bb, terminator_case, shd_empty(arena)));
+    return shd_bld_jump(bb, cont_wrapper_case, shd_empty(arena));
 }
 
 static Nodes accept_annotations(ctxparams) {
@@ -1119,14 +1119,14 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
     const char* id = accept_identifier(ctx);
     expect(id, "constant name");
     expect(accept_token(ctx, equal_tok), "'='");
-    BodyBuilder* bb = begin_block_pure(arena);
+    BodyBuilder* bb = shd_bld_begin_pure(arena);
     const Node* definition = accept_expr(ctx, bb, max_precedence());
     expect(definition, "expression");
 
     expect(accept_token(ctx, semi_tok), "';'");
 
     Node* cnst = constant(mod, annotations, type, id);
-    cnst->payload.constant.value = yield_values_and_wrap_in_compound_instruction(bb, shd_singleton(definition));
+    cnst->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(definition));
     return cnst;
 }
 

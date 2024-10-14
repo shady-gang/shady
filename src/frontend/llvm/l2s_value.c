@@ -83,8 +83,8 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             Node* decl = constant(p->dst, annotations, t, name);
             r = ref_decl_helper(a, decl);
             shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
-            BodyBuilder* bb = begin_block_pure(a);
-            decl->payload.constant.value = yield_value_and_wrap_in_block(bb, convert_instruction(p, NULL, NULL, bb, v));
+            BodyBuilder* bb = shd_bld_begin_pure(a);
+            decl->payload.constant.value = shd_bld_to_instr_yield_value(bb, convert_instruction(p, NULL, NULL, bb, v));
             return r;
         }
         case LLVMConstantDataArrayValueKind: {

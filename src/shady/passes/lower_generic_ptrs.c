@@ -107,9 +107,9 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     switch (which) {
         case LoadFn: {
-            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
-            begin_control_t r = begin_control(bb, shd_singleton(t));
+            begin_control_t r = shd_bld_begin_control(bb, shd_singleton(t));
             const Node* final_loaded_value = shd_first(r.results);
 
             LARRAY(const Node*, literals, max_tag);
@@ -123,10 +123,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                     continue;
                 }
                 Node* tag_case = case_(a, shd_empty(a));
-                BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
+                BodyBuilder* case_bb = shd_bld_begin(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
-                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_singleton(loaded_value)));
+                shd_set_abstraction_body(tag_case, shd_bld_join(case_bb, r.jp, shd_singleton(loaded_value)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
@@ -141,13 +141,13 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 .case_jumps = shd_nodes(a, max_tag, jumps),
                 .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = shd_bb_mem(bb) })));
             break;
         }
         case StoreFn: {
-            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
             gen_comment(bb, "Generated generic ptr store");
-            begin_control_t r = begin_control(bb, shd_empty(a));
+            begin_control_t r = shd_bld_begin_control(bb, shd_empty(a));
 
             LARRAY(const Node*, literals, max_tag);
             LARRAY(const Node*, jumps, max_tag);
@@ -160,10 +160,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                     continue;
                 }
                 Node* tag_case = case_(a, shd_empty(a));
-                BodyBuilder* case_bb = begin_body_with_mem(a, shd_get_abstraction_mem(tag_case));
+                BodyBuilder* case_bb = shd_bld_begin(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
                 gen_store(case_bb, reinterpreted_ptr, value_param);
-                shd_set_abstraction_body(tag_case, finish_body_with_join(case_bb, r.jp, shd_empty(a)));
+                shd_set_abstraction_body(tag_case, shd_bld_join(case_bb, r.jp, shd_empty(a)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
             //          extracted_tag = nptr >> (64 - 2), for example
@@ -178,7 +178,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 .case_jumps = shd_nodes(a, max_tag, jumps),
                 .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            shd_set_abstraction_body(new_fn, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) })));
             break;
         }
     }
@@ -241,7 +241,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         // cast _into_ generic
                         AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
                         size_t tag = get_tag_for_addr_space(src_as);
-                        BodyBuilder* bb = begin_block_pure(a);
+                        BodyBuilder* bb = shd_bld_begin_pure(a);
                         // TODO: find another way to annotate this ?
                         // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
                         // gen_comment(bb, x);
@@ -253,7 +253,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr | 01000000 ... 000
                                     generic_ptr = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
-                        return yield_values_and_wrap_in_block(bb, shd_singleton(generic_ptr));
+                        return shd_bld_to_instr_yield_values(bb, shd_singleton(generic_ptr));
                     } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
                         // cast _from_ generic
                         shd_error("TODO");

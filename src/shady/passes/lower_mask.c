@@ -25,7 +25,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 case empty_mask_op: return ctx->zero;
                 // extract the relevant bit
                 case mask_is_thread_active_op: {
-                    BodyBuilder* bb = begin_block_pure(a);
+                    BodyBuilder* bb = shd_bld_begin_pure(a);
                     const Node* mask = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
                     index = gen_conversion(bb, shd_get_actual_mask_type(ctx->rewriter.dst_arena), index);
@@ -36,7 +36,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     acc = gen_primop_ce(bb, and_op, 2, (const Node* []) { acc, ctx->one });
                     // acc == 1
                     acc = gen_primop_ce(bb, eq_op, 2, (const Node* []) { acc, ctx->one });
-                    return yield_value_and_wrap_in_block(bb, acc);
+                    return shd_bld_to_instr_yield_value(bb, acc);
                 }
                 default: break;
             }

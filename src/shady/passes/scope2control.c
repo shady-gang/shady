@@ -116,11 +116,11 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         shd_set_abstraction_body(control_case, jump_helper(a, shd_get_abstraction_mem(control_case), c, shd_empty(a)));
 
         Node* c2 = case_(a, shd_empty(a));
-        BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(c2));
+        BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(c2));
         const Type* jp_type = add_control.token->type;
         shd_deconstruct_qualified_type(&jp_type);
         assert(jp_type->tag == JoinPointType_TAG);
-        Nodes results = gen_control(bb, jp_type->payload.join_point_type.yield_types, control_case);
+        Nodes results = shd_bld_control(bb, jp_type->payload.join_point_type.yield_types, control_case);
 
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
@@ -129,7 +129,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         }
 
         c = c2;
-        shd_set_abstraction_body(c2, finish_body(bb, jump_helper(a, bb_mem(bb), shd_find_processed(r, dst), results)));
+        shd_set_abstraction_body(c2, shd_bld_finish(bb, jump_helper(a, shd_bb_mem(bb), shd_find_processed(r, dst), results)));
     }
 
     const Node* body = jump_helper(a, shd_get_abstraction_mem(nabs), c, shd_empty(a));

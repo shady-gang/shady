@@ -35,7 +35,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nannots = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
 
             Node* prelude = case_(a, shd_empty(a));
-            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(prelude));
+            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(prelude));
 
             // Supplement an additional parameter for the join point
             const Type* jp_type = join_point_type(a, (JoinPointType) {
@@ -54,8 +54,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Node* fun = function(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
             shd_register_processed(&ctx->rewriter, old, fun);
 
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), bb_mem(bb));
-            shd_set_abstraction_body(prelude, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+            shd_set_abstraction_body(prelude, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
             shd_set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
         }
@@ -88,13 +88,13 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             const Node* return_jp = ctx->return_jp;
             if (return_jp) {
-                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, old->payload.fn_ret.mem));
+                BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, old->payload.fn_ret.mem));
                 return_jp = gen_primop_ce(bb, subgroup_assume_uniform_op, 1, (const Node* []) { return_jp });
                 // Join up at the return address instead of returning
-                return finish_body(bb, join(a, (Join) {
+                return shd_bld_finish(bb, join(a, (Join) {
                     .join_point = return_jp,
                     .args = nargs,
-                    .mem = bb_mem(bb),
+                    .mem = shd_bb_mem(bb),
                 }));
             } else {
                 assert(false);
@@ -137,8 +137,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .mem = shd_get_abstraction_mem(control_case),
             });
             shd_set_abstraction_body(control_case, control_body);
-            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
-            return yield_values_and_wrap_in_block(bb, gen_control(bb, shd_strip_qualifiers(a, returned_types), control_case));
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
+            return shd_bld_to_instr_yield_values(bb, shd_bld_control(bb, shd_strip_qualifiers(a, returned_types), control_case));
         }
         default: break;
     }

@@ -126,14 +126,14 @@ static const Node* process(Context* ctx, const Node* old) {
             must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
-            BodyBuilder* bb = begin_block_pure(a);
+            BodyBuilder* bb = shd_bld_begin_pure(a);
             // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
             const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
             const Type* new_base_t = shd_rewrite_node(&ctx->rewriter, old_base_ptr_t);
             const Node* result = lower_ptr_offset(ctx, bb, new_base_t, cast_base, shd_rewrite_node(r, lea.offset));
             const Type* new_ptr_t = shd_rewrite_node(&ctx->rewriter, old_result_t);
             const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-            return yield_values_and_wrap_in_block(bb, shd_singleton(cast_result));
+            return shd_bld_to_instr_yield_values(bb, shd_singleton(cast_result));
         }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement lea = old->payload.ptr_composite_element;
@@ -149,14 +149,14 @@ static const Node* process(Context* ctx, const Node* old) {
             must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
-            BodyBuilder* bb = begin_block_pure(a);
+            BodyBuilder* bb = shd_bld_begin_pure(a);
             // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
             const Node* cast_base = gen_reinterpret_cast(bb, emulated_ptr_t, shd_rewrite_node(r, lea.ptr));
             const Type* new_base_t = shd_rewrite_node(&ctx->rewriter, old_base_ptr_t);
             const Node* result = lower_ptr_index(ctx, bb, new_base_t, cast_base, shd_rewrite_node(r, lea.index));
             const Type* new_ptr_t = shd_rewrite_node(&ctx->rewriter, old_result_t);
             const Node* cast_result = gen_reinterpret_cast(bb, new_ptr_t, result);
-            return yield_values_and_wrap_in_block(bb, shd_singleton(cast_result));
+            return shd_bld_to_instr_yield_values(bb, shd_singleton(cast_result));
         }
         default: break;
     }

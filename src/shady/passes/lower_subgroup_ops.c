@@ -85,12 +85,12 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
 
 static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node* param, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fn));
+    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fn));
     const Node* result = generate(ctx, bb, scope, t, param);
     if (result) {
-        shd_set_abstraction_body(fn, finish_body(bb, fn_ret(a, (Return) {
+        shd_set_abstraction_body(fn, shd_bld_finish(bb, fn_ret(a, (Return) {
             .args = shd_singleton(result),
-            .mem = bb_mem(bb),
+            .mem = shd_bb_mem(bb),
         })));
         return;
     }
@@ -134,8 +134,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
-                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
-                return yield_values_and_wrap_in_block(bb, shd_singleton(
+                BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(
                     build_subgroup_first(ctx, bb, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1]))));
             }
         }

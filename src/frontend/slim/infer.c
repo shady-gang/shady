@@ -349,7 +349,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
-    BodyBuilder* bb = begin_block_pure(a);
+    BodyBuilder* bb = shd_bld_begin_pure(a);
     Op op = node->payload.prim_op.op;
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = shd_empty(a);
@@ -390,7 +390,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
             .type_arguments = type_args,
             .operands = shd_nodes(a, old_operands.count, new_operands)
         });
-        return bind_last_instruction_and_wrap_in_block(bb, new_instruction);
+        return shd_bld_to_instr_with_last_instr(bb, new_instruction);
     }
 }
 

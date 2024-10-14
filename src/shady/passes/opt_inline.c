@@ -179,8 +179,8 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
                     shd_set_abstraction_body(control_case, nbody);
 
-                    BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
-                    return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, control_case));
+                    BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
+                    return shd_bld_to_instr_yield_values(bb, shd_bld_control(bb, nyield_types, control_case));
                 }
             }
             break;

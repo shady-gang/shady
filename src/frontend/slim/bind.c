@@ -135,14 +135,14 @@ static const Node* get_node_address(Context* ctx, const Node* node) {
 static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    BodyBuilder* bb = instr.mem ? begin_body_with_mem(a, shd_rewrite_node(r, instr.mem)) : begin_block_pure(a);
+    BodyBuilder* bb = instr.mem ? shd_bld_begin(a, shd_rewrite_node(r, instr.mem)) : shd_bld_begin_pure(a);
 
     switch (instr.opcode) {
         case SlimOpBindVal: {
             size_t names_count = instr.operands.count - 1;
             const Node** names = &instr.operands.nodes[1];
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
-            Nodes results = deconstruct_composite(a, bb, value, names_count);
+            Nodes results = shd_deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 shd_log_fmt(DEBUGV, "Bound immutable variable '%s'\n", name);
@@ -155,15 +155,15 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             const Node** names = &instr.operands.nodes[1];
             const Node** types = &instr.operands.nodes[1 + names_count];
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
-            Nodes results = deconstruct_composite(a, bb, value, names_count);
+            Nodes results = shd_deconstruct_composite(a, bb, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
-                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = bb_mem(bb) });
-                const Node* ptr = bind_instruction_outputs_count(bb, alloca, 1).nodes[0];
+                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bb_mem(bb) });
+                const Node* ptr = shd_bld_add_instruction_extract_count(bb, alloca, 1).nodes[0];
                 shd_set_value_name(ptr, name);
-                bind_instruction_outputs_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = bb_mem(bb) }), 0);
+                shd_bld_add_instruction_extract_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bb_mem(bb) }), 0);
 
                 add_binding(ctx, true, name, ptr);
                 shd_log_fmt(DEBUGV, "Bound mutable variable '%s'\n", name);
@@ -198,7 +198,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
         }
     }
 
-    return yield_values_and_wrap_in_block(bb, shd_empty(a));
+    return shd_bld_to_instr_yield_values(bb, shd_empty(a));
 }
 
 static const Node* rewrite_decl(Context* ctx, const Node* decl) {

@@ -59,7 +59,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct) {
     IrArena* a = ctx->rewriter.dst_arena;
 
-    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
+    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
 
     Nodes params = old_entry_point->payload.fun.params;
 
@@ -69,8 +69,8 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
         shd_register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
-    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), bb_mem(bb));
-    return finish_body(bb, shd_rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
+    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), shd_bb_mem(bb));
+    return shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 
 static const Node* process(Context* ctx, const Node* node) {

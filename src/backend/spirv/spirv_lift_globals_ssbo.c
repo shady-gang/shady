@@ -26,12 +26,12 @@ static const Node* process(Context* ctx, const Node* node) {
                 functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
                 shd_dict_clear(functx.rewriter.map);
                 shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
-                functx.bb = begin_body_with_mem(a, shd_get_abstraction_mem(newfun));
+                functx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
                 shd_register_processed(&functx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
                 shd_set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
-                shd_set_abstraction_body(newfun, finish_body(functx.bb, jump_helper(a, bb_mem(functx.bb), post_prelude,
-                                                                                    shd_empty(a))));
+                shd_set_abstraction_body(newfun, shd_bld_finish(functx.bb, jump_helper(a, shd_bb_mem(functx.bb), post_prelude,
+                                                                                       shd_empty(a))));
                 shd_destroy_dict(functx.rewriter.map);
             }
             return newfun;

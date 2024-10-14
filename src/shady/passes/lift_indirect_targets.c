@@ -129,7 +129,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
-    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new_fn));
+    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
     gen_set_stack_size(bb, payload);
     for (size_t i = recover_context_size - 1; i < recover_context_size; i--) {
         const Node* ovar = frontier.nodes[i];
@@ -148,13 +148,13 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         shd_register_processed(r, ovar, recovered_value);
     }
 
-    shd_register_processed(r, shd_get_abstraction_mem(liftee), bb_mem(bb));
+    shd_register_processed(r, shd_get_abstraction_mem(liftee), shd_bb_mem(bb));
     shd_register_processed(r, liftee, new_fn);
     const Node* substituted = shd_rewrite_node(r, obody);
     shd_destroy_rewriter(r);
 
     assert(is_terminator(substituted));
-    shd_set_abstraction_body(new_fn, finish_body(bb, substituted));
+    shd_set_abstraction_body(new_fn, shd_bld_finish(bb, substituted));
 
     return lifted_cont;
 }
@@ -195,7 +195,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 *ctx->todo = true;
 
                 const Node* otail = get_structured_construct_tail(node);
-                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, node->payload.control.mem));
+                BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, node->payload.control.mem));
                 LiftedCont* lifted_tail = lambda_lift(ctx, ctx->cfg, otail);
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
@@ -209,9 +209,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
-                shd_register_processed(r, shd_get_abstraction_mem(oinside), bb_mem(bb));
+                shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bb_mem(bb));
                 shd_register_processed(r, oinside, NULL);
-                return finish_body(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
+                return shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }
             break;
         }

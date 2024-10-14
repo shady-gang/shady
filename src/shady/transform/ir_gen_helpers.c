@@ -15,8 +15,8 @@
 
 Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     assert(shd_get_arena_config(_shd_get_bb_arena(bb))->check_types);
-    const Node* instruction = call(_shd_get_bb_arena(bb), (Call) { .callee = callee, .args = args, .mem = bb_mem(bb) });
-    return bind_instruction(bb, instruction);
+    const Node* instruction = call(_shd_get_bb_arena(bb), (Call) { .callee = callee, .args = args, .mem = shd_bb_mem(bb) });
+    return shd_bld_add_instruction_extract(bb, instruction);
 }
 
 Nodes gen_primop(BodyBuilder* bb, Op op, Nodes type_args, Nodes operands) {
@@ -41,8 +41,8 @@ const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
 }
 
 const Node* gen_ext_instruction(BodyBuilder* bb, String set, int opcode, const Type* return_t, Nodes operands) {
-    return bind_instruction_single(bb, ext_instr(_shd_get_bb_arena(bb), (ExtInstr) {
-        .mem = bb_mem(bb),
+    return shd_bld_add_instruction(bb, ext_instr(_shd_get_bb_arena(bb), (ExtInstr) {
+        .mem = shd_bb_mem(bb),
         .set = set,
         .opcode = opcode,
         .result_t = return_t,
@@ -51,7 +51,7 @@ const Node* gen_ext_instruction(BodyBuilder* bb, String set, int opcode, const T
 }
 
 void gen_push_value_stack(BodyBuilder* bb, const Node* value) {
-    bind_instruction(bb, push_stack(_shd_get_bb_arena(bb), (PushStack) { .value = value, .mem = bb_mem(bb) }));
+    shd_bld_add_instruction_extract(bb, push_stack(_shd_get_bb_arena(bb), (PushStack) { .value = value, .mem = shd_bb_mem(bb) }));
 }
 
 void gen_push_values_stack(BodyBuilder* bb, Nodes values) {
@@ -62,20 +62,20 @@ void gen_push_values_stack(BodyBuilder* bb, Nodes values) {
 }
 
 const Node* gen_pop_value_stack(BodyBuilder* bb, const Type* type) {
-    const Node* instruction = pop_stack(_shd_get_bb_arena(bb), (PopStack) { .type = type, .mem = bb_mem(bb) });
-    return shd_first(bind_instruction(bb, instruction));
+    const Node* instruction = pop_stack(_shd_get_bb_arena(bb), (PopStack) { .type = type, .mem = shd_bb_mem(bb) });
+    return shd_first(shd_bld_add_instruction_extract(bb, instruction));
 }
 
 const Node* gen_get_stack_base_addr(BodyBuilder* bb) {
-    return get_stack_base_addr(_shd_get_bb_arena(bb), (GetStackBaseAddr) { .mem = bb_mem(bb) });
+    return get_stack_base_addr(_shd_get_bb_arena(bb), (GetStackBaseAddr) { .mem = shd_bb_mem(bb) });
 }
 
 const Node* gen_get_stack_size(BodyBuilder* bb) {
-    return shd_first(bind_instruction(bb, get_stack_size(_shd_get_bb_arena(bb), (GetStackSize) { .mem = bb_mem(bb) })));
+    return shd_first(shd_bld_add_instruction_extract(bb, get_stack_size(_shd_get_bb_arena(bb), (GetStackSize) { .mem = shd_bb_mem(bb) })));
 }
 
 void gen_set_stack_size(BodyBuilder* bb, const Node* new_size) {
-    bind_instruction(bb, set_stack_size(_shd_get_bb_arena(bb), (SetStackSize) { .value = new_size, .mem = bb_mem(bb) }));
+    shd_bld_add_instruction_extract(bb, set_stack_size(_shd_get_bb_arena(bb), (SetStackSize) { .value = new_size, .mem = shd_bb_mem(bb) }));
 }
 
 const Node* gen_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
@@ -106,11 +106,11 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
 }
 
 const Node* gen_stack_alloc(BodyBuilder* bb, const Type* type) {
-    return shd_first(bind_instruction(bb, stack_alloc(_shd_get_bb_arena(bb), (StackAlloc) { .type = type, .mem = bb_mem(bb) })));
+    return shd_first(shd_bld_add_instruction_extract(bb, stack_alloc(_shd_get_bb_arena(bb), (StackAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
 }
 
 const Node* gen_local_alloc(BodyBuilder* bb, const Type* type) {
-    return shd_first(bind_instruction(bb, local_alloc(_shd_get_bb_arena(bb), (LocalAlloc) { .type = type, .mem = bb_mem(bb) })));
+    return shd_first(shd_bld_add_instruction_extract(bb, local_alloc(_shd_get_bb_arena(bb), (LocalAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
 }
 
 const Node* gen_extract_single(BodyBuilder* bb, const Node* composite, const Node* index) {
@@ -118,11 +118,11 @@ const Node* gen_extract_single(BodyBuilder* bb, const Node* composite, const Nod
 }
 
 const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
-    return shd_first(bind_instruction(bb, load(_shd_get_bb_arena(bb), (Load) { .ptr = ptr, .mem = bb_mem(bb) })));
+    return shd_first(shd_bld_add_instruction_extract(bb, load(_shd_get_bb_arena(bb), (Load) { .ptr = ptr, .mem = shd_bb_mem(bb) })));
 }
 
 void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
-    bind_instruction(bb, store(_shd_get_bb_arena(bb), (Store) { .ptr = ptr, .value = value, .mem = bb_mem(bb) }));
+    shd_bld_add_instruction_extract(bb, store(_shd_get_bb_arena(bb), (Store) { .ptr = ptr, .value = value, .mem = shd_bb_mem(bb) }));
 }
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
@@ -138,11 +138,11 @@ const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {
 }
 
 void gen_comment(BodyBuilder* bb, String str) {
-    bind_instruction(bb, comment(_shd_get_bb_arena(bb), (Comment) { .string = str, .mem = bb_mem(bb) }));
+    shd_bld_add_instruction_extract(bb, comment(_shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bb_mem(bb) }));
 }
 
 void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
-    bind_instruction_single(bb, debug_printf(_shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = bb_mem(bb) }));
+    shd_bld_add_instruction(bb, debug_printf(_shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = shd_bb_mem(bb) }));
 }
 
 const Node* get_builtin(Module* m, Builtin b) {

@@ -17,7 +17,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     if (width == 1)
         return shd_recreate_node(&ctx->rewriter, old);
     LARRAY(const Node*, elements, width);
-    BodyBuilder* bb = begin_block_pure(a);
+    BodyBuilder* bb = shd_bld_begin_pure(a);
     Nodes noperands = shd_rewrite_nodes(&ctx->rewriter, old->payload.prim_op.operands);
     for (size_t i = 0; i < width; i++) {
         LARRAY(const Node*, nops, noperands.count);
@@ -29,7 +29,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
         .element_type = shd_rewrite_node(&ctx->rewriter, dst_type),
         .size = shd_int32_literal(a, width)
     });
-    return yield_values_and_wrap_in_block(bb, shd_singleton(composite_helper(a, t, shd_nodes(a, width, elements))));
+    return shd_bld_to_instr_yield_values(bb, shd_singleton(composite_helper(a, t, shd_nodes(a, width, elements))));
 }
 
 static const Node* process(Context* ctx, const Node* node) {

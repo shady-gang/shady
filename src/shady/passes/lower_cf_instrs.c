@@ -74,9 +74,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             shd_set_abstraction_body(control_case, control_body);
 
-            BodyBuilder* bb = begin_body_with_mem(a, nmem);
-            Nodes results = gen_control(bb, yield_types, control_case);
-            return finish_body(bb, jump_helper(a, bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
+            BodyBuilder* bb = shd_bld_begin(a, nmem);
+            Nodes results = shd_bld_control(bb, yield_types, control_case);
+            return shd_bld_finish(bb, jump_helper(a, shd_bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
         }
         // TODO: match
         case Loop_TAG: {
@@ -103,13 +103,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
             Node* loop_header_block = basic_block(a, new_params, shd_make_unique_name(a, "loop_header"));
 
-            BodyBuilder* inner_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_header_block));
+            BodyBuilder* inner_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_header_block));
             Node* inner_control_case = case_(a, shd_singleton(continue_point));
             shd_set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
                                                                      shd_rewrite_node(r, old_loop_block), new_params));
-            Nodes args = gen_control(inner_bb, param_types, inner_control_case);
+            Nodes args = shd_bld_control(inner_bb, param_types, inner_control_case);
 
-            shd_set_abstraction_body(loop_header_block, finish_body(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = bb_mem(inner_bb) })));
+            shd_set_abstraction_body(loop_header_block, shd_bld_finish(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = shd_bb_mem(inner_bb) })));
 
             Node* outer_control_case = case_(a, shd_singleton(break_point));
             const Node* first_iteration_jump = jump(a, (Jump) {
@@ -119,9 +119,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             shd_set_abstraction_body(outer_control_case, first_iteration_jump);
 
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
-            Nodes results = gen_control(bb, yield_types, outer_control_case);
-            return finish_body(bb, jump_helper(a, bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
+            Nodes results = shd_bld_control(bb, yield_types, outer_control_case);
+            return shd_bld_finish(bb, jump_helper(a, shd_bb_mem(bb), shd_rewrite_node(r, payload.tail), results));
         }
         case MergeSelection_TAG: {
             MergeSelection payload = node->payload.merge_selection;

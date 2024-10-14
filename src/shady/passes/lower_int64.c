@@ -17,10 +17,10 @@ static bool should_convert(Context* ctx, const Type* t) {
 }
 
 static void extract_low_hi_halves(IrArena* a, BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
-    *lo = shd_first(bind_instruction(bb, prim_op(a,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) })));
-    *hi = shd_first(bind_instruction(bb, prim_op(a,
-                                                 (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) })));
+    *lo = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a,
+                                                                (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) })));
+    *hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a,
+                                                                (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) })));
 }
 
 static void extract_low_hi_halves_list(IrArena* a, BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
@@ -58,14 +58,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 case add_op: if (should_convert(ctx, shd_first(old_nodes)->type)) {
                     Nodes new_nodes = shd_rewrite_nodes(&ctx->rewriter, old_nodes);
                     // TODO: convert into and then out of unsigned
-                    BodyBuilder* bb = begin_block_pure(a);
+                    BodyBuilder* bb = shd_bld_begin_pure(a);
                     extract_low_hi_halves_list(a, bb, new_nodes, lows, his);
-                    Nodes low_and_carry = bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = shd_nodes(a, 2, lows)}));
+                    Nodes low_and_carry = shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = shd_nodes(a, 2, lows) }));
                     const Node* lo = shd_first(low_and_carry);
                     // compute the high side, without forgetting the carry bit
-                    const Node* hi = shd_first(bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = shd_nodes(a, 2, his) })));
-                                hi = shd_first(bind_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1]) })));
-                    return yield_values_and_wrap_in_block(bb, shd_singleton(tuple_helper(a, mk_nodes(a, lo, hi))));
+                    const Node* hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = shd_nodes(a, 2, his) })));
+                                hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1]) })));
+                    return shd_bld_to_instr_yield_values(bb, shd_singleton(tuple_helper(a, mk_nodes(a, lo, hi))));
                 } break;
                 default: break;
             }

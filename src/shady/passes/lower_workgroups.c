@@ -22,7 +22,7 @@ static void add_bounds_check(IrArena* a, BodyBuilder* bb, const Node* i, const N
         .args = shd_empty(a),
         .mem = shd_get_abstraction_mem(out_of_bounds_case)
     }));
-    gen_if(bb, shd_empty(a), gen_primop_e(bb, gte_op, shd_empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
+    shd_bld_if(bb, shd_empty(a), gen_primop_e(bb, gte_op, shd_empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -72,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));
                 shd_set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));
 
-                BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(wrapper));
+                BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(wrapper));
                 const Node* num_workgroups_var = shd_rewrite_node(&ctx->rewriter, get_or_create_builtin(ctx->rewriter.src_module, BuiltinNumWorkgroups, NULL));
                 const Node* workgroup_num_vec3 = gen_load(bb, ref_decl_helper(a, num_workgroups_var));
 
@@ -116,7 +116,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     for (int dim = 0; dim < 3; dim++) {
                         Node* loop_body = case_(a, shd_singleton(params[dim]));
                         cases[scope * 3 + dim] = loop_body;
-                        BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_body));
+                        BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_body));
                         builders[scope * 3 + dim] = loop_bb;
                         add_bounds_check(a, loop_bb, params[dim], maxes[dim]);
                     }
@@ -155,15 +155,15 @@ static const Node* process(Context* ctx, const Node* node) {
                         Node* loop_body = cases[depth];
                         BodyBuilder* body_bb = builders[depth];
 
-                        shd_set_abstraction_body(loop_body, finish_body(body_bb, merge_continue(a, (MergeContinue) {
+                        shd_set_abstraction_body(loop_body, shd_bld_finish(body_bb, merge_continue(a, (MergeContinue) {
                             .args = shd_singleton(gen_primop_e(body_bb, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
-                            .mem = bb_mem(body_bb)
+                            .mem = shd_bb_mem(body_bb)
                         })));
-                        gen_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(shd_uint32_literal(a, 0)), loop_body);
+                        shd_bld_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(shd_uint32_literal(a, 0)), loop_body);
                     }
                 }
 
-                shd_set_abstraction_body(wrapper, finish_body(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = bb_mem(bb) })));
+                shd_set_abstraction_body(wrapper, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) })));
                 return wrapper;
             }
             return shd_recreate_node(&ctx2.rewriter, node);
@@ -174,10 +174,10 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ptr->tag == RefDecl_TAG)
                 ptr = ptr->payload.ref_decl.decl;
             if (ptr == get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
-                BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
-                const Node* loaded = shd_first(bind_instruction(bb, shd_recreate_node(&ctx->rewriter, node)));
+                BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
+                const Node* loaded = shd_first(shd_bld_add_instruction_extract(bb, shd_recreate_node(&ctx->rewriter, node)));
                 const Node* uniformized = shd_first(gen_primop(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(loaded)));
-                return yield_values_and_wrap_in_block(bb, shd_singleton(uniformized));
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(uniformized));
             }
         }
         default: break;

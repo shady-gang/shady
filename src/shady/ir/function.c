@@ -125,7 +125,7 @@ void shd_set_abstraction_body(Node* abs, const Node* body) {
                 if (insert && mem_abs != abs) {
                     const Node* mem = _shd_bb_insert_mem(insert);
                     const Node* block = _shd_bb_insert_block(insert);
-                    shd_set_abstraction_body((Node*) block, _shd_finish_block_body(insert, body));
+                    shd_set_abstraction_body((Node*) block, _shd_bld_finish_pseudo_instr(insert, body));
                     body = jump_helper(a, mem, block, shd_empty(a));
                     // mem_abs->payload.basic_block.insert = NULL;
                     continue;

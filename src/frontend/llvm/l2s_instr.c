@@ -39,7 +39,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     IrArena* a = dst_t->arena;
     LARRAY(const Node*, nops, ops.count);
     for (size_t i = 0; i < ops.count; i++)
-        nops[i] = shd_first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(dst_t), shd_singleton(ops.nodes[i])), 1));
+        nops[i] = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(dst_t), shd_singleton(ops.nodes[i])), 1));
     return shd_nodes(a, ops.count, nops);
 }
 
@@ -107,7 +107,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
 
     const Type* t = convert_type(p, LLVMTypeOf(instr));
 
-#define BIND_PREV_R(t) bind_instruction_outputs_count(b, r, 1)
+#define BIND_PREV_R(t) shd_bld_add_instruction_extract_count(b, r, 1)
 
     //if (LLVMIsATerminatorInst(instr)) {
     //if (LLVMIsAInstruction(instr) && !LLVMIsATerminatorInst(instr)) {
@@ -127,13 +127,13 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     shd_debugv_print(" -> ");
                 }
                 shd_debugv_print(" (depth= %zu)\n", str.count);
-                bind_instruction_single(b, ext_instr(a, (ExtInstr) {
-                    .set = "shady.scope",
-                    .opcode = 0,
-                    .result_t = unit_type(a),
-                    .mem = bb_mem(b),
-                    .operands = str,
-                }));
+            shd_bld_add_instruction(b, ext_instr(a, (ExtInstr) {
+                .set = "shady.scope",
+                .opcode = 0,
+                .result_t = unit_type(a),
+                .mem = shd_bb_mem(b),
+                .operands = str,
+            }));
             //}
         }
     }
@@ -141,7 +141,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
     switch (opcode) {
         case LLVMRet: return fn_ret(a, (Return) {
                     .args = num_ops == 0 ? shd_empty(a) : convert_operands(p, num_ops, instr),
-                    .mem = bb_mem(b),
+                    .mem = shd_bb_mem(b),
                 });
         case LLVMBr: {
             unsigned n_targets = LLVMGetNumSuccessors(instr);
@@ -153,38 +153,38 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Node* condition = convert_value(p, LLVMGetCondition(instr));
                 return branch(a, (Branch) {
                         .condition = condition,
-                        .true_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b)),
-                        .false_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[1], bb_mem(b)),
-                        .mem = bb_mem(b),
+                        .true_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[0], shd_bb_mem(b)),
+                        .false_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[1], shd_bb_mem(b)),
+                        .mem = shd_bb_mem(b),
                     });
             } else {
                 assert(n_targets == 1);
-                return convert_jump(p, fn_ctx, fn_or_bb, targets[0], bb_mem(b));
+                return convert_jump(p, fn_ctx, fn_or_bb, targets[0], shd_bb_mem(b));
             }
         }
         case LLVMSwitch: {
             const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
-            const Node* default_jump = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), bb_mem(b));
+            const Node* default_jump = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), shd_bb_mem(b));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
                 literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
-                targets[i] = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), bb_mem(b));
+                targets[i] = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), shd_bb_mem(b));
             }
             return br_switch(a, (Switch) {
                     .switch_value = inspectee,
                     .default_jump = default_jump,
                     .case_values = shd_nodes(a, n_targets, literals),
                     .case_jumps = shd_nodes(a, n_targets, targets),
-                    .mem = bb_mem(b),
+                    .mem = shd_bb_mem(b),
                 });
         }
         case LLVMIndirectBr:
             goto unimplemented;
         case LLVMInvoke:
             goto unimplemented;
-        case LLVMUnreachable: return unreachable(a, (Unreachable) { .mem = bb_mem(b) });
+        case LLVMUnreachable: return unreachable(a, (Unreachable) { .mem = shd_bb_mem(b) });
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
@@ -228,10 +228,10 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
-            const Node* r = shd_first(bind_instruction_outputs_count(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = bb_mem(b) }), 1));
+            const Node* r = shd_first(shd_bld_add_instruction_extract_count(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bb_mem(b) }), 1));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
-                r = shd_first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r)), 1));
+                r = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r)), 1));
             }
             return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(r));
         }
@@ -243,9 +243,9 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Type* element_t = t;
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
-            return bind_instruction_single(b, load(a, (Load) { .ptr = ptr, .mem = bb_mem(b) }));
+            return shd_bld_add_instruction(b, load(a, (Load) { .ptr = ptr, .mem = shd_bb_mem(b) }));
         }
         case LLVMStore: {
             num_results = 0;
@@ -256,9 +256,9 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Type* element_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
-            return bind_instruction_single(b, store(a, (Store) { .ptr = ptr, .value = ops.nodes[0], .mem = bb_mem(b) }));
+            return shd_bld_add_instruction(b, store(a, (Store) { .ptr = ptr, .value = ops.nodes[0], .mem = shd_bb_mem(b) }));
         }
         case LLVMGetElementPtr: {
             Nodes ops = convert_operands(p, num_ops, instr);
@@ -267,7 +267,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(bind_instruction_outputs_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
             ops = shd_change_node_at_index(a, ops, 0, ptr);
             const Node* r = lea_helper(a, ops.nodes[0], ops.nodes[1], shd_nodes(a, ops.count - 2, &ops.nodes[2]));
@@ -493,10 +493,10 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 }
                 if (shd_string_starts_with(intrinsic, "llvm.memcpy")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return bind_instruction_single(b, copy_bytes(a, (CopyBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = bb_mem(b) }));
+                    return shd_bld_add_instruction(b, copy_bytes(a, (CopyBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = shd_bb_mem(b) }));
                 } else if (shd_string_starts_with(intrinsic, "llvm.memset")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return bind_instruction_single(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = bb_mem(b) }));
+                    return shd_bld_add_instruction(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = shd_bb_mem(b) }));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return prim_op_helper(a, fma_op, shd_empty(a), shd_nodes(a, 3, ops.nodes));
@@ -557,7 +557,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                         LARRAY(const Node*, processed_ops, ops.count);
                         for (i = 0; i < num_args; i++) {
                             if (decoded[i].is_byval)
-                                processed_ops[i] = shd_first(bind_instruction_outputs_count(b, load(a, (Load) { .ptr = ops.nodes[i], .mem = bb_mem(b) }), 1));
+                                processed_ops[i] = shd_first(shd_bld_add_instruction_extract_count(b, load(a, (Load) { .ptr = ops.nodes[i], .mem = shd_bb_mem(b) }), 1));
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }
@@ -590,8 +590,8 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
 
             if (!r) {
                 Nodes ops = convert_operands(p, num_ops, instr);
-                r = bind_instruction_single(b, call(a, (Call) {
-                    .mem = bb_mem(b),
+                r = shd_bld_add_instruction(b, call(a, (Call) {
+                    .mem = shd_bb_mem(b),
                     .callee = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) {
                         .address_space = AsGeneric,
                         .pointed_type = convert_type(p, callee_type)

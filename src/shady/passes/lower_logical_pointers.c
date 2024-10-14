@@ -74,10 +74,10 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_block_pure(a);
+            BodyBuilder* bb = shd_bld_begin_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, ptr_composite_element(a, (PtrCompositeElement) { .ptr = ptr, .index = shd_rewrite_node(r, payload.index)}));
+            return shd_bld_to_instr_with_last_instr(bb, ptr_composite_element(a, (PtrCompositeElement) { .ptr = ptr, .index = shd_rewrite_node(r, payload.index) }));
         }
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
@@ -102,10 +102,10 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_block_pure(a);
+            BodyBuilder* bb = shd_bld_begin_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
-            return load(a, (Load) { .ptr = yield_value_and_wrap_in_block(bb, ptr), .mem = shd_rewrite_node(r, payload.mem) });
+            return load(a, (Load) { .ptr = shd_bld_to_instr_yield_value(bb, ptr), .mem = shd_rewrite_node(r, payload.mem) });
         }
         case Store_TAG: {
             Store payload = old->payload.store;
@@ -115,10 +115,10 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* expected_type = shd_rewrite_node(r, optr_t);
             const Node* ptr = shd_rewrite_node(r, payload.ptr);
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
-            BodyBuilder* bb = begin_block_pure(a);
+            BodyBuilder* bb = shd_bld_begin_pure(a);
             if (expected_type != actual_type)
                 ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
-            return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { .ptr = ptr, .value = shd_rewrite_node(r, payload.value), .mem = shd_rewrite_node(r, payload.mem) }));
+            return shd_bld_to_instr_with_last_instr(bb, store(a, (Store) { .ptr = ptr, .value = shd_rewrite_node(r, payload.value), .mem = shd_rewrite_node(r, payload.mem) }));
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;

@@ -42,7 +42,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
-    BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
+    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
     const Node* element_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
     element_size = gen_conversion(bb, shd_uint32_type(a), element_size);
@@ -79,10 +79,10 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     }
 
     if (push) {
-        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_empty(a)));
+        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
     } else {
         assert(popped_value);
-        shd_set_abstraction_body(fun, finish_body_with_return(bb, shd_singleton(popped_value)));
+        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_singleton(popped_value)));
     }
     return fun;
 }
@@ -93,7 +93,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
     if (old->tag == Function_TAG && strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
         Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-        BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(new));
+        BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
 
         // Make sure to zero-init the stack pointers
         // TODO isn't this redundant with thoose things having an initial value already ?
@@ -102,8 +102,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_pointer = ctx->stack_pointer;
             gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
-        shd_register_processed(r, shd_get_abstraction_mem(old), bb_mem(bb));
-        shd_set_abstraction_body(new, finish_body(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
+        shd_register_processed(r, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+        shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
         return new;
     }
 
@@ -111,34 +111,34 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case GetStackSize_TAG: {
             assert(ctx->stack);
             GetStackSize payload = old->payload.get_stack_size;
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* sp = gen_load(bb, ctx->stack_pointer);
-            return yield_values_and_wrap_in_block(bb, shd_singleton(sp));
+            return shd_bld_to_instr_yield_values(bb, shd_singleton(sp));
         }
         case SetStackSize_TAG: {
             assert(ctx->stack);
             SetStackSize payload = old->payload.set_stack_size;
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* val = shd_rewrite_node(r, old->payload.set_stack_size.value);
             gen_store(bb, ctx->stack_pointer, val);
-            return yield_values_and_wrap_in_block(bb, shd_empty(a));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
             assert(ctx->stack);
             GetStackBaseAddr payload = old->payload.get_stack_base_addr;
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
             const Node* stack_base_ptr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
                 gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
             }
-            return yield_values_and_wrap_in_block(bb, shd_singleton(stack_base_ptr));
+            return shd_bld_to_instr_yield_values(bb, shd_singleton(stack_base_ptr));
         }
         case PushStack_TAG:{
             assert(ctx->stack);
             PushStack payload = old->payload.push_stack;
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, shd_get_unqualified_type(old->payload.push_stack.value->type));
 
             bool push = true;
@@ -147,12 +147,12 @@ static const Node* process_node(Context* ctx, const Node* old) {
             Nodes args = shd_singleton(shd_rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
             gen_call(bb, fn_addr_helper(a, fn), args);
 
-            return yield_values_and_wrap_in_block(bb, shd_empty(a));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case PopStack_TAG: {
             assert(ctx->stack);
             PopStack payload = old->payload.pop_stack;
-            BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, old->payload.pop_stack.type);
 
             bool push = false;
@@ -161,7 +161,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_empty(a));
 
             assert(results.count == 1);
-            return yield_values_and_wrap_in_block(bb, results);
+            return shd_bld_to_instr_yield_values(bb, results);
         }
         default: break;
     }

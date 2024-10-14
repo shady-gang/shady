@@ -198,10 +198,10 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
-                    BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+                    BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                     const Node* data = gen_load(bb, k.src_alloca->new);
                     data = gen_reinterpret_cast(bb, access_type, data);
-                    return yield_value_and_wrap_in_block(bb, data);
+                    return shd_bld_to_instr_yield_value(bb, data);
                 }
             }
             break;
@@ -216,10 +216,10 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
-                    BodyBuilder* bb = begin_body_with_mem(a, shd_rewrite_node(r, payload.mem));
+                    BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                     const Node* data = gen_reinterpret_cast(bb, access_type, shd_rewrite_node(r, payload.value));
                     gen_store(bb, k.src_alloca->new, data);
-                    return yield_values_and_wrap_in_block(bb, shd_empty(a));
+                    return shd_bld_to_instr_yield_values(bb, shd_empty(a));
                 }
             }
             break;

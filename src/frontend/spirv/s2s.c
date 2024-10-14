@@ -457,7 +457,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         for (size_t i = 0; i < num_ops; i++)
             ops[i] = get_def_ssa_value(parser, instruction[shd_op.ops_offset + i]);
         int results_count = has_result ? 1 : 0;
-        Nodes results = bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+        Nodes results = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
             .op = shd_op.op,
             .type_arguments = shd_empty(parser->arena),
             .operands = shd_nodes(parser->arena, num_ops, ops)
@@ -741,13 +741,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             assert(shd_is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = shd_first(bind_instruction_outputs_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = bb_mem(parser->current_block.builder) }), 1));
+                const Node* ptr = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = shd_bb_mem(parser->current_block.builder) }), 1));
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    bind_instruction_outputs_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = bb_mem(parser->current_block.builder) }), 1);
+                    shd_bld_add_instruction_extract_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bb_mem(parser->current_block.builder) }), 1);
             } else {
                 Nodes annotations = shd_empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
@@ -900,7 +900,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             Node* block = basic_block(parser->arena, params, bb_name);
             parser->defs[result].node = block;
 
-            BodyBuilder* bb = begin_body_with_mem(parser->arena, shd_get_abstraction_mem(block));
+            BodyBuilder* bb = shd_bld_begin(parser->arena, shd_get_abstraction_mem(block));
             parser->current_block.builder = bb;
             parser->current_block.finished = NULL;
             while (parser->current_block.builder) {
@@ -966,7 +966,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = convert_op,
                 .type_arguments = shd_singleton(dst_t),
                 .operands = shd_singleton(src)
@@ -979,7 +979,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = reinterpret_op,
                 .type_arguments = shd_singleton(dst_t),
                 .operands = shd_singleton(src)
@@ -1013,7 +1013,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < num_indices; i++)
                 ops[1 + i] = shd_int32_literal(parser->arena, instruction[4 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = extract_op,
                 .type_arguments = shd_empty(parser->arena),
                 .operands = shd_nodes(parser->arena, 1 + num_indices, ops)
@@ -1028,7 +1028,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             for (size_t i = 0; i < num_indices; i++)
                 ops[2 + i] = shd_int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = insert_op,
                 .type_arguments = shd_empty(parser->arena),
                 .operands = shd_nodes(parser->arena, 2 + num_indices, ops)
@@ -1053,7 +1053,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     index -= num_components_a;
                     src = src_b;
                 }
-                components[i] = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                components[i] = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = extract_op,
                     .type_arguments = shd_empty(parser->arena),
                     .operands = mk_nodes(parser->arena, src, shd_int32_literal(parser->arena, index))
@@ -1070,13 +1070,13 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, load(a, (Load) { .ptr = src, .mem = bb_mem(parser->current_block.builder) }), 1));
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, load(a, (Load) { .ptr = src, .mem = shd_bb_mem(parser->current_block.builder) }), 1));
             break;
         }
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            bind_instruction_outputs_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = bb_mem(parser->current_block.builder) }), 0);
+            shd_bld_add_instruction_extract_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bb_mem(parser->current_block.builder) }), 0);
             break;
         }
         case SpvOpCopyMemory:
@@ -1088,7 +1088,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                 const Type* elem_t = src->type;
                 shd_deconstruct_qualified_type(&elem_t);
                 shd_deconstruct_pointer_type(&elem_t);
-                cnt = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                cnt = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = size_of_op,
                     .type_arguments = shd_singleton(elem_t),
                     .operands = shd_empty(parser->arena)
@@ -1096,7 +1096,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             } else {
                 cnt = get_def_ssa_value(parser, instruction[3]);
             }
-            bind_instruction_outputs_count(parser->current_block.builder, copy_bytes(parser->arena, (CopyBytes) {
+            shd_bld_add_instruction_extract_count(parser->current_block.builder, copy_bytes(parser->arena, (CopyBytes) {
                 .src = src,
                 .dst = dst,
                 .count = cnt,
@@ -1138,7 +1138,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     }
                     assert(op != PRIMOPS_COUNT);
                     //assert(false && intrinsic);
-                    Nodes rslts = bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                    Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                         .op = op,
                         .type_arguments = shd_empty(parser->arena),
                         .operands = shd_nodes(parser->arena, num_args, args)
@@ -1150,7 +1150,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
                     break;
                 }
             }
-            Nodes rslts = bind_instruction_outputs_count(parser->current_block.builder, call(parser->arena, (Call) {
+            Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, call(parser->arena, (Call) {
                 .callee = fn_addr_helper(parser->arena, callee),
                 .args = shd_nodes(parser->arena, num_args, args)
             }), rslts_count);
@@ -1273,15 +1273,15 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             }
 
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(bind_instruction_outputs_count(parser->current_block.builder, instr, 1));
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, instr, 1));
             break;
         }
         case SpvOpBranch: {
             BodyBuilder* bb = parser->current_block.builder;
-            parser->current_block.finished = finish_body(bb, jump(parser->arena, (Jump) {
+            parser->current_block.finished = shd_bld_finish(bb, jump(parser->arena, (Jump) {
                 .target = get_def_block(parser, instruction[1]),
                 .args = get_args_from_phi(parser, instruction[1], parser->current_block.id),
-                .mem = bb_mem(bb)
+                .mem = shd_bb_mem(bb)
             }));
             parser->current_block.builder = NULL;
             break;
@@ -1289,10 +1289,10 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
         case SpvOpBranchConditional: {
             SpvId destinations[2] = { instruction[2], instruction[3] };
             BodyBuilder* bb = parser->current_block.builder;
-            parser->current_block.finished = finish_body(bb, branch(parser->arena, (Branch) {
-                .true_jump = jump_helper(parser->arena, bb_mem(bb), get_def_block(parser, destinations[0]),
+            parser->current_block.finished = shd_bld_finish(bb, branch(parser->arena, (Branch) {
+                .true_jump = jump_helper(parser->arena, shd_bb_mem(bb), get_def_block(parser, destinations[0]),
                                          get_args_from_phi(parser, destinations[0], parser->current_block.id)),
-                .false_jump = jump_helper(parser->arena, bb_mem(bb), get_def_block(parser, destinations[1]),
+                .false_jump = jump_helper(parser->arena, shd_bb_mem(bb), get_def_block(parser, destinations[1]),
                                           get_args_from_phi(parser, destinations[1], parser->current_block.id)),
                 .condition = get_def_ssa_value(parser, instruction[1]),
             }));
@@ -1307,7 +1307,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             else
                 args = shd_singleton(get_def_ssa_value(parser, instruction[1]));
             BodyBuilder* bb = parser->current_block.builder;
-            parser->current_block.finished = finish_body(bb, fn_ret(parser->arena, (Return) {
+            parser->current_block.finished = shd_bld_finish(bb, fn_ret(parser->arena, (Return) {
                 .args = args,
             }));
             parser->current_block.builder = NULL;

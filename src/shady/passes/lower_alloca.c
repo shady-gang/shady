@@ -88,7 +88,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 return fun;
             }
 
-            BodyBuilder* bb = begin_body_with_mem(a, shd_get_abstraction_mem(fun));
+            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
             ctx2.base_stack_addr_on_entry = gen_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = gen_get_stack_size(bb);
@@ -119,8 +119,8 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
-            shd_register_processed(r, shd_get_abstraction_mem(node), bb_mem(bb));
-            shd_set_abstraction_body(fun, finish_body(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
+            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
+            shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
             shd_destroy_dict(ctx2.prepared_offsets);
             return fun;
@@ -136,7 +136,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     shd_error_die();
                 }
 
-                BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, node->payload.stack_alloc.mem));
+                BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, node->payload.stack_alloc.mem));
                 if (!ctx->stack_size_on_entry) {
                     //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
                     assert(false);
@@ -153,7 +153,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 gen_set_stack_size(bb, updated_stack_ptr);
                 //}
 
-                return yield_values_and_wrap_in_block(bb, shd_singleton(slot));
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(slot));
             }
             break;
         }

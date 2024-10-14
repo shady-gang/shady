@@ -24,7 +24,7 @@ static const Node* process(Context* ctx, const Node* old) {
             CopyBytes payload = old->payload.copy_bytes;
             const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 
             const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
@@ -49,12 +49,12 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
+            begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
             shd_set_value_name(index, "memcpy_i");
             Node* loop_case = l.loop_body;
-            BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_case));
+            BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
             const Node* loaded_word = gen_load(loop_bb, gen_lea(loop_bb, src_addr, index, shd_empty(a)));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), loaded_word);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
@@ -64,14 +64,14 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* false_case = case_(a, shd_empty(a));
             shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
-            shd_set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
-                .mem = bb_mem(loop_bb),
+            shd_set_abstraction_body(loop_case, shd_bld_finish(loop_bb, branch(a, (Branch) {
+                .mem = shd_bb_mem(loop_bb),
                 .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
-                .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
-                .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
+                .true_jump = jump_helper(a, shd_bb_mem(loop_bb), true_case, shd_empty(a)),
+                .false_jump = jump_helper(a, shd_bb_mem(loop_bb), false_case, shd_empty(a)),
             })));
 
-            return yield_values_and_wrap_in_block(bb, shd_empty(a));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case FillBytes_TAG: {
             FillBytes payload = old->payload.fill_bytes;
@@ -81,7 +81,7 @@ static const Node* process(Context* ctx, const Node* old) {
             assert(src_type->tag == Int_TAG);
             const Type* word_type = src_type;// int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
 
-            BodyBuilder* bb = begin_block_with_side_effects(a, shd_rewrite_node(r, payload.mem));
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 
             const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
@@ -96,12 +96,12 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* num = shd_rewrite_node(&ctx->rewriter, payload.count);
             const Node* num_in_words = gen_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num));
 
-            begin_loop_helper_t l = begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
+            begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
             shd_set_value_name(index, "memset_i");
             Node* loop_case = l.loop_body;
-            BodyBuilder* loop_bb = begin_body_with_mem(a, shd_get_abstraction_mem(loop_case));
+            BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
             gen_store(loop_bb, gen_lea(loop_bb, dst_addr, index, shd_empty(a)), src_value);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
@@ -110,13 +110,13 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* false_case = case_(a, shd_empty(a));
             shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
-            shd_set_abstraction_body(loop_case, finish_body(loop_bb, branch(a, (Branch) {
-                .mem = bb_mem(loop_bb),
+            shd_set_abstraction_body(loop_case, shd_bld_finish(loop_bb, branch(a, (Branch) {
+                .mem = shd_bb_mem(loop_bb),
                 .condition = gen_primop_e(loop_bb, lt_op, shd_empty(a), mk_nodes(a, next_index, num_in_words)),
-                .true_jump = jump_helper(a, bb_mem(loop_bb), true_case, shd_empty(a)),
-                .false_jump = jump_helper(a, bb_mem(loop_bb), false_case, shd_empty(a)),
+                .true_jump = jump_helper(a, shd_bb_mem(loop_bb), true_case, shd_empty(a)),
+                .false_jump = jump_helper(a, shd_bb_mem(loop_bb), false_case, shd_empty(a)),
             })));
-            return yield_values_and_wrap_in_block(bb, shd_empty(a));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         default: break;
     }
