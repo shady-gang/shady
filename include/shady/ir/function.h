@@ -27,4 +27,6 @@ String shd_get_abstraction_name_safe(const Node* abs);
 
 void shd_set_abstraction_body(Node* abs, const Node* body);
 
+Nodes shd_bld_call(BodyBuilder* bb, const Node* callee, Nodes args);
+
 #endif

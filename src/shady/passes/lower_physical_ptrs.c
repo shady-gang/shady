@@ -302,7 +302,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
-            Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_singleton(pointer_as_offset));
+            Nodes results = shd_bld_call(bb, fn_addr_helper(a, fn), shd_singleton(pointer_as_offset));
             return shd_bld_to_instr_yield_values(bb, results);
         }
         case Store_TAG: {
@@ -319,7 +319,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, true, ptr_type->payload.ptr_type.address_space);
 
             const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
-            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
+            shd_bld_call(bb, fn_addr_helper(a, fn), mk_nodes(a, pointer_as_offset, value));
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case StackAlloc_TAG: shd_error("This needs to be lowered (see setup_stack_frames.c)")
@@ -435,7 +435,7 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         if (old_init) {
             const Node* value = shd_rewrite_node(r, old_init);
             const Node* fn = gen_serdes_fn(ctx, shd_get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
-            gen_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
+            shd_bld_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
         }
     }
 }

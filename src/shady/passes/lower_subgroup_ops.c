@@ -125,7 +125,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
         build_fn_body(ctx, fn, scope, src_param, t);
     }
 
-    return shd_first(gen_call(bb, fn_addr_helper(a, fn), shd_singleton(src)));
+    return shd_first(shd_bld_call(bb, fn_addr_helper(a, fn), shd_singleton(src)));
 }
 
 static const Node* process(Context* ctx, const Node* node) {

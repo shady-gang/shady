@@ -147,7 +147,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             const Node* fn = gen_fn(ctx, element_type, push);
             Nodes args = shd_singleton(shd_rewrite_node(&ctx->rewriter, old->payload.push_stack.value));
-            gen_call(bb, fn_addr_helper(a, fn), args);
+            shd_bld_call(bb, fn_addr_helper(a, fn), args);
 
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
@@ -160,7 +160,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             bool push = false;
 
             const Node* fn = gen_fn(ctx, element_type, push);
-            Nodes results = gen_call(bb, fn_addr_helper(a, fn), shd_empty(a));
+            Nodes results = shd_bld_call(bb, fn_addr_helper(a, fn), shd_empty(a));
 
             assert(results.count == 1);
             return shd_bld_to_instr_yield_values(bb, results);
