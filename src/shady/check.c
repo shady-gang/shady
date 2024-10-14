@@ -24,14 +24,14 @@ static bool are_types_identical(size_t num_types, const Type* types[]) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
-const Type* check_type_join_point_type(IrArena* arena, JoinPointType type) {
+const Type* _shd_check_type_join_point_type(IrArena* arena, JoinPointType type) {
     for (size_t i = 0; i < type.yield_types.count; i++) {
         assert(shd_is_data_type(type.yield_types.nodes[i]));
     }
     return NULL;
 }
 
-const Type* check_type_record_type(IrArena* arena, RecordType type) {
+const Type* _shd_check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
         // member types are value types iff this is a return tuple
@@ -43,23 +43,23 @@ const Type* check_type_record_type(IrArena* arena, RecordType type) {
     return NULL;
 }
 
-const Type* check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
+const Type* _shd_check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
     assert(shd_is_data_type(qualified_type.type));
     assert(arena->config.is_simt || qualified_type.is_uniform);
     return NULL;
 }
 
-const Type* check_type_arr_type(IrArena* arena, ArrType type) {
+const Type* _shd_check_type_arr_type(IrArena* arena, ArrType type) {
     assert(shd_is_data_type(type.element_type));
     return NULL;
 }
 
-const Type* check_type_pack_type(IrArena* arena, PackType pack_type) {
+const Type* _shd_check_type_pack_type(IrArena* arena, PackType pack_type) {
     assert(shd_is_data_type(pack_type.element_type));
     return NULL;
 }
 
-const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
+const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
         shd_error_print("Address space %s is not allowed in this arena\n", shd_get_address_space_name(ptr_type.address_space));
         shd_error_die();
@@ -85,33 +85,33 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     return NULL;
 }
 
-const Type* check_type_param(IrArena* arena, Param variable) {
+const Type* _shd_check_type_param(IrArena* arena, Param variable) {
     assert(shd_is_value_type(variable.type));
     return variable.type;
 }
 
-const Type* check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
+const Type* _shd_check_type_untyped_number(IrArena* arena, UntypedNumber untyped) {
     shd_error("should never happen");
 }
 
-const Type* check_type_int_literal(IrArena* arena, IntLiteral lit) {
+const Type* _shd_check_type_int_literal(IrArena* arena, IntLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = int_type(arena, (Int) { .width = lit.width, .is_signed = lit.is_signed })
     });
 }
 
-const Type* check_type_float_literal(IrArena* arena, FloatLiteral lit) {
+const Type* _shd_check_type_float_literal(IrArena* arena, FloatLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
         .type = float_type(arena, (Float) { .width = lit.width })
     });
 }
 
-const Type* check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
-const Type* check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+const Type* _shd_check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+const Type* _shd_check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
 
-const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
+const Type* _shd_check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     const Type* t = arr_type(arena, (ArrType) {
         .element_type = shd_int8_type(arena),
         .size = shd_int32_literal(arena, strlen(str_lit.string))
@@ -122,12 +122,12 @@ const Type* check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     });
 }
 
-const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
+const Type* _shd_check_type_null_ptr(IrArena* a, NullPtr payload) {
     assert(shd_is_data_type(payload.ptr_type) && payload.ptr_type->tag == PtrType_TAG);
     return shd_as_qualified_type(payload.ptr_type, true);
 }
 
-const Type* check_type_composite(IrArena* arena, Composite composite) {
+const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
     if (composite.type) {
         assert(shd_is_data_type(composite.type));
         Nodes expected_member_types = shd_get_composite_type_element_types(composite.type);
@@ -158,7 +158,7 @@ const Type* check_type_composite(IrArena* arena, Composite composite) {
     });
 }
 
-const Type* check_type_fill(IrArena* arena, Fill payload) {
+const Type* _shd_check_type_fill(IrArena* arena, Fill payload) {
     assert(shd_is_data_type(payload.type));
     const Node* element_t = shd_get_fill_type_element_type(payload.type);
     const Node* value_t = payload.value->type;
@@ -170,7 +170,7 @@ const Type* check_type_fill(IrArena* arena, Fill payload) {
     });
 }
 
-const Type* check_type_undef(IrArena* arena, Undef payload) {
+const Type* _shd_check_type_undef(IrArena* arena, Undef payload) {
     assert(shd_is_data_type(payload.type));
     return qualified_type(arena, (QualifiedType) {
         .is_uniform = true,
@@ -178,11 +178,11 @@ const Type* check_type_undef(IrArena* arena, Undef payload) {
     });
 }
 
-const Type* check_type_mem_and_value(IrArena* arena, MemAndValue mav) {
+const Type* _shd_check_type_mem_and_value(IrArena* arena, MemAndValue mav) {
     return mav.value->type;
 }
 
-const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
+const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
     return qualified_type(arena, (QualifiedType) {
@@ -194,7 +194,7 @@ const Type* check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     });
 }
 
-const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
+const Type* _shd_check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     const Type* t = ref_decl.decl->type;
     assert(t && "RefDecl needs to be applied on a decl with a non-null type. Did you forget to set 'type' on a constant ?");
     switch (ref_decl.decl->tag) {
@@ -209,7 +209,7 @@ const Type* check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
     });
 }
 
-const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
+const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.type_arguments.count; i++) {
         const Node* ta = prim_op.type_arguments.nodes[i];
         assert(ta && is_type(ta));
@@ -576,7 +576,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 }
 
-const Type* check_type_ext_instr(IrArena* arena, ExtInstr payload) {
+const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
     return payload.result_t;
 }
 
@@ -604,7 +604,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     return fn_type->return_types;
 }
 
-const Type* check_type_call(IrArena* arena, Call call) {
+const Type* _shd_check_type_call(IrArena* arena, Call call) {
     Nodes args = call.args;
     for (size_t i = 0; i < args.count; i++) {
         const Node* argument = args.nodes[i];
@@ -626,7 +626,7 @@ static void ensure_types_are_value_types(const Nodes* yield_types) {
     }
 }
 
-const Type* check_type_if_instr(IrArena* arena, If if_instr) {
+const Type* _shd_check_type_if_instr(IrArena* arena, If if_instr) {
     assert(if_instr.tail && is_abstraction(if_instr.tail));
     ensure_types_are_data_types(&if_instr.yield_types);
     if (shd_get_unqualified_type(if_instr.condition->type) != bool_type(arena))
@@ -639,21 +639,21 @@ const Type* check_type_if_instr(IrArena* arena, If if_instr) {
     return noret_type(arena);
 }
 
-const Type* check_type_match_instr(IrArena* arena, Match match_instr) {
+const Type* _shd_check_type_match_instr(IrArena* arena, Match match_instr) {
     ensure_types_are_data_types(&match_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return noret_type(arena);
 }
 
-const Type* check_type_loop_instr(IrArena* arena, Loop loop_instr) {
+const Type* _shd_check_type_loop_instr(IrArena* arena, Loop loop_instr) {
     ensure_types_are_data_types(&loop_instr.yield_types);
     // TODO check param against initial_args
     // TODO check the contained Merge instrs
     return noret_type(arena);
 }
 
-const Type* check_type_control(IrArena* arena, Control control) {
+const Type* _shd_check_type_control(IrArena* arena, Control control) {
     ensure_types_are_data_types(&control.yield_types);
     // TODO check it then !
     const Node* join_point = shd_first(get_abstraction_params(control.inside));
@@ -673,11 +673,11 @@ const Type* check_type_control(IrArena* arena, Control control) {
     return noret_type(arena);
 }
 
-const Type* check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
+const Type* _shd_check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload) {
     return empty_multiple_return_type(arena);
 }
 
-const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
+const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
         .is_uniform = shd_is_addr_space_uniform(a, AsPrivate),
@@ -689,7 +689,7 @@ const Type* check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
     });
 }
 
-const Type* check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
+const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
         .is_uniform = shd_is_addr_space_uniform(a, AsFunction),
@@ -701,7 +701,7 @@ const Type* check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
     });
 }
 
-const Type* check_type_load(IrArena* a, Load load) {
+const Type* _shd_check_type_load(IrArena* a, Load load) {
     const Node* ptr_type = load.ptr->type;
     bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
     size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
@@ -714,7 +714,7 @@ const Type* check_type_load(IrArena* a, Load load) {
                                  ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
 }
 
-const Type* check_type_store(IrArena* a, Store store) {
+const Type* _shd_check_type_store(IrArena* a, Store store) {
     const Node* ptr_type = store.ptr->type;
     bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
     size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
@@ -733,7 +733,7 @@ const Type* check_type_store(IrArena* a, Store store) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffset lea) {
+const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffset lea) {
     const Type* base_ptr_type = lea.ptr->type;
     bool uniform = shd_deconstruct_qualified_type(&base_ptr_type);
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
@@ -760,7 +760,7 @@ const Type* check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffse
     });
 }
 
-const Type* check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea) {
+const Type* _shd_check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea) {
     const Type* base_ptr_type = lea.ptr->type;
     bool uniform = shd_deconstruct_qualified_type(&base_ptr_type);
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
@@ -778,7 +778,7 @@ const Type* check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea
     });
 }
 
-const Type* check_type_copy_bytes(IrArena* a, CopyBytes copy_bytes) {
+const Type* _shd_check_type_copy_bytes(IrArena* a, CopyBytes copy_bytes) {
     const Type* dst_t = copy_bytes.dst->type;
     shd_deconstruct_qualified_type(&dst_t);
     assert(dst_t->tag == PtrType_TAG);
@@ -791,7 +791,7 @@ const Type* check_type_copy_bytes(IrArena* a, CopyBytes copy_bytes) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
+const Type* _shd_check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
     const Type* dst_t = fill_bytes.dst->type;
     shd_deconstruct_qualified_type(&dst_t);
     assert(dst_t->tag == PtrType_TAG);
@@ -804,34 +804,34 @@ const Type* check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_push_stack(IrArena* a, PushStack payload) {
+const Type* _shd_check_type_push_stack(IrArena* a, PushStack payload) {
     assert(payload.value);
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_pop_stack(IrArena* a, PopStack payload) {
+const Type* _shd_check_type_pop_stack(IrArena* a, PopStack payload) {
     return shd_as_qualified_type(payload.type, false);
 }
 
-const Type* check_type_set_stack_size(IrArena* a, SetStackSize payload) {
+const Type* _shd_check_type_set_stack_size(IrArena* a, SetStackSize payload) {
     assert(shd_get_unqualified_type(payload.value->type) == shd_uint32_type(a));
     return shd_as_qualified_type(unit_type(a), true);
 }
 
-const Type* check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
+const Type* _shd_check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = shd_uint32_type(a) });
 }
 
-const Type* check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBaseAddr gsba) {
+const Type* _shd_check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBaseAddr gsba) {
     const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = shd_uint8_type(a), .address_space = AsPrivate});
     return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = ptr });
 }
 
-const Type* check_type_debug_printf(IrArena* a, DebugPrintf payload) {
+const Type* _shd_check_type_debug_printf(IrArena* a, DebugPrintf payload) {
     return empty_multiple_return_type(a);
 }
 
-const Type* check_type_tail_call(IrArena* arena, TailCall tail_call) {
+const Type* _shd_check_type_tail_call(IrArena* arena, TailCall tail_call) {
     Nodes args = tail_call.args;
     for (size_t i = 0; i < args.count; i++) {
         const Node* argument = args.nodes[i];
@@ -848,7 +848,7 @@ static void check_basic_block_call(const Node* block, Nodes argument_types) {
     check_arguments_types_against_parameters_helper(bb_type.param_types, argument_types);
 }
 
-const Type* check_type_jump(IrArena* arena, Jump jump) {
+const Type* _shd_check_type_jump(IrArena* arena, Jump jump) {
     for (size_t i = 0; i < jump.args.count; i++) {
         const Node* argument = jump.args.nodes[i];
         assert(is_value(argument));
@@ -858,13 +858,13 @@ const Type* check_type_jump(IrArena* arena, Jump jump) {
     return noret_type(arena);
 }
 
-const Type* check_type_branch(IrArena* arena, Branch payload) {
+const Type* _shd_check_type_branch(IrArena* arena, Branch payload) {
     assert(payload.true_jump->tag == Jump_TAG);
     assert(payload.false_jump->tag == Jump_TAG);
     return noret_type(arena);
 }
 
-const Type* check_type_br_switch(IrArena* arena, Switch payload) {
+const Type* _shd_check_type_br_switch(IrArena* arena, Switch payload) {
     for (size_t i = 0; i < payload.case_jumps.count; i++)
         assert(payload.case_jumps.nodes[i]->tag == Jump_TAG);
     assert(payload.case_values.count == payload.case_jumps.count);
@@ -872,7 +872,7 @@ const Type* check_type_br_switch(IrArena* arena, Switch payload) {
     return noret_type(arena);
 }
 
-const Type* check_type_join(IrArena* arena, Join join) {
+const Type* _shd_check_type_join(IrArena* arena, Join join) {
     for (size_t i = 0; i < join.args.count; i++) {
         const Node* argument = join.args.nodes[i];
         assert(is_value(argument));
@@ -891,43 +891,43 @@ const Type* check_type_join(IrArena* arena, Join join) {
     return noret_type(arena);
 }
 
-const Type* check_type_unreachable(IrArena* arena, SHADY_UNUSED Unreachable u) {
+const Type* _shd_check_type_unreachable(IrArena* arena, SHADY_UNUSED Unreachable u) {
     return noret_type(arena);
 }
 
-const Type* check_type_merge_continue(IrArena* arena, MergeContinue mc) {
+const Type* _shd_check_type_merge_continue(IrArena* arena, MergeContinue mc) {
     // TODO check it
     return noret_type(arena);
 }
 
-const Type* check_type_merge_break(IrArena* arena, MergeBreak mc) {
+const Type* _shd_check_type_merge_break(IrArena* arena, MergeBreak mc) {
     // TODO check it
     return noret_type(arena);
 }
 
-const Type* check_type_merge_selection(IrArena* arena, SHADY_UNUSED MergeSelection payload) {
+const Type* _shd_check_type_merge_selection(IrArena* arena, SHADY_UNUSED MergeSelection payload) {
     // TODO check it
     return noret_type(arena);
 }
 
-const Type* check_type_fn_ret(IrArena* arena, Return ret) {
+const Type* _shd_check_type_fn_ret(IrArena* arena, Return ret) {
     // assert(ret.fn);
     // TODO check it then !
     return noret_type(arena);
 }
 
-const Type* check_type_fun(IrArena* arena, Function fn) {
+const Type* _shd_check_type_fun(IrArena* arena, Function fn) {
     for (size_t i = 0; i < fn.return_types.count; i++) {
         assert(shd_is_value_type(fn.return_types.nodes[i]));
     }
     return fn_type(arena, (FnType) { .param_types = shd_get_param_types(arena, (&fn)->params), .return_types = (&fn)->return_types });
 }
 
-const Type* check_type_basic_block(IrArena* arena, BasicBlock bb) {
+const Type* _shd_check_type_basic_block(IrArena* arena, BasicBlock bb) {
     return bb_type(arena, (BBType) { .param_types = shd_get_param_types(arena, (&bb)->params) });
 }
 
-const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
+const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
     assert(is_type(global_variable.type));
 
     const Node* ba = shd_lookup_annotation_list(global_variable.annotations, "Builtin");
@@ -954,7 +954,7 @@ const Type* check_type_global_variable(IrArena* arena, GlobalVariable global_var
     });
 }
 
-const Type* check_type_constant(IrArena* arena, Constant cnst) {
+const Type* _shd_check_type_constant(IrArena* arena, Constant cnst) {
     assert(shd_is_data_type(cnst.type_hint));
     return cnst.type_hint;
 }

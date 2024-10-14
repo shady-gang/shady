@@ -25,9 +25,9 @@ void generate(Growy* g, json_object* src) {
             shd_growy_append_formatted(g, "\t\tcase %s_TAG: ", name);
             json_object* ops = json_object_object_get(node, "ops");
             if (ops)
-                shd_growy_append_formatted(g, "return check_type_%s(a, node->payload.%s);\n", snake_name, snake_name);
+                shd_growy_append_formatted(g, "return _shd_check_type_%s(a, node->payload.%s);\n", snake_name, snake_name);
             else
-                shd_growy_append_formatted(g, "return check_type_%s(a);\n", snake_name);
+                shd_growy_append_formatted(g, "return _shd_check_type_%s(a);\n", snake_name);
         }
 
         if (alloc)
