@@ -1,7 +1,5 @@
 #include "shady/pass.h"
 
-#include "../transform/ir_gen_helpers.h"
-
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;

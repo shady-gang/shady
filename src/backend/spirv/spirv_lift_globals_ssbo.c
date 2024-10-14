@@ -1,7 +1,8 @@
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
-
-#include "../shady/transform/ir_gen_helpers.h"
+#include "shady/ir/function.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/decl.h"
 
 #include "dict.h"
 #include "portability.h"

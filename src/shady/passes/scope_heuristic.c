@@ -4,7 +4,6 @@
 #include "../ir_private.h"
 #include "../analysis/cfg.h"
 #include "../analysis/looptree.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "list.h"

@@ -1,6 +1,6 @@
 #include "shady/ir/memory_layout.h"
-
-#include "transform/ir_gen_helpers.h"
+#include "shady/ir/float.h"
+#include "shady/ir/type.h"
 
 #include "log.h"
 #include "portability.h"

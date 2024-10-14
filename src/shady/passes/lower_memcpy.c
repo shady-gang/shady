@@ -2,7 +2,6 @@
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
-#include "../transform/ir_gen_helpers.h"
 #include "../ir_private.h"
 
 #include "log.h"

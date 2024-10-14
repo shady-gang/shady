@@ -2,8 +2,9 @@
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/ext.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "shady/ir/type.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/function.h"
 
 #include "portability.h"
 #include "log.h"

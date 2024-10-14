@@ -4,7 +4,6 @@
 #include "shady/ir/memory_layout.h"
 
 #include "../shady/ir_private.h"
-#include "../shady/transform/ir_gen_helpers.h"
 
 #include "log.h"
 #include "arena.h"

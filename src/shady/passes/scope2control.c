@@ -5,7 +5,6 @@
 #include "../ir_private.h"
 #include "../analysis/cfg.h"
 #include "../analysis/scheduler.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include "portability.h"
 #include "dict.h"

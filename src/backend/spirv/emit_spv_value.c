@@ -1,8 +1,8 @@
 #include "emit_spv.h"
 
 #include "shady/ir/memory_layout.h"
+#include "shady/ir/builtin.h"
 
-#include "../shady/transform/ir_gen_helpers.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/analysis/scheduler.h"
 

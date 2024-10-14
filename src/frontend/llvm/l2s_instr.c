@@ -2,8 +2,6 @@
 
 #include "shady/ir/memory_layout.h"
 
-#include "../shady/transform/ir_gen_helpers.h"
-
 #include "portability.h"
 #include "log.h"
 #include "dict.h"

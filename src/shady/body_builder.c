@@ -1,6 +1,9 @@
 #include "shady/ir/builder.h"
-
-#include "transform/ir_gen_helpers.h"
+#include "shady/ir/grammar.h"
+#include "shady/ir/function.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/arena.h"
+#include "shady/ir/mem.h"
 
 #include "list.h"
 #include "dict.h"

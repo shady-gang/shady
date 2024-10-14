@@ -1,7 +1,5 @@
 #include "shady/pass.h"
 
-#include "../transform/ir_gen_helpers.h"
-
 #include "portability.h"
 
 #include <string.h>

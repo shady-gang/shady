@@ -2,8 +2,8 @@
 #include "shady/ir/builder.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/module.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/decl.h"
 
 #include "log.h"
 #include "portability.h"

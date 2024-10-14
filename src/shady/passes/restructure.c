@@ -1,6 +1,8 @@
 #include "shady/pass.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "shady/ir/function.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/debug.h"
 
 #include <setjmp.h>
 #include <string.h>

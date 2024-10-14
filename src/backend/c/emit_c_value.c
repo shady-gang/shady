@@ -6,7 +6,6 @@
 #include "util.h"
 
 #include "../shady/ir_private.h"
-#include "../shady/transform/ir_gen_helpers.h"
 #include "../shady/analysis/scheduler.h"
 
 #include <spirv/unified1/spirv.h>

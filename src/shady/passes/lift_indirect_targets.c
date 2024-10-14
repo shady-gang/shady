@@ -7,7 +7,6 @@
 
 #include "../ir_private.h"
 
-#include "../transform/ir_gen_helpers.h"
 #include "../analysis/cfg.h"
 #include "../analysis/uses.h"
 #include "../analysis/leak.h"

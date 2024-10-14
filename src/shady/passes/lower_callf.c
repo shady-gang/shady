@@ -2,8 +2,8 @@
 
 #include "shady/pass.h"
 #include "shady/ir/ext.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/function.h"
 
 #include "log.h"
 #include "portability.h"

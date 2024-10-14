@@ -9,7 +9,6 @@
 #include "util.h"
 
 #include "ir_private.h"
-#include "transform/ir_gen_helpers.h"
 
 #include <stdlib.h>
 #include <stdio.h>

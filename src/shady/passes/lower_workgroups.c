@@ -1,7 +1,7 @@
 #include "shady/pass.h"
+#include "shady/ir/builtin.h"
 
 #include "../ir_private.h"
-#include "../transform/ir_gen_helpers.h"
 
 #include "util.h"
 

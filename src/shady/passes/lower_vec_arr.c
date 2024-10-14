@@ -1,6 +1,7 @@
 #include "shady/pass.h"
-
-#include "../transform/ir_gen_helpers.h"
+#include "shady/ir/type.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/primop.h"
 
 #include "portability.h"
 
