@@ -205,8 +205,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Type* jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
                 });
-                const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
-                                                     shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
+                const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
+                                                         shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 

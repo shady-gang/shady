@@ -45,8 +45,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
-                ctx2.return_jp = gen_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
-                                                     shd_as_qualified_type(jp_type, true), shd_empty(a));
+                ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
+                                                         shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
                 const Node* jp_variable = param(a, shd_as_qualified_type(jp_type, false), "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);

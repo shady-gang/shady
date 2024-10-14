@@ -859,13 +859,13 @@ static bool accept_statement(ctxparams, BodyBuilder* bb) {
         expect_identifiers(ctx, &ids);
         expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
-        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(arena), shd_nodes_prepend(arena, strings2nodes(arena, ids), instruction));
+        shd_bld_ext_instruction(bb, "shady.frontend", SlimOpBindVal, unit_type(arena), shd_nodes_prepend(arena, strings2nodes(arena, ids), instruction));
     } else if (accept_token(ctx, var_tok)) {
         Nodes types;
         expect_types_and_identifiers(ctx, &ids, &types);
         expect(accept_token(ctx, equal_tok), "'='");
         const Node* instruction = accept_instruction(ctx, bb);
-        gen_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(arena), shd_nodes_prepend(arena, shd_concat_nodes(arena, strings2nodes(arena, ids), types), instruction));
+        shd_bld_ext_instruction(bb, "shady.frontend", SlimOpBindVar, unit_type(arena), shd_nodes_prepend(arena, shd_concat_nodes(arena, strings2nodes(arena, ids), types), instruction));
     } else {
         const Node* instr = accept_instruction(ctx, bb);
         if (!instr) return false;
@@ -1047,7 +1047,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
         }
     }
 
-    gen_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), shd_concat_nodes(arena, ids, conts));
+    shd_bld_ext_instruction(cont_wrapper_bb, "shady.frontend", SlimOpBindContinuations, unit_type(arena), shd_concat_nodes(arena, ids, conts));
     expect(accept_token(ctx, rbracket_tok), "']'");
 
     shd_set_abstraction_body(cont_wrapper_case, shd_bld_jump(cont_wrapper_bb, terminator_case, shd_empty(arena)));

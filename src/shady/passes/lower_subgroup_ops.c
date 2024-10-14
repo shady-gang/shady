@@ -109,7 +109,7 @@ static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Nod
     Module* m = ctx->rewriter.dst_module;
     const Node* t = shd_get_unqualified_type(src->type);
     if (is_supported_natively(ctx, t))
-        return gen_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
+        return shd_bld_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
 
     if (shd_resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
         shd_error("TODO")
