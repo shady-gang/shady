@@ -515,7 +515,7 @@ SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder* file_builder, SpvId fn_id, SpvId f
     return fnb;
 }
 
-SpvId fn_ret_type_id(SpvbFnBuilder* fnb){
+SpvId spvb_fn_ret_type_id(SpvbFnBuilder* fnb){
     return fnb->fn_ret_type;
 }
 

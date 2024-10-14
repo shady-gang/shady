@@ -66,7 +66,7 @@ SpvId spvb_global_variable(SpvbFileBuilder*, SpvId id, SpvId type, SpvStorageCla
 
 // Function building stuff
 SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
-SpvId fn_ret_type_id(SpvbFnBuilder*);
+SpvId spvb_fn_ret_type_id(SpvbFnBuilder* fnb);
 SpvId spvb_parameter(SpvbFnBuilder* fn_builder, SpvId param_type);
 SpvId spvb_local_variable(SpvbFnBuilder* fn_builder, SpvId type, SpvStorageClass storage_class);
 void spvb_declare_function(SpvbFileBuilder*, SpvbFnBuilder* fn_builder);

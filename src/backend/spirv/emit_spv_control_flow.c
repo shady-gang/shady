@@ -170,7 +170,7 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
                     LARRAY(SpvId, arr, ret_values->count);
                     for (size_t i = 0; i < ret_values->count; i++)
                         arr[i] = spv_emit_value(emitter, fn_builder, ret_values->nodes[i]);
-                    SpvId return_that = spvb_composite(basic_block_builder, fn_ret_type_id(fn_builder->base), ret_values->count, arr);
+                    SpvId return_that = spvb_composite(basic_block_builder, spvb_fn_ret_type_id(fn_builder->base), ret_values->count, arr);
                     spvb_return_value(basic_block_builder, return_that);
                     return;
                 }
