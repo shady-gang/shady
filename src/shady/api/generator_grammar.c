@@ -124,7 +124,7 @@ static void generate_isa_for_class(Growy* g, json_object* nodes, String class, S
         shd_growy_append_formatted(g, "static inline %sTag is_%s(const Node* node) {\n", capitalized_class, class);
     else
         shd_growy_append_formatted(g, "static inline bool is_%s(const Node* node) {\n", class);
-    shd_growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
+    shd_growy_append_formatted(g, "\tif (shd_get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
     if (use_enum) {
         shd_growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
         shd_growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
@@ -255,7 +255,7 @@ void generate(Growy* g, json_object* src) {
 
     json_object* nodes = json_object_object_get(src, "nodes");
     generate_node_tags(g, nodes);
-    shd_growy_append_formatted(g, "NodeClass get_node_class_from_tag(NodeTag tag);\n\n");
+    shd_growy_append_formatted(g, "NodeClass shd_get_node_class_from_tag(NodeTag tag);\n\n");
     generate_node_payloads(g, src, nodes);
     generate_node_type(g, nodes);
 

@@ -150,7 +150,7 @@ void generate(Growy* g, json_object* src) {
     generate_node_has_payload_array(g, nodes);
     generate_node_payload_hash_fn(g, src, nodes);
     generate_node_payload_cmp_fn(g, src, nodes);
-    generate_bit_enum_classifier(g, "get_node_class_from_tag", "NodeClass", "Nc", "NodeTag", "", "_TAG", nodes);
+    generate_bit_enum_classifier(g, "shd_get_node_class_from_tag", "NodeClass", "Nc", "NodeTag", "", "_TAG", nodes);
 
     json_object* node_classes = json_object_object_get(src, "node-classes");
     for (size_t i = 0; i < json_object_array_length(node_classes); i++) {
