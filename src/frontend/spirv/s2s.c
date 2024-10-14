@@ -736,7 +736,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
 
             AddressSpace as = convert_storage_class(instruction[3]);
             const Type* contents_t = get_def_type(parser, result_t);
-            AddressSpace as2 = deconstruct_pointer_type(&contents_t);
+            AddressSpace as2 = shd_deconstruct_pointer_type(&contents_t);
             assert(as == as2);
             assert(shd_is_data_type(contents_t));
 
@@ -1087,7 +1087,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
             if (op == SpvOpCopyMemory) {
                 const Type* elem_t = src->type;
                 shd_deconstruct_qualified_type(&elem_t);
-                deconstruct_pointer_type(&elem_t);
+                shd_deconstruct_pointer_type(&elem_t);
                 cnt = shd_first(bind_instruction_outputs_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = size_of_op,
                     .type_arguments = shd_singleton(elem_t),

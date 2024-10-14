@@ -107,7 +107,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case TypeDeclRef_TAG:
         case RecordType_TAG: {
             const Type* compound_type = element_type;
-            compound_type = get_maybe_nominal_type_body(compound_type);
+            compound_type = shd_get_maybe_nominal_type_body(compound_type);
 
             Nodes member_types = compound_type->payload.record_type.members;
             LARRAY(const Node*, loaded, member_types.count);
@@ -120,14 +120,14 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         }
         case ArrType_TAG:
         case PackType_TAG: {
-            const Node* size = get_fill_type_size(element_type);
+            const Node* size = shd_get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
                 shd_error_print("Size of type ");
                 shd_log_node(ERROR, element_type);
                 shd_error_print(" is not known a compile-time!\n");
             }
             size_t components_count = shd_get_int_literal_value(*shd_resolve_to_int_literal(size), 0);
-            const Type* component_type = get_fill_type_element_type(element_type);
+            const Type* component_type = shd_get_fill_type_element_type(element_type);
             LARRAY(const Node*, components, components_count);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
@@ -224,14 +224,14 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         }
         case ArrType_TAG:
         case PackType_TAG: {
-            const Node* size = get_fill_type_size(element_type);
+            const Node* size = shd_get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
                 shd_error_print("Size of type ");
                 shd_log_node(ERROR, element_type);
                 shd_error_print(" is not known a compile-time!\n");
             }
             size_t components_count = shd_get_int_literal_value(*shd_resolve_to_int_literal(size), 0);
-            const Type* component_type = get_fill_type_element_type(element_type);
+            const Type* component_type = shd_get_fill_type_element_type(element_type);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, shd_singleton(shd_int32_literal(a, i))));

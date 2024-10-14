@@ -19,11 +19,11 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
     while (true) {
         const Type* actual_type = shd_get_unqualified_type(ptr->type);
         assert(actual_type->tag == PtrType_TAG);
-        actual_type = get_pointer_type_element(actual_type);
+        actual_type = shd_get_pointer_type_element(actual_type);
         if (expected_type == actual_type)
             break;
 
-        actual_type = get_maybe_nominal_type_body(actual_type);
+        actual_type = shd_get_maybe_nominal_type_body(actual_type);
         assert(expected_type != actual_type && "todo: rework this function if we change how nominal types are handled");
 
         switch (actual_type->tag) {
@@ -76,7 +76,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
-                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+                ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
             return bind_last_instruction_and_wrap_in_block(bb, ptr_composite_element(a, (PtrCompositeElement) { .ptr = ptr, .index = shd_rewrite_node(r, payload.index)}));
         }
         case PrimOp_TAG: {
@@ -104,7 +104,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
-                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+                ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
             return load(a, (Load) { .ptr = yield_value_and_wrap_in_block(bb, ptr), .mem = shd_rewrite_node(r, payload.mem) });
         }
         case Store_TAG: {
@@ -117,7 +117,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* actual_type = shd_get_unqualified_type(ptr->type);
             BodyBuilder* bb = begin_block_pure(a);
             if (expected_type != actual_type)
-                ptr = guess_pointer_casts(ctx, bb, ptr, get_pointer_type_element(expected_type));
+                ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
             return bind_last_instruction_and_wrap_in_block(bb, store(a, (Store) { .ptr = ptr, .value = shd_rewrite_node(r, payload.value), .mem = shd_rewrite_node(r, payload.mem) }));
         }
         case GlobalVariable_TAG: {

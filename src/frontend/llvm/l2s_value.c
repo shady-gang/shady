@@ -12,7 +12,7 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
     size_t idc;
     const char* raw_bytes = LLVMGetAsString(v, &idc);
     for (size_t i = 0; i < size; i++) {
-        const Type* et = get_fill_type_element_type(t);
+        const Type* et = shd_get_fill_type_element_type(t);
         switch (et->tag) {
             case Int_TAG: {
                 switch (et->payload.int_type.width) {
@@ -100,7 +100,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             return data_composite(t, width, v);
         }
         case LLVMConstantStructValueKind: {
-            const Node* actual_t = get_maybe_nominal_type_body(t);
+            const Node* actual_t = shd_get_maybe_nominal_type_body(t);
             assert(actual_t->tag == RecordType_TAG);
             size_t size = actual_t->payload.record_type.members.count;
             LARRAY(const Node*, elements, size);

@@ -46,8 +46,8 @@ bool shd_is_addr_space_uniform(IrArena*, AddressSpace);
 
 String shd_get_type_name(IrArena* arena, const Type* t);
 
-const Type* maybe_multiple_return(IrArena* arena, Nodes types);
-Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type);
+const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types);
+Nodes shd_unwrap_multiple_yield_types(IrArena* arena, const Type* type);
 
 /// Collects the annotated types in the list of variables
 /// NB: this is different from get_values_types, that function uses node.type, whereas this one uses node.payload.var.type
@@ -68,32 +68,32 @@ Nodes shd_strip_qualifiers(IrArena*, Nodes);
 Nodes shd_add_qualifiers(IrArena*, Nodes, bool);
 
 // Pack (vector) type helpers
-const Type* get_packed_type_element(const Type*);
-size_t get_packed_type_width(const Type*);
-size_t deconstruct_packed_type(const Type**);
+const Type* shd_get_packed_type_element(const Type* type);
+size_t shd_get_packed_type_width(const Type* type);
+size_t shd_deconstruct_packed_type(const Type** type);
 
 /// Helper for creating pack types, wraps type in a pack_type if width > 1
-const Type* maybe_packed_type_helper(const Type*, size_t width);
+const Type* shd_maybe_packed_type_helper(const Type* type, size_t width);
 
 /// 'Maybe' variants that work with any types, and assume width=1 for non-packed types
 /// Useful for writing generic type checking code !
-const Type* get_maybe_packed_type_element(const Type*);
-size_t get_maybe_packed_type_width(const Type*);
-size_t deconstruct_maybe_packed_type(const Type**);
+const Type* shd_get_maybe_packed_type_element(const Type* type);
+size_t shd_get_maybe_packed_type_width(const Type* type);
+size_t shd_deconstruct_maybe_packed_type(const Type** type);
 
 // Pointer type helpers
-const Type* get_pointer_type_element(const Type*);
-AddressSpace deconstruct_pointer_type(const Type**);
+const Type* shd_get_pointer_type_element(const Type* type);
+AddressSpace shd_deconstruct_pointer_type(const Type** type);
 
 // Nominal type helpers
-const Node* get_nominal_type_decl(const Type*);
-const Type* get_nominal_type_body(const Type*);
-const Node* get_maybe_nominal_type_decl(const Type*);
-const Type* get_maybe_nominal_type_body(const Type*);
+const Node* shd_get_nominal_type_decl(const Type* type);
+const Type* shd_get_nominal_type_body(const Type* type);
+const Node* shd_get_maybe_nominal_type_decl(const Type* type);
+const Type* shd_get_maybe_nominal_type_body(const Type* type);
 
 // Composite type helpers
-Nodes get_composite_type_element_types(const Type*);
-const Node* get_fill_type_element_type(const Type*);
-const Node* get_fill_type_size(const Type*);
+Nodes shd_get_composite_type_element_types(const Type* type);
+const Node* shd_get_fill_type_element_type(const Type* composite_t);
+const Node* shd_get_fill_type_size(const Type* composite_t);
 
 #endif

@@ -247,7 +247,7 @@ CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CT
 static const Type* get_first_op_scalar_type(Nodes ops) {
     const Type* t = shd_first(ops)->type;
     shd_deconstruct_qualified_type(&t);
-    deconstruct_maybe_packed_type(&t);
+    shd_deconstruct_maybe_packed_type(&t);
     return t;
 }
 
@@ -510,7 +510,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case offset_of_op: {
             const Type* t = shd_first(prim_op->type_arguments);
             while (t->tag == TypeDeclRef_TAG) {
-                t = get_nominal_type_body(t);
+                t = shd_get_nominal_type_body(t);
             }
             const Node* index = shd_first(prim_op->operands);
             uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
@@ -813,7 +813,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             break;
         }
         case TypeDeclRef_TAG: {
-            pointee_type = get_nominal_type_body(pointee_type);
+            pointee_type = shd_get_nominal_type_body(pointee_type);
             SHADY_FALLTHROUGH
         }
         case RecordType_TAG: {

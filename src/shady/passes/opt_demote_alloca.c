@@ -193,7 +193,7 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
+                const Type* access_type = shd_get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
                 if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
@@ -211,7 +211,7 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_rewrite_node(r, payload.mem);
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
-                const Type* access_type = get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
+                const Type* access_type = shd_get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
                 if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;

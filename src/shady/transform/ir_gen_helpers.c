@@ -303,7 +303,7 @@ const Node* get_default_zero_value(IrArena* a, const Type* t) {
         case Type_ArrType_TAG:
         case Type_PackType_TAG:
         case Type_TypeDeclRef_TAG: {
-            Nodes elem_tys = get_composite_type_element_types(t);
+            Nodes elem_tys = shd_get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);
             }

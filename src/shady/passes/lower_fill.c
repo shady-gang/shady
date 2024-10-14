@@ -16,7 +16,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Fill_TAG: {
             const Type* composite_t = shd_rewrite_node(r, node->payload.fill.type);
-            size_t actual_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(get_fill_type_size(composite_t)), false);
+            size_t actual_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_fill_type_size(composite_t)), false);
             const Node* value = shd_rewrite_node(r, node->payload.fill.value);
             LARRAY(const Node*, copies, actual_size);
             for (size_t i = 0; i < actual_size; i++) {

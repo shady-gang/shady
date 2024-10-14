@@ -246,7 +246,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             Nodes omembers = node->payload.composite.contents;
             LARRAY(const Node*, inferred, omembers.count);
             if (elem_type) {
-                Nodes expected_members = get_composite_type_element_types(elem_type);
+                Nodes expected_members = shd_get_composite_type_element_types(elem_type);
                 for (size_t i = 0; i < omembers.count; i++)
                     inferred[i] = infer(ctx, omembers.nodes[i], qualified_type(a, (QualifiedType) { .is_uniform = uniform, .type = expected_members.nodes[i] }));
             } else {
@@ -272,7 +272,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 composite_t = expected_type;
             }
             assert(composite_t);
-            const Node* element_t = get_fill_type_element_type(composite_t);
+            const Node* element_t = shd_get_fill_type_element_type(composite_t);
             const Node* value = infer(ctx, node->payload.fill.value, qualified_type(a, (QualifiedType) { .is_uniform = uniform, .type = element_t }));
             return fill(a, (Fill) { .type = composite_t, .value = value });
         }

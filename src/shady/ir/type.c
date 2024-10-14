@@ -185,7 +185,7 @@ bool shd_is_data_type(const Type* type) {
             return type->payload.record_type.special == NotSpecial;
         }
         case Type_TypeDeclRef_TAG:
-            return !get_nominal_type_body(type) || shd_is_data_type(get_nominal_type_body(type));
+            return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
         // qualified types are not data types because that information is only meant for values
         case Type_QualifiedType_TAG: return false;
         // values cannot contain abstractions
@@ -323,7 +323,7 @@ String shd_get_type_name(IrArena* arena, const Type* t) {
     return shd_make_unique_name(arena, shd_get_node_tag_string(t->tag));
 }
 
-const Type* maybe_multiple_return(IrArena* arena, Nodes types) {
+const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types) {
     switch (types.count) {
         case 0: return empty_multiple_return_type(arena);
         case 1: return types.nodes[0];
@@ -336,7 +336,7 @@ const Type* maybe_multiple_return(IrArena* arena, Nodes types) {
     SHADY_UNREACHABLE;
 }
 
-Nodes unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
+Nodes shd_unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     switch (type->tag) {
         case RecordType_TAG:
             if (type->payload.record_type.special == MultipleReturn)
@@ -424,34 +424,34 @@ Nodes shd_add_qualifiers(IrArena* arena, Nodes tys, bool uniform) {
     return shd_nodes(arena, tys.count, arr);
 }
 
-const Type* get_packed_type_element(const Type* type) {
+const Type* shd_get_packed_type_element(const Type* type) {
     const Type* t = type;
-    deconstruct_packed_type(&t);
+    shd_deconstruct_packed_type(&t);
     return t;
 }
 
-size_t get_packed_type_width(const Type* type) {
+size_t shd_get_packed_type_width(const Type* type) {
     const Type* t = type;
-    return deconstruct_packed_type(&t);
+    return shd_deconstruct_packed_type(&t);
 }
 
-size_t deconstruct_packed_type(const Type** type) {
+size_t shd_deconstruct_packed_type(const Type** type) {
     assert((*type)->tag == PackType_TAG);
-    return deconstruct_maybe_packed_type(type);
+    return shd_deconstruct_maybe_packed_type(type);
 }
 
-const Type* get_maybe_packed_type_element(const Type* type) {
+const Type* shd_get_maybe_packed_type_element(const Type* type) {
     const Type* t = type;
-    deconstruct_maybe_packed_type(&t);
+    shd_deconstruct_maybe_packed_type(&t);
     return t;
 }
 
-size_t get_maybe_packed_type_width(const Type* type) {
+size_t shd_get_maybe_packed_type_width(const Type* type) {
     const Type* t = type;
-    return deconstruct_maybe_packed_type(&t);
+    return shd_deconstruct_maybe_packed_type(&t);
 }
 
-size_t deconstruct_maybe_packed_type(const Type** type) {
+size_t shd_deconstruct_maybe_packed_type(const Type** type) {
     const Type* t = *type;
     assert(shd_is_data_type(t));
     if (t->tag == PackType_TAG) {
@@ -461,7 +461,7 @@ size_t deconstruct_maybe_packed_type(const Type** type) {
     return 1;
 }
 
-const Type* maybe_packed_type_helper(const Type* type, size_t width) {
+const Type* shd_maybe_packed_type_helper(const Type* type, size_t width) {
     assert(width > 0);
     if (width == 1)
         return type;
@@ -471,30 +471,30 @@ const Type* maybe_packed_type_helper(const Type* type, size_t width) {
     });
 }
 
-const Type* get_pointer_type_element(const Type* type) {
+const Type* shd_get_pointer_type_element(const Type* type) {
     const Type* t = type;
-    deconstruct_pointer_type(&t);
+    shd_deconstruct_pointer_type(&t);
     return t;
 }
 
-AddressSpace deconstruct_pointer_type(const Type** type) {
+AddressSpace shd_deconstruct_pointer_type(const Type** type) {
     const Type* t = *type;
     assert(t->tag == PtrType_TAG);
     *type = t->payload.ptr_type.pointed_type;
     return t->payload.ptr_type.address_space;
 }
 
-const Node* get_nominal_type_decl(const Type* type) {
+const Node* shd_get_nominal_type_decl(const Type* type) {
     assert(type->tag == TypeDeclRef_TAG);
-    return get_maybe_nominal_type_decl(type);
+    return shd_get_maybe_nominal_type_decl(type);
 }
 
-const Type* get_nominal_type_body(const Type* type) {
+const Type* shd_get_nominal_type_body(const Type* type) {
     assert(type->tag == TypeDeclRef_TAG);
-    return get_maybe_nominal_type_body(type);
+    return shd_get_maybe_nominal_type_body(type);
 }
 
-const Node* get_maybe_nominal_type_decl(const Type* type) {
+const Node* shd_get_maybe_nominal_type_decl(const Type* type) {
     if (type->tag == TypeDeclRef_TAG) {
         const Node* decl = type->payload.type_decl_ref.decl;
         assert(decl->tag == NominalType_TAG);
@@ -503,17 +503,17 @@ const Node* get_maybe_nominal_type_decl(const Type* type) {
     return NULL;
 }
 
-const Type* get_maybe_nominal_type_body(const Type* type) {
-    const Node* decl = get_maybe_nominal_type_decl(type);
+const Type* shd_get_maybe_nominal_type_body(const Type* type) {
+    const Node* decl = shd_get_maybe_nominal_type_decl(type);
     if (decl)
         return decl->payload.nom_type.body;
     return type;
 }
 
-Nodes get_composite_type_element_types(const Type* type) {
+Nodes shd_get_composite_type_element_types(const Type* type) {
     switch (is_type(type)) {
         case Type_TypeDeclRef_TAG: {
-            type = get_nominal_type_body(type);
+            type = shd_get_nominal_type_body(type);
             assert(type->tag == RecordType_TAG);
             SHADY_FALLTHROUGH
         }
@@ -522,11 +522,11 @@ Nodes get_composite_type_element_types(const Type* type) {
         }
         case Type_ArrType_TAG:
         case Type_PackType_TAG: {
-            size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(get_fill_type_size(type)), false);
+            size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_fill_type_size(type)), false);
             if (size >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
             }
-            const Type* element_type = get_fill_type_element_type(type);
+            const Type* element_type = shd_get_fill_type_element_type(type);
             LARRAY(const Type*, types, size);
             for (size_t i = 0; i < size; i++) {
                 types[i] = element_type;
@@ -537,7 +537,7 @@ Nodes get_composite_type_element_types(const Type* type) {
     }
 }
 
-const Node* get_fill_type_element_type(const Type* composite_t) {
+const Node* shd_get_fill_type_element_type(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.element_type;
         case PackType_TAG: return composite_t->payload.pack_type.element_type;
@@ -545,7 +545,7 @@ const Node* get_fill_type_element_type(const Type* composite_t) {
     }
 }
 
-const Node* get_fill_type_size(const Type* composite_t) {
+const Node* shd_get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.size;
         case PackType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.pack_type.width);

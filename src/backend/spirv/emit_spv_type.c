@@ -139,7 +139,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         } case PtrType_TAG: {
             SpvStorageClass sc = spv_emit_addr_space(emitter, type->payload.ptr_type.address_space);
             const Type* pointed_type = type->payload.ptr_type.pointed_type;
-            if (get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
+            if (shd_get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
                 spv_register_emitted(emitter, NULL, type, new);
                 SpvId pointee = spv_emit_type(emitter, pointed_type);

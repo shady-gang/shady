@@ -56,7 +56,7 @@ static void write_value(unsigned char* tgt, const Node* value) {
         case Composite_TAG: {
             Nodes values = value->payload.composite.contents;
             const Type* struct_t = value->payload.composite.type;
-            struct_t = get_maybe_nominal_type_body(struct_t);
+            struct_t = shd_get_maybe_nominal_type_body(struct_t);
 
             if (struct_t->tag == RecordType_TAG) {
                 LARRAY(FieldLayout, fields, values.count);

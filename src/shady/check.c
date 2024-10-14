@@ -76,7 +76,7 @@ const Type* check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         }
         const Node* maybe_record_type = ptr_type.pointed_type;
         if (maybe_record_type->tag == TypeDeclRef_TAG)
-            maybe_record_type = get_nominal_type_body(maybe_record_type);
+            maybe_record_type = shd_get_nominal_type_body(maybe_record_type);
         if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
             return NULL;
         }
@@ -130,7 +130,7 @@ const Type* check_type_null_ptr(IrArena* a, NullPtr payload) {
 const Type* check_type_composite(IrArena* arena, Composite composite) {
     if (composite.type) {
         assert(shd_is_data_type(composite.type));
-        Nodes expected_member_types = get_composite_type_element_types(composite.type);
+        Nodes expected_member_types = shd_get_composite_type_element_types(composite.type);
         bool is_uniform = true;
         assert(composite.contents.count == expected_member_types.count);
         for (size_t i = 0; i < composite.contents.count; i++) {
@@ -160,7 +160,7 @@ const Type* check_type_composite(IrArena* arena, Composite composite) {
 
 const Type* check_type_fill(IrArena* arena, Fill payload) {
     assert(shd_is_data_type(payload.type));
-    const Node* element_t = get_fill_type_element_type(payload.type);
+    const Node* element_t = shd_get_fill_type_element_type(payload.type);
     const Node* value_t = payload.value->type;
     bool u = shd_deconstruct_qualified_type(&value_t);
     assert(shd_is_subtype(element_t, value_t));
@@ -228,7 +228,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
-            assert(shd_is_arithm_type(get_maybe_packed_type_element(shd_get_unqualified_type(type))));
+            assert(shd_is_arithm_type(shd_get_maybe_packed_type_element(shd_get_unqualified_type(type))));
             return type;
         }
         case rshift_arithm_op:
@@ -242,14 +242,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             bool uniform_result = shd_deconstruct_qualified_type(&first_operand_type);
             uniform_result &= shd_deconstruct_qualified_type(&second_operand_type);
 
-            size_t value_simd_width = deconstruct_maybe_packed_type(&first_operand_type);
-            size_t shift_simd_width = deconstruct_maybe_packed_type(&second_operand_type);
+            size_t value_simd_width = shd_deconstruct_maybe_packed_type(&first_operand_type);
+            size_t shift_simd_width = shd_deconstruct_maybe_packed_type(&second_operand_type);
             assert(value_simd_width == shift_simd_width);
 
             assert(first_operand_type->tag == Int_TAG);
             assert(second_operand_type->tag == Int_TAG);
 
-            return shd_as_qualified_type(maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
+            return shd_as_qualified_type(shd_maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
         }
         case add_carry_op:
         case sub_borrow_op:
@@ -271,7 +271,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_is_arithm_type(get_maybe_packed_type_element(operand_type)));
+                assert(shd_is_arithm_type(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -290,7 +290,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
-            assert(shd_has_boolean_ops(get_maybe_packed_type_element(shd_get_unqualified_type(type))));
+            assert(shd_has_boolean_ops(shd_get_maybe_packed_type_element(shd_get_unqualified_type(type))));
             return type;
         }
         case or_op:
@@ -306,7 +306,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_has_boolean_ops(get_maybe_packed_type_element(operand_type)));
+                assert(shd_has_boolean_ops(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -323,7 +323,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
-            size_t first_operand_width = get_maybe_packed_type_width(first_operand_type);
+            size_t first_operand_width = shd_get_maybe_packed_type_width(first_operand_type);
 
             bool result_uniform = true;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
@@ -331,13 +331,13 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
 
-                assert((ordered ? shd_is_ordered_type : shd_is_comparable_type)(get_maybe_packed_type_element(operand_type)));
+                assert((ordered ? shd_is_ordered_type : shd_is_comparable_type)(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
             }
 
-            return shd_as_qualified_type(maybe_packed_type_helper(bool_type(arena), first_operand_width),
+            return shd_as_qualified_type(shd_maybe_packed_type_helper(bool_type(arena), first_operand_width),
                                          result_uniform);
         }
         case sqrt_op:
@@ -354,9 +354,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             bool uniform = shd_deconstruct_qualified_type(&src_type);
-            size_t width = deconstruct_maybe_packed_type(&src_type);
+            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG);
-            return shd_as_qualified_type(maybe_packed_type_helper(src_type, width), uniform);
+            return shd_as_qualified_type(shd_maybe_packed_type_helper(src_type, width), uniform);
         }
         case pow_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -369,7 +369,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -388,7 +388,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_uniform &= operand_uniform;
@@ -403,9 +403,9 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             bool uniform = shd_deconstruct_qualified_type(&src_type);
-            size_t width = deconstruct_maybe_packed_type(&src_type);
+            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
-            return shd_as_qualified_type(maybe_packed_type_helper(src_type, width), uniform);
+            return shd_as_qualified_type(shd_maybe_packed_type_helper(src_type, width), uniform);
         }
         case align_of_op:
         case size_of_op: {
@@ -432,14 +432,14 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
             bool condition_uniform = shd_deconstruct_qualified_type(&condition_type);
-            size_t width = deconstruct_maybe_packed_type(&condition_type);
+            size_t width = shd_deconstruct_maybe_packed_type(&condition_type);
 
             const Type* alternatives_types[2];
             bool alternatives_all_uniform = true;
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
                 alternatives_all_uniform &= shd_deconstruct_qualified_type(&alternatives_types[i]);
-                size_t alternative_width = deconstruct_maybe_packed_type(&alternatives_types[i]);
+                size_t alternative_width = shd_deconstruct_maybe_packed_type(&alternatives_types[i]);
                 assert(alternative_width == width);
             }
 
@@ -447,7 +447,7 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return shd_as_qualified_type(maybe_packed_type_helper(alternatives_types[0], width),
+            return shd_as_qualified_type(shd_maybe_packed_type_helper(alternatives_types[0], width),
                                          alternatives_all_uniform && condition_uniform);
         }
         case insert_op:
@@ -569,8 +569,8 @@ const Type* check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(sampled_image_t->tag == SampledImageType_TAG);
             const Type* image_t = sampled_image_t->payload.sampled_image_type.image_type;
             assert(image_t->tag == ImageType_TAG);
-            size_t coords_dim = deconstruct_packed_type(&coords_t);
-            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });
+            size_t coords_dim = shd_deconstruct_packed_type(&coords_t);
+            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = shd_maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });
         }
         case PRIMOPS_COUNT: assert(false);
     }
@@ -593,7 +593,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
 
     const Type* callee_type = callee->type;
     SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
-    AddressSpace as = deconstruct_pointer_type(&callee_type);
+    AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
     assert(as == AsGeneric);
 
     assert(callee_type->tag == FnType_TAG);
@@ -611,7 +611,7 @@ const Type* check_type_call(IrArena* arena, Call call) {
         assert(is_value(argument));
     }
     Nodes argument_types = shd_get_values_types(arena, args);
-    return maybe_multiple_return(arena, check_value_call(call.callee, argument_types));
+    return shd_maybe_multiple_return(arena, check_value_call(call.callee, argument_types));
 }
 
 static void ensure_types_are_data_types(const Nodes* yield_types) {
@@ -704,12 +704,12 @@ const Type* check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
 const Type* check_type_load(IrArena* a, Load load) {
     const Node* ptr_type = load.ptr->type;
     bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
-    size_t width = deconstruct_maybe_packed_type(&ptr_type);
+    size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
 
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
     const Type* elem_type = node_ptr_type_->pointed_type;
-    elem_type = maybe_packed_type_helper(elem_type, width);
+    elem_type = shd_maybe_packed_type_helper(elem_type, width);
     return shd_as_qualified_type(elem_type,
                                  ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
 }
@@ -717,12 +717,12 @@ const Type* check_type_load(IrArena* a, Load load) {
 const Type* check_type_store(IrArena* a, Store store) {
     const Node* ptr_type = store.ptr->type;
     bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
-    size_t width = deconstruct_maybe_packed_type(&ptr_type);
+    size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
     const Type* elem_type = ptr_type_payload->pointed_type;
     assert(elem_type);
-    elem_type = maybe_packed_type_helper(elem_type, width);
+    elem_type = shd_maybe_packed_type_helper(elem_type, width);
     // we don't enforce uniform stores - but we care about storing the right thing :)
     const Type* val_expected_type = qualified_type(a, (QualifiedType) {
         .is_uniform = !a->config.is_simt,
