@@ -121,10 +121,6 @@ void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
     shd_bld_add_instruction_extract(bb, store(_shd_get_bb_arena(bb), (Store) { .ptr = ptr, .value = value, .mem = shd_bb_mem(bb) }));
 }
 
-const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
-    return lea_helper(_shd_get_bb_arena(bb), base, offset, selectors);
-}
-
 void gen_comment(BodyBuilder* bb, String str) {
     shd_bld_add_instruction_extract(bb, comment(_shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bb_mem(bb) }));
 }

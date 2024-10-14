@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/memory_layout.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -56,7 +57,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
 
-    const Node* addr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
+    const Node* addr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
     assert(shd_get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = shd_get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
@@ -129,7 +130,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
             const Node* stack_size = gen_load(bb, stack_pointer);
-            const Node* stack_base_ptr = gen_lea(bb, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
+            const Node* stack_base_ptr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
                 gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
             }

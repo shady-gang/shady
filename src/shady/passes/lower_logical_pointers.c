@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/memory_layout.h"
 
 #include "../ir_private.h"
 #include "../transform/ir_gen_helpers.h"
@@ -30,7 +31,7 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
             case RecordType_TAG:
             case ArrType_TAG:
             case PackType_TAG: {
-                ptr = gen_lea(bb, ptr, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, 0)));
+                ptr = lea_helper(a, ptr, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, 0)));
                 continue;
             }
             default: break;

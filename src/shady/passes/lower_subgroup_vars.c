@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/memory_layout.h"
 
 #include "../transform/ir_gen_helpers.h"
 
@@ -48,7 +49,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* ndecl = shd_rewrite_node(&ctx->rewriter, odecl);
             assert(ctx->bb);
             const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
-            const Node* slice = gen_lea(ctx->bb, ref_decl_helper(a, ndecl), shd_int32_literal(a, 0), mk_nodes(a, index));
+            const Node* slice = lea_helper(a, ref_decl_helper(a, ndecl), shd_int32_literal(a, 0), mk_nodes(a, index));
             return slice;
         }
         case GlobalVariable_TAG: {

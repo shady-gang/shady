@@ -41,7 +41,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
-            const Node* ptr_addr = gen_lea(ctx->bb, ref_decl_helper(a, ctx->lifted_globals_decl), shd_int32_literal(a, 0), shd_singleton(shd_rewrite_node(&ctx->rewriter, odecl)));
+            const Node* ptr_addr = lea_helper(a, ref_decl_helper(a, ctx->lifted_globals_decl), shd_int32_literal(a, 0), shd_singleton(shd_rewrite_node(&ctx->rewriter, odecl)));
             const Node* ptr = gen_load(ctx->bb, ptr_addr);
             return ptr;
         }

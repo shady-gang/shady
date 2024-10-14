@@ -27,7 +27,6 @@ const Node* gen_local_alloc(BodyBuilder*, const Type* ptr);
 
 const Node* gen_load(BodyBuilder*, const Node* ptr);
 void gen_store(BodyBuilder*, const Node* ptr, const Node* value);
-const Node* gen_lea(BodyBuilder*, const Node* base, const Node* offset, Nodes selectors);
 void gen_comment(BodyBuilder*, String str);
 void gen_debug_printf(BodyBuilder*, String pattern, Nodes args);
 
