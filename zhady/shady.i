@@ -5,6 +5,11 @@
 %module shady
 %{
 #include "shady/ir.h"
+
+* bb
+
+* bb
+
 #include "shady/runtime.h"
 #include "shady/driver.h"
 #include "shady/config.h"

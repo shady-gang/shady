@@ -108,7 +108,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     switch (which) {
         case LoadFn: {
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
-            gen_comment(bb, "Generated generic ptr store");
+            shd_bld_comment(bb, "Generated generic ptr store");
             begin_control_t r = shd_bld_begin_control(bb, shd_singleton(t));
             const Node* final_loaded_value = shd_first(r.results);
 
@@ -146,7 +146,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
         }
         case StoreFn: {
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
-            gen_comment(bb, "Generated generic ptr store");
+            shd_bld_comment(bb, "Generated generic ptr store");
             begin_control_t r = shd_bld_begin_control(bb, shd_empty(a));
 
             LARRAY(const Node*, literals, max_tag);

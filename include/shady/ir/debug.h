@@ -1,11 +1,15 @@
 #ifndef SHADY_IR_DEBUG_H
 #define SHADY_IR_DEBUG_H
 
-#include "shady/ir/grammar.h"
+#include "shady/ir/base.h"
+#include "shady/ir/builder.h"
 
 /// Get the name out of a global variable, function or constant
 String shd_get_value_name_safe(const Node* v);
 String shd_get_value_name_unsafe(const Node* v);
 void shd_set_value_name(const Node* var, String name);
+
+void shd_bld_comment(BodyBuilder* bb, String str);
+void shd_bld_debug_printf(BodyBuilder* bb, String pattern, Nodes args);
 
 #endif

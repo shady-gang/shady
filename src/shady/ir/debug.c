@@ -1,4 +1,5 @@
 #include "shady/ir/debug.h"
+#include "shady/ir/grammar.h"
 
 #include <string.h>
 #include <assert.h>
@@ -23,4 +24,12 @@ void shd_set_value_name(const Node* var, String name) {
     // TODO: annotations
     // if (var->tag == Variablez_TAG)
     //     var->payload.varz.name = string(var->arena, name);
+}
+
+void shd_bld_comment(BodyBuilder* bb, String str) {
+    shd_bld_add_instruction_extract(bb, comment(shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bb_mem(bb) }));
+}
+
+void shd_bld_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
+    shd_bld_add_instruction(bb, debug_printf(shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = shd_bb_mem(bb) }));
 }

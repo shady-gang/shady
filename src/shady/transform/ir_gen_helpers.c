@@ -57,14 +57,6 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     return prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, lo, hi));
 }
 
-void gen_comment(BodyBuilder* bb, String str) {
-    shd_bld_add_instruction_extract(bb, comment(shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bb_mem(bb) }));
-}
-
-void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
-    shd_bld_add_instruction(bb, debug_printf(shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = shd_bb_mem(bb) }));
-}
-
 const Node* convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
     IrArena* a = shd_get_bb_arena(bb);
     const Type* src_type = shd_get_unqualified_type(src->type);

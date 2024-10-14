@@ -94,7 +94,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 const Node* widened = acc;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), acc);
-                gen_debug_printf(bb, template, mk_nodes(a, widened, address));
+                shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             acc = gen_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
             return acc;
@@ -197,7 +197,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* widened = value;
                 if (element_type->payload.int_type.width < IntTy32)
                     widened = gen_conversion(bb, shd_uint32_type(a), value);
-                gen_debug_printf(bb, template, mk_nodes(a, widened, address));
+                shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
             return;
         }

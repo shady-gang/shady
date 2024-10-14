@@ -75,8 +75,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     // store updated stack size
     shd_bld_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
-        gen_debug_printf(bb, name, shd_empty(a));
-        gen_debug_printf(bb, "stack size after: %d\n", shd_singleton(stack_size));
+        shd_bld_debug_printf(bb, name, shd_empty(a));
+        shd_bld_debug_printf(bb, "stack size after: %d\n", shd_singleton(stack_size));
     }
 
     if (push) {
@@ -132,7 +132,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_size = shd_bld_load(bb, stack_pointer);
             const Node* stack_base_ptr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
-                gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
+                shd_bld_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
             }
             return shd_bld_to_instr_yield_values(bb, shd_singleton(stack_base_ptr));
         }

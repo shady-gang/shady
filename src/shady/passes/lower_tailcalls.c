@@ -315,9 +315,9 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
         if (count_iterations)
-            gen_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx\n", mk_nodes(a, sid, local_id, iterations_count_param, next_function, next_mask));
+            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx\n", mk_nodes(a, sid, local_id, iterations_count_param, next_function, next_mask));
         else
-            gen_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d next_fn=%d next_mask=%lx\n", mk_nodes(a, sid, local_id, next_function, next_mask));
+            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d next_fn=%d next_mask=%lx\n", mk_nodes(a, sid, local_id, next_function, next_mask));
     }
 
     const Node* iteration_count_plus_one = NULL;
@@ -354,7 +354,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* zero_if_case_builder = shd_bld_begin(a, shd_get_abstraction_mem(zero_if_true_lam));
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
-        gen_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
+        shd_bld_debug_printf(zero_if_case_builder, "trace: kill thread %d:%d\n", mk_nodes(a, sid, local_id));
     }
     shd_set_abstraction_body(zero_if_true_lam, shd_bld_join(zero_if_case_builder, l.break_jp, shd_empty(a)));
 
@@ -362,7 +362,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* zero_false_builder = shd_bld_begin(a, shd_get_abstraction_mem(zero_if_false));
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, zero_false_builder, BuiltinSubgroupId);
-        gen_debug_printf(zero_false_builder, "trace: thread %d:%d escaped death!\n", mk_nodes(a, sid, local_id));
+        shd_bld_debug_printf(zero_false_builder, "trace: thread %d:%d escaped death!\n", mk_nodes(a, sid, local_id));
     }
     shd_set_abstraction_body(zero_if_false, shd_bld_join(zero_false_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
 
@@ -391,7 +391,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
             BodyBuilder* if_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
             if (ctx->config->printf_trace.god_function) {
                 const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
-                gen_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
+                shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
             }
             gen_call(if_builder, fn_addr_helper(a, shd_rewrite_node(&ctx->rewriter, decl)), shd_empty(a));
             shd_set_abstraction_body(if_true_case, shd_bld_join(if_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
@@ -432,7 +432,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     shd_destroy_list(jumps);
 
     if (ctx->config->printf_trace.god_function)
-        gen_debug_printf(dispatcher_body_builder, "trace: end of top\n", shd_empty(a));
+        shd_bld_debug_printf(dispatcher_body_builder, "trace: end of top\n", shd_empty(a));
 
     shd_set_abstraction_body(*ctx->top_dispatcher_fn, shd_bld_finish(dispatcher_body_builder, fn_ret(a, (Return) {
         .args = shd_nodes(a, 0, NULL),
