@@ -95,16 +95,16 @@ typedef struct {
     struct Dict* phi_arguments;
 } SpvParser;
 
-SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
+static SpvDef* get_definition_by_id(SpvParser* parser, size_t id);
 
-SpvDef* new_def(SpvParser* parser) {
+static SpvDef* new_def(SpvParser* parser) {
     SpvDef* interned = shd_arena_alloc(parser->decorations_arena, sizeof(SpvDef));
     SpvDef empty = {0};
     memcpy(interned, &empty, sizeof(SpvDef));
     return interned;
 }
 
-void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
+static void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
     SpvDef* tgt_def = &parser->defs[id];
     while (tgt_def->next_decoration) {
         tgt_def = &tgt_def->next_decoration->payload;
@@ -114,7 +114,7 @@ void add_decoration(SpvParser* parser, SpvId id, SpvDeco decoration) {
     tgt_def->next_decoration = interned;
 }
 
-SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration tag) {
+static SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration tag) {
     SpvDef* tgt_def = &parser->defs[id];
     while (tgt_def->next_decoration) {
         if (tgt_def->next_decoration->decoration == tag && (member < 0 || tgt_def->next_decoration->member == member))
@@ -124,21 +124,21 @@ SpvDeco* find_decoration(SpvParser* parser, SpvId id, int member, SpvDecoration 
     return NULL;
 }
 
-String get_name(SpvParser* parser, SpvId id) {
+static String get_name(SpvParser* parser, SpvId id) {
     SpvDeco* deco = find_decoration(parser, id, -1, ShdDecorationName);
     if (!deco)
         return NULL;
     return deco->payload.str;
 }
 
-String get_member_name(SpvParser* parser, SpvId id, int member_id) {
+static String get_member_name(SpvParser* parser, SpvId id, int member_id) {
     SpvDeco* deco = find_decoration(parser, id, member_id, ShdDecorationName);
     if (!deco)
         return NULL;
     return deco->payload.str;
 }
 
-const Type* get_def_type(SpvParser* parser, SpvId id) {
+static const Type* get_def_type(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Typ);
     const Node* t = def->node;
@@ -146,7 +146,7 @@ const Type* get_def_type(SpvParser* parser, SpvId id) {
     return t;
 }
 
-const Type* get_def_decl(SpvParser* parser, SpvId id) {
+static const Type* get_def_decl(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Decl);
     const Node* n = def->node;
@@ -154,13 +154,13 @@ const Type* get_def_decl(SpvParser* parser, SpvId id) {
     return n;
 }
 
-String get_def_string(SpvParser* parser, SpvId id) {
+static String get_def_string(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Str);
     return def->str;
 }
 
-const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
+static const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     const Node* n = def->node;
     if (is_declaration(n))
@@ -169,7 +169,7 @@ const Type* get_def_ssa_value(SpvParser* parser, SpvId id) {
     return n;
 }
 
-const Type* get_def_block(SpvParser* parser, SpvId id) {
+static const Type* get_def_block(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == BB);
     const Node* n = def->node;
@@ -177,7 +177,7 @@ const Type* get_def_block(SpvParser* parser, SpvId id) {
     return n;
 }
 
-bool parse_spv_header(SpvParser* parser) {
+static bool parse_spv_header(SpvParser* parser) {
     assert(parser->cursor == 0);
     assert(parser->len >= 4);
     assert(parser->words[0] == SpvMagicNumber);
@@ -192,12 +192,12 @@ bool parse_spv_header(SpvParser* parser) {
     return true;
 }
 
-String decode_spv_string_literal(SpvParser* parser, uint32_t* at) {
+static String decode_spv_string_literal(SpvParser* parser, uint32_t* at) {
     // TODO: assumes little endian
     return string(shd_module_get_arena(parser->mod), (const char*) at);
 }
 
-AddressSpace convert_storage_class(SpvStorageClass class) {
+static AddressSpace convert_storage_class(SpvStorageClass class) {
     switch (class) {
         case SpvStorageClassInput:                 return AsInput;
         case SpvStorageClassOutput:                return AsOutput;
@@ -330,7 +330,7 @@ static SpvShdOpMapping spv_shd_op_mapping[] = {
     // honestly none of those are implemented ...
 };
 
-const SpvShdOpMapping* convert_spv_op(SpvOp src) {
+static const SpvShdOpMapping* convert_spv_op(SpvOp src) {
     const int nentries = sizeof(spv_shd_op_mapping) / sizeof(*spv_shd_op_mapping);
     if (src >= nentries)
         return NULL;
@@ -339,7 +339,7 @@ const SpvShdOpMapping* convert_spv_op(SpvOp src) {
     return NULL;
 }
 
-SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
+static SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
     uint32_t* instruction = parser->words + instruction_offset;
 
     SpvOp op = instruction[0] & 0xFFFF;
@@ -356,7 +356,7 @@ SpvId get_result_defined_at(SpvParser* parser, size_t instruction_offset) {
     shd_error("no result defined at offset %zu", instruction_offset);
 }
 
-void scan_definitions(SpvParser* parser) {
+static void scan_definitions(SpvParser* parser) {
     size_t old_cursor = parser->cursor;
     while (true) {
         size_t available = parser->len - parser->cursor;
@@ -384,7 +384,7 @@ void scan_definitions(SpvParser* parser) {
     parser->cursor = old_cursor;
 }
 
-Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
+static Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
     SpvDef* block_def = get_definition_by_id(parser, block);
     assert(block_def->type == BB && block_def->node);
     int params_count = block_def->node->payload.basic_block.params.count;
@@ -416,7 +416,7 @@ Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor) {
     return shd_nodes(parser->arena, params_count, params);
 }
 
-size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
+static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
     IrArena* a = parser->arena;
     uint32_t* instruction = parser->words + instruction_offset;
     SpvOp op = instruction[0] & 0xFFFF;
@@ -1322,7 +1322,7 @@ size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
     return size;
 }
 
-SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
+static SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
     assert(id > 0 && id < parser->header.bound);
     if (parser->defs[id].type == Nothing)
     shd_error("there is no Op that defines result %zu", id);
@@ -1332,11 +1332,11 @@ SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
     return &parser->defs[id];
 }
 
-KeyHash hash_spvid(SpvId* p) {
+static KeyHash hash_spvid(SpvId* p) {
     return shd_hash(p, sizeof(SpvId));
 }
 
-bool compare_spvid(SpvId* pa, SpvId* pb) {
+static bool compare_spvid(SpvId* pa, SpvId* pb) {
     if (pa == pb) return true;
     if (!pa || !pb) return false;
     return *pa == *pb;
