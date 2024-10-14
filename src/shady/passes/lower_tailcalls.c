@@ -299,7 +299,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         iterations_count_param = shd_first(l.params);
     BodyBuilder* loop_body_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_inside_case));
 
-    const Node* next_function = gen_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
+    const Node* next_function = shd_bld_load(loop_body_builder, access_decl(&ctx->rewriter, "next_fn"));
     const Node* get_active_branch_fn = access_decl(&ctx->rewriter, "builtin_get_active_branch");
     const Node* next_mask = shd_first(gen_call(loop_body_builder, get_active_branch_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);

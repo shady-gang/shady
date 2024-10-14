@@ -55,7 +55,7 @@ BodyBuilder* shd_bld_begin_pure(IrArena* a) {
     return builder;
 }
 
-IrArena* _shd_get_bb_arena(BodyBuilder* bb) {
+IrArena* shd_get_bb_arena(BodyBuilder* bb) {
     return bb->arena;
 }
 

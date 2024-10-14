@@ -144,5 +144,5 @@ const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n) {
 }
 
 const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
-    return gen_load(bb, ref_decl_helper(shd_module_get_arena(m), shd_get_or_create_builtin(m, b, NULL)));
+    return shd_bld_load(bb, ref_decl_helper(shd_module_get_arena(m), shd_get_or_create_builtin(m, b, NULL)));
 }

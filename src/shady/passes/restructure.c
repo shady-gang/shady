@@ -250,7 +250,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             for (size_t i = 0; i < yield_types.count; i++) {
                 const Type* type = yield_types.nodes[i];
                 assert(shd_is_data_type(type));
-                phis[i] = gen_local_alloc(bb_prelude, type);
+                phis[i] = shd_bld_local_alloc(bb_prelude, type);
             }
 
             // Create a new context to rewrite the body with
@@ -265,19 +265,19 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             control_ctx.control_stack = &control_entry;
 
             // Set the depth for threads entering the control body
-            gen_store(bb_prelude, ctx->level_ptr, shd_int32_literal(a, control_entry.depth));
+            shd_bld_store(bb_prelude, ctx->level_ptr, shd_int32_literal(a, control_entry.depth));
 
             // Start building out the tail, first it needs to dereference the phi variables to recover the arguments given to join()
             Node* tail = case_(a, shd_empty(a));
             BodyBuilder* bb_tail = shd_bld_begin(a, shd_get_abstraction_mem(tail));
             LARRAY(const Node*, phi_values, yield_types.count);
             for (size_t i = 0; i < yield_types.count; i++) {
-                phi_values[i] = gen_load(bb_tail, phis[i]);
+                phi_values[i] = shd_bld_load(bb_tail, phis[i]);
                 shd_register_processed(&ctx->rewriter, get_abstraction_params(get_structured_construct_tail(body)).nodes[i], phi_values[i]);
             }
 
             // Wrap the tail in a guarded if, to handle 'far' joins
-            const Node* level_value = gen_load(bb_tail, ctx->level_ptr);
+            const Node* level_value = shd_bld_load(bb_tail, ctx->level_ptr);
             const Node* guard = prim_op(a, (PrimOp) { .op = eq_op, .operands = mk_nodes(a, level_value, shd_int32_literal(a, ctx->control_stack ? ctx->control_stack->depth : 0)) });
             Node* true_case = case_(a, shd_empty(a));
             shd_register_processed(r, shd_get_abstraction_mem(get_structured_construct_tail(body)), shd_get_abstraction_mem(true_case));
@@ -295,11 +295,11 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
                 longjmp(ctx->bail, 1);
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            gen_store(bb, ctx->level_ptr, shd_int32_literal(a, control->depth - 1));
+            shd_bld_store(bb, ctx->level_ptr, shd_int32_literal(a, control->depth - 1));
 
             Nodes args = shd_rewrite_nodes(&ctx->rewriter, body->payload.join.args);
             for (size_t i = 0; i < args.count; i++) {
-                gen_store(bb, control->phis[i], args.nodes[i]);
+                shd_bld_store(bb, control->phis[i], args.nodes[i]);
             }
 
             return shd_bld_finish(bb, jump_helper(a, shd_bb_mem(bb), exit, shd_empty(a)));
@@ -356,9 +356,9 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-            const Node* ptr = gen_local_alloc(bb, shd_int32_type(a));
+            const Node* ptr = shd_bld_local_alloc(bb, shd_int32_type(a));
             shd_set_value_name(ptr, "cf_depth");
-            gen_store(bb, ptr, shd_int32_literal(a, 0));
+            shd_bld_store(bb, ptr, shd_int32_literal(a, 0));
             ctx2.level_ptr = ptr;
             ctx2.fn = new;
             struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);

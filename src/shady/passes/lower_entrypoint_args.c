@@ -65,7 +65,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
 
     for (int i = 0; i < params.count; ++i) {
         const Node* addr = lea_helper(a, arg_struct, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, i)));
-        const Node* val = gen_load(bb, addr);
+        const Node* val = shd_bld_load(bb, addr);
         shd_register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 

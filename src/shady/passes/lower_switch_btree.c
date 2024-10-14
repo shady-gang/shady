@@ -153,8 +153,8 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            const Node* run_default_case = gen_stack_alloc(bb, bool_type(a));
-            gen_store(bb, run_default_case, false_lit(a));
+            const Node* run_default_case = shd_bld_stack_alloc(bb, bool_type(a));
+            shd_bld_store(bb, run_default_case, false_lit(a));
 
             /*Context ctx2 = *ctx;
             ctx2.run_default_case = run_default_case;

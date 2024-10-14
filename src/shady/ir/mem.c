@@ -1,4 +1,5 @@
 #include "shady/ir/grammar.h"
+#include "shady/ir/builder.h"
 
 #include <assert.h>
 
@@ -67,4 +68,20 @@ const Node* shd_get_original_mem(const Node* mem) {
         }
         return mem;
     }
+}
+
+const Node* shd_bld_stack_alloc(BodyBuilder* bb, const Type* type) {
+    return shd_first(shd_bld_add_instruction_extract(bb, stack_alloc(shd_get_bb_arena(bb), (StackAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
+}
+
+const Node* shd_bld_local_alloc(BodyBuilder* bb, const Type* type) {
+    return shd_first(shd_bld_add_instruction_extract(bb, local_alloc(shd_get_bb_arena(bb), (LocalAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
+}
+
+const Node* shd_bld_load(BodyBuilder* bb, const Node* ptr) {
+    return shd_first(shd_bld_add_instruction_extract(bb, load(shd_get_bb_arena(bb), (Load) { .ptr = ptr, .mem = shd_bb_mem(bb) })));
+}
+
+void shd_bld_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
+    shd_bld_add_instruction_extract(bb, store(shd_get_bb_arena(bb), (Store) { .ptr = ptr, .value = value, .mem = shd_bb_mem(bb) }));
 }

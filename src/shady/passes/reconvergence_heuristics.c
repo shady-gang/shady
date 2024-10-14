@@ -135,7 +135,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
-                    exit_params[j].alloca = gen_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
+                    exit_params[j].alloca = shd_bld_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
                     exit_params[j].uniform = shd_is_qualified_type_uniform(exit_param_types.nodes[j]);
                 }
                 exits[i] = (Exit) {
@@ -146,7 +146,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = gen_stack_alloc(outer_bb, shd_int32_type(arena));
+                exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(arena));
 
             const Node* join_token_exit = param(arena, shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
                     .yield_types = shd_empty(arena)
@@ -211,10 +211,10 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 BodyBuilder* exit_wrapper_bb = shd_bld_begin(arena, shd_get_abstraction_mem(exits[i].wrapper));
 
                 for (size_t j = 0; j < exits[i].params_count; j++)
-                    gen_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
+                    shd_bld_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
                 // Set the destination if there's more than one option
                 if (exiting_nodes_count > 1)
-                    gen_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
+                    shd_bld_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
 
                 shd_set_abstraction_body(exits[i].wrapper, shd_bld_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
             }
@@ -264,7 +264,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 LARRAY(const Node*, recovered_args, exits[i].params_count);
                 for (size_t j = 0; j < exits[i].params_count; j++) {
-                    recovered_args[j] = gen_load(exit_recover_bb, exits[i].params[j].alloca);
+                    recovered_args[j] = shd_bld_load(exit_recover_bb, exits[i].params[j].alloca);
                     if (exits[i].params[j].uniform)
                         recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(recovered_args[j]));
                 }
@@ -278,7 +278,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count == 1)
                 outer_body = shd_bld_finish(outer_bb, exit_jumps[0]);
             else {
-                const Node* loaded_destination = gen_load(outer_bb, exit_destination_alloca);
+                const Node* loaded_destination = shd_bld_load(outer_bb, exit_destination_alloca);
                 outer_body = shd_bld_finish(outer_bb, br_switch(arena, (Switch) {
                     .switch_value = loaded_destination,
                     .default_jump = exit_jumps[0],

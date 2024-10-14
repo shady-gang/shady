@@ -10,6 +10,8 @@ BodyBuilder* shd_bld_begin(IrArena* a, const Node* mem);
 BodyBuilder* shd_bld_begin_pure(IrArena* a);
 BodyBuilder* shd_bld_begin_pseudo_instr(IrArena* a, const Node* mem);
 
+IrArena* shd_get_bb_arena(BodyBuilder* bb);
+
 /// Appends an instruction to the builder, may apply optimisations.
 /// If the arena is typed, returns a list of variables bound to the values yielded by that instruction
 Nodes shd_bld_add_instruction_extract(BodyBuilder* bb, const Node* instruction);

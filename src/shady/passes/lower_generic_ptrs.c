@@ -125,7 +125,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 Node* tag_case = case_(a, shd_empty(a));
                 BodyBuilder* case_bb = shd_bld_begin(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
-                const Node* loaded_value = gen_load(case_bb, reinterpreted_ptr);
+                const Node* loaded_value = shd_bld_load(case_bb, reinterpreted_ptr);
                 shd_set_abstraction_body(tag_case, shd_bld_join(case_bb, r.jp, shd_singleton(loaded_value)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }
@@ -162,7 +162,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 Node* tag_case = case_(a, shd_empty(a));
                 BodyBuilder* case_bb = shd_bld_begin(a, shd_get_abstraction_mem(tag_case));
                 const Node* reinterpreted_ptr = recover_full_pointer(ctx, case_bb, tag, ptr_param, t);
-                gen_store(case_bb, reinterpreted_ptr, value_param);
+                shd_bld_store(case_bb, reinterpreted_ptr, value_param);
                 shd_set_abstraction_body(tag_case, shd_bld_join(case_bb, r.jp, shd_empty(a)));
                 jumps[tag] = jump_helper(a, shd_get_abstraction_mem(r.case_), tag_case, shd_empty(a));
             }

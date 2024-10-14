@@ -36,7 +36,6 @@ void shd_destroy_module(Module* m);
 
 NodeId _shd_allocate_node_id(IrArena* arena, const Node* n);
 
-IrArena* _shd_get_bb_arena(BodyBuilder* bb);
 const Node* _shd_bb_insert_mem(BodyBuilder* bb);
 const Node* _shd_bb_insert_block(BodyBuilder* bb);
 const Node* _shd_bld_finish_pseudo_instr(BodyBuilder* bb, const Node* terminator);

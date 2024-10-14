@@ -37,15 +37,15 @@ static void test_body_builder_fun_body(IrArena* a) {
     Node* fun = function(m, mk_nodes(a, p1, p2), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
-    const Node* p1_value = gen_load(bb, p1);
+    const Node* p1_value = shd_bld_load(bb, p1);
     CHECK(p1_value->tag == Load_TAG, exit(-1));
     Node* true_case = case_(a, shd_empty(a));
     BodyBuilder* tc_builder = shd_bld_begin(a, shd_get_abstraction_mem(true_case));
-    gen_store(tc_builder, p1, shd_uint32_literal(a, 0));
+    shd_bld_store(tc_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(true_case, shd_bld_selection_merge(tc_builder, shd_empty(a)));
     shd_bld_if(bb, shd_empty(a), gen_primop_e(bb, gt_op, shd_empty(a), mk_nodes(a, p1_value, shd_uint32_literal(a, 0))), true_case, NULL);
 
-    const Node* p2_value = gen_load(bb, p2);
+    const Node* p2_value = shd_bld_load(bb, p2);
 
     const Node* sum = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, p1_value, p2_value));
     const Node* return_terminator = fn_ret(a, (Return) {
@@ -93,13 +93,13 @@ static void test_body_builder_impure_block(IrArena* a) {
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
-    const Node* first_load = gen_load(bb, p1);
+    const Node* first_load = shd_bld_load(bb, p1);
 
     BodyBuilder* block_builder = shd_bld_begin_pseudo_instr(a, shd_bb_mem(bb));
-    gen_store(block_builder, p1, shd_uint32_literal(a, 0));
+    shd_bld_store(block_builder, p1, shd_uint32_literal(a, 0));
     shd_bld_add_instruction_extract(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
 
-    const Node* second_load = gen_load(bb, p1);
+    const Node* second_load = shd_bld_load(bb, p1);
 
     const Node* sum = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, first_load, second_load));
     const Node* return_terminator = fn_ret(a, (Return) {
@@ -132,17 +132,17 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Node* fun = function(m, mk_nodes(a, p1), "fun", shd_empty(a), shd_empty(a));
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
-    const Node* first_load = gen_load(bb, p1);
+    const Node* first_load = shd_bld_load(bb, p1);
 
     BodyBuilder* block_builder = shd_bld_begin_pseudo_instr(a, shd_bb_mem(bb));
     Node* if_true_case = case_(a, shd_empty(a));
     BodyBuilder* if_true_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
-    gen_store(if_true_builder, p1, shd_uint32_literal(a, 0));
+    shd_bld_store(if_true_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(if_true_case, shd_bld_selection_merge(if_true_builder, shd_empty(a)));
     shd_bld_if(block_builder, shd_empty(a), gen_primop_e(block_builder, neq_op, shd_empty(a), mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
     shd_bld_add_instruction_extract(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
 
-    const Node* second_load = gen_load(bb, p1);
+    const Node* second_load = shd_bld_load(bb, p1);
 
     const Node* sum = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, first_load, second_load));
     const Node* return_terminator = fn_ret(a, (Return) {

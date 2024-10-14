@@ -59,7 +59,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
-            const Node* value = gen_load(bb, logical_ptr);
+            const Node* value = shd_bld_load(bb, logical_ptr);
             return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })});
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
@@ -80,7 +80,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
-                const Node* word = gen_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
+                const Node* word = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
                             word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                             word = shd_first(gen_primop(bb, lshift_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
                 acc = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, acc, word));
@@ -150,7 +150,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.memory.word_size });
             const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size });
             const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one_b, zero_b });
-            gen_store(bb, logical_ptr, int_value);
+            shd_bld_store(bb, logical_ptr, int_value);
             return;
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
@@ -186,7 +186,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* word = value;
                 word = shd_first(gen_primop(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
                 word = gen_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
-                gen_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
+                shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
 
                 offset = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
                 shift = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));

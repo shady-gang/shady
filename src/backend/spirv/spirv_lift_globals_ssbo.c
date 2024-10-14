@@ -42,7 +42,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 break;
             assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
             const Node* ptr_addr = lea_helper(a, ref_decl_helper(a, ctx->lifted_globals_decl), shd_int32_literal(a, 0), shd_singleton(shd_rewrite_node(&ctx->rewriter, odecl)));
-            const Node* ptr = gen_load(ctx->bb, ptr_addr);
+            const Node* ptr = shd_bld_load(ctx->bb, ptr_addr);
             return ptr;
         }
         case GlobalVariable_TAG:

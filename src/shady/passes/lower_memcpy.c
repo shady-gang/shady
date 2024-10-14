@@ -55,8 +55,8 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_set_value_name(index, "memcpy_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
-            const Node* loaded_word = gen_load(loop_bb, lea_helper(a, src_addr, index, shd_empty(a)));
-            gen_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), loaded_word);
+            const Node* loaded_word = shd_bld_load(loop_bb, lea_helper(a, src_addr, index, shd_empty(a)));
+            shd_bld_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), loaded_word);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));
@@ -102,7 +102,7 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_set_value_name(index, "memset_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
-            gen_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), src_value);
+            shd_bld_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), src_value);
             const Node* next_index = gen_primop_e(loop_bb, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
             Node* true_case = case_(a, shd_empty(a));

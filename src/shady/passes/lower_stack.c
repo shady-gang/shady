@@ -52,7 +52,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     const Node* stack_pointer = ctx->stack_pointer;
     const Node* stack = ctx->stack;
 
-    const Node* stack_size = gen_load(bb, stack_pointer);
+    const Node* stack_size = shd_bld_load(bb, stack_pointer);
 
     if (!push) // for pop, we decrease the stack size first
         stack_size = gen_primop_ce(bb, sub_op, 2, (const Node* []) { stack_size, element_size});
@@ -65,15 +65,15 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
 
     const Node* popped_value = NULL;
     if (push)
-        gen_store(bb, addr, value_param);
+        shd_bld_store(bb, addr, value_param);
     else
-        popped_value = gen_load(bb, addr);
+        popped_value = shd_bld_load(bb, addr);
 
     if (push) // for push, we increase the stack size after the store
         stack_size = gen_primop_ce(bb, add_op, 2, (const Node* []) { stack_size, element_size});
 
     // store updated stack size
-    gen_store(bb, stack_pointer, stack_size);
+    shd_bld_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
         gen_debug_printf(bb, name, shd_empty(a));
         gen_debug_printf(bb, "stack size after: %d\n", shd_singleton(stack_size));
@@ -101,7 +101,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         // is this an old forgotten workaround ?
         if (ctx->stack) {
             const Node* stack_pointer = ctx->stack_pointer;
-            gen_store(bb, stack_pointer, shd_uint32_literal(a, 0));
+            shd_bld_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
         shd_register_processed(r, shd_get_abstraction_mem(old), shd_bb_mem(bb));
         shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
@@ -113,7 +113,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ctx->stack);
             GetStackSize payload = old->payload.get_stack_size;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            const Node* sp = gen_load(bb, ctx->stack_pointer);
+            const Node* sp = shd_bld_load(bb, ctx->stack_pointer);
             return shd_bld_to_instr_yield_values(bb, shd_singleton(sp));
         }
         case SetStackSize_TAG: {
@@ -121,7 +121,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             SetStackSize payload = old->payload.set_stack_size;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* val = shd_rewrite_node(r, old->payload.set_stack_size.value);
-            gen_store(bb, ctx->stack_pointer, val);
+            shd_bld_store(bb, ctx->stack_pointer, val);
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
@@ -129,7 +129,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             GetStackBaseAddr payload = old->payload.get_stack_base_addr;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             const Node* stack_pointer = ctx->stack_pointer;
-            const Node* stack_size = gen_load(bb, stack_pointer);
+            const Node* stack_size = shd_bld_load(bb, stack_pointer);
             const Node* stack_base_ptr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
             if (ctx->config->printf_trace.stack_size) {
                 gen_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
