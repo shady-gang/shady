@@ -133,43 +133,6 @@ void gen_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {
     shd_bld_add_instruction(bb, debug_printf(_shd_get_bb_arena(bb), (DebugPrintf) { .string = pattern, .args = args, .mem = shd_bb_mem(bb) }));
 }
 
-const Node* get_builtin(Module* m, Builtin b) {
-    Nodes decls = shd_module_get_declarations(m);
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG)
-            continue;
-        const Node* a = shd_lookup_annotation(decl, "Builtin");
-        if (!a)
-            continue;
-        String builtin_name = shd_get_annotation_string_payload(a);
-        assert(builtin_name);
-        if (strcmp(builtin_name, shd_get_builtin_name(b)) == 0)
-            return decl;
-    }
-
-    return NULL;
-}
-
-const Node* get_or_create_builtin(Module* m, Builtin b, String n) {
-    const Node* decl = get_builtin(m, b);
-    if (decl)
-        return decl;
-
-    AddressSpace as = shd_get_builtin_address_space(b);
-    IrArena* a = shd_module_get_arena(m);
-    decl = global_var(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a,
-                                                                                               shd_get_builtin_name(b)))),
-                      shd_get_builtin_type(a, b), n ? n : shd_format_string_arena(a->arena, "builtin_%s",
-                                                                                                                                                                                       shd_get_builtin_name(
-                                                                                                                                                                                          b)), as);
-    return decl;
-}
-
-const Node* gen_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
-    return gen_load(bb, ref_decl_helper(_shd_get_bb_arena(bb), get_or_create_builtin(m, b, NULL)));
-}
-
 const Node* find_or_process_decl(Rewriter* rewriter, const char* name) {
     Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {

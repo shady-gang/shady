@@ -284,7 +284,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, shd_int32_literal(emitter->arena, SpvScopeSubgroup));
                 if (emitter->configuration->hacks.spv_shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
-                    const Node* b = ref_decl_helper(emitter->arena, get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
+                    const Node* b = ref_decl_helper(emitter->arena, shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
                     return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(instr.operands)), local_id);
                 }
