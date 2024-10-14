@@ -41,13 +41,13 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
     return composite_helper(a, t, shd_nodes(a, size, elements));
 }
 
-const Node* convert_value(Parser* p, LLVMValueRef v) {
+const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
     const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, v);
     if (found) return *found;
     IrArena* a = shd_module_get_arena(p->dst);
 
     const Node* r = NULL;
-    const Type* t = LLVMGetValueKind(v) != LLVMMetadataAsValueValueKind ? convert_type(p, LLVMTypeOf(v)) : NULL;
+    const Type* t = LLVMGetValueKind(v) != LLVMMetadataAsValueValueKind ? l2s_convert_type(p, LLVMTypeOf(v)) : NULL;
 
     switch (LLVMGetValueKind(v)) {
         case LLVMArgumentValueKind:
@@ -61,14 +61,14 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
         case LLVMMemoryPhiValueKind:
             break;
         case LLVMFunctionValueKind:
-            r = convert_function(p, v);
+            r = l2s_convert_function(p, v);
             break;
         case LLVMGlobalAliasValueKind:
             break;
         case LLVMGlobalIFuncValueKind:
             break;
         case LLVMGlobalVariableValueKind:
-            r = convert_global(p, v);
+            r = l2s_convert_global(p, v);
             break;
         case LLVMBlockAddressValueKind:
             break;
@@ -82,7 +82,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             r = ref_decl_helper(a, decl);
             shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = shd_bld_begin_pure(a);
-            decl->payload.constant.value = shd_bld_to_instr_yield_value(bb, convert_instruction(p, NULL, NULL, bb, v));
+            decl->payload.constant.value = shd_bld_to_instr_yield_value(bb, l2s_convert_instruction(p, NULL, NULL, bb, v));
             return r;
         }
         case LLVMConstantDataArrayValueKind: {
@@ -105,7 +105,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             for (size_t i = 0; i < size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);
                 assert(value);
-                elements[i] = convert_value(p, value);
+                elements[i] = l2s_convert_value(p, value);
             }
             return composite_helper(a, t, shd_nodes(a, size, elements));
         }
@@ -116,14 +116,14 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             for (size_t i = 0; i < size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);
                 assert(value);
-                elements[i] = convert_value(p, value);
+                elements[i] = l2s_convert_value(p, value);
             }
             return composite_helper(a, t, shd_nodes(a, size, elements));
         }
         case LLVMUndefValueValueKind:
-            return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
+            return undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
         case LLVMConstantAggregateZeroValueKind:
-            return shd_get_default_value(a, convert_type(p, LLVMTypeOf(v)));
+            return shd_get_default_value(a, l2s_convert_type(p, LLVMTypeOf(v)));
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
@@ -132,7 +132,7 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             for (size_t i = 0; i < arr_size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);
                 assert(value);
-                elements[i] = convert_value(p, value);
+                elements[i] = l2s_convert_value(p, value);
             }
             return composite_helper(a, t, shd_nodes(a, arr_size, elements));
         }
@@ -177,14 +177,14 @@ const Node* convert_value(Parser* p, LLVMValueRef v) {
             break;
         case LLVMMetadataAsValueValueKind: {
             LLVMMetadataRef meta = LLVMValueAsMetadata(v);
-            r = convert_metadata(p, meta);
+            r = l2s_convert_metadata(p, meta);
         }
         case LLVMInlineAsmValueKind:
             break;
         case LLVMInstructionValueKind:
             break;
         case LLVMPoisonValueValueKind:
-            return undef(a, (Undef) { .type = convert_type(p, LLVMTypeOf(v)) });
+            return undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
     }
 
     if (r) {

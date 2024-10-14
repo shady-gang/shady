@@ -5,7 +5,7 @@
 #include "dict.h"
 #include "util.h"
 
-const Type* convert_type(Parser* p, LLVMTypeRef t) {
+const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
     const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, t);
     if (found) return *found;
     IrArena* a = shd_module_get_arena(p->dst);
@@ -35,8 +35,8 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             LLVMGetParamTypes(t, param_types);
             LARRAY(const Type*, cparam_types, num_params);
             for (size_t i = 0; i < num_params; i++)
-                cparam_types[i] = shd_as_qualified_type(convert_type(p, param_types[i]), false);
-            const Type* ret_type = convert_type(p, LLVMGetReturnType(t));
+                cparam_types[i] = shd_as_qualified_type(l2s_convert_type(p, param_types[i]), false);
+            const Type* ret_type = l2s_convert_type(p, LLVMGetReturnType(t));
             if (LLVMGetTypeKind(LLVMGetReturnType(t)) == LLVMVoidTypeKind)
                 ret_type = empty_multiple_return_type(a);
             else
@@ -61,7 +61,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
             LLVMGetStructElementTypes(t, elements);
             LARRAY(const Type*, celements, size);
             for (size_t i = 0; i < size; i++) {
-                celements[i] = convert_type(p, elements[i]);
+                celements[i] = l2s_convert_type(p, elements[i]);
             }
 
             const Node* product = record_type(a, (RecordType) {
@@ -75,7 +75,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         }
         case LLVMArrayTypeKind: {
             unsigned length = LLVMGetArrayLength(t);
-            const Type* elem_t = convert_type(p, LLVMGetElementType(t));
+            const Type* elem_t = l2s_convert_type(p, LLVMGetElementType(t));
             return arr_type(a, (ArrType) { .element_type = elem_t, .size = shd_uint32_literal(a, length)});
         }
         case LLVMPointerTypeKind: {
@@ -104,7 +104,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
                         .imageformat = 0
                 })});
             }
-            AddressSpace as = convert_llvm_address_space(llvm_as);
+            AddressSpace as = l2s_convert_llvm_address_space(llvm_as);
             const Type* pointee = NULL;
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
@@ -119,7 +119,7 @@ const Type* convert_type(Parser* p, LLVMTypeRef t) {
         }
         case LLVMVectorTypeKind: {
             unsigned width = LLVMGetVectorSize(t);
-            const Type* elem_t = convert_type(p, LLVMGetElementType(t));
+            const Type* elem_t = l2s_convert_type(p, LLVMGetElementType(t));
             return pack_type(a, (PackType) { .element_type = elem_t, .width = (size_t) width });
         }
         case LLVMMetadataTypeKind:

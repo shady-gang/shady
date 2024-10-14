@@ -1,7 +1,7 @@
 #include "generator.h"
 
 void generate_llvm_shady_address_space_conversion(Growy* g, json_object* address_spaces) {
-    shd_growy_append_formatted(g, "AddressSpace convert_llvm_address_space(unsigned as) {\n");
+    shd_growy_append_formatted(g, "AddressSpace l2s_convert_llvm_address_space(unsigned as) {\n");
     shd_growy_append_formatted(g, "\tstatic bool warned = false;\n");
     shd_growy_append_formatted(g, "\tswitch (as) {\n");
     for (size_t i = 0; i < json_object_array_length(address_spaces); i++) {

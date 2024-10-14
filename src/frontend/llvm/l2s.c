@@ -53,7 +53,7 @@ static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
         // printf("\n");
         if (LLVMIsATerminatorInst(instr))
             return;
-        const Node* emitted = convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr);
+        const Node* emitted = l2s_convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr);
         if (!emitted)
             continue;
         shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, emitted);
@@ -65,7 +65,7 @@ static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
 static void write_bb_tail(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
     LLVMBasicBlockRef bb = bb_ctx->bb;
     LLVMValueRef instr = LLVMGetLastInstruction(bb);
-    shd_set_abstraction_body(bb_ctx->nbb, shd_bld_finish(bb_ctx->builder, convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr)));
+    shd_set_abstraction_body(bb_ctx->nbb, shd_bld_finish(bb_ctx->builder, l2s_convert_instruction(p, fn_ctx, bb_ctx->nbb, bb_ctx->builder, instr)));
 }
 
 static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasicBlockRef bb) {
@@ -80,7 +80,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = param(a, shd_as_qualified_type(convert_type(p, LLVMTypeOf(instr)), false), "phi");
+                const Node* nparam = param(a, shd_as_qualified_type(l2s_convert_type(p, LLVMTypeOf(instr)), false), "phi");
                 shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, nparam);
                 shd_list_append(LLVMValueRef, phis, instr);
                 params = shd_nodes_append(a, params, nparam);
@@ -117,7 +117,7 @@ static BBParseCtx* get_bb_ctx(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef b
     return ctx;
 }
 
-const Node* convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+const Node* l2s_convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     const Node** found = shd_dict_find_value(LLVMValueRef, const Node*, p->map, bb);
     if (found) return *found;
 
@@ -125,7 +125,7 @@ const Node* convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicB
     return ctx->nbb;
 }
 
-const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
+const Node* l2s_convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb) {
     BBParseCtx* ctx = get_bb_ctx(p, fn_ctx, bb);
     if (ctx->translated)
         return ctx->nbb;
@@ -136,7 +136,7 @@ const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlo
     return ctx->nbb;
 }
 
-const Node* convert_function(Parser* p, LLVMValueRef fn) {
+const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     if (is_llvm_intrinsic(fn)) {
         shd_warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
@@ -154,14 +154,14 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     Nodes params = shd_empty(a);
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
-        const Type* t = convert_type(p, ot);
+        const Type* t = l2s_convert_type(p, ot);
         const Node* nparam = param(a, shd_as_qualified_type(t, false), LLVMGetValueName(oparam));
         shd_dict_insert(LLVMValueRef, const Node*, p->map, oparam, nparam);
         params = shd_nodes_append(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))
             break;
     }
-    const Type* fn_type = convert_type(p, LLVMGlobalGetValueType(fn));
+    const Type* fn_type = l2s_convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Nodes annotations = shd_empty(a);
@@ -234,7 +234,7 @@ const Node* convert_function(Parser* p, LLVMValueRef fn) {
     return r;
 }
 
-const Node* convert_global(Parser* p, LLVMValueRef global) {
+const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
     const Node** found = shd_dict_find_value(LLVMValueRef, const Node*, p->map, global);
     if (found) return *found;
     IrArena* a = shd_module_get_arena(p->dst);
@@ -254,14 +254,14 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
 
     if (LLVMIsAGlobalVariable(global)) {
         LLVMValueRef value = LLVMGetInitializer(global);
-        const Type* type = convert_type(p, LLVMGlobalGetValueType(global));
+        const Type* type = l2s_convert_type(p, LLVMGlobalGetValueType(global));
         // nb: even if we have untyped pointers, they still carry useful address space info
-        const Type* ptr_t = convert_type(p, LLVMTypeOf(global));
+        const Type* ptr_t = l2s_convert_type(p, LLVMTypeOf(global));
         assert(ptr_t->tag == PtrType_TAG);
         AddressSpace as = ptr_t->payload.ptr_type.address_space;
         decl = global_var(p->dst, shd_empty(a), type, name, as);
         if (value && as != AsUniformConstant)
-            decl->payload.global_variable.init = convert_value(p, value);
+            decl->payload.global_variable.init = l2s_convert_value(p, value);
 
         if (UNTYPED_POINTERS) {
             Node* untyped_wrapper = constant(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, shd_fmt_string_irarena(a, "%s_untyped", name));
@@ -270,9 +270,9 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
             decl = untyped_wrapper;
         }
     } else {
-        const Type* type = convert_type(p, LLVMTypeOf(global));
+        const Type* type = l2s_convert_type(p, LLVMTypeOf(global));
         decl = constant(p->dst, shd_empty(a), type, name);
-        decl->payload.constant.value = convert_value(p, global);
+        decl->payload.constant.value = l2s_convert_value(p, global);
     }
 
     assert(decl && is_declaration(decl));
@@ -282,7 +282,7 @@ const Node* convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
+bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -313,15 +313,15 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
 
     LLVMValueRef global_annotations = LLVMGetNamedGlobal(src, "llvm.global.annotations");
     if (global_annotations)
-        process_llvm_annotations(&p, global_annotations);
+        l2s_process_llvm_annotations(&p, global_annotations);
 
     for (LLVMValueRef fn = LLVMGetFirstFunction(src); fn; fn = LLVMGetNextFunction(fn)) {
-        convert_function(&p, fn);
+        l2s_convert_function(&p, fn);
     }
 
     LLVMValueRef global = LLVMGetFirstGlobal(src);
     while (global) {
-        convert_global(&p, global);
+        l2s_convert_global(&p, global);
         if (global == LLVMGetLastGlobal(src))
             break;
         global = LLVMGetNextGlobal(global);
@@ -333,7 +333,7 @@ bool parse_llvm_into_shady(const CompilerConfig* config, size_t len, const char*
     aconfig.allow_fold = true;
     IrArena* arena2 = shd_new_ir_arena(&aconfig);
     *dst = shd_new_module(arena2, name);
-    postprocess(&p, dirty, *dst);
+    l2s_postprocess(&p, dirty, *dst);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
     shd_log_module(DEBUGVV, config, *dst);
     shd_verify_module(config, *dst);

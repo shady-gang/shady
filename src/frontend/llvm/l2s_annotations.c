@@ -5,11 +5,11 @@
 
 #include <stdlib.h>
 
-ParsedAnnotation* find_annotation(Parser* p, const Node* n) {
+ParsedAnnotation* l2s_find_annotation(Parser* p, const Node* n) {
     return shd_dict_find_value(const Node*, ParsedAnnotation, p->annotations, n);
 }
 
-void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
+static void add_annotation(Parser* p, const Node* n, ParsedAnnotation a) {
     ParsedAnnotation* found = shd_dict_find_value(const Node*, ParsedAnnotation, p->annotations, n);
     if (found) {
         ParsedAnnotation* data = shd_arena_alloc(p->annotations_arena, sizeof(a));
@@ -60,13 +60,13 @@ static bool is_io_as(AddressSpace as) {
     return false;
 }
 
-void process_llvm_annotations(Parser* p, LLVMValueRef global) {
+void l2s_process_llvm_annotations(Parser* p, LLVMValueRef global) {
     IrArena* a = shd_module_get_arena(p->dst);
-    const Type* t = convert_type(p, LLVMGlobalGetValueType(global));
+    const Type* t = l2s_convert_type(p, LLVMGlobalGetValueType(global));
     assert(t->tag == ArrType_TAG);
     size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
     assert(arr_size > 0);
-    const Node* value = convert_value(p, LLVMGetInitializer(global));
+    const Node* value = l2s_convert_value(p, LLVMGetInitializer(global));
     assert(value->tag == Composite_TAG && value->payload.composite.contents.count == arr_size);
     for (size_t i = 0; i < arr_size; i++) {
         const Node* entry = value->payload.composite.contents.nodes[i];
@@ -144,7 +144,7 @@ void process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 });
             } else if (strcmp(keyword, "extern") == 0) {
                 assert(target->tag == GlobalVariable_TAG);
-                AddressSpace as = convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));
+                AddressSpace as = l2s_convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));
                 if (is_io_as(as))
                     ((Node*) target)->payload.global_variable.init = NULL;
                 add_annotation(p, target, (ParsedAnnotation) {

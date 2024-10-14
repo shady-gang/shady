@@ -49,21 +49,20 @@ typedef struct ParsedAnnotationContents_ {
     struct ParsedAnnotationContents_* next;
 } ParsedAnnotation;
 
-ParsedAnnotation* find_annotation(Parser*, const Node*);
+ParsedAnnotation* l2s_find_annotation(Parser* p, const Node* n);
 ParsedAnnotation* next_annotation(ParsedAnnotation*);
-void add_annotation(Parser*, const Node*, ParsedAnnotation);
 
-void process_llvm_annotations(Parser* p, LLVMValueRef global);
+void l2s_process_llvm_annotations(Parser* p, LLVMValueRef global);
 
-AddressSpace convert_llvm_address_space(unsigned);
-const Node* convert_value(Parser* p, LLVMValueRef v);
-const Node* convert_function(Parser* p, LLVMValueRef fn);
-const Type* convert_type(Parser* p, LLVMTypeRef t);
-const Node* convert_metadata(Parser* p, LLVMMetadataRef meta);
-const Node* convert_global(Parser* p, LLVMValueRef global);
-const Node* convert_function(Parser* p, LLVMValueRef fn);
-const Node* convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
-const Node* convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
+AddressSpace l2s_convert_llvm_address_space(unsigned);
+const Node* l2s_convert_value(Parser* p, LLVMValueRef v);
+const Node* l2s_convert_function(Parser* p, LLVMValueRef fn);
+const Type* l2s_convert_type(Parser* p, LLVMTypeRef t);
+const Node* l2s_convert_metadata(Parser* p, LLVMMetadataRef meta);
+const Node* l2s_convert_global(Parser* p, LLVMValueRef global);
+const Node* l2s_convert_function(Parser* p, LLVMValueRef fn);
+const Node* l2s_convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
+const Node* l2s_convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
 typedef struct {
     struct List* list;
@@ -76,11 +75,11 @@ typedef struct {
 } JumpTodo;
 
 void convert_jump_finish(Parser* p, FnParseCtx*, JumpTodo todo);
-const Node* convert_instruction(Parser* p, FnParseCtx*, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
+const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr);
 
-Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
+Nodes l2s_scope_to_string(Parser* p, LLVMMetadataRef dbgloc);
 
-void postprocess(Parser*, Module* src, Module* dst);
+void l2s_postprocess(Parser* p, Module* src, Module* dst);
 
 inline static String is_llvm_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));

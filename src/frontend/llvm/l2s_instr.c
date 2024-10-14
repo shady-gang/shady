@@ -17,7 +17,7 @@ static Nodes convert_operands(Parser* p, size_t num_ops, LLVMValueRef v) {
         if (LLVMIsAFunction(op) && (is_llvm_intrinsic(op) || is_shady_intrinsic(op)))
             ops[i] = NULL;
         else
-            ops[i] = convert_value(p, op);
+            ops[i] = l2s_convert_value(p, op);
     }
     Nodes operands = shd_nodes(a, num_ops, ops);
     return operands;
@@ -57,7 +57,7 @@ static LLVMValueRef remove_ptr_bitcasts(Parser* p, LLVMValueRef v) {
 
 static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, LLVMBasicBlockRef dst, const Node* mem) {
     IrArena* a = fn_ctx->fn->arena;
-    const Node* dst_bb = convert_basic_block_body(p, fn_ctx, dst);
+    const Node* dst_bb = l2s_convert_basic_block_body(p, fn_ctx, dst);
     struct List* phis = *shd_dict_find_value(const Node*, struct List*, fn_ctx->phis, dst_bb);
     assert(phis);
     size_t params_count = shd_list_count(phis);
@@ -65,8 +65,8 @@ static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, 
     for (size_t i = 0; i < params_count; i++) {
         LLVMValueRef phi = shd_read_list(LLVMValueRef, phis)[i];
         for (size_t j = 0; j < LLVMCountIncoming(phi); j++) {
-            if (convert_basic_block_header(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == src) {
-                params[i] = convert_value(p, LLVMGetIncomingValue(phi, j));
+            if (l2s_convert_basic_block_header(p, fn_ctx, LLVMGetIncomingBlock(phi, j)) == src) {
+                params[i] = l2s_convert_value(p, LLVMGetIncomingValue(phi, j));
                 goto next;
             }
         }
@@ -86,7 +86,7 @@ static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* eleme
 }
 
 /// instr may be an instruction or a constantexpr
-const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
+const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
     Node* fn = fn_ctx ? fn_ctx->fn : NULL;
 
     IrArena* a = shd_module_get_arena(p->dst);
@@ -103,7 +103,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
     else
         assert(false);
 
-    const Type* t = convert_type(p, LLVMTypeOf(instr));
+    const Type* t = l2s_convert_type(p, LLVMTypeOf(instr));
 
 #define BIND_PREV_R(t) shd_bld_add_instruction_extract_count(b, r, 1)
 
@@ -115,7 +115,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
         if (dbgloc) {
             //Nodes* found = find_value_dict(const Node*, Nodes, p->scopes, fn_or_bb);
             //if (!found) {
-                Nodes str = scope_to_string(p, dbgloc);
+                Nodes str = l2s_scope_to_string(p, dbgloc);
                 //insert_dict(const Node*, Nodes, p->scopes, fn_or_bb, str);
                 shd_debugv_print("Found a debug location for ");
             shd_log_node(DEBUGV, fn_or_bb);
@@ -148,7 +148,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                 targets[i] = LLVMGetSuccessor(instr, i);
             if (LLVMIsConditional(instr)) {
                 assert(n_targets == 2);
-                const Node* condition = convert_value(p, LLVMGetCondition(instr));
+                const Node* condition = l2s_convert_value(p, LLVMGetCondition(instr));
                 return branch(a, (Branch) {
                         .condition = condition,
                         .true_jump = convert_jump(p, fn_ctx, fn_or_bb, targets[0], shd_bb_mem(b)),
@@ -161,13 +161,13 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             }
         }
         case LLVMSwitch: {
-            const Node* inspectee = convert_value(p, LLVMGetOperand(instr, 0));
+            const Node* inspectee = l2s_convert_value(p, LLVMGetOperand(instr, 0));
             const Node* default_jump = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, 1), shd_bb_mem(b));
             int n_targets = LLVMGetNumOperands(instr) / 2 - 1;
             LARRAY(const Node*, targets, n_targets);
             LARRAY(const Node*, literals, n_targets);
             for (size_t i = 0; i < n_targets; i++) {
-                literals[i] = convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
+                literals[i] = l2s_convert_value(p, LLVMGetOperand(instr, i * 2 + 2));
                 targets[i] = convert_jump(p, fn_ctx, fn_or_bb, (LLVMBasicBlockRef) LLVMGetOperand(instr, i * 2 + 3), shd_bb_mem(b));
             }
             return br_switch(a, (Switch) {
@@ -200,14 +200,14 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
         case LLVMFDiv:
             return prim_op_helper(a, div_op, shd_empty(a), convert_operands(p, num_ops, instr));
         case LLVMSDiv: {
-            const Type* int_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
             return  prim_op_helper(a, reinterpret_op, shd_singleton(int_t), shd_singleton(prim_op_helper(a, div_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t))));
         } case LLVMURem:
         case LLVMFRem:
             return prim_op_helper(a, mod_op, shd_empty(a), convert_operands(p, num_ops, instr));
         case LLVMSRem: {
-            const Type* int_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
             return prim_op_helper(a, reinterpret_op, shd_singleton(int_t), shd_singleton(prim_op_helper(a, mod_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t))));
         } case LLVMShl:
@@ -224,7 +224,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             return prim_op_helper(a, xor_op, shd_empty(a), convert_operands(p, num_ops, instr));
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
-            const Type* allocated_t = convert_type(p, LLVMGetAllocatedType(instr));
+            const Type* allocated_t = l2s_convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
             const Node* r = shd_first(shd_bld_add_instruction_extract_count(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bb_mem(b) }), 1));
             if (UNTYPED_POINTERS) {
@@ -239,7 +239,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             const Node* ptr = shd_first(ops);
             if (UNTYPED_POINTERS) {
                 const Type* element_t = t;
-                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
@@ -251,8 +251,8 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             assert(ops.count == 2);
             const Node* ptr = ops.nodes[1];
             if (UNTYPED_POINTERS) {
-                const Type* element_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
-                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
+                const Type* element_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
@@ -262,16 +262,16 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             Nodes ops = convert_operands(p, num_ops, instr);
             const Node* ptr = shd_first(ops);
             if (UNTYPED_POINTERS) {
-                const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
-                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* element_t = l2s_convert_type(p, LLVMGetGEPSourceElementType(instr));
+                const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
                 ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
             }
             ops = shd_change_node_at_index(a, ops, 0, ptr);
             const Node* r = lea_helper(a, ops.nodes[0], ops.nodes[1], shd_nodes(a, ops.count - 2, &ops.nodes[2]));
             if (UNTYPED_POINTERS) {
-                const Type* element_t = convert_type(p, LLVMGetGEPSourceElementType(instr));
-                const Type* untyped_ptr_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* element_t = l2s_convert_type(p, LLVMGetGEPSourceElementType(instr));
+                const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 bool idk;
                 //element_t = shd_as_qualified_type(element_t, false);
                 shd_enter_composite_type_indices(&element_t, &idk, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
@@ -282,7 +282,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
         }
         case LLVMTrunc:
         case LLVMZExt: {
-            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             Nodes ops = convert_operands(p, num_ops, instr);
             const Node* r;
             if (src_t->tag == Bool_TAG) {
@@ -306,7 +306,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
         } case LLVMSExt: {
             const Node* r;
             // reinterpret as signed, convert to change size, reinterpret back to target T
-            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             Nodes ops = convert_operands(p, num_ops, instr);
             if (src_t->tag == Bool_TAG) {
                 assert(t->tag == Int_TAG);
@@ -338,7 +338,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             assert(num_ops == 1);
             const Node* src = shd_first(convert_operands(p, num_ops, instr));
             Op op = reinterpret_op;
-            const Type* src_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
                 if ((t->payload.ptr_type.address_space == AsGeneric)) {
                     switch (src_t->payload.ptr_type.address_space) {
@@ -396,7 +396,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             }
             Nodes ops = convert_operands(p, num_ops, instr);
             if (cast_to_signed) {
-                const Type* unsigned_t = convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                const Type* unsigned_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 assert(unsigned_t->tag == Int_TAG);
                 const Type* signed_t = change_int_t_sign(unsigned_t, true);
                 ops = reinterpret_operands(b, ops, signed_t);
@@ -456,8 +456,8 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
             if (intrinsic) {
                 assert(LLVMIsAFunction(callee));
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
-                    const Node* target = convert_value(p, LLVMGetOperand(instr, 0));
-                    const Node* meta = convert_value(p, LLVMGetOperand(instr, 1));
+                    const Node* target = l2s_convert_value(p, LLVMGetOperand(instr, 0));
+                    const Node* meta = l2s_convert_value(p, LLVMGetOperand(instr, 1));
                     assert(meta->tag == RefDecl_TAG);
                     meta = meta->payload.ref_decl.decl;
                     assert(meta->tag == GlobalVariable_TAG);
@@ -592,7 +592,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                     .mem = shd_bb_mem(b),
                     .callee = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) {
                         .address_space = AsGeneric,
-                        .pointed_type = convert_type(p, callee_type)
+                        .pointed_type = l2s_convert_type(p, callee_type)
                     })), shd_singleton(ops.nodes[num_args])),
                     .args = shd_nodes(a, num_args, ops.nodes),
                 }));

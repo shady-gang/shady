@@ -5,6 +5,6 @@
 #include <stdbool.h>
 
 typedef struct CompilerConfig_ CompilerConfig;
-bool parse_llvm_into_shady(const CompilerConfig*, size_t len, const char* data, String name, Module** dst);
+bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst);
 
 #endif

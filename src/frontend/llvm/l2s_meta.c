@@ -16,7 +16,7 @@ static Nodes convert_mdnode_operands(Parser* p, LLVMValueRef mdnode) {
 
     LARRAY(const Node*, cops, count);
     for (size_t i = 0; i < count; i++)
-        cops[i] = ops[i] ? convert_value(p, ops[i]) : string_lit_helper(a, "null");
+        cops[i] = ops[i] ? l2s_convert_value(p, ops[i]) : string_lit_helper(a, "null");
     Nodes args = shd_nodes(a, count, cops);
     return args;
 }
@@ -101,7 +101,7 @@ LLVM_DI_WITH_PARENT_SCOPES(N)
     return ops[1];
 }
 
-Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
+Nodes l2s_scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
     IrArena* a = shd_module_get_arena(p->dst);
     Nodes str = shd_empty(a);
 
@@ -109,7 +109,7 @@ Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
     while (true) {
         if (!scope) break;
 
-        str = shd_nodes_prepend(a, str, shd_uint32_literal(a, convert_metadata(p, scope)->id));
+        str = shd_nodes_prepend(a, str, shd_uint32_literal(a, l2s_convert_metadata(p, scope)->id));
 
         // LLVMDumpValue(LLVMMetadataAsValue(p->ctx, scope));
         // printf("\n");
@@ -122,7 +122,7 @@ Nodes scope_to_string(Parser* p, LLVMMetadataRef dbgloc) {
     return str;
 }
 
-const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
+const Node* l2s_convert_metadata(Parser* p, LLVMMetadataRef meta) {
     IrArena* a = shd_module_get_arena(p->dst);
     LLVMMetadataKind kind = LLVMGetMetadataKind(meta);
     LLVMValueRef v = LLVMMetadataAsValue(p->ctx, meta);

@@ -43,7 +43,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, Source
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
-            bool ok = parse_llvm_into_shady(config, len, file_contents, name, mod);
+            bool ok = shd_parse_llvm(config, len, file_contents, name, mod);
             assert(ok);
 #else
             assert(false && "LLVM front-end missing in this version");

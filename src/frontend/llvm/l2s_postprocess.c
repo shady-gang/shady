@@ -55,7 +55,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
         case Function_TAG: {
             Nodes new_params = remake_params(ctx, node->payload.fun.params);
             Nodes old_annotations = node->payload.fun.annotations;
-            ParsedAnnotation* an = find_annotation(ctx->p, node);
+            ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
             while (an) {
                 if (strcmp(get_annotation_name(an->payload), "PrimOpIntrinsic") == 0) {
@@ -98,7 +98,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             const Node* old_init = node->payload.global_variable.init;
             Nodes annotations = shd_rewrite_nodes(r, node->payload.global_variable.annotations);
             const Type* type = shd_rewrite_node(r, node->payload.global_variable.type);
-            ParsedAnnotation* an = find_annotation(ctx->p, node);
+            ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             AddressSpace old_as = as;
             while (an) {
                 annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
@@ -131,7 +131,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-void postprocess(Parser* p, Module* src, Module* dst) {
+void l2s_postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
