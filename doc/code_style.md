@@ -12,7 +12,7 @@ If you have a good reason for breaking any of those rules we're happy to conside
  * `{ spaces, surrounding, initializer, lists }`
  * Unless you're literally contributing using a 80-column display (for which I'll ask visual proof), don't format your code as if you do.
  * Include order: 
-   * If appropriate, (Private) `self.h` should always come first
+   * If appropriate, (Private) `self.h` should always come first, with other local headers in the same group
    * Then other `shady/` headers
    * Then in-project utility headers
    * Then external headers
@@ -26,6 +26,7 @@ Due to C not having namespaces, we have to deal with this painfully automatable 
  * Avoid exposing any symbols that don't need to be exposed (use `static` wherever you can)
  * Prefixes:
    * `shd_` in front of API functions (in the root `include` folder)
+     * `slim_`, `l2s_`, `spv_` and `vcc_` are used in various sub-projects
    * `subsystem_` is acceptable for internal use
    * `shd_subsystem_` is preferable where a clear delineation can be made
    * `shd_new_thing` and `shd_destroy_thing` for constructors and destructors
