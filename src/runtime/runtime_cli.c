@@ -3,7 +3,7 @@
 
 #include "log.h"
 
-RuntimeConfig default_runtime_config() {
+RuntimeConfig shd_rt_default_config() {
     return (RuntimeConfig) {
 #ifndef NDEBUG
         .dump_spv = true,
@@ -18,7 +18,7 @@ RuntimeConfig default_runtime_config() {
 F(config->use_validation, api-validation) \
 F(config->dump_spv, dump-spv) \
 
-void cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv) {
+void shd_rt_cli_parse_runtime_config(RuntimeConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;

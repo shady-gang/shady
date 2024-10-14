@@ -33,7 +33,7 @@ static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Gro
     shd_growy_append_object(bindings_lists[set], binding);
 }
 
-VkDescriptorType as_to_descriptor_type(AddressSpace as) {
+VkDescriptorType shd_rt_vk_as_to_descriptor_type(AddressSpace as) {
     switch (as) {
         case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -145,14 +145,14 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 }
             }
 
-            if (vkr_can_import_host_memory(program->device))
+            if (shd_rt_vk_can_import_host_memory(program->device))
                 res_info->host_backed_allocation = true;
             else
                 res_info->staging = calloc(1, res_info->size);
 
             VkDescriptorSetLayoutBinding vk_binding = {
                 .binding = binding,
-                .descriptorType = as_to_descriptor_type(as),
+                .descriptorType = shd_rt_vk_as_to_descriptor_type(as),
                 .descriptorCount = 1,
                 .stageFlags = VK_SHADER_STAGE_ALL,
                 .pImmutableSamplers = NULL,
@@ -432,7 +432,7 @@ static void flush_staged_data(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
         if (resource->staging) {
-            copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
+            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
             free(resource->staging);
         }
     }
@@ -443,18 +443,18 @@ static bool prepare_resources(VkrSpecProgram* program) {
         ProgramResourceInfo* resource = program->resources.resources[i];
 
         if (resource->host_backed_allocation) {
-            assert(vkr_can_import_host_memory(program->device));
+            assert(shd_rt_vk_can_import_host_memory(program->device));
             resource->host_ptr = shd_alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
-            resource->buffer = vkr_import_buffer_host(program->device, resource->host_ptr, resource->size);
+            resource->buffer = shd_rt_vk_import_buffer_host(program->device, resource->host_ptr, resource->size);
         } else {
-            resource->buffer = vkr_allocate_buffer_device(program->device, resource->size);
+            resource->buffer = shd_rt_vk_allocate_buffer_device(program->device, resource->size);
         }
 
         if (resource->default_data) {
-            copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
+            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
         } else {
             char* zeroes = calloc(1, resource->size);
-            copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
+            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
             free(zeroes);
         }
 
@@ -464,7 +464,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
                 dst = resource->parent->staging;
             }
             assert(dst);
-            *((uint64_t*) (dst + resource->offset)) = get_buffer_device_pointer((Buffer*) resource->buffer);
+            *((uint64_t*) (dst + resource->offset)) = shd_rt_get_buffer_device_pointer((Buffer*) resource->buffer);
         }
     }
 
@@ -491,7 +491,7 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     return spec_program;
 }
 
-VkrSpecProgram* get_specialized_program(Program* program, String entry_point, VkrDevice* device) {
+VkrSpecProgram* shd_rt_vk_get_specialized_program(Program* program, String entry_point, VkrDevice* device) {
     SpecProgramKey key = { .base = program, .entry_point = entry_point };
     VkrSpecProgram** found = shd_dict_find_value(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
     if (found)
@@ -502,7 +502,7 @@ VkrSpecProgram* get_specialized_program(Program* program, String entry_point, Vk
     return spec;
 }
 
-void destroy_specialized_program(VkrSpecProgram* spec) {
+void shd_rt_vk_destroy_specialized_program(VkrSpecProgram* spec) {
     vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
     for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++)
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
@@ -515,7 +515,7 @@ void destroy_specialized_program(VkrSpecProgram* spec) {
     for (size_t i = 0; i < spec->resources.num_resources; i++) {
         ProgramResourceInfo* resource = spec->resources.resources[i];
         if (resource->buffer)
-            vkr_destroy_buffer(resource->buffer);
+            shd_rt_vk_destroy_buffer(resource->buffer);
         if (resource->host_ptr && resource->host_backed_allocation)
             shd_free_aligned(resource->host_ptr);
     }

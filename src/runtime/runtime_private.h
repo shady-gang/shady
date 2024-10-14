@@ -64,9 +64,9 @@ struct Buffer_ {
     bool     (*copy_from)(Buffer* src, size_t buffer_offset, void* dst, size_t bytes);
 };
 
-void unload_program(Program*);
+void shd_rt_unload_program(Program* program);
 
-Backend* initialize_vk_backend(Runtime*);
-Backend* initialize_cuda_backend(Runtime*);
+Backend* shd_rt_initialize_vk_backend(Runtime*);
+Backend* shd_rt_shd_rt_initialize_cuda_backend(Runtime*);
 
 #endif

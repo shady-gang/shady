@@ -156,7 +156,7 @@ struct VkrDevice_ {
     struct Dict* specialized_programs;
 };
 
-bool probe_vkr_devices(VkrBackend*);
+bool shd_rt_vk_probe_devices(VkrBackend* runtime);
 
 typedef struct VkrBuffer_ {
     Buffer base;
@@ -169,10 +169,10 @@ typedef struct VkrBuffer_ {
     void* host_ptr;
 } VkrBuffer;
 
-VkrBuffer* vkr_allocate_buffer_device(VkrDevice* device, size_t size);
-VkrBuffer* vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
-bool vkr_can_import_host_memory(VkrDevice* device);
-void vkr_destroy_buffer(VkrBuffer* buffer);
+VkrBuffer* shd_rt_vk_allocate_buffer_device(VkrDevice* device, size_t size);
+VkrBuffer* shd_rt_vk_import_buffer_host(VkrDevice* device, void* ptr, size_t size);
+bool shd_rt_vk_can_import_host_memory(VkrDevice* device);
+void shd_rt_vk_destroy_buffer(VkrBuffer* buffer);
 
 typedef struct VkrCommand_ VkrCommand;
 
@@ -187,12 +187,12 @@ struct VkrCommand_ {
     VkQueryPool query_pool;
 };
 
-VkrCommand* vkr_begin_command(VkrDevice* device);
-bool vkr_submit_command(VkrCommand* commands);
-void vkr_destroy_command(VkrCommand* commands);
-bool vkr_wait_completion(VkrCommand* cmd);
+VkrCommand* shd_rt_vk_begin_command(VkrDevice* device);
+bool shd_rt_vk_submit_command(VkrCommand* cmd);
+void shd_rt_vk_destroy_command(VkrCommand* cmd);
+bool shd_rt_vk_wait_completion(VkrCommand* cmd);
 
-VkrCommand* vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions*);
+VkrCommand* shd_rt_vk_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options);
 
 typedef struct ProgramResourceInfo_ ProgramResourceInfo;
 struct ProgramResourceInfo_ {
@@ -221,7 +221,7 @@ typedef struct {
 
 #define MAX_DESCRIPTOR_SETS 4
 
-VkDescriptorType as_to_descriptor_type(AddressSpace as);
+VkDescriptorType shd_rt_vk_as_to_descriptor_type(AddressSpace as);
 
 struct VkrSpecProgram_ {
     SpecProgramKey key;
@@ -248,8 +248,8 @@ struct VkrSpecProgram_ {
     VkDescriptorSet sets[MAX_DESCRIPTOR_SETS];
 };
 
-VkrSpecProgram* get_specialized_program(Program*, String ep, VkrDevice*);
-void destroy_specialized_program(VkrSpecProgram*);
+VkrSpecProgram* shd_rt_vk_get_specialized_program(Program* program, String entry_point, VkrDevice* device);
+void shd_rt_vk_destroy_specialized_program(VkrSpecProgram* spec);
 
 static inline void append_pnext(VkBaseOutStructure* s, void* n) {
     while (s->pNext != NULL)

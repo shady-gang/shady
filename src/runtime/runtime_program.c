@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <string.h>
 
-Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_config, Module* mod) {
+Program* shd_rt_new_program_from_module(Runtime* runtime, const CompilerConfig* base_config, Module* mod) {
     Program* program = calloc(1, sizeof(Program));
     program->runtime = runtime;
     program->base_config = base_config;
@@ -22,7 +22,7 @@ Program* new_program_from_module(Runtime* runtime, const CompilerConfig* base_co
     return program;
 }
 
-Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const char* program_src) {
+Program* shd_rt_load_program(Runtime* runtime, const CompilerConfig* base_config, const char* program_src) {
     Module* module;
 
     int err = shd_driver_load_source_file(base_config, SrcShadyIR, strlen(program_src), program_src, "my_module",
@@ -31,12 +31,12 @@ Program* load_program(Runtime* runtime, const CompilerConfig* base_config, const
         return NULL;
     }
 
-    Program* program = new_program_from_module(runtime, base_config, module);
+    Program* program = shd_rt_new_program_from_module(runtime, base_config, module);
     program->arena = shd_module_get_arena(module);
     return program;
 }
 
-Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_config, const char* path) {
+Program* shd_rt_load_program_from_disk(Runtime* runtime, const CompilerConfig* base_config, const char* path) {
     Module* module;
 
     int err = shd_driver_load_source_file_from_filename(base_config, path, "my_module", &module);
@@ -44,12 +44,12 @@ Program* load_program_from_disk(Runtime* runtime, const CompilerConfig* base_con
         return NULL;
     }
 
-    Program* program = new_program_from_module(runtime, base_config, module);
+    Program* program = shd_rt_new_program_from_module(runtime, base_config, module);
     program->arena = shd_module_get_arena(module);
     return program;
 }
 
-void unload_program(Program* program) {
+void shd_rt_unload_program(Program* program) {
     // TODO iterate over the specialized stuff
     if (program->arena) // if the program owns an arena
         shd_destroy_ir_arena(program->arena);

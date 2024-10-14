@@ -62,11 +62,11 @@ typedef struct {
     CUfunction entry_point_function;
 } CudaKernel;
 
-CudaBuffer* shd_cuda_allocate_buffer(CudaDevice*, size_t size);
-CudaBuffer* shd_cuda_import_host_memory(CudaDevice*, void* host_ptr, size_t size);
-bool shd_cuda_can_import_host_memory(CudaDevice*);
+CudaBuffer* shd_rt_cuda_allocate_buffer(CudaDevice*, size_t size);
+CudaBuffer* shd_rt_cuda_import_host_memory(CudaDevice*, void* host_ptr, size_t size);
+bool shd_rt_cuda_can_import_host_memory(CudaDevice*);
 
-CudaKernel* shd_cuda_get_specialized_program(CudaDevice*, Program*, String ep);
-bool shd_cuda_destroy_specialized_kernel(CudaKernel*);
+CudaKernel* shd_rt_cuda_get_specialized_program(CudaDevice*, Program*, String ep);
+bool shd_rt_cuda_destroy_specialized_kernel(CudaKernel*);
 
 #endif
