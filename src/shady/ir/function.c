@@ -7,7 +7,7 @@
 Node* _shd_param(IrArena* arena, const Type* type, const char* name) {
     Param param = {
         .type = type,
-        .name = string(arena, name),
+        .name = shd_string(arena, name),
     };
 
     Node node;

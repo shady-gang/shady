@@ -23,7 +23,7 @@ String shd_get_value_name_safe(const Node* v) {
 void shd_set_value_name(const Node* var, String name) {
     // TODO: annotations
     // if (var->tag == Variablez_TAG)
-    //     var->payload.varz.name = string(var->arena, name);
+    //     var->payload.varz.name = shd_string(var->arena, name);
 }
 
 void shd_bld_comment(BodyBuilder* bb, String str) {

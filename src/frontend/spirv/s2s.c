@@ -194,7 +194,7 @@ static bool parse_spv_header(SpvParser* parser) {
 
 static String decode_spv_string_literal(SpvParser* parser, uint32_t* at) {
     // TODO: assumes little endian
-    return string(shd_module_get_arena(parser->mod), (const char*) at);
+    return shd_string(shd_module_get_arena(parser->mod), (const char*) at);
 }
 
 static AddressSpace convert_storage_class(SpvStorageClass class) {

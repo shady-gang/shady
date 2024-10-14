@@ -75,7 +75,7 @@ static void add_binding(Context* ctx, bool is_var, String name, const Node* node
     assert(name);
     NamedBindEntry* entry = shd_arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
     *entry = (NamedBindEntry) {
-        .name = string(ctx->rewriter.dst_arena, name),
+        .name = shd_string(ctx->rewriter.dst_arena, name),
         .is_var = is_var,
         .node = (Node*) node,
         .next = NULL

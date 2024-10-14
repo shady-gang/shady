@@ -151,7 +151,7 @@ static const char* accept_identifier(ctxparams) {
     if (tok.tag == identifier_tok) {
         shd_next_token(tokenizer);
         size_t size = tok.end - tok.start;
-        return string_sized(arena, (int) size, &contents[tok.start]);
+        return shd_string_sized(arena, (int) size, &contents[tok.start]);
     }
     return NULL;
 }
@@ -198,7 +198,7 @@ static const Node* accept_numerical_literal(ctxparams) {
 
     Token tok = shd_curr_token(tokenizer);
     size_t size = tok.end - tok.start;
-    String str = string_sized(arena, (int) size, &contents[tok.start]);
+    String str = shd_string_sized(arena, (int) size, &contents[tok.start]);
 
     switch (tok.tag) {
         case hex_lit_tok:
@@ -267,7 +267,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
 
     switch (tok.tag) {
         case identifier_tok: {
-            const char* id = string_sized(arena, (int) size, &contents[tok.start]);
+            const char* id = shd_string_sized(arena, (int) size, &contents[tok.start]);
             shd_next_token(tokenizer);
 
             Op op = PRIMOPS_COUNT;
@@ -330,14 +330,14 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         case dec_lit_tok: {
             shd_next_token(tokenizer);
             return untyped_number(arena, (UntypedNumber) {
-                .plaintext = string_sized(arena, (int) size, &contents[tok.start])
+                .plaintext = shd_string_sized(arena, (int) size, &contents[tok.start])
             });
         }
         case string_lit_tok: {
             shd_next_token(tokenizer);
             char* unescaped = calloc(size + 1, 1);
             size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
-            const Node* lit = string_lit(arena, (StringLiteral) {.string = string_sized(arena, (int) j, unescaped) });
+            const Node* lit = string_lit(arena, (StringLiteral) {.string = shd_string_sized(arena, (int) j, unescaped) });
             free(unescaped);
             return lit;
         }

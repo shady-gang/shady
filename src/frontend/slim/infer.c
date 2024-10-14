@@ -101,7 +101,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             }
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
-            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
+            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), shd_string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
             shd_register_processed(&ctx->rewriter, node, fun);
             body_context.current_fn = fun;
             shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
@@ -228,7 +228,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         }
         case True_TAG: return true_lit(a);
         case False_TAG: return false_lit(a);
-        case StringLiteral_TAG: return string_lit(a, (StringLiteral) { .string = string(a, node->payload.string_lit.string )});
+        case StringLiteral_TAG: return string_lit(a, (StringLiteral) { .string = shd_string(a, node->payload.string_lit.string )});
         case RefDecl_TAG: break;
         case FnAddr_TAG: break;
         case Value_Undef_TAG: break;

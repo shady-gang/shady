@@ -57,7 +57,7 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
                     if (list)
                         shd_growy_append_formatted(g, "\t\t\tpayload.%s = shd_strings(rewriter->dst_arena, old_payload.%s.count, old_payload.%s.strings);\n", op_name, op_name, op_name);
                     else
-                        shd_growy_append_formatted(g, "\t\t\tpayload.%s = string(rewriter->dst_arena, old_payload.%s);\n", op_name, op_name);
+                        shd_growy_append_formatted(g, "\t\t\tpayload.%s = shd_string(rewriter->dst_arena, old_payload.%s);\n", op_name, op_name);
                     continue;
                 }
 

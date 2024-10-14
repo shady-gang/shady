@@ -30,7 +30,7 @@ String shd_c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
 
     fn->instruction_printers[cf_node->rpo_index] = NULL;
     String s2 = shd_printer_growy_unwrap(p);
-    String s = string(emitter->arena, s2);
+    String s = shd_string(emitter->arena, s2);
     free((void*)s2);
     return s;
 }

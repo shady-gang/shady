@@ -44,8 +44,8 @@ Nodes shd_concat_nodes(IrArena* arena, Nodes a, Nodes b);
 Nodes shd_change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n);
 bool shd_find_in_nodes(Nodes nodes, const Node* n);
 
-String string_sized(IrArena*, size_t size, const char* start);
-String string(IrArena*, const char*);
+String shd_string_sized(IrArena*, size_t size, const char* start);
+String shd_string(IrArena*, const char*);
 
 // see also: format_string in util.h
 String shd_fmt_string_irarena(IrArena* arena, const char* str, ...);

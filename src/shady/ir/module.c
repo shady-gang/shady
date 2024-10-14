@@ -9,7 +9,7 @@ Module* shd_new_module(IrArena* arena, String name) {
     Module* m = shd_arena_alloc(arena->arena, sizeof(Module));
     *m = (Module) {
         .arena = arena,
-        .name = string(arena, name),
+        .name = shd_string(arena, name),
         .decls = shd_new_list(Node*),
     };
     shd_list_append(Module*, arena->modules, m);

@@ -175,7 +175,7 @@ const char* shd_get_string_literal(IrArena* arena, const Node* node) {
                 chars[i] = (unsigned char) shd_get_int_literal_value(*shd_resolve_to_int_literal(value), false);
             }
             assert(chars[contents.count - 1] == 0);
-            return string(arena, chars);
+            return shd_string(arena, chars);
         }
         default: break;
     }

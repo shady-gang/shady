@@ -291,7 +291,7 @@ static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
     }
 
     String s = shd_printer_growy_unwrap(p);
-    String s2 = string(ctx->fn->arena, s);
+    String s2 = shd_string(ctx->fn->arena, s);
     if (cfnode)
         ctx->bb_printers[cfnode->rpo_index] = NULL;
     free((void*) s);
@@ -1047,7 +1047,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         shd_print(p, "%%%d = %s\n", node->id, s);
 
     if (print_inline) {
-        String is = string(node->arena, s);
+        String is = shd_string(node->arena, s);
         shd_dict_insert(const Node*, String, ctx->emitted, node, is);
         free((void*) s);
         return is;

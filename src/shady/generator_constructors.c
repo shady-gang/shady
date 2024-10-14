@@ -27,7 +27,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                 bool list = json_object_get_boolean(json_object_object_get(op, "list"));
                 if (strcmp(class, "string") == 0) {
                     if (!list)
-                        shd_growy_append_formatted(g, "\t\tnode->payload.%s.%s = string(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
+                        shd_growy_append_formatted(g, "\t\tnode->payload.%s.%s = shd_string(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
                     else
                         shd_growy_append_formatted(g, "\t\tnode->payload.%s.%s = _shd_import_strings(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
                 } else {

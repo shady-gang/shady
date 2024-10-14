@@ -11,7 +11,7 @@ Node* _shd_constant(Module* mod, Nodes annotations, const Type* hint, String nam
     IrArena* arena = mod->arena;
     Constant cnst = {
         .annotations = annotations,
-        .name = string(arena, name),
+        .name = shd_string(arena, name),
         .type_hint = hint,
         .value = NULL,
     };
@@ -40,7 +40,7 @@ Node* _shd_global_var(Module* mod, Nodes annotations, const Type* type, const ch
     IrArena* arena = mod->arena;
     GlobalVariable gvar = {
         .annotations = annotations,
-        .name = string(arena, name),
+        .name = shd_string(arena, name),
         .type = type,
         .address_space = as,
         .init = NULL,

@@ -181,7 +181,7 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     return new_str;
 }
 
-const char* string_sized(IrArena* arena, size_t size, const char* str) {
+const char* shd_string_sized(IrArena* arena, size_t size, const char* str) {
     LARRAY(char, new_str, size + 1);
 
     strncpy(new_str, str, size);
@@ -190,7 +190,7 @@ const char* string_sized(IrArena* arena, size_t size, const char* str) {
     return string_impl(arena, size, str);
 }
 
-const char* string(IrArena* arena, const char* str) {
+const char* shd_string(IrArena* arena, const char* str) {
     if (!str)
         return NULL;
     return string_impl(arena, strlen(str), str);
@@ -201,7 +201,7 @@ Strings _shd_import_strings(IrArena* dst_arena, Strings old_strings) {
     size_t count = old_strings.count;
     LARRAY(String, arr, count);
     for (size_t i = 0; i < count; i++)
-        arr[i] = string(dst_arena, old_strings.strings[i]);
+        arr[i] = shd_string(dst_arena, old_strings.strings[i]);
     return shd_strings(dst_arena, count, arr);
 }
 

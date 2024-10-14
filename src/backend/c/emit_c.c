@@ -91,7 +91,7 @@ String shd_c_legalize_identifier(Emitter* e, String src) {
     }
     dst[i] = '\0';
     // TODO: collision handling using a dict
-    return string(e->arena, dst);
+    return shd_string(e->arena, dst);
 }
 
 static bool has_forward_declarations(CDialect dialect) {
