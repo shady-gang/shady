@@ -58,33 +58,33 @@ typedef struct {
     Scheduler* scheduler;
 } FnEmitter;
 
-void register_emitted(Emitter*, FnEmitter* fn, const Node*, CTerm);
-void register_emitted_type(Emitter*, const Type*, String);
+void shd_c_register_emitted(Emitter* emitter, FnEmitter* fn, const Node* node, CTerm as);
+void shd_c_register_emitted_type(Emitter* emitter, const Node* node, String as);
 
-CTerm* lookup_existing_term(Emitter* emitter, FnEmitter* fn, const Node*);
-CType* lookup_existing_type(Emitter* emitter, const Type*);
+CTerm* shd_c_lookup_existing_term(Emitter* emitter, FnEmitter* fn, const Node* node);
+CType* shd_c_lookup_existing_type(Emitter* emitter, const Type* node);
 
-String c_legalize_identifier(Emitter*, String);
-CValue to_cvalue(Emitter*, CTerm);
-CAddr deref_term(Emitter*, CTerm);
-void c_emit_pack_code(Printer*, Strings, String dst);
-void c_emit_unpack_code(Printer*, String src, Strings dst);
-CTerm c_bind_intermediary_result(Emitter*, Printer* p, const Type* t, CTerm term);
-void c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
-CTerm ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
+String shd_c_legalize_identifier(Emitter* e, String src);
+CValue shd_c_to_ssa(Emitter* e, CTerm term);
+CAddr shd_c_deref(Emitter* e, CTerm term);
+void shd_c_emit_pack_code(Printer* p, Strings src, String dst);
+void shd_c_emit_unpack_code(Printer* p, String src, Strings dst);
+CTerm shd_c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term);
+void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
+CTerm shd_ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term);
 
-void c_emit_decl(Emitter* emitter, const Node* decl);
-void c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init);
-CTerm c_emit_builtin(Emitter*, Builtin);
+void shd_c_emit_decl(Emitter* emitter, const Node* decl);
+void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init);
+CTerm shd_c_emit_builtin(Emitter* emitter, Builtin b);
 
-CType c_emit_type(Emitter* emitter, const Type*, const char* identifier);
-String c_get_record_field_name(const Type* t, size_t i);
-String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
-void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
+CType shd_c_emit_type(Emitter* emitter, const Type* type, const char* center);
+String shd_c_get_record_field_name(const Type* t, size_t i);
+String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
+void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 
-CTerm c_emit_value(Emitter* emitter, FnEmitter* fn, const Node* value);
-CTerm c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem);
-String c_emit_body(Emitter*, FnEmitter* fn, const Node*);
+CTerm shd_c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node);
+CTerm shd_c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem);
+String shd_c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs);
 
 #define free_tmp_str(s) free((char*) (s))
 

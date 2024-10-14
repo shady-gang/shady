@@ -9,7 +9,7 @@
 
 static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_printer, const Node* terminator);
 
-String c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
+String shd_c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs) {
     assert(abs && is_abstraction(abs));
     const Node* body = get_abstraction_body(abs);
     assert(body && is_terminator(body));
@@ -46,10 +46,10 @@ static Strings emit_variable_declarations(Emitter* emitter, FnEmitter* fn, Print
         assert(name);
         names[i] = shd_make_unique_name(emitter->arena, name);
         if (init_values) {
-            CTerm initializer = c_emit_value(emitter, fn, init_values->nodes[i]);
-            c_emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
+            CTerm initializer = shd_c_emit_value(emitter, fn, init_values->nodes[i]);
+            shd_c_emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, &initializer);
         } else
-            c_emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, NULL);
+            shd_c_emit_variable_declaration(emitter, p, types.nodes[i], names[i], mut, NULL);
     }
     return shd_strings(emitter->arena, types.count, names);
 }
@@ -60,10 +60,10 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
     sub_emiter.phis.selection = ephis;
 
     assert(get_abstraction_params(if_.if_true).count == 0);
-    String true_body = c_emit_body(&sub_emiter, fn, if_.if_true);
-    String false_body = if_.if_false ? c_emit_body(&sub_emiter, fn, if_.if_false) : NULL;
-    String tail = c_emit_body(emitter, fn, if_.tail);
-    CValue condition = to_cvalue(emitter, c_emit_value(emitter, fn, if_.condition));
+    String true_body = shd_c_emit_body(&sub_emiter, fn, if_.if_true);
+    String false_body = if_.if_false ? shd_c_emit_body(&sub_emiter, fn, if_.if_false) : NULL;
+    String tail = shd_c_emit_body(emitter, fn, if_.tail);
+    CValue condition = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, if_.condition));
     shd_print(p, "\nif (%s) { ", condition);
     shd_printer_indent(p);
     shd_print(p, "%s", true_body);
@@ -80,7 +80,7 @@ static void emit_if(Emitter* emitter, FnEmitter* fn, Printer* p, If if_) {
 
     Nodes results = get_abstraction_params(if_.tail);
     for (size_t i = 0; i < ephis.count; i++) {
-        register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
+        shd_c_register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
     shd_print(p, "%s", tail);
@@ -100,15 +100,15 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
     // We could do GOTO for C, but at the cost of arguably even more noise in the output, and two different codepaths.
     // I don't think it's quite worth it, just like it's not worth doing some data-flow based solution either.
 
-    CValue inspectee = to_cvalue(emitter, c_emit_value(emitter, fn, match.inspect));
+    CValue inspectee = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, match.inspect));
     bool first = true;
     LARRAY(CValue, literals, match.cases.count);
     LARRAY(String, bodies, match.cases.count);
-    String default_case_body = c_emit_body(&sub_emiter, fn, match.default_case);
-    String tail = c_emit_body(emitter, fn, match.tail);
+    String default_case_body = shd_c_emit_body(&sub_emiter, fn, match.default_case);
+    String tail = shd_c_emit_body(emitter, fn, match.tail);
     for (size_t i = 0; i < match.cases.count; i++) {
-        literals[i] = to_cvalue(emitter, c_emit_value(emitter, fn, match.literals.nodes[i]));
-        bodies[i] = c_emit_body(&sub_emiter, fn, match.cases.nodes[i]);
+        literals[i] = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, match.literals.nodes[i]));
+        bodies[i] = shd_c_emit_body(&sub_emiter, fn, match.cases.nodes[i]);
     }
     for (size_t i = 0; i < match.cases.count; i++) {
         shd_print(p, "\n");
@@ -131,7 +131,7 @@ static void emit_match(Emitter* emitter, FnEmitter* fn, Printer* p, Match match)
 
     Nodes results = get_abstraction_params(match.tail);
     for (size_t i = 0; i < ephis.count; i++) {
-        register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
+        shd_c_register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
     shd_print(p, "%s", tail);
@@ -150,14 +150,14 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
     Strings param_names = shd_strings(emitter->arena, variables.count, arr);
     Strings eparams = emit_variable_declarations(emitter, fn, p, NULL, &param_names, shd_get_param_types(emitter->arena, params), true, &loop.initial_args);
     for (size_t i = 0; i < params.count; i++)
-        register_emitted(&sub_emiter, fn, params.nodes[i], term_from_cvalue(eparams.strings[i]));
+        shd_c_register_emitted(&sub_emiter, fn, params.nodes[i], term_from_cvalue(eparams.strings[i]));
 
     sub_emiter.phis.loop_continue = eparams;
     Strings ephis = emit_variable_declarations(emitter, fn, p, "loop_break_phi", NULL, loop.yield_types, true, NULL);
     sub_emiter.phis.loop_break = ephis;
 
-    String body = c_emit_body(&sub_emiter, fn, loop.body);
-    String tail = c_emit_body(emitter, fn, loop.tail);
+    String body = shd_c_emit_body(&sub_emiter, fn, loop.body);
+    String tail = shd_c_emit_body(emitter, fn, loop.tail);
     shd_print(p, "\nwhile(true) { ");
     shd_printer_indent(p);
     shd_print(p, "%s", body);
@@ -166,14 +166,14 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
 
     Nodes results = get_abstraction_params(loop.tail);
     for (size_t i = 0; i < ephis.count; i++) {
-        register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
+        shd_c_register_emitted(emitter, fn, results.nodes[i], term_from_cvalue(ephis.strings[i]));
     }
 
     shd_print(p, "%s", tail);
 }
 
 static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_printer, const Node* terminator) {
-    c_emit_mem(emitter, fn, get_terminator_mem(terminator));
+    shd_c_emit_mem(emitter, fn, get_terminator_mem(terminator));
     switch (is_terminator(terminator)) {
         case NotATerminator: assert(false);
         case Join_TAG: shd_error("this must be lowered away!");
@@ -190,13 +190,13 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             if (args.count == 0) {
                 shd_print(block_printer, "\nreturn;");
             } else if (args.count == 1) {
-                shd_print(block_printer, "\nreturn %s;", to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[0])));
+                shd_print(block_printer, "\nreturn %s;", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[0])));
             } else {
                 String packed = shd_make_unique_name(emitter->arena, "pack_return");
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
-                    values[i] = to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i]));
-                c_emit_pack_code(block_printer, shd_strings(emitter->arena, args.count, values), packed);
+                    values[i] = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i]));
+                shd_c_emit_pack_code(block_printer, shd_strings(emitter->arena, args.count, values), packed);
                 shd_print(block_printer, "\nreturn %s;", packed);
             }
             break;
@@ -206,7 +206,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.selection;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
 
             break;
         }
@@ -215,7 +215,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.loop_continue;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
             shd_print(block_printer, "\ncontinue;");
             break;
         }
@@ -224,7 +224,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             Phis phis = emitter->phis.loop_break;
             assert(phis.count == args.count);
             for (size_t i = 0; i < phis.count; i++)
-                shd_print(block_printer, "\n%s = %s;", phis.strings[i], to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+                shd_print(block_printer, "\n%s = %s;", phis.strings[i], shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
             shd_print(block_printer, "\nbreak;");
             break;
         }

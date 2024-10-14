@@ -12,7 +12,7 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-String c_get_record_field_name(const Type* t, size_t i) {
+String shd_c_get_record_field_name(const Type* t, size_t i) {
     assert(t->tag == RecordType_TAG);
     RecordType r = t->payload.record_type;
     assert(i < r.members.count);
@@ -22,7 +22,7 @@ String c_get_record_field_name(const Type* t, size_t i) {
         return r.names.strings[i];
 }
 
-void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
+void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     assert(type->tag == RecordType_TAG);
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
@@ -30,8 +30,8 @@ void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     shd_print(p, "\n%s {", name);
     shd_printer_indent(p);
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-        String member_identifier = c_get_record_field_name(type, i);
-        shd_print(p, "\n%s;", c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
+        String member_identifier = shd_c_get_record_field_name(type, i);
+        shd_print(p, "\n%s;", shd_c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
     }
     shd_printer_deindent(p);
     shd_print(p, "\n};\n");
@@ -42,7 +42,7 @@ void c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
     shd_destroy_printer(p);
 }
 
-String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
+String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
     assert(fn_type->tag == FnType_TAG);
     assert(!fn || fn->type == fn_type);
     Nodes codom = fn_type->payload.fn_type.return_types;
@@ -65,8 +65,8 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = shd_get_value_name_unsafe(fn->payload.fun.params.nodes[i]);
-            param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", c_legalize_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
-            shd_print(paramp, c_emit_type(emitter, params.nodes[i]->type, param_name));
+            param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", shd_c_legalize_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
+            shd_print(paramp, shd_c_emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {
                 shd_print(paramp, ", ");
             }
@@ -78,7 +78,7 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
                 shd_print(paramp, ", ");
         }
         for (size_t i = 0; i < dom.count; i++) {
-            shd_print(paramp, c_emit_type(emitter, dom.nodes[i], ""));
+            shd_print(paramp, shd_c_emit_type(emitter, dom.nodes[i], ""));
             if (i + 1 < dom.count) {
                 shd_print(paramp, ", ");
             }
@@ -98,7 +98,7 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
     }
     free_tmp_str(parameters);
 
-    String c_decl = c_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, codom), center);
+    String c_decl = shd_c_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, codom), center);
     if (entry_point) {
         switch (emitter->config.dialect) {
             case CDialect_C11:
@@ -119,12 +119,12 @@ String c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, cons
     return c_decl;
 }
 
-String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
+String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
 
     String emitted = NULL;
-    CType* found = lookup_existing_type(emitter, type);
+    CType* found = shd_c_lookup_existing_type(emitter, type);
     if (found) {
         emitted = *found;
         goto type_goes_on_left;
@@ -215,7 +215,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             emitted = shd_make_unique_name(emitter->arena, "Record");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
-            c_emit_nominal_type_body(emitter, prefixed, type);
+            shd_c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
             if (emitter->config.dialect == CDialect_C11)
                 emitted = prefixed;
@@ -229,22 +229,22 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             switch (emitter->config.dialect) {
                 default:
-                    return c_emit_type(emitter, type->payload.qualified_type.type, center);
+                    return shd_c_emit_type(emitter, type->payload.qualified_type.type, center);
                 case CDialect_ISPC:
                     if (type->payload.qualified_type.is_uniform)
-                        return c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "uniform %s", center));
+                        return shd_c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
-                        return c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "varying %s", center));
+                        return shd_c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "varying %s", center));
             }
         case Type_PtrType_TAG: {
-            CType t = c_emit_type(emitter, type->payload.ptr_type.pointed_type, shd_format_string_arena(emitter->arena->arena, "* %s", center));
+            CType t = shd_c_emit_type(emitter, type->payload.ptr_type.pointed_type, shd_format_string_arena(emitter->arena->arena, "* %s", center));
             // we always emit pointers to _uniform_ data, no exceptions
             if (emitter->config.dialect == CDialect_ISPC)
                 t = shd_format_string_arena(emitter->arena->arena, "uniform %s", t);
             return t;
         }
         case Type_FnType_TAG: {
-            return c_emit_fn_head(emitter, type, center, NULL);
+            return shd_c_emit_fn_head(emitter, type, center, NULL);
         }
         case Type_ArrType_TAG: {
             emitted = shd_make_unique_name(emitter->arena, "Array");
@@ -254,7 +254,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
 
             const Node* size = type->payload.arr_type.size;
             if (!size && emitter->config.decay_unsized_arrays)
-                return c_emit_type(emitter, type->payload.arr_type.element_type, center);
+                return shd_c_emit_type(emitter, type->payload.arr_type.element_type, center);
 
             shd_print(p, "\n%s {", prefixed);
             shd_printer_indent(p);
@@ -263,7 +263,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[%zu]", shd_get_int_literal_value(*shd_resolve_to_int_literal(size), false));
             else
                 inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[0]");
-            shd_print(p, "\n%s;", c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
+            shd_print(p, "\n%s;", shd_c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
             shd_printer_deindent(p);
             shd_print(p, "\n};\n");
             shd_growy_append_bytes(g, 1, (char[]) { '\0' });
@@ -302,7 +302,7 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 }
                 case CDialect_ISPC: shd_error("Please lower to something else")
                 case CDialect_C11: {
-                    emitted = c_emit_type(emitter, element_type, NULL);
+                    emitted = shd_c_emit_type(emitter, element_type, NULL);
                     emitted = shd_format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
                     break;
                 }
@@ -310,13 +310,13 @@ String c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_TypeDeclRef_TAG: {
-            c_emit_decl(emitter, type->payload.type_decl_ref.decl);
-            emitted = *lookup_existing_type(emitter, type->payload.type_decl_ref.decl);
+            shd_c_emit_decl(emitter, type->payload.type_decl_ref.decl);
+            emitted = *shd_c_lookup_existing_type(emitter, type->payload.type_decl_ref.decl);
             goto type_goes_on_left;
         }
     }
     assert(emitted != NULL);
-    register_emitted_type(emitter, type, emitted);
+    shd_c_register_emitted_type(emitter, type, emitted);
 
     type_goes_on_left:
     assert(emitted != NULL);

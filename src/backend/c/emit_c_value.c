@@ -45,7 +45,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
         return is_stringy ? StringLit : CharsLit;
     } else {
         for (size_t i = 0; i < c.count; i++) {
-            shd_print(p, to_cvalue(e, c_emit_value(e, fn, c.nodes[i])));
+            shd_print(p, shd_c_to_ssa(e, shd_c_emit_value(e, fn, c.nodes[i])));
             if (i + 1 < c.count)
                 shd_print(p, ", ");
         }
@@ -109,10 +109,10 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
             if (emitter->config.dialect == CDialect_GLSL)
-                return c_emit_value(emitter, fn, shd_get_default_value(emitter->arena, value->payload.undef.type));
+                return shd_c_emit_value(emitter, fn, shd_get_default_value(emitter->arena, value->payload.undef.type));
             String name = shd_make_unique_name(emitter->arena, "undef");
             // c_emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
-            c_emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
+            shd_c_emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
         }
@@ -139,7 +139,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                 }
             } else {
                 for (size_t i = 0; i < elements.count; i++) {
-                    shd_print(p, "%s", to_cvalue(emitter, c_emit_value(emitter, fn, elements.nodes[i])));
+                    shd_print(p, "%s", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, elements.nodes[i])));
                     if (i + 1 < elements.count)
                         shd_print(p, ", ");
                 }
@@ -156,7 +156,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
                     if (p2) {
                         String tmp = shd_make_unique_name(emitter->arena, "composite");
-                        shd_print(p2, "\n%s = { %s };", c_emit_type(emitter, value->type, tmp), emitted);
+                        shd_print(p2, "\n%s = { %s };", shd_c_emit_type(emitter, value->type, tmp), emitted);
                         emitted = tmp;
                     } else {
                         // this requires us to end up in the initialisation side of a declaration
@@ -169,13 +169,13 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                     // If we're C89 (ew)
                     if (!emitter->config.allow_compound_literals)
                         goto no_compound_literals;
-                    emitted = shd_format_string_arena(emitter->arena->arena, "((%s) { %s })", c_emit_type(emitter, value->type, NULL), emitted);
+                    emitted = shd_format_string_arena(emitter->arena->arena, "((%s) { %s })", shd_c_emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case CDialect_GLSL:
                     if (type->tag != PackType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
-                    emitted = shd_format_string_arena(emitter->arena->arena, "%s(%s)", c_emit_type(emitter, value->type, NULL), emitted);
+                    emitted = shd_format_string_arena(emitter->arena->arena, "%s(%s)", shd_c_emit_type(emitter, value->type, NULL), emitted);
                     break;
             }
 
@@ -207,23 +207,23 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             break;
         }
         case Value_FnAddr_TAG: {
-            emitted = c_legalize_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
+            emitted = shd_c_legalize_identifier(emitter, get_declaration_name(value->payload.fn_addr.fn));
             emitted = shd_format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
         }
         case Value_RefDecl_TAG: {
             const Node* decl = value->payload.ref_decl.decl;
-            c_emit_decl(emitter, decl);
+            shd_c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
                 if (!shd_is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
                         decl)) {
                     assert(fn && "ISPC backend cannot statically refer to a varying variable");
-                    return ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *lookup_existing_term(emitter, NULL, decl));
+                    return shd_ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *shd_c_lookup_existing_term(emitter, NULL, decl));
                 }
             }
 
-            return *lookup_existing_term(emitter, NULL, decl);
+            return *shd_c_lookup_existing_term(emitter, NULL, decl);
         }
     }
 
@@ -231,15 +231,15 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
     return term_from_cvalue(emitted);
 }
 
-CTerm c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
+CTerm shd_c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term) {
     if (is_term_empty(term))
         return term;
     if (t == empty_multiple_return_type(emitter->arena)) {
-        shd_print(p, "%s;", to_cvalue(emitter, term));
+        shd_print(p, "%s;", shd_c_to_ssa(emitter, term));
         return empty_term();
     }
     String bind_to = shd_make_unique_name(emitter->arena, "");
-    c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
+    shd_c_emit_variable_declaration(emitter, p, t, bind_to, false, &term);
     return term_from_cvalue(bind_to);
 }
 
@@ -366,28 +366,28 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, FnEmitter* fn, Printe
 
     switch (entry->style) {
         case OsInfix: {
-            CTerm a = c_emit_value(emitter, fn, operands.nodes[0]);
-            CTerm b = c_emit_value(emitter, fn, operands.nodes[1]);
-            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s %s %s", to_cvalue(emitter, a), operator_str, to_cvalue(emitter, b)));
+            CTerm a = shd_c_emit_value(emitter, fn, operands.nodes[0]);
+            CTerm b = shd_c_emit_value(emitter, fn, operands.nodes[1]);
+            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s %s %s", shd_c_to_ssa(emitter, a), operator_str, shd_c_to_ssa(emitter, b)));
             break;
         }
         case OsPrefix: {
-            CTerm operand = c_emit_value(emitter, fn, operands.nodes[0]);
-            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s%s", operator_str, to_cvalue(emitter, operand)));
+            CTerm operand = shd_c_emit_value(emitter, fn, operands.nodes[0]);
+            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s%s", operator_str, shd_c_to_ssa(emitter, operand)));
             break;
         }
         case OsCall: {
             LARRAY(CTerm, cops, operands.count);
             for (size_t i = 0; i < operands.count; i++)
-                cops[i] = c_emit_value(emitter, fn, operands.nodes[i]);
+                cops[i] = shd_c_emit_value(emitter, fn, operands.nodes[i]);
             if (operands.count == 1)
-                *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", operator_str, to_cvalue(emitter, cops[0])));
+                *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", operator_str, shd_c_to_ssa(emitter, cops[0])));
             else {
                 Growy* g = shd_new_growy();
                 shd_growy_append_string(g, operator_str);
                 shd_growy_append_string_literal(g, "(");
                 for (size_t i = 0; i < operands.count; i++) {
-                    shd_growy_append_string(g, to_cvalue(emitter, cops[i]));
+                    shd_growy_append_string(g, shd_c_to_ssa(emitter, cops[i]));
                     if (i + 1 < operands.count)
                         shd_growy_append_string_literal(g, ", ");
                 }
@@ -421,11 +421,11 @@ static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
 static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm expr, CTerm index) {
     IrArena* arena = emitter->arena;
 
-    String index2 = emitter->config.dialect == CDialect_GLSL ? shd_format_string_arena(arena->arena, "int(%s)", to_cvalue(emitter, index)) : to_cvalue(emitter, index);
+    String index2 = emitter->config.dialect == CDialect_GLSL ? shd_format_string_arena(arena->arena, "int(%s)", shd_c_to_ssa(emitter, index)) : shd_c_to_ssa(emitter, index);
     if (emitter->config.decay_unsized_arrays && !arr_type->payload.arr_type.size)
-        return shd_format_string_arena(arena->arena, "((&%s)[%s])", deref_term(emitter, expr), index2);
+        return shd_format_string_arena(arena->arena, "((&%s)[%s])", shd_c_deref(emitter, expr), index2);
     else
-        return shd_format_string_arena(arena->arena, "(%s.arr[%s])", deref_term(emitter, expr), index2);
+        return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_deref(emitter, expr), index2);
 }
 
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
@@ -444,36 +444,36 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case fract_op: {
             CTerm floored;
             emit_using_entry(&floored, emitter, fn, p, lookup_entry(emitter, floor_op), prim_op->operands);
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1 - %s", to_cvalue(emitter, floored)));
+            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1 - %s", shd_c_to_ssa(emitter, floored)));
             break;
         }
         case inv_sqrt_op: {
             CTerm floored;
             emit_using_entry(&floored, emitter, fn, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1.0f / %s", to_cvalue(emitter, floored)));
+            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1.0f / %s", shd_c_to_ssa(emitter, floored)));
             break;
         }
         case min_op: {
-            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            CValue b = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
+            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, b, a));
             break;
         }
         case max_op: {
-            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            CValue b = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
+            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, a, b));
             break;
         }
         case sign_op: {
-            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
+            CValue src = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
             break;
         }
         case fma_op: {
-            CValue a = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-            CValue b = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-            CValue c = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
+            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
+            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+            CValue c = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
             switch (emitter->config.dialect) {
                 case CDialect_C11:
                 case CDialect_CUDA: {
@@ -490,9 +490,9 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
-            CValue src = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
+            CValue src = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             const Node* offset = prim_op->operands.nodes[1];
-            CValue c_offset = to_cvalue(emitter, c_emit_value(emitter, fn, offset));
+            CValue c_offset = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, offset));
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (shd_get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
                     c_offset = shd_format_string_arena(arena->arena, "int(%s)", c_offset);
@@ -501,10 +501,10 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         }
         case size_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
+            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", shd_c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
             break;
         case align_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
+            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", shd_c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
             break;
         case offset_of_op: {
             const Type* t = shd_first(prim_op->type_arguments);
@@ -513,35 +513,35 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             }
             const Node* index = shd_first(prim_op->operands);
             uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
-            String member_name = c_get_record_field_name(t, index_literal);
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", c_emit_type(emitter, t, NULL), member_name));
+            String member_name = shd_c_get_record_field_name(t, index_literal);
+            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", shd_c_emit_type(emitter, t, NULL), member_name));
             break;
         } case select_op: {
             assert(prim_op->operands.count == 3);
-            CValue condition = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-            CValue l = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-            CValue r = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
+            CValue condition = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
+            CValue l = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+            CValue r = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
             term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(%s) ? (%s) : (%s)", condition, l, r));
             break;
         }
         case convert_op: {
-            CTerm src = c_emit_value(emitter, fn, shd_first(prim_op->operands));
+            CTerm src = shd_c_emit_value(emitter, fn, shd_first(prim_op->operands));
             const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
             const Type* dst_type = shd_first(prim_op->type_arguments);
             if (emitter->config.dialect == CDialect_GLSL) {
                 if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-                    CType t = c_emit_type(emitter, dst_type, NULL);
-                    term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, to_cvalue(emitter, src)));
+                    CType t = shd_c_emit_type(emitter, dst_type, NULL);
+                    term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, src)));
                 } else
                     assert(false);
             } else {
-                CType t = c_emit_type(emitter, dst_type, NULL);
-                term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src)));
+                CType t = shd_c_emit_type(emitter, dst_type, NULL);
+                term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src)));
             }
             break;
         }
         case reinterpret_op: {
-            CTerm src_value = c_emit_value(emitter, fn, shd_first(prim_op->operands));
+            CTerm src_value = shd_c_emit_value(emitter, fn, shd_first(prim_op->operands));
             const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
             const Type* dst_type = shd_first(prim_op->type_arguments);
             switch (emitter->config.dialect) {
@@ -549,8 +549,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 case CDialect_C11: {
                     String src = shd_make_unique_name(arena, "bitcast_src");
                     String dst = shd_make_unique_name(arena, "bitcast_result");
-                    shd_print(p, "\n%s = %s;", c_emit_type(emitter, src_type, src), to_cvalue(emitter, src_value));
-                    shd_print(p, "\n%s;", c_emit_type(emitter, dst_type, dst));
+                    shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, src_type, src), shd_c_to_ssa(emitter, src_value));
+                    shd_print(p, "\n%s;", shd_c_emit_type(emitter, dst_type, dst));
                     shd_print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
                     return term_from_cvalue(dst);
                 }
@@ -578,7 +578,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                         }
                     }
                     if (conv_fn) {
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, to_cvalue(emitter, src_value)));
+                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, shd_c_to_ssa(emitter, src_value)));
                     }
                     shd_error_print("glsl: unsupported bit cast from ");
                     shd_log_node(ERROR, src_type);
@@ -599,14 +599,14 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                             case FloatTy64: n = "doublebits";
                                 break;
                         }
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", n, to_cvalue(emitter, src_value)));
+                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", n, shd_c_to_ssa(emitter, src_value)));
                     } else if (src_type->tag == Float_TAG) {
                         assert(dst_type->tag == Int_TAG);
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "intbits(%s)", to_cvalue(emitter, src_value)));
+                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "intbits(%s)", shd_c_to_ssa(emitter, src_value)));
                     }
 
-                    CType t = c_emit_type(emitter, dst_type, NULL);
-                    return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, to_cvalue(emitter, src_value)));
+                    CType t = shd_c_emit_type(emitter, dst_type, NULL);
+                    return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src_value)));
                 }
             }
             SHADY_UNREACHABLE;
@@ -614,12 +614,12 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
-            CValue acc = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(prim_op->operands)));
+            CValue acc = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             bool insert = prim_op->op == insert_op;
 
             if (insert) {
                 String dst = shd_make_unique_name(arena, "modified");
-                shd_print(p, "\n%s = %s;", c_emit_type(emitter, node->type, dst), acc);
+                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, node->type, dst), acc);
                 acc = dst;
                 term = term_from_cvalue(dst);
             }
@@ -653,7 +653,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                         break;
                     }
                     case Type_ArrType_TAG: {
-                        acc = index_into_array(emitter, t, term_from_cvar(acc), c_emit_value(emitter, fn, index));
+                        acc = index_into_array(emitter, t, term_from_cvar(acc), shd_c_emit_value(emitter, fn, index));
                         break;
                     }
                     default:
@@ -662,7 +662,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             }
 
             if (insert) {
-                shd_print(p, "\n%s = %s;", acc, to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1])));
+                shd_print(p, "\n%s = %s;", acc, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1])));
                 break;
             }
 
@@ -673,8 +673,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             String dst = shd_make_unique_name(arena, "shuffled");
             const Node* lhs = prim_op->operands.nodes[0];
             const Node* rhs = prim_op->operands.nodes[1];
-            String lhs_e = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-            String rhs_e = to_cvalue(emitter, c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+            String lhs_e = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
+            String rhs_e = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             const Type* lhs_t = lhs->type;
             const Type* rhs_t = rhs->type;
             bool lhs_u = shd_deconstruct_qualified_type(&lhs_t);
@@ -682,7 +682,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             size_t left_size = lhs_t->payload.pack_type.width;
             // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             String suffixes = "xyzw";
-            shd_print(p, "\n%s = vec%d(", c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
+            shd_print(p, "\n%s = vec%d(", shd_c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);
             for (size_t i = 2; i < prim_op->operands.count; i++) {
                 const IntLiteral* selector = shd_resolve_to_int_literal(prim_op->operands.nodes[i]);
                 if (selector->value < left_size)
@@ -698,10 +698,10 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         }
         case subgroup_assume_uniform_op: {
             if (emitter->config.dialect == CDialect_ISPC) {
-                CTerm value = c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
+                CTerm value = shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
                 return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value)); break;
             }
-            return c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
+            return shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
         }
         case empty_mask_op:
         case mask_is_thread_active_op: shd_error("lower_me");
@@ -716,11 +716,11 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
 }
 
 static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, ExtInstr instr) {
-    c_emit_mem(emitter, fn, instr.mem);
+    shd_c_emit_mem(emitter, fn, instr.mem);
     if (strcmp(instr.set, "spirv.core") == 0) {
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
-                CValue value = to_cvalue(emitter, c_emit_value(emitter, fn, shd_first(instr.operands)));
+                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(instr.operands)));
                 switch (emitter->config.dialect) {
                     case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value));
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
@@ -753,7 +753,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
 
 static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* call) {
     Call payload = call->payload.call;
-    c_emit_mem(emitter, fn, payload.mem);
+    shd_c_emit_mem(emitter, fn, payload.mem);
     Nodes args;
     if (call->tag == Call_TAG)
         args = call->payload.call.args;
@@ -768,7 +768,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
             shd_print(paramsp, ", ");
     }
     for (size_t i = 0; i < args.count; i++) {
-        shd_print(paramsp, to_cvalue(emitter, c_emit_value(emitter, fn, args.nodes[i])));
+        shd_print(paramsp, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
         if (i + 1 < args.count)
             shd_print(paramsp, ", ");
     }
@@ -778,12 +778,12 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     if (callee->tag == FnAddr_TAG)
         e_callee = get_declaration_name(callee->payload.fn_addr.fn);
     else
-        e_callee = to_cvalue(emitter, c_emit_value(emitter, fn, callee));
+        e_callee = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, callee));
 
     String params = shd_printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
-    called = c_bind_intermediary_result(emitter, p, call->type, called);
+    called = shd_c_bind_intermediary_result(emitter, p, call->type, called);
 
     free_tmp_str(params);
     return called;
@@ -791,7 +791,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
 
 static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer* p, PtrCompositeElement lea) {
     IrArena* arena = emitter->arena;
-    CTerm acc = c_emit_value(emitter, fn, lea.ptr);
+    CTerm acc = shd_c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
     bool uniform = shd_is_qualified_type_uniform(src_qtype);
@@ -803,7 +803,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
     uniform &= shd_is_qualified_type_uniform(selector->type);
     switch (is_type(pointee_type)) {
         case ArrType_TAG: {
-            CTerm index = c_emit_value(emitter, fn, selector);
+            CTerm index = shd_c_emit_value(emitter, fn, selector);
             acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
             curr_ptr_type = ptr_type(arena, (PtrType) {
                     .pointed_type = pointee_type->payload.arr_type.element_type,
@@ -822,14 +822,14 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // See https://github.com/ispc/ispc/issues/2496
             if (emitter->config.dialect == CDialect_ISPC) {
                 String interm = shd_make_unique_name(arena, "lea_intermediary_ptr_value");
-                shd_print(p, "\n%s = %s;", c_emit_type(emitter, shd_as_qualified_type(curr_ptr_type, uniform), interm), to_cvalue(emitter, acc));
+                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, shd_as_qualified_type(curr_ptr_type, uniform), interm), shd_c_to_ssa(emitter, acc));
                 acc = term_from_cvalue(interm);
             }
 
             assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
             size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
-            String field_name = c_get_record_field_name(pointee_type, static_index);
-            acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", deref_term(emitter, acc), field_name));
+            String field_name = shd_c_get_record_field_name(pointee_type, static_index);
+            acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", shd_c_deref(emitter, acc), field_name));
             curr_ptr_type = ptr_type(arena, (PtrType) {
                     .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
                     .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -839,7 +839,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
         case Type_PackType_TAG: {
             size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             String suffixes = "xyzw";
-            acc = term_from_cvar(shd_format_string_arena(emitter->arena->arena, "(%s.%c)", deref_term(emitter, acc), suffixes[static_index]));
+            acc = term_from_cvar(shd_format_string_arena(emitter->arena->arena, "(%s.%c)", shd_c_deref(emitter, acc), suffixes[static_index]));
             curr_ptr_type = ptr_type(arena, (PtrType) {
                     .pointed_type = pointee_type->payload.pack_type.element_type,
                     .address_space = curr_ptr_type->payload.ptr_type.address_space
@@ -857,7 +857,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
 
 static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Printer* p, PtrArrayElementOffset lea) {
     IrArena* arena = emitter->arena;
-    CTerm acc = c_emit_value(emitter, fn, lea.ptr);
+    CTerm acc = shd_c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
     bool uniform = shd_is_qualified_type_uniform(src_qtype);
@@ -866,17 +866,17 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
 
     const IntLiteral* offset_static_value = shd_resolve_to_int_literal(lea.offset);
     if (!offset_static_value || offset_static_value->value != 0) {
-        CTerm offset = c_emit_value(emitter, fn, lea.offset);
+        CTerm offset = shd_c_emit_value(emitter, fn, lea.offset);
         // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
         // this means such code is never going to be legal in GLSL
         // also the cast is to account for our arrays-in-structs hack
         const Type* pointee_type = shd_get_pointee_type(arena, curr_ptr_type);
-        acc = term_from_cvalue(shd_format_string_arena(arena->arena, "((%s) &(%s)[%s])", c_emit_type(emitter, curr_ptr_type, NULL), to_cvalue(emitter, acc), to_cvalue(emitter, offset)));
+        acc = term_from_cvalue(shd_format_string_arena(arena->arena, "((%s) &(%s)[%s])", shd_c_emit_type(emitter, curr_ptr_type, NULL), shd_c_to_ssa(emitter, acc), shd_c_to_ssa(emitter, offset)));
         uniform &= shd_is_qualified_type_uniform(lea.offset->type);
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
-        acc = c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+        acc = shd_c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
 
     return acc;
 }
@@ -892,12 +892,12 @@ static const Type* get_allocated_type(const Node* alloc) {
 static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     String variable_name = shd_make_unique_name(emitter->arena, "alloca");
     CTerm variable = (CTerm) { .value = NULL, .var = variable_name };
-    c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
+    shd_c_emit_variable_declaration(emitter, p, get_allocated_type(instr), variable_name, true, NULL);
     const Type* ptr_type = instr->type;
     shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
     if (emitter->config.dialect == CDialect_ISPC && !ptr_type->payload.ptr_type.is_reference) {
-        variable = ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
+        variable = shd_ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
     }
    return variable;
 }
@@ -914,28 +914,28 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
-        case Instruction_PrimOp_TAG: return c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
+        case Instruction_PrimOp_TAG: return shd_c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
         case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
         case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
-        case Instruction_StackAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
-        case Instruction_LocalAlloc_TAG: c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
+        case Instruction_StackAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
+        case Instruction_LocalAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);
         case Instruction_PtrCompositeElement_TAG: return emit_ptr_composite_element(emitter, fn, p, instruction->payload.ptr_composite_element);
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
-            c_emit_mem(emitter, fn, payload.mem);
-            CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, fn, payload.ptr));
+            shd_c_emit_mem(emitter, fn, payload.mem);
+            CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
             return term_from_cvalue(dereferenced);
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
-            c_emit_mem(emitter, fn, payload.mem);
+            shd_c_emit_mem(emitter, fn, payload.mem);
             const Type* addr_type = payload.ptr->type;
             bool addr_uniform = shd_deconstruct_qualified_type(&addr_type);
             bool value_uniform = shd_is_qualified_type_uniform(payload.value->type);
             assert(addr_type->tag == PtrType_TAG);
-            CAddr dereferenced = deref_term(emitter, c_emit_value(emitter, fn, payload.ptr));
-            CValue cvalue = to_cvalue(emitter, c_emit_value(emitter, fn, payload.value));
+            CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
+            CValue cvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
             if (emitter->config.dialect == CDialect_ISPC && addr_uniform && shd_is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
                 cvalue = shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", cvalue);
@@ -945,22 +945,22 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         }
         case Instruction_CopyBytes_TAG: {
             CopyBytes payload = instruction->payload.copy_bytes;
-            c_emit_mem(emitter, fn, payload.mem);
-            shd_print(p, "\nmemcpy(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
+            shd_c_emit_mem(emitter, fn, payload.mem);
+            shd_print(p, "\nmemcpy(%s, %s, %s);", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.dst)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.count)));
             return empty_term();
         }
         case Instruction_FillBytes_TAG:{
             FillBytes payload = instruction->payload.fill_bytes;
-            c_emit_mem(emitter, fn, payload.mem);
-            shd_print(p, "\nmemset(%s, %s, %s);", to_cvalue(emitter, c_emit_value(emitter, fn, payload.dst)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.src)), to_cvalue(emitter, c_emit_value(emitter, fn, payload.count)));
+            shd_c_emit_mem(emitter, fn, payload.mem);
+            shd_print(p, "\nmemset(%s, %s, %s);", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.dst)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.count)));
             return empty_term();
         }
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;
-            c_emit_mem(emitter, fn, payload.mem);
+            shd_c_emit_mem(emitter, fn, payload.mem);
             String args_list = shd_fmt_string_irarena(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++) {
-                CValue str = to_cvalue(emitter, c_emit_value(emitter, fn, instruction->payload.debug_printf.args.nodes[i]));
+                CValue str = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instruction->payload.debug_printf.args.nodes[i]));
 
                 if (emitter->config.dialect == CDialect_ISPC && i > 0)
                     str = shd_format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);
@@ -1000,14 +1000,14 @@ static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
     return true;
 }
 
-CTerm c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
-    CTerm* found = lookup_existing_term(emitter, fn_builder, node);
+CTerm shd_c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
+    CTerm* found = shd_c_lookup_existing_term(emitter, fn_builder, node);
     if (found) return *found;
 
     CFNode* where = fn_builder ? shd_schedule_instruction(fn_builder->scheduler, node) : NULL;
     if (where) {
         CTerm emitted = c_emit_value_(emitter, fn_builder, fn_builder->instruction_printers[where->rpo_index], node);
-        register_emitted(emitter, fn_builder, node, emitted);
+        shd_c_register_emitted(emitter, fn_builder, node, emitted);
         return emitted;
     } else if (!can_appear_at_top_level(emitter, node)) {
         if (!fn_builder) {
@@ -1017,21 +1017,21 @@ CTerm c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node) {
         }
         // Pick the entry block of the current fn
         CTerm emitted = c_emit_value_(emitter, fn_builder, fn_builder->instruction_printers[0], node);
-        register_emitted(emitter, fn_builder, node, emitted);
+        shd_c_register_emitted(emitter, fn_builder, node, emitted);
         return emitted;
     } else {
         assert(!is_mem(node));
         CTerm emitted = c_emit_value_(emitter, NULL, NULL, node);
-        register_emitted(emitter, NULL, node, emitted);
+        shd_c_register_emitted(emitter, NULL, node, emitted);
         return emitted;
     }
 }
 
-CTerm c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem) {
+CTerm shd_c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem) {
     assert(is_mem(mem));
     if (mem->tag == AbsMem_TAG)
         return empty_term();
     if (is_instruction(mem))
-        return c_emit_value(e, b, mem);
+        return shd_c_emit_value(e, b, mem);
     shd_error("What sort of mem is this ?");
 }

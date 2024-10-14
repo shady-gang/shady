@@ -211,7 +211,7 @@ DriverConfig shd_default_driver_config(void) {
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
-        .c_emitter_config = default_c_emitter_config(),
+        .c_emitter_config = shd_default_c_emitter_config(),
     };
 }
 
