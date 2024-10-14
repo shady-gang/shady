@@ -3,6 +3,7 @@
 #include "shady/pass.h"
 #include "shady/visit.h"
 #include "shady/ir/stack.h"
+#include "shady/ir/ext.h"
 
 #include "../ir_private.h"
 

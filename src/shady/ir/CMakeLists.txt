@@ -14,4 +14,5 @@ target_sources(shady PRIVATE
     memory_layout.c
     stack.c
     cast.c
+    ext.c
 )

@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/ext.h"
 
 #include "../ir_private.h"
 #include "../analysis/cfg.h"

@@ -4,6 +4,4 @@
 #include "shady/ir.h"
 #include "shady/ir/builtin.h"
 
-const Node* gen_ext_instruction(BodyBuilder*, String set, int opcode, const Type* return_t, Nodes operands);
-
 #endif

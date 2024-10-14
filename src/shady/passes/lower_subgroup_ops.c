@@ -1,6 +1,7 @@
 #include "shady/pass.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
+#include "shady/ir/ext.h"
 
 #include "../transform/ir_gen_helpers.h"
 

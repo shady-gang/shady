@@ -1,6 +1,8 @@
 #include "parser.h"
 #include "token.h"
 
+#include "shady/ir/ext.h"
+
 #include "list.h"
 #include "portability.h"
 #include "log.h"

@@ -1,5 +1,7 @@
-#include "shady/pass.h"
 #include "join_point_ops.h"
+
+#include "shady/pass.h"
+#include "shady/ir/ext.h"
 
 #include "../transform/ir_gen_helpers.h"
 
