@@ -82,11 +82,11 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
                 const Node* word = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
                             word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
-                            word = shd_first(gen_primop(bb, lshift_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
+                word = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, word, shift)); // shift it
                 acc = gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, acc, word));
 
-                offset = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
-                shift = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
+                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1)));
+                shift = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth));
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
@@ -184,12 +184,12 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                     // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 }*/
                 const Node* word = value;
-                word = shd_first(gen_primop(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
+                word = (prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
                 word = gen_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
 
-                offset = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
-                shift = shd_first(gen_primop(bb, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
+                offset = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
+                shift = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;

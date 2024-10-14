@@ -19,25 +19,13 @@ Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     return shd_bld_add_instruction_extract(bb, instruction);
 }
 
-Nodes gen_primop(BodyBuilder* bb, Op op, Nodes type_args, Nodes operands) {
-    assert(shd_get_arena_config(shd_get_bb_arena(bb))->check_types);
-    const Node* instruction = prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = op, .type_arguments = type_args, .operands = operands });
-    return shd_singleton(instruction);
-}
-
-Nodes gen_primop_c(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
-    return gen_primop(bb, op, shd_empty(shd_get_bb_arena(bb)), shd_nodes(shd_get_bb_arena(bb), operands_count, operands));
-}
-
 const Node* gen_primop_ce(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
-    Nodes result = gen_primop_c(bb, op, operands_count, operands);
-    assert(result.count == 1);
-    return result.nodes[0];
+    IrArena* a = shd_get_bb_arena(bb);
+    return prim_op_helper(a, op, shd_empty(a), shd_nodes(a, operands_count, operands));
 }
 
 const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
-    Nodes result = gen_primop(bb, op, ty, nodes);
-    return shd_first(result);
+    return prim_op_helper(shd_get_bb_arena(bb), op, ty, nodes);
 }
 
 const Node* gen_ext_instruction(BodyBuilder* bb, String set, int opcode, const Type* return_t, Nodes operands) {
