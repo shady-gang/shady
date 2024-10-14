@@ -53,7 +53,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
 
             const Type* element_type = shd_rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(shd_is_data_type(element_type));
-            const Node* slot_offset = gen_primop_e(vctx->bb, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
+            const Node* slot_offset = prim_op_helper(a, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
             shd_list_append(const Type*, vctx->members, element_type);
 
             StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
@@ -115,7 +115,7 @@ static const Node* process(Context* ctx, const Node* node) {
             });
             shd_destroy_list(vctx.members);
             ctx2.num_slots = vctx.num_slots;
-            ctx2.frame_size = gen_primop_e(bb, size_of_op, shd_singleton(type_decl_ref_helper(a, vctx.nom_t)), shd_empty(a));
+            ctx2.frame_size = prim_op_helper(a, size_of_op, shd_singleton(type_decl_ref_helper(a, vctx.nom_t)), shd_empty(a));
             ctx2.frame_size = convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
@@ -144,12 +144,12 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
                 const Node* converted_offset = convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
-                const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
+                const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
                 slot = gen_reinterpret_cast(bb, ptr_t, slot);
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
-                const Node* updated_stack_ptr = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
+                const Node* updated_stack_ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
                 gen_set_stack_size(bb, updated_stack_ptr);
                 //}
 

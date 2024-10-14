@@ -22,7 +22,7 @@ static void add_bounds_check(IrArena* a, BodyBuilder* bb, const Node* i, const N
         .args = shd_empty(a),
         .mem = shd_get_abstraction_mem(out_of_bounds_case)
     }));
-    shd_bld_if(bb, shd_empty(a), gen_primop_e(bb, gte_op, shd_empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
+    shd_bld_if(bb, shd_empty(a), prim_op_helper(a, gte_op, shd_empty(a), mk_nodes(a, i, max)), out_of_bounds_case, NULL);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -129,14 +129,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
-                local_id[0] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), shd_bld_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
+                local_id[0] = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, ctx->config->specialization.subgroup_size), subgroup_id[0])), shd_bld_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
                 shd_bld_store(bb2, ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
-                    global_id[dim] = gen_primop_e(bb2, add_op, shd_empty(a), mk_nodes(a, gen_primop_e(bb2, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
+                    global_id[dim] = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
                 shd_bld_store(bb2, ref_decl_helper(a, shd_rewrite_node(&ctx->rewriter, shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId, NULL))), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
                 gen_call(bb2, fn_addr_helper(a, inner), wparams);
@@ -156,7 +156,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         BodyBuilder* body_bb = builders[depth];
 
                         shd_set_abstraction_body(loop_body, shd_bld_finish(body_bb, merge_continue(a, (MergeContinue) {
-                            .args = shd_singleton(gen_primop_e(body_bb, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
+                            .args = shd_singleton(prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
                             .mem = shd_bb_mem(body_bb)
                         })));
                         shd_bld_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(shd_uint32_literal(a, 0)), loop_body);

@@ -61,7 +61,7 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
         }
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
-                const Node* hi = gen_primop_e(bb, rshift_logical_op, shd_empty(a), mk_nodes(a, param, shd_int32_literal(a, 32)));
+                const Node* hi = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, param, shd_int32_literal(a, 32)));
                 hi = convert_int_zero_extend(bb, shd_int32_type(a), hi);
                 const Node* lo = convert_int_zero_extend(bb, shd_int32_type(a), param);
                 hi = build_subgroup_first(ctx, bb, scope, hi);
@@ -69,8 +69,8 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = convert_int_zero_extend(bb, it, hi);
                 lo = convert_int_zero_extend(bb, it, lo);
-                hi = gen_primop_e(bb, lshift_op, shd_empty(a), mk_nodes(a, hi, shd_int32_literal(a, 32)));
-                return gen_primop_e(bb, or_op, shd_empty(a), mk_nodes(a, lo, hi));
+                hi = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, hi, shd_int32_literal(a, 32)));
+                return prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, lo, hi));
             }
             break;
         }

@@ -125,7 +125,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
             if (shd_is_qualified_type_uniform(original_params.nodes[j]->type))
-                results = shd_change_node_at_index(a, results, j, gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
+                results = shd_change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
         }
 
         c = c2;

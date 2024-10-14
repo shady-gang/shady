@@ -23,7 +23,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
         LARRAY(const Node*, nops, noperands.count);
         for (size_t j = 0; j < noperands.count; j++)
             nops[j] = shd_extract_helper(a, noperands.nodes[j], shd_singleton(shd_int32_literal(a, i)));
-        elements[i] = gen_primop_e(bb, old->payload.prim_op.op, shd_empty(a), shd_nodes(a, noperands.count, nops));
+        elements[i] = prim_op_helper(a, old->payload.prim_op.op, shd_empty(a), shd_nodes(a, noperands.count, nops));
     }
     const Type* t = arr_type(a, (ArrType) {
         .element_type = shd_rewrite_node(&ctx->rewriter, dst_type),

@@ -206,7 +206,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Node* jp = gen_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
                                                      shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
-                jp = gen_primop_e(bb, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
+                jp = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
                 shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bb_mem(bb));

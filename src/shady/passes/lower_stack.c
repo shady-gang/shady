@@ -45,7 +45,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
-    const Node* element_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
+    const Node* element_size = prim_op_helper(a, size_of_op, shd_singleton(element_type), shd_empty(a));
     element_size = gen_conversion(bb, shd_uint32_type(a), element_size);
 
     // TODO somehow annotate the uniform guys as uniform

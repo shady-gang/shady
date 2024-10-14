@@ -231,10 +231,10 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             gen_push_values_stack(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-            const Node* jp_payload = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
+            const Node* jp_payload = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
             gen_push_value_stack(bb, jp_payload);
-            const Node* dst = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
-            const Node* tree_node = gen_primop_e(bb, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
+            const Node* dst = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
+            const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
             gen_call(bb, get_fn(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));
@@ -308,7 +308,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* get_active_branch_fn = get_fn(&ctx->rewriter, "builtin_get_active_branch");
     const Node* next_mask = shd_first(gen_call(loop_body_builder, get_active_branch_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
-    const Node* should_run = gen_primop_e(loop_body_builder, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));
+    const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));
 
     if (ctx->config->printf_trace.god_function) {
         const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
@@ -320,11 +320,11 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* iteration_count_plus_one = NULL;
     if (count_iterations)
-        iteration_count_plus_one = gen_primop_e(loop_body_builder, add_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, 1)));
+        iteration_count_plus_one = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, 1)));
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         begin_control_t c = shd_bld_begin_control(loop_body_builder, shd_empty(a));
-        const Node* bail_condition = gen_primop_e(loop_body_builder, gt_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
+        const Node* bail_condition = prim_op_helper(a, gt_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         Node* bail_case = case_(a, shd_empty(a));
         const Node* break_terminator = join(a, (Join) { .args = shd_empty(a), .join_point = l.break_jp, .mem = shd_get_abstraction_mem(bail_case) });
         shd_set_abstraction_body(bail_case, break_terminator);
