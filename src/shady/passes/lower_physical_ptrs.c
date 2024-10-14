@@ -234,7 +234,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Type* component_type = shd_get_fill_type_element_type(element_type);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
-                gen_serialisation(ctx, bb, component_type, arr, offset, gen_extract(bb, value, shd_singleton(shd_int32_literal(a, i))));
+                gen_serialisation(ctx, bb, component_type, arr, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
                 offset = gen_primop_e(bb, add_op, shd_empty(a), mk_nodes(a, offset, gen_primop_e(bb, size_of_op, shd_singleton(component_type), shd_empty(a))));
             }
             return;

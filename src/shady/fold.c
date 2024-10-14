@@ -347,7 +347,7 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
         }
         case Store_TAG: {
             if (node->payload.store.ptr->tag == Undef_TAG)
-                return mem_and_value(arena, (MemAndValue) { .value = tuple_helper(arena, shd_empty(arena)), .mem = node->payload.store.mem });
+                return mem_and_value(arena, (MemAndValue) { .value = shd_tuple_helper(arena, shd_empty(arena)), .mem = node->payload.store.mem });
             break;
         }
         case PtrArrayElementOffset_TAG: {

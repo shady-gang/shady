@@ -113,10 +113,6 @@ const Node* gen_local_alloc(BodyBuilder* bb, const Type* type) {
     return shd_first(shd_bld_add_instruction_extract(bb, local_alloc(_shd_get_bb_arena(bb), (LocalAlloc) { .type = type, .mem = shd_bb_mem(bb) })));
 }
 
-const Node* gen_extract_single(IrArena* a, const Node* composite, const Node* index) {
-    return extract_helper(composite, index);
-}
-
 const Node* gen_load(BodyBuilder* bb, const Node* ptr) {
     return shd_first(shd_bld_add_instruction_extract(bb, load(_shd_get_bb_arena(bb), (Load) { .ptr = ptr, .mem = shd_bb_mem(bb) })));
 }
@@ -127,14 +123,6 @@ void gen_store(BodyBuilder* bb, const Node* ptr, const Node* value) {
 
 const Node* gen_lea(BodyBuilder* bb, const Node* base, const Node* offset, Nodes selectors) {
     return lea_helper(_shd_get_bb_arena(bb), base, offset, selectors);
-}
-
-const Node* gen_extract(BodyBuilder* bb, const Node* base, Nodes selectors) {
-    LARRAY(const Node*, ops, 1 + selectors.count);
-    ops[0] = base;
-    for (size_t i = 0; i < selectors.count; i++)
-        ops[1 + i] = selectors.nodes[i];
-    return gen_primop_ce(bb, extract_op, 1 + selectors.count, ops);
 }
 
 void gen_comment(BodyBuilder* bb, String str) {

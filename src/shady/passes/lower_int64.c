@@ -46,7 +46,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 uint64_t raw = node->payload.int_literal.value;
                 const Node* lower = shd_uint32_literal(a, (uint32_t) raw);
                 const Node* upper = shd_uint32_literal(a, (uint32_t) (raw >> 32));
-                return tuple_helper(a, mk_nodes(a, lower, upper));
+                return shd_tuple_helper(a, mk_nodes(a, lower, upper));
             }
             break;
         case PrimOp_TAG: {
@@ -65,7 +65,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     // compute the high side, without forgetting the carry bit
                     const Node* hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = shd_nodes(a, 2, his) })));
                                 hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1]) })));
-                    return shd_bld_to_instr_yield_values(bb, shd_singleton(tuple_helper(a, mk_nodes(a, lo, hi))));
+                    return shd_bld_to_instr_yield_values(bb, shd_singleton(shd_tuple_helper(a, mk_nodes(a, lo, hi))));
                 } break;
                 default: break;
             }

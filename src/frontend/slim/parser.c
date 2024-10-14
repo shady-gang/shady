@@ -347,7 +347,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
         case lpar_tok: {
             shd_next_token(tokenizer);
             if (accept_token(ctx, rpar_tok)) {
-                return tuple_helper(arena, shd_empty(arena));
+                return shd_tuple_helper(arena, shd_empty(arena));
             }
             const Node* atom = expect_operand(ctx, bb);
             if (shd_curr_token(tokenizer).tag == rpar_tok) {
@@ -364,7 +364,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
 
                 Nodes tcontents = shd_nodes(arena, shd_list_count(elements), shd_read_list(const Node*, elements));
                 shd_destroy_list(elements);
-                atom = tuple_helper(arena, tcontents);
+                atom = shd_tuple_helper(arena, tcontents);
             }
             return atom;
         }
@@ -759,7 +759,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
                 false_case = case_(arena, shd_nodes(arena, 0, NULL));
                 shd_set_abstraction_body(false_case, expect_body(ctx, shd_get_abstraction_mem(false_case), merge));
             }
-            return maybe_tuple_helper(arena, shd_bld_if(bb, yield_types, condition, true_case, false_case));
+            return shd_maybe_tuple_helper(arena, shd_bld_if(bb, yield_types, condition, true_case, false_case));
         }
         case loop_tok: {
             shd_next_token(tokenizer);
@@ -771,7 +771,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             const Node* (*default_loop_end_behaviour)(const Node*) = config->front_end ? make_loop_continue : NULL;
             Node* loop_case = case_(arena, parameters);
             shd_set_abstraction_body(loop_case, expect_body(ctx, shd_get_abstraction_mem(loop_case), default_loop_end_behaviour));
-            return maybe_tuple_helper(arena, shd_bld_loop(bb, yield_types, initial_arguments, loop_case));
+            return shd_maybe_tuple_helper(arena, shd_bld_loop(bb, yield_types, initial_arguments, loop_case));
         }
         case control_tok: {
             shd_next_token(tokenizer);
@@ -785,7 +785,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect(accept_token(ctx, rpar_tok), "')'");
             Node* control_case = case_(arena, shd_singleton(jp));
             shd_set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));
-            return maybe_tuple_helper(arena, shd_bld_control(bb, yield_types, control_case));
+            return shd_maybe_tuple_helper(arena, shd_bld_control(bb, yield_types, control_case));
         }
         default: break;
     }

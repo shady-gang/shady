@@ -572,7 +572,7 @@ const Node* convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, B
                                 shd_error("DebugPrintf called without arguments");
                             size_t whocares;
                             gen_debug_printf(b, LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares), shd_nodes(a, ops.count - 1, &ops.nodes[1]));
-                            return tuple_helper(a, shd_empty(a));
+                            return shd_tuple_helper(a, shd_empty(a));
                         }
 
                         shd_error_print("Unrecognised shady instruction '%s'\n", instructionname);

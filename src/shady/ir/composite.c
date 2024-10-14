@@ -8,18 +8,25 @@
 
 #include <assert.h>
 
-const Node* extract_helper(const Node* composite, const Node* index) {
-    IrArena* a = composite->arena;
+const Node* shd_extract_helper(IrArena* a, const Node* base, Nodes selectors) {
+    LARRAY(const Node*, ops, 1 + selectors.count);
+    ops[0] = base;
+    for (size_t i = 0; i < selectors.count; i++)
+        ops[1 + i] = selectors.nodes[i];
+    return prim_op_helper(a, extract_op, shd_empty(a), shd_nodes(a, 1 + selectors.count, ops));
+}
+
+const Node* shd_extract_single_helper(IrArena* a, const Node* composite, const Node* index) {
     return prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, composite, index));
 }
 
-const Node* maybe_tuple_helper(IrArena* a, Nodes values) {
+const Node* shd_maybe_tuple_helper(IrArena* a, Nodes values) {
     if (values.count == 1)
         return shd_first(values);
-    return tuple_helper(a, values);
+    return shd_tuple_helper(a, values);
 }
 
-const Node* tuple_helper(IrArena* a, Nodes contents) {
+const Node* shd_tuple_helper(IrArena* a, Nodes contents) {
     const Type* t = NULL;
     if (a->config.check_types) {
         // infer the type of the tuple
@@ -90,7 +97,7 @@ Nodes shd_deconstruct_composite(IrArena* a, const Node* value, size_t outputs_co
     if (outputs_count > 1) {
         LARRAY(const Node*, extracted, outputs_count);
         for (size_t i = 0; i < outputs_count; i++)
-            extracted[i] = gen_extract_single(a, value, shd_int32_literal(a, i));
+            extracted[i] = shd_extract_single_helper(a, value, shd_int32_literal(a, i));
         return shd_nodes(a, outputs_count, extracted);
     } else if (outputs_count == 1)
         return shd_singleton(value);

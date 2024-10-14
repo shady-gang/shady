@@ -203,7 +203,7 @@ const Node* shd_bld_to_instr_yield_value(BodyBuilder* bb, const Node* value) {
 }
 
 const Node* shd_bld_to_instr_yield_values(BodyBuilder* bb, Nodes values) {
-    return shd_bld_to_instr_yield_value(bb, maybe_tuple_helper(bb->arena, values));
+    return shd_bld_to_instr_yield_value(bb, shd_maybe_tuple_helper(bb->arena, values));
 }
 
 const Node* _shd_bld_finish_pseudo_instr(BodyBuilder* bb, const Node* terminator) {
@@ -228,7 +228,7 @@ const Node* shd_bld_to_instr_pure_with_values(BodyBuilder* bb, Nodes values) {
     IrArena* arena = bb->arena;
     assert(!bb->mem && !bb->block_entry_mem && shd_list_count(bb->stack) == 0);
     shd_bld_cancel(bb);
-    return maybe_tuple_helper(arena, values);
+    return shd_maybe_tuple_helper(arena, values);
 }
 
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {

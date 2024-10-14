@@ -5,59 +5,6 @@
 %module shady
 %{
 #include "shady/ir.h"
-
-* bb
-
-* bbyield_typesarg_typesinitial_values
-
-* bbyield_types
-
-* bbyield_types* body
-
-* bbyield_typesinitial_args* body
-
-* bbyield_types* inspecteeliteralscases* default_case
-
-* bbyield_types* condition* true_case* false_case
-
-* bbvalues
-
-* bb* instruction
-
-* bbvalues
-
-* bb* value
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* bb
-
-* a
-
-* a* mem
-
-* a* mem
-
 #include "shady/runtime.h"
 #include "shady/driver.h"
 #include "shady/config.h"

@@ -82,7 +82,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* num_workgroups[3];
                 for (int dim = 0; dim < 3; dim++) {
                     workgroup_id[dim] = param(a, shd_as_qualified_type(shd_uint32_type(a), false), names[dim]);
-                    num_workgroups[dim] = gen_extract(bb, workgroup_num_vec3, shd_singleton(shd_uint32_literal(a, dim)));
+                    num_workgroups[dim] = shd_extract_helper(a, workgroup_num_vec3, shd_singleton(shd_uint32_literal(a, dim)));
                 }
 
                 // Prepare variables for iterating inside workgroups

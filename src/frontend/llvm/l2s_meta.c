@@ -33,7 +33,7 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
 
     Nodes args = convert_mdnode_operands(p, v);
     args = shd_nodes_prepend(a, args, string_lit_helper(a, node_name));
-    g->payload.global_variable.init = tuple_helper(a, args);
+    g->payload.global_variable.init = shd_tuple_helper(a, args);
     return r;
 }
 
@@ -133,7 +133,7 @@ const Node* convert_metadata(Parser* p, LLVMMetadataRef meta) {
     }
 
     switch (kind) {
-        case LLVMMDTupleMetadataKind: return tuple_helper(a, convert_mdnode_operands(p, v));
+        case LLVMMDTupleMetadataKind: return shd_tuple_helper(a, convert_mdnode_operands(p, v));
         case LLVMDICompileUnitMetadataKind: return string_lit_helper(a, "CompileUnit");
     }
 

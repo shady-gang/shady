@@ -54,7 +54,7 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
             Nodes element_types = shd_get_composite_type_element_types(t);
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {
-                const Node* e = gen_extract(bb, param, shd_singleton(shd_uint32_literal(a, i)));
+                const Node* e = shd_extract_helper(a, param, shd_singleton(shd_uint32_literal(a, i)));
                 elements[i] = build_subgroup_first(ctx, bb, scope, e);
             }
             return composite_helper(a, original_t, shd_nodes(a, element_types.count, elements));
