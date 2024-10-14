@@ -118,6 +118,23 @@ static void generate_node_tags_for_class(Growy* g, json_object* nodes, String cl
     shd_growy_append_formatted(g, "} %sTag;\n\n", capitalized_class);
 }
 
+static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
+    assert(json_object_get_type(nodes) == json_type_array);
+    if (use_enum)
+        shd_growy_append_formatted(g, "static inline %sTag is_%s(const Node* node) {\n", capitalized_class, class);
+    else
+        shd_growy_append_formatted(g, "static inline bool is_%s(const Node* node) {\n", class);
+    shd_growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
+    if (use_enum) {
+        shd_growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
+    } else {
+        shd_growy_append_formatted(g, "\t\treturn true;\n", capitalized_class);
+        shd_growy_append_formatted(g, "\treturn false;\n", capitalized_class);
+    }
+    shd_growy_append_formatted(g, "}\n\n");
+}
+
 static void generate_header_getters_for_class(Growy* g, json_object* src, json_object* node_class) {
     String class_name = json_object_get_string(json_object_object_get(node_class, "name"));
     json_object* class_ops = json_object_object_get(node_class, "ops");
@@ -199,6 +216,35 @@ void generate_node_ctor(Growy* g, json_object* src, json_object* nodes) {
     shd_growy_append_formatted(g, "\n");
 }
 
+static void generate_getters_for_class(Growy* g, json_object* src, json_object* nodes, json_object* node_class) {
+    String class_name = json_object_get_string(json_object_object_get(node_class, "name"));
+    json_object* class_ops = json_object_object_get(node_class, "ops");
+    if (!class_ops)
+        return;
+    assert(json_object_get_type(class_ops) == json_type_array);
+    for (size_t i = 0; i < json_object_array_length(class_ops); i++) {
+        json_object* operand = json_object_array_get_idx(class_ops, i);
+        String operand_name = json_object_get_string(json_object_object_get(operand, "name"));
+        assert(operand_name);
+        shd_growy_append_formatted(g, "static inline %s get_%s_%s(const Node* node) {\n", get_type_for_operand(src, operand), class_name, operand_name);
+        shd_growy_append_formatted(g, "\tswitch(node->tag) {\n");
+        for (size_t j = 0; j < json_object_array_length(nodes); j++) {
+            json_object* node = json_object_array_get_idx(nodes, j);
+            if (find_in_set(json_object_object_get(node, "class"), class_name)) {
+                String node_name = json_object_get_string(json_object_object_get(node, "name"));
+                shd_growy_append_formatted(g, "\t\tcase %s_TAG: ", node_name);
+                String node_snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
+                assert(node_snake_name);
+                shd_growy_append_formatted(g, "return node->payload.%s.%s;\n", node_snake_name, operand_name);
+            }
+        }
+        shd_growy_append_formatted(g, "\t\tdefault: break;\n");
+        shd_growy_append_formatted(g, "\t}\n");
+        shd_growy_append_formatted(g, "\tassert(false);\n");
+        shd_growy_append_formatted(g, "}\n\n");
+    }
+}
+
 void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
@@ -214,6 +260,7 @@ void generate(Growy* g, json_object* src) {
     generate_node_type(g, nodes);
 
     shd_growy_append_formatted(g, "#include <string.h>\n");
+    shd_growy_append_formatted(g, "#include <assert.h>\n");
     shd_growy_append_formatted(g, "Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh);\n");
     generate_node_ctor(g, src, nodes);
 
@@ -222,15 +269,15 @@ void generate(Growy* g, json_object* src) {
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         assert(name);
         json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
+        String capitalized = capitalize(name);
+
         if (!generate_enum || json_object_get_boolean(generate_enum)) {
-            String capitalized = capitalize(name);
             generate_node_tags_for_class(g, nodes, name, capitalized);
-            shd_growy_append_formatted(g, "%sTag is_%s(const Node*);\n", capitalized, name);
-            free((void*) capitalized);
-        } else {
-            shd_growy_append_formatted(g, "bool is_%s(const Node*);\n", name);
         }
 
-        generate_header_getters_for_class(g, src, node_class);
+        //generate_header_getters_for_class(g, src, node_class);
+        generate_getters_for_class(g, src, nodes, node_class);
+        generate_isa_for_class(g, nodes, name, capitalized, !generate_enum || json_object_get_boolean(generate_enum));
+        free((void*) capitalized);
     }
 }

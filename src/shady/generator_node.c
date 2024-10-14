@@ -128,66 +128,6 @@ static void generate_node_is_nominal(Growy* g, json_object* nodes) {
     shd_growy_append_formatted(g, "}\n");
 }
 
-static void generate_isa_for_class(Growy* g, json_object* nodes, String class, String capitalized_class, bool use_enum) {
-    assert(json_object_get_type(nodes) == json_type_array);
-    if (use_enum)
-        shd_growy_append_formatted(g, "%sTag is_%s(const Node* node) {\n", capitalized_class, class);
-    else
-        shd_growy_append_formatted(g, "bool is_%s(const Node* node) {\n", class);
-    shd_growy_append_formatted(g, "\tif (get_node_class_from_tag(node->tag) & Nc%s)\n", capitalized_class);
-    if (use_enum) {
-        shd_growy_append_formatted(g, "\t\treturn (%sTag) node->tag;\n", capitalized_class);
-        shd_growy_append_formatted(g, "\treturn (%sTag) 0;\n", capitalized_class);
-    } else {
-        shd_growy_append_formatted(g, "\t\treturn true;\n", capitalized_class);
-        shd_growy_append_formatted(g, "\treturn false;\n", capitalized_class);
-    }
-    shd_growy_append_formatted(g, "}\n\n");
-}
-
-static bool is_of(json_object* node, String class_name) {
-    switch (json_object_get_type(node)) {
-        case json_type_array: {
-            for (size_t i = 0; i < json_object_array_length(node); i++)
-                if (is_of(json_object_array_get_idx(node, i), class_name))
-                    return true;
-            break;
-        }
-        case json_type_string: return strcmp(json_object_get_string(node), class_name) == 0;
-        default: break;
-    }
-    return false;
-}
-
-static void generate_getters_for_class(Growy* g, json_object* src, json_object* nodes, json_object* node_class) {
-    String class_name = json_object_get_string(json_object_object_get(node_class, "name"));
-    json_object* class_ops = json_object_object_get(node_class, "ops");
-    if (!class_ops)
-        return;
-    assert(json_object_get_type(class_ops) == json_type_array);
-    for (size_t i = 0; i < json_object_array_length(class_ops); i++) {
-        json_object* operand = json_object_array_get_idx(class_ops, i);
-        String operand_name = json_object_get_string(json_object_object_get(operand, "name"));
-        assert(operand_name);
-        shd_growy_append_formatted(g, "%s get_%s_%s(const Node* node) {\n", get_type_for_operand(src, operand), class_name, operand_name);
-        shd_growy_append_formatted(g, "\tswitch(node->tag) {\n");
-        for (size_t j = 0; j < json_object_array_length(nodes); j++) {
-            json_object* node = json_object_array_get_idx(nodes, j);
-            if (is_of(json_object_object_get(node, "class"), class_name)) {
-                String node_name = json_object_get_string(json_object_object_get(node, "name"));
-                shd_growy_append_formatted(g, "\t\tcase %s_TAG: ", node_name);
-                String node_snake_name = json_object_get_string(json_object_object_get(node, "snake_name"));
-                assert(node_snake_name);
-                shd_growy_append_formatted(g, "return node->payload.%s.%s;\n", node_snake_name, operand_name);
-            }
-        }
-        shd_growy_append_formatted(g, "\t\tdefault: break;\n");
-        shd_growy_append_formatted(g, "\t}\n");
-        shd_growy_append_formatted(g, "\tassert(false);\n");
-        shd_growy_append_formatted(g, "}\n\n");
-    }
-}
-
 void generate_address_space_name_fn(Growy* g, json_object* address_spaces) {
     shd_growy_append_formatted(g, "String shd_get_address_space_name(AddressSpace as) {\n");
     shd_growy_append_formatted(g, "\tswitch (as) {\n");
@@ -218,11 +158,10 @@ void generate(Growy* g, json_object* src) {
         String name = json_object_get_string(json_object_object_get(node_class, "name"));
         assert(name);
 
-        generate_getters_for_class(g, src, nodes, node_class);
+        //generate_getters_for_class(g, src, nodes, node_class);
 
         json_object* generate_enum = json_object_object_get(node_class, "generate-enum");
         String capitalized = capitalize(name);
-        generate_isa_for_class(g, nodes, name, capitalized, !generate_enum || json_object_get_boolean(generate_enum));
         free((void*) capitalized);
     }
 }

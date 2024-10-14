@@ -33,6 +33,20 @@ String class_to_type(json_object* src, String class, bool list) {
     return list ? "Nodes" : "const Node*";
 }
 
+bool find_in_set(json_object* node, String class_name) {
+    switch (json_object_get_type(node)) {
+        case json_type_array: {
+            for (size_t i = 0; i < json_object_array_length(node); i++)
+                if (find_in_set(json_object_array_get_idx(node, i), class_name))
+                    return true;
+            break;
+        }
+        case json_type_string: return strcmp(json_object_get_string(node), class_name) == 0;
+        default: break;
+    }
+    return false;
+}
+
 String get_type_for_operand(json_object* src, json_object* op) {
     String op_type = json_object_get_string(json_object_object_get(op, "type"));
     bool list = json_object_get_boolean(json_object_object_get(op, "list"));

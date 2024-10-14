@@ -24,6 +24,7 @@ bool starts_with_vowel(String str);
 bool has_custom_ctor(json_object* node);
 
 json_object* lookup_node_class(json_object* src, String name);
+bool find_in_set(json_object* node, String class_name);
 String class_to_type(json_object* src, String class, bool list);
 String get_type_for_operand(json_object* src, json_object* op);
 
