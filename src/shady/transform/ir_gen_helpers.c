@@ -19,11 +19,6 @@ Nodes gen_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     return shd_bld_add_instruction_extract(bb, instruction);
 }
 
-const Node* gen_primop_ce(BodyBuilder* bb, Op op, size_t operands_count, const Node* operands[]) {
-    IrArena* a = shd_get_bb_arena(bb);
-    return prim_op_helper(a, op, shd_empty(a), shd_nodes(a, operands_count, operands));
-}
-
 const Node* gen_primop_e(BodyBuilder* bb, Op op, Nodes ty, Nodes nodes) {
     return prim_op_helper(shd_get_bb_arena(bb), op, ty, nodes);
 }
@@ -77,6 +72,7 @@ const Node* gen_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
 }
 
 const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
+    IrArena* a = shd_get_bb_arena(bb);
     const Type* src_type = shd_get_unqualified_type(lo->type);
     assert(shd_get_unqualified_type(hi->type) == src_type);
     assert(src_type->tag == Int_TAG);
@@ -88,9 +84,9 @@ const Node* gen_merge_halves(BodyBuilder* bb, const Node* lo, const Node* hi) {
     hi = gen_conversion(bb, dst_type, hi);
     // shift hi
     const Node* shift_by = int_literal(shd_get_bb_arena(bb), (IntLiteral)  { .width = size + 1, .is_signed = src_type->payload.int_type.is_signed, .value = shd_get_type_bitwidth(src_type) });
-    hi = gen_primop_ce(bb, lshift_op, 2, (const Node* []) { hi, shift_by});
+    hi = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, hi, shift_by));
     // Merge the two
-    return gen_primop_ce(bb, or_op, 2, (const Node* []) { lo, hi });
+    return prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, lo, hi));
 }
 
 void gen_comment(BodyBuilder* bb, String str) {

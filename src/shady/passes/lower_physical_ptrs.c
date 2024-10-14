@@ -60,7 +60,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case Bool_TAG: {
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
             const Node* value = shd_bld_load(bb, logical_ptr);
-            return gen_primop_ce(bb, neq_op, 2, (const Node*[]) {value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })});
+            return prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })));
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobal: {
@@ -149,7 +149,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
             const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.memory.word_size });
             const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size });
-            const Node* int_value = gen_primop_ce(bb, select_op, 3, (const Node*[]) { value, one_b, zero_b });
+            const Node* int_value = prim_op_helper(a, select_op, shd_empty(a), mk_nodes(a, value, one_b, zero_b));
             shd_bld_store(bb, logical_ptr, int_value);
             return;
         }

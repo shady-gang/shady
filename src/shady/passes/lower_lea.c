@@ -41,9 +41,9 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             const Node* element_t_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
 
             const Node* new_index = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, index);
-            const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) {new_index, element_t_size});
+            const Node* physical_offset = prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, new_index, element_t_size));
 
-            ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset });
+            ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ptr, physical_offset));
 
             pointer_type = ptr_type(a, (PtrType) {
                 .pointed_type = element_type,
@@ -66,7 +66,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             assert(n < member_types.count);
 
             const Node* offset_of = gen_primop_e(bb, offset_of_op, shd_singleton(pointed_type), shd_singleton(shd_uint64_literal(a, n)));
-            ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, offset_of });
+            ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ptr, offset_of));
 
             pointer_type = ptr_type(a, (PtrType) {
                 .pointed_type = member_types.nodes[n],
@@ -97,9 +97,9 @@ static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* p
         const Node* element_t_size = gen_primop_e(bb, size_of_op, shd_singleton(element_type), shd_empty(a));
 
         const Node* new_offset = convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
-        const Node* physical_offset = gen_primop_ce(bb, mul_op, 2, (const Node* []) { new_offset, element_t_size});
+        const Node* physical_offset = prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, new_offset, element_t_size));
 
-        ptr = gen_primop_ce(bb, add_op, 2, (const Node* []) { ptr, physical_offset});
+        ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ptr, physical_offset));
     }
 
     return ptr;

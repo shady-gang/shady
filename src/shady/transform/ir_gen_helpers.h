@@ -12,7 +12,6 @@ const Node* gen_get_stack_size(BodyBuilder*);
 void gen_set_stack_size(BodyBuilder*, const Node* new_size);
 
 Nodes gen_call(BodyBuilder*, const Node* callee, Nodes args);
-const Node* gen_primop_ce(BodyBuilder*, Op op, size_t operands_count, const Node* operands[]);
 const Node* gen_primop_e(BodyBuilder*, Op op, Nodes, Nodes);
 const Node* gen_ext_instruction(BodyBuilder*, String set, int opcode, const Type* return_t, Nodes operands);
 
