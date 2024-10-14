@@ -47,7 +47,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
             src_addr = shd_bld_reinterpret_cast(bb, src_addr_type, src_addr);
 
-            const Node* num_in_bytes = convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
+            const Node* num_in_bytes = shd_bld_convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = shd_bld_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));

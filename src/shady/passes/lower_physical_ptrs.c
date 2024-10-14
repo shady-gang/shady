@@ -166,7 +166,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             assert(element_type->tag == Int_TAG);
             // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
             const Type* element_t_unsigned = int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
-            value = convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
+            value = shd_bld_convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
 
             // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
