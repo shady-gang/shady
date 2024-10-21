@@ -380,6 +380,7 @@ static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitte
     RUN_PASS(shd_pass_eliminate_constants)
     if (econfig->dialect == CDialect_ISPC) {
         RUN_PASS(shd_pass_lower_workgroups)
+        RUN_PASS(shd_pass_lower_inclusive_scan)
     }
     if (econfig->dialect != CDialect_GLSL) {
         RUN_PASS(shd_pass_lower_vec_arr)

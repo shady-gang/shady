@@ -92,6 +92,7 @@ RewritePass shd_pass_lower_vec_arr;
 RewritePass shd_pass_lower_workgroups;
 RewritePass shd_pass_lower_fill;
 RewritePass shd_pass_lower_nullptr;
+RewritePass shd_pass_lower_inclusive_scan;
 
 /// @}
 
