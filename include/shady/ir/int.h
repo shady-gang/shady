@@ -38,6 +38,8 @@ const Node* shd_uint64_literal(IrArena* arena, uint64_t u);
 const IntLiteral* shd_resolve_to_int_literal(const Node* node);
 int64_t shd_get_int_literal_value(IntLiteral literal, bool sign_extend);
 
+int64_t shd_get_int_value(const Node* node, bool sign_extend);
+
 const Node* shd_bld_convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src);
 const Node* shd_bld_convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* dst_type, const Node* src);
 const Node* shd_bld_convert_int_zero_extend(BodyBuilder* bb, const Type* dst_type, const Node* src);

@@ -3,6 +3,8 @@
 
 #include "shady/analysis/literal.h"
 
+#include "log.h"
+
 #include <assert.h>
 
 const Type* shd_int_type_helper(IrArena* a, bool s, IntSizes w) { return int_type(a, (Int) { .width = w, .is_signed = s }); }
@@ -54,6 +56,12 @@ int64_t shd_get_int_literal_value(IntLiteral literal, bool sign_extend) {
             default: assert(false);
         }
     }
+}
+
+int64_t shd_get_int_value(const Node* node, bool sign_extend) {
+    const IntLiteral* lit = shd_resolve_to_int_literal(node);
+    if (!lit) shd_error("Not a literal");
+    return shd_get_int_literal_value(*lit, sign_extend);
 }
 
 const Node* shd_bld_convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
