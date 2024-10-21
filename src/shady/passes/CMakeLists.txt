@@ -41,4 +41,5 @@ target_sources(shady PRIVATE
     reconvergence_heuristics.c
     lcssa.c
     remove_critical_edges.c
+    lower_inclusive_scan.c
 )

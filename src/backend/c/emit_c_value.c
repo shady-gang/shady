@@ -344,10 +344,10 @@ static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
     [pow_op] = { IsMono, OsCall, "pow" },
 };
 
-static bool emit_using_entry(CTerm* out, Emitter* emitter, FnEmitter* fn, Printer* p, const ISelTableEntry* entry, Nodes operands) {
+static CTerm emit_using_entry(Emitter* emitter, FnEmitter* fn, Printer* p, const ISelTableEntry* entry, Nodes operands) {
     String operator_str = NULL;
     switch (entry->isel_mechanism) {
-        case IsNone: return false;
+        case IsNone: return empty_term();
         case IsMono: operator_str = entry->op; break;
         case IsPoly: {
             const Type* t = get_first_op_scalar_type(operands);
@@ -361,27 +361,27 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, FnEmitter* fn, Printe
         }
     }
 
-    if (!operator_str)
-        return false;
+    if (!operator_str) {
+        shd_log_fmt(ERROR, "emit_c: Missing or unsupported operands for this entry");
+        return empty_term();
+    }
 
     switch (entry->style) {
         case OsInfix: {
             CTerm a = shd_c_emit_value(emitter, fn, operands.nodes[0]);
             CTerm b = shd_c_emit_value(emitter, fn, operands.nodes[1]);
-            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s %s %s", shd_c_to_ssa(emitter, a), operator_str, shd_c_to_ssa(emitter, b)));
-            break;
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s %s %s", shd_c_to_ssa(emitter, a), operator_str, shd_c_to_ssa(emitter, b)));
         }
         case OsPrefix: {
             CTerm operand = shd_c_emit_value(emitter, fn, operands.nodes[0]);
-            *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s%s", operator_str, shd_c_to_ssa(emitter, operand)));
-            break;
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s%s", operator_str, shd_c_to_ssa(emitter, operand)));
         }
         case OsCall: {
             LARRAY(CTerm, cops, operands.count);
             for (size_t i = 0; i < operands.count; i++)
                 cops[i] = shd_c_emit_value(emitter, fn, operands.nodes[i]);
             if (operands.count == 1)
-                *out = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", operator_str, shd_c_to_ssa(emitter, cops[0])));
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", operator_str, shd_c_to_ssa(emitter, cops[0])));
             else {
                 Growy* g = shd_new_growy();
                 shd_growy_append_string(g, operator_str);
@@ -392,12 +392,13 @@ static bool emit_using_entry(CTerm* out, Emitter* emitter, FnEmitter* fn, Printe
                         shd_growy_append_string_literal(g, ", ");
                 }
                 shd_growy_append_string_literal(g, ")");
-                *out = term_from_cvalue(shd_growy_deconstruct(g));
+                return term_from_cvalue(shd_growy_deconstruct(g));
             }
             break;
         }
     }
-    return true;
+
+    SHADY_UNREACHABLE;
 }
 
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
@@ -442,14 +443,12 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         // MATH OPS
         case fract_op: {
-            CTerm floored;
-            emit_using_entry(&floored, emitter, fn, p, lookup_entry(emitter, floor_op), prim_op->operands);
+            CTerm floored = emit_using_entry(emitter, fn, p, lookup_entry(emitter, floor_op), prim_op->operands);
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "1 - %s", shd_c_to_ssa(emitter, floored)));
             break;
         }
         case inv_sqrt_op: {
-            CTerm floored;
-            emit_using_entry(&floored, emitter, fn, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
+            CTerm floored = emit_using_entry(emitter, fn, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "1.0f / %s", shd_c_to_ssa(emitter, floored)));
             break;
         }
@@ -710,9 +709,88 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
     }
 
     if (isel_entry->isel_mechanism != IsNone)
-        emit_using_entry(&term, emitter, fn, p, isel_entry, prim_op->operands);
+        return emit_using_entry(emitter, fn, p, isel_entry, prim_op->operands);
 
     return term;
+}
+
+typedef struct {
+    String set;
+    SpvOp op;
+    size_t prefix_len;
+    uint32_t* prefix;
+} ExtISelPattern;
+
+#define mk_prefix(...) .prefix_len = sizeof((uint32_t[]) {__VA_ARGS__}) / sizeof(uint32_t), .prefix = (uint32_t[]) {__VA_ARGS__}
+#define subgroup_reduction mk_prefix(SpvScopeSubgroup, SpvGroupOperationReduce)
+
+typedef struct {
+    ExtISelPattern match;
+    ISelTableEntry payload;
+} ExtISelEntry;
+
+ExtISelEntry ext_isel_ispc_entries[] = {
+    // reduce add
+    {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_add" }},
+    {{ "spirv.core", SpvOpGroupFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_add" }},
+    {{ "spirv.core", SpvOpGroupNonUniformIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_add" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_add" }},
+    // min
+    {{ "spirv.core", SpvOpGroupSMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    {{ "spirv.core", SpvOpGroupUMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    {{ "spirv.core", SpvOpGroupFMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMin, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_min" }},
+    // max
+    {{ "spirv.core", SpvOpGroupSMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    {{ "spirv.core", SpvOpGroupUMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    {{ "spirv.core", SpvOpGroupFMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMax, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_max" }},
+    // rest
+    {{ "spirv.core", SpvOpGroupNonUniformAllEqual, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "reduce_equal" }},
+    {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "packmask" }},
+};
+
+ExtISelEntry ext_isel_entries[] = {
+    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_broadcast_first" }},
+    {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
+};
+
+static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {
+    if (strcmp(entry->set, instr.set) != 0 || entry->op != instr.opcode)
+        return false;
+    for (size_t i = 0; i < entry->prefix_len; i++) {
+        if (i >= instr.operands.count)
+            return false;
+        const IntLiteral* lit = shd_resolve_to_int_literal(instr.operands.nodes[i]);
+        if (!lit)
+            return false;
+        if (shd_get_int_literal_value(*lit, false) != entry->prefix[i])
+            return false;
+    }
+    return true;
+}
+
+static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtInstr instr) {
+    for (size_t i = 0; i < size; i++) {
+        if (check_ext_entry(&table[i].match, instr))
+            return &table[i];
+    }
+    return NULL;
+}
+
+#define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), instr); if (f) return f; }
+
+static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
+    switch (e->config.dialect) {
+        case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
+        default: break;
+    }
+    scan_entries(ext_isel_entries);
+    return NULL;
 }
 
 static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, ExtInstr instr) {
@@ -722,10 +800,8 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
             case SpvOpGroupNonUniformBroadcastFirst: {
                 CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(instr.operands)));
                 switch (emitter->config.dialect) {
-                    case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value));
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
-                    case CDialect_C11:
-                    case CDialect_GLSL: shd_error("TODO")
+                    default: break;
                 }
                 break;
             }
@@ -734,20 +810,23 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
                 const IntLiteral* scope = shd_resolve_to_int_literal(shd_first(instr.operands));
                 assert(scope && scope->value == SpvScopeSubgroup);
                 switch (emitter->config.dialect) {
-                    case CDialect_CUDA: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_elect_first()"));
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))"));
-                    case CDialect_C11:
-                    case CDialect_GLSL: shd_error("TODO")
+                    default: break;
                 }
                 break;
             }
-            // [subgroup_active_mask_op] = { IsMono, OsCall, "lanemask" },
-            // [subgroup_ballot_op] = { IsMono, OsCall, "packmask" },
-            // [subgroup_reduce_sum_op] = { IsMono, OsCall, "reduce_add" },
-            default: shd_error("Unsupported core spir-v instruction: %d", instr.opcode);
+            default: break;
         }
+    }
+
+    const ExtISelEntry* entry = find_ext_entry(emitter, instr);
+    if (entry) {
+        Nodes operands = instr.operands;
+        if (entry->match.prefix_len > 0)
+            operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
+        return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended instruction set: %s", instr.set);
+        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", instr.set, instr.opcode);
     }
 }
 
@@ -776,13 +855,13 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     CValue e_callee;
     const Node* callee = call->payload.call.callee;
     if (callee->tag == FnAddr_TAG)
-        e_callee = get_declaration_name(callee->payload.fn_addr.fn);
+        e_callee = shd_c_legalize_identifier(emitter, get_declaration_name(callee->payload.fn_addr.fn));
     else
         e_callee = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, callee));
 
     String params = shd_printer_growy_unwrap(paramsp);
 
-    CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
+    CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "\n%s(%s)", e_callee, params));
     called = shd_c_bind_intermediary_result(emitter, p, call->type, called);
 
     free_tmp_str(params);
@@ -968,7 +1047,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                 args_list = shd_format_string_arena(emitter->arena->arena, "%s, %s", args_list, str);
             }
             switch (emitter->config.dialect) {
-                case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { shd_print(%s); }", args_list);
+                case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
                 case CDialect_CUDA:
                 case CDialect_C11:shd_print(p, "\nprintf(%s);", args_list);

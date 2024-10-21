@@ -49,7 +49,7 @@ fn builtin_init_scheduler() {
     scheduler_vector#(subgroup_local_id) = tree_node1;
     active_branch = tree_node1;
 
-    actual_subgroup_size = (ext_instr["spirv.core", 349, varying u32](3, u32 1, 0));
+    actual_subgroup_size = (ext_instr["spirv.core", 349, varying u32](3, u32 1, u32 0));
 }
 
 @Internal @Exported
