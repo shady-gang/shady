@@ -798,7 +798,8 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
     if (strcmp(instr.set, "spirv.core") == 0) {
         switch (instr.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
-                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(instr.operands)));
+                assert(instr.operands.count == 2);
+                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.operands.nodes[1]));
                 switch (emitter->config.dialect) {
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
                     default: break;
@@ -1037,15 +1038,20 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;
             shd_c_emit_mem(emitter, fn, payload.mem);
-            String args_list = shd_fmt_string_irarena(emitter->arena, "\"%s\"", instruction->payload.debug_printf.string);
+            Printer* args_printer = shd_new_printer_from_growy(shd_new_growy());
+            shd_print(args_printer, "\"");
+            shd_printer_unescape(args_printer, instruction->payload.debug_printf.string);
+            shd_print(args_printer, "\"");
             for (size_t i = 0; i < instruction->payload.debug_printf.args.count; i++) {
                 CValue str = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instruction->payload.debug_printf.args.nodes[i]));
 
-                if (emitter->config.dialect == CDialect_ISPC && i > 0)
-                    str = shd_format_string_arena(emitter->arena->arena, "extract(%s, printf_thread_index)", str);
-
-                args_list = shd_format_string_arena(emitter->arena->arena, "%s, %s", args_list, str);
+                // special casing for the special child
+                if (emitter->config.dialect == CDialect_ISPC)
+                    shd_print(args_printer, ", extract(%s, printf_thread_index)", str);
+                else
+                    shd_print(args_printer, ", %s", str);
             }
+            String args_list = shd_printer_growy_unwrap(args_printer);
             switch (emitter->config.dialect) {
                 case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
@@ -1055,6 +1061,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                 case CDialect_GLSL: shd_warn_print("printf is not supported in GLSL");
                     break;
             }
+            free((char*) args_list);
 
             return empty_term();
         }
