@@ -1,0 +1,67 @@
+{
+  "revision" : 1,
+  "instructions" : [
+    {
+      "opname" : "SlimDereferenceSHADY",
+      "opcode" : 1,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Target'" }
+      ]
+    },
+    {
+      "opname" : "SlimAssignSHADY",
+      "opcode" : 2,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Target'" },
+        { "kind" : "IdRef", "name" : "'Value'" }
+      ]
+    },
+    {
+      "opname" : "SlimAddrOfSHADY",
+      "opcode" : 3,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Target'" }
+      ]
+    },
+    {
+      "opname" : "SlimSubscriptSHADY",
+      "opcode" : 4,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Value'" },
+        { "kind" : "IdRef", "name" : "'Index'" }
+      ]
+    },
+    {
+      "opname" : "SlimBindValSHADY",
+      "opcode" : 5,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Value'" },
+        { "kind" : "IdRef", "name" : "'Names'", "quantifier" : "*" }
+      ]
+    },
+    {
+      "opname" : "SlimBindVarSHADY",
+      "opcode" : 6,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Value'" },
+        { "kind" : "IdRef", "name" : "'Names'", "quantifier" : "*" },
+        { "kind" : "IdRef", "name" : "'Types'", "quantifier" : "*" }
+      ]
+    },
+    {
+      "opname" : "SlimBindContinuationsSHADY",
+      "opcode" : 7,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Name'" },
+        { "kind" : "IdRef", "name" : "'Continuations'", "quantifier" : "*" }
+      ]
+    },
+    {
+      "opname" : "SlimUnboundSHADY",
+      "opcode" : 8,
+      "operands" : [
+        { "kind" : "IdRef", "name" : "'Identifier'" }
+      ]
+    }
+  ]
+}

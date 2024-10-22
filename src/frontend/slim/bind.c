@@ -1,3 +1,5 @@
+#include "SlimFrontendOps.h"
+
 #include "shady/pass.h"
 #include "shady/fe/slim.h"
 
@@ -93,7 +95,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "shady.frontend") == 0) {
-                if (payload.opcode == SlimOpSubscript) {
+                if (payload.opcode == SlimFrontendOpsSlimSubscriptSHADY) {
                     assert(payload.operands.count == 2);
                     const Node* src_ptr = get_node_address_maybe(ctx, shd_first(payload.operands));
                     if (src_ptr == NULL)
@@ -103,13 +105,13 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
                         .mem = shd_rewrite_node(r, payload.mem),
                         .value = ptr_composite_element(a, (PtrCompositeElement) { .ptr = src_ptr, .index = index }),
                     });
-                } else if (payload.opcode == SlimOpDereference) {
+                } else if (payload.opcode == SlimFrontendOpsSlimDereferenceSHADY) {
                     assert(payload.operands.count == 1);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = shd_rewrite_node(r, payload.mem),
                         .value = shd_rewrite_node(&ctx->rewriter, shd_first(payload.operands)),
                     });
-                } else if (payload.opcode == SlimOpUnbound) {
+                } else if (payload.opcode == SlimFrontendOpsSlimUnboundSHADY) {
                     if (payload.mem)
                         shd_rewrite_node(&ctx->rewriter, payload.mem);
                     Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.operands)));
@@ -138,7 +140,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     BodyBuilder* bb = instr.mem ? shd_bld_begin(a, shd_rewrite_node(r, instr.mem)) : shd_bld_begin_pure(a);
 
     switch (instr.opcode) {
-        case SlimOpBindVal: {
+        case SlimFrontendOpsSlimBindValSHADY: {
             size_t names_count = instr.operands.count - 1;
             const Node** names = &instr.operands.nodes[1];
             const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
@@ -150,7 +152,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             }
             break;
         }
-        case SlimOpBindVar: {
+        case SlimFrontendOpsSlimBindVarSHADY: {
             size_t names_count = (instr.operands.count - 1) / 2;
             const Node** names = &instr.operands.nodes[1];
             const Node** types = &instr.operands.nodes[1 + names_count];
@@ -170,7 +172,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             }
             break;
         }
-        case SlimOpBindContinuations: {
+        case SlimFrontendOpsSlimBindContinuationsSHADY: {
             size_t names_count = (instr.operands.count ) / 2;
             const Node** names = &instr.operands.nodes[0];
             const Node** conts = &instr.operands.nodes[0 + names_count];
@@ -253,9 +255,9 @@ static bool is_used_as_value(Context* ctx, const Node* node) {
     for (;use;use = use->next_use) {
         if (use->operand_class != NcMem) {
             if (use->user->tag == ExtInstr_TAG && strcmp(use->user->payload.ext_instr.set, "shady.frontend") == 0) {
-                if (use->user->payload.ext_instr.opcode == SlimOpAssign && use->operand_index == 0)
+                if (use->user->payload.ext_instr.opcode == SlimFrontendOpsSlimAssignSHADY && use->operand_index == 0)
                     continue;
-                if (use->user->payload.ext_instr.opcode == SlimOpSubscript && use->operand_index == 0) {
+                if (use->user->payload.ext_instr.opcode == SlimFrontendOpsSlimSubscriptSHADY && use->operand_index == 0) {
                     const Node* ptr = get_node_address_maybe(ctx, node);
                     if (ptr)
                         continue;
@@ -308,25 +310,25 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp("shady.frontend", payload.set) == 0) {
-                switch ((SlimFrontEndOpCodes) payload.opcode) {
-                    case SlimOpDereference:
+                switch ((enum SlimFrontendOpsInstructions) payload.opcode) {
+                    case SlimFrontendOpsSlimDereferenceSHADY:
                         if (!is_used_as_value(ctx, node))
                             return shd_rewrite_node(r, payload.mem);
                         return load(a, (Load) {
                             .ptr = shd_rewrite_node(r, shd_first(payload.operands)),
                             .mem = shd_rewrite_node(r, payload.mem),
                         });
-                    case SlimOpAssign: {
+                    case SlimFrontendOpsSlimAssignSHADY: {
                         const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
                         assert(target_ptr);
                         const Node* value = shd_rewrite_node(r, payload.operands.nodes[1]);
                         return store(a, (Store) { .ptr = target_ptr, .value = value, .mem = shd_rewrite_node(r, payload.mem) });
                     }
-                    case SlimOpAddrOf: {
+                    case SlimFrontendOpsSlimAddrOfSHADY: {
                         const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
                         return mem_and_value(a, (MemAndValue) { .value = target_ptr, .mem = shd_rewrite_node(r, payload.mem) });
                     }
-                    case SlimOpSubscript: {
+                    case SlimFrontendOpsSlimSubscriptSHADY: {
                         const Node* ptr = get_node_address_maybe(ctx, node);
                         if (ptr)
                             return load(a, (Load) {
@@ -341,7 +343,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                             .mem = shd_rewrite_node(r, payload.mem) }
                         );
                     }
-                    case SlimOpUnbound: {
+                    case SlimFrontendOpsSlimUnboundSHADY: {
                         const Node* mem = NULL;
                         if (payload.mem) {
                             if (!is_used_as_value(ctx, node))
