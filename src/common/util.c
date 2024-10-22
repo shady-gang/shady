@@ -1,4 +1,5 @@
 #include "util.h"
+#include "printer.h"
 #include "arena.h"
 
 #include <stdlib.h>
@@ -20,13 +21,13 @@ X( 'a', '\a') \
 X( 'v', '\v') \
 
 size_t shd_apply_escape_codes(const char* src, size_t size, char* dst) {
-    char p, c = '\0';
+    char prev, c = '\0';
     size_t j = 0;
     for (size_t i = 0; i < size; i++) {
-        p = c;
+        prev = c;
         c = src[i];
 
-#define ESCAPE_CASE(m, s) if (p == '\\' && c == m) { \
+#define ESCAPE_CASE(m, s) if (prev == '\\' && c == m) { \
         dst[j - 1] = s; \
         continue; \
     } \
@@ -57,6 +58,41 @@ size_t shd_unapply_escape_codes(const char* src, size_t size, char* dst) {
         dst[j++] = c;
     }
     return j;
+}
+
+void shd_printer_escape(Printer* p, const char* src) {
+    size_t size = strlen(src);
+    for (size_t i = 0; i < size; i++) {
+        char c = src[i];
+        char next = i + 1 < size ? src[i + 1] : '\0';
+
+#define ESCAPE_CASE(m, s) if (c == '\\' && next == m) { \
+        char code = s; \
+        shd_print(p, "%c", code); \
+        i++; \
+        continue; \
+    } \
+
+        ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
+        shd_print(p, "%c", c);
+    }
+}
+
+void shd_printer_unescape(Printer* p, const char* src) {
+    size_t size = strlen(src);
+    for (size_t i = 0; i < size; i++) {
+        char c = src[i];
+
+#define ESCAPE_CASE(m, s) if (c == s) { \
+        shd_print(p, "\\%c", m); \
+        continue; \
+    } \
+
+        ESCAPE_SEQS(ESCAPE_CASE)
+#undef ESCAPE_CASE
+        shd_print(p, "%c", c);
+    }
 }
 
 static long get_file_size(FILE* f) {

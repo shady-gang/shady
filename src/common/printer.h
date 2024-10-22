@@ -15,6 +15,8 @@ void shd_newline(Printer* p);
 void shd_printer_indent(Printer* p);
 void shd_printer_deindent(Printer* p);
 void shd_printer_flush(Printer* p);
+void shd_printer_escape(Printer* p, const char*);
+void shd_printer_unescape(Printer* p, const char*);
 
 const char* shd_printer_growy_unwrap(Printer* p);
 Growy* shd_new_growy(void);
