@@ -1,6 +1,4 @@
-[submodule "murmur3"]
-	path = murmur3
-	url = https://github.com/PeterScott/murmur3
 [submodule "SPIRV-Headers"]
 	path = SPIRV-Headers
 	url = https://github.com/shady-gang/SPIRV-Headers.git
+	branch = main
