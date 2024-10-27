@@ -252,7 +252,17 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             return;
         }
         case Terminator_Control_TAG:
-        case TailCall_TAG:
+        case TailCall_TAG: {
+            TailCall payload = terminator->payload.tail_call;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
+            LARRAY(SpvId, args, payload.args.count + 1);
+            args[0] = spv_emit_value(emitter, fn_builder, payload.callee);
+            for (size_t i = 0; i < payload.args.count; i++)
+                args[i + 1] = spv_emit_value(emitter, fn_builder, payload.args.nodes[i]);
+            spvb_capability(emitter->file_builder, SpvCapabilityIndirectTailCallsSHADY);
+            spvb_terminator(basic_block_builder, SpvOpIndirectTailCallSHADY, payload.args.count + 1, args);
+            return;
+        }
         case Join_TAG: shd_error("Lower me");
         case NotATerminator: shd_error("TODO: emit terminator %s", shd_get_node_tag_string(terminator->tag));
     }

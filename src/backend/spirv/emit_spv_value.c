@@ -337,21 +337,27 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
     return spvb_ext_instruction(bb_builder, spv_emit_type(emitter, instr.result_t), set_id, instr.opcode, instr.operands.count, ops);
 }
 
-static SpvId emit_leaf_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Call call) {
+static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, Call call) {
     spv_emit_mem(emitter, fn_builder, call.mem);
-    const Node* fn = call.callee;
-    assert(fn->tag == FnAddr_TAG);
-    fn = fn->payload.fn_addr.fn;
-    SpvId callee = spv_emit_decl(emitter, fn);
 
+    const Node* fn = call.callee;
     const Type* callee_type = fn->type;
     assert(callee_type->tag == FnType_TAG);
     Nodes return_types = callee_type->payload.fn_type.return_types;
     SpvId return_type = spv_types_to_codom(emitter, return_types);
+
     LARRAY(SpvId, args, call.args.count);
     for (size_t i = 0; i < call.args.count; i++)
         args[i] = spv_emit_value(emitter, fn_builder, call.args.nodes[i]);
-    return spvb_call(bb_builder, return_type, callee, call.args.count, args);
+
+    if (fn->tag == FnAddr_TAG) {
+        fn = fn->payload.fn_addr.fn;
+        SpvId callee = spv_emit_decl(emitter, fn);
+        return spvb_call(bb_builder, return_type, callee, call.args.count, args);
+    } else {
+        spvb_capability(emitter->file_builder, SpvCapabilityFunctionPointersINTEL);
+        return spvb_op(bb_builder, SpvOpFunctionPointerCallINTEL, return_type, call.args.count, args);
+    }
 }
 
 static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instruction) {
@@ -368,7 +374,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_FillBytes_TAG:
         case Instruction_StackAlloc_TAG: shd_error("Should be lowered elsewhere")
         case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
-        case Instruction_Call_TAG: return emit_leaf_call(emitter, fn_builder, bb_builder, instruction->payload.call);
+        case Instruction_Call_TAG: return emit_fn_call(emitter, fn_builder, bb_builder, instruction->payload.call);
         case PrimOp_TAG: return emit_primop(emitter, fn_builder, bb_builder, instruction);
         case Comment_TAG: {
             spv_emit_mem(emitter, fn_builder, instruction->payload.comment.mem);
@@ -466,7 +472,11 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
         case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
-        case Value_FnAddr_TAG: shd_error("Should be lowered away earlier!");
+        case Value_FnAddr_TAG: {
+            spvb_capability(emitter->file_builder, SpvCapabilityInModuleFunctionAddressSHADY);
+            SpvId fn = spv_emit_decl(emitter, node->payload.fn_addr.fn);
+            return spvb_constant_op(emitter->file_builder, spv_emit_type(emitter, node->type), SpvOpConstantFunctionPointerINTEL, 1, &fn);
+        }
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = spv_emit_type(emitter, node->type);

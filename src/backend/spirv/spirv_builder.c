@@ -479,6 +479,16 @@ SpvId spvb_global_variable(SpvbFileBuilder* file_builder, SpvId id, SpvId type, 
     return id;
 }
 
+SpvId spvb_constant_op(SpvbFileBuilder* file_builder, SpvId type, SpvOp op, size_t operands_count, SpvId operands[]) {
+    op(op, 3 + operands_count);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(type);
+    ref_id(id);
+    for (size_t i = 0; i < operands_count; i++)
+        literal_int(operands[i]);
+    return id;
+}
+
 SpvId spvb_undef(SpvbFileBuilder* file_builder, SpvId type) {
     op(SpvOpUndef, 3);
     ref_id(type);
@@ -940,6 +950,12 @@ void spvb_return_value(SpvbBasicBlockBuilder* bb_builder, SpvId value) {
 
 void spvb_unreachable(SpvbBasicBlockBuilder* bb_builder) {
     op(SpvOpUnreachable, 1);
+}
+
+void spvb_terminator(SpvbBasicBlockBuilder* bb_builder, SpvOp op, size_t operands_count, SpvId operands[]) {
+    op(op, 1 + operands_count);
+    for (size_t i = 0; i < operands_count; i++)
+        ref_id(operands[i]);
 }
 
 #undef target_data

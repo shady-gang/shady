@@ -63,6 +63,7 @@ void spvb_constant(SpvbFileBuilder*, SpvId result, SpvId type, size_t bit_patter
 SpvId spvb_constant_composite(SpvbFileBuilder*, SpvId type, size_t ops_count, SpvId ops[]);
 SpvId spvb_constant_null(SpvbFileBuilder*, SpvId type);
 SpvId spvb_global_variable(SpvbFileBuilder*, SpvId id, SpvId type, SpvStorageClass storage_class, bool has_initializer, SpvId initializer);
+SpvId spvb_constant_op(SpvbFileBuilder*, SpvId type, SpvOp, size_t operands_count, SpvId operands[]);
 
 // Function building stuff
 SpvbFnBuilder* spvb_begin_fn(SpvbFileBuilder*, SpvId fn_id, SpvId fn_type, SpvId fn_ret_type);
@@ -113,5 +114,6 @@ SpvId spvb_ext_instruction(SpvbBasicBlockBuilder*, SpvId return_type, SpvId set,
 void  spvb_return_void(SpvbBasicBlockBuilder*) ;
 void  spvb_return_value(SpvbBasicBlockBuilder*, SpvId value);
 void  spvb_unreachable(SpvbBasicBlockBuilder*);
+void spvb_terminator(SpvbBasicBlockBuilder*, SpvOp, size_t operands_count, SpvId operands[]);
 
 #endif
