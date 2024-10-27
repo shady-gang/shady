@@ -797,6 +797,22 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
 static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
     const Node* instr = accept_expr(ctx, bb, max_precedence());
 
+    switch(shd_curr_token(tokenizer).tag) {
+        case call_tok: {
+            shd_next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok), "'('");
+            const Node* callee = accept_operand(ctx, bb);
+            expect(accept_token(ctx, rpar_tok), "')'");
+            Nodes args = expect_operands(ctx, bb);
+            return call(arena, (Call) {
+                    .callee = callee,
+                    .args = args,
+                    .mem = shd_bb_mem(bb)
+            });
+        }
+        default: break;
+    }
+
     if (instr)
         expect(accept_token(ctx, semi_tok), "';'");
 
@@ -988,6 +1004,18 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = expect_operands(ctx, bb);
             return join(arena, (Join) {
                 .join_point = jp,
+                .args = args,
+                .mem = shd_bb_mem(bb)
+            });
+        }
+        case tailcall_tok: {
+            shd_next_token(tokenizer);
+            expect(accept_token(ctx, lpar_tok), "'('");
+            const Node* callee = accept_operand(ctx, bb);
+            expect(accept_token(ctx, rpar_tok), "')'");
+            Nodes args = expect_operands(ctx, bb);
+            return tail_call(arena, (TailCall) {
+                .callee = callee,
                 .args = args,
                 .mem = shd_bb_mem(bb)
             });

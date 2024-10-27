@@ -67,6 +67,7 @@ TOKEN(case, "case") \
 TOKEN(default, "default") \
 TEXT_TOKEN(join) \
 TEXT_TOKEN(call) \
+TEXT_TOKEN(tailcall) \
 TOKEN(return, "return") \
 TEXT_TOKEN(unreachable) \
 TOKEN(infix_rshift_logical, ">>>") \
