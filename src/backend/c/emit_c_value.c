@@ -434,8 +434,8 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
         case CDialect_ISPC: {
             const Type* t = shd_get_unqualified_type(value_type);
             if (t->tag == PtrType_TAG)
-                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract_ptr(%s, count_trailing_zeros(lanemask()))", value));
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
         }
         default: shd_error("TODO");
     }
@@ -1055,7 +1055,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
 
                 // special casing for the special child
                 if (emitter->config.dialect == CDialect_ISPC)
-                    shd_print(args_printer, ", extract(%s, printf_thread_index)", str);
+                    shd_print(args_printer, ", __shady_extract(%s, printf_thread_index)", str);
                 else
                     shd_print(args_printer, ", %s", str);
             }

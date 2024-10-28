@@ -1,4 +1,6 @@
 template<typename T>
-T uniform* uniform extract_ptr(uniform T* varying t, uniform int i) {
-    return (uniform T* uniform) extract((intptr_t) t, i);
+T uniform __shady_extract(T varying t, uniform int i) {
+    varying T* uniform p1 = &t;
+    uniform T* uniform p2 = (uniform T* uniform) p1;
+    return p2[i];
 }
