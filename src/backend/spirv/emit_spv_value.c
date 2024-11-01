@@ -342,6 +342,8 @@ static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_
 
     const Node* fn = call.callee;
     const Type* callee_type = fn->type;
+    shd_deconstruct_qualified_type(&callee_type);
+    shd_deconstruct_pointer_type(&callee_type);
     assert(callee_type->tag == FnType_TAG);
     Nodes return_types = callee_type->payload.fn_type.return_types;
     SpvId return_type = spv_types_to_codom(emitter, return_types);
