@@ -200,12 +200,11 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         shd_error_print("  --shd_print-internal                          Includes internal functions in the debug output\n");
         shd_error_print("  --shd_print-generated                         Includes generated functions in the debug output\n");
         shd_error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
-        shd_error_print("  --simt2d                                  Emits SIMD code instead of SIMT, only effective with the C backend.\n");
         shd_error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
         shd_error_print("  --word-size <8|16|32|64>                  Sets the word size for physical memory emulation (default=32)\n");
         shd_error_print("  --pointer-size <8|16|32|64>               Sets the pointer size for physical pointers (default=64)\n");
 #define EM(name, _) #name", "
-        shd_error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM));
+        shd_error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM) "\n");
 #undef EM
         shd_error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
         shd_error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
