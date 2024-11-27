@@ -432,8 +432,6 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
     switch (emitter->config.dialect) {
         case CDialect_ISPC: {
             const Type* t = shd_get_unqualified_type(value_type);
-            if (t->tag == PtrType_TAG)
-                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
         }
         default: shd_error("TODO");
@@ -1025,7 +1023,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             CValue cvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
             if (emitter->config.dialect == CDialect_ISPC && addr_uniform && shd_is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
-                cvalue = shd_format_string_arena(emitter->arena->arena, "extract_ptr(%s, count_trailing_zeros(lanemask()))", cvalue);
+                cvalue = shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
             return empty_term();
