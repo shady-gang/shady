@@ -324,7 +324,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
                 if (emitter->config.dialect == CDialect_ISPC) {
                     // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
                     // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
-                    fn_body = shd_format_string_arena(emitter->arena->arena, "if ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
+                    fn_body = shd_format_string_arena(emitter->arena->arena, "\nassert(lanemask() != 0);\nif ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
                     // I hate everything about this too.
                 } else if (emitter->config.dialect == CDialect_CUDA) {
                     if (shd_lookup_annotation(decl, "EntryPoint")) {
