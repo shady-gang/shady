@@ -38,6 +38,28 @@ bool shd_is_generic_ptr_type(const Type* t);
 const Type* shd_get_pointee_type(IrArena*, const Type*);
 
 String shd_get_address_space_name(AddressSpace);
+
+typedef enum {
+    ShdScopeTop,
+    ShdScopeCrossDevice = ShdScopeTop,
+    ShdScopeDevice,
+    ShdScopeWorkgroup,
+    ShdScopeSubgroup,
+    ShdScopeInvocation,
+    ShdScopeBottom = ShdScopeInvocation
+} ShdScope;
+
+/// Returns the scope of an address space.
+/// Two identical pointers are considered pointing to the same data from the perspective of two different invocations if they're on the same instance of the scope.
+/// Examples:
+/// AsPrivate has scope Invocation, two threads with the same pointer load different data.
+/// AsShared has scope Workgroup, two threads in the same workgroup will see the same data.
+/// AsGlobal has scope Device
+/// AsGeneric can be any of AsPrivate | AsShared | AsGlobal so it gets the maximum, Invocation scope
+/// TODO: CrossDevice isn't currently used. Evaluate at a later date.
+ShdScope shd_get_addr_space_scope(AddressSpace);
+
+/// TODO: deprecated, use shd_get_addr_space_scope
 /// Returns false iff pointers in that address space can contain different data at the same address
 /// (amongst threads in the same subgroup)
 bool shd_is_addr_space_uniform(IrArena*, AddressSpace);

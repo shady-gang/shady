@@ -216,8 +216,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_c_emit_decl(emitter, decl);
 
             if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
-                if (!shd_is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
-                        decl)) {
+                if (shd_get_addr_space_scope(decl->payload.global_variable.address_space) > ShdScopeSubgroup && !shd_is_decl_builtin(decl)) {
                     assert(fn && "ISPC backend cannot statically refer to a varying variable");
                     return shd_ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *shd_c_lookup_existing_term(emitter, NULL, decl));
                 }

@@ -710,8 +710,7 @@ const Type* _shd_check_type_load(IrArena* a, Load load) {
     const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
     const Type* elem_type = node_ptr_type_->pointed_type;
     elem_type = shd_maybe_packed_type_helper(elem_type, width);
-    return shd_as_qualified_type(elem_type,
-                                 ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
+    return shd_as_qualified_type(elem_type,ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
 }
 
 const Type* _shd_check_type_store(IrArena* a, Store store) {

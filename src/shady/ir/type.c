@@ -241,15 +241,23 @@ bool shd_is_generic_ptr_type(const Type* t) {
     return as == AsGeneric;
 }
 
-bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
+ShdScope shd_get_addr_space_scope(AddressSpace as) {
     switch (as) {
         case AsGeneric:
-        case AsInput:
-        case AsOutput:
+        case AsPrivate:
         case AsFunction:
-        case AsPrivate: return !shd_get_arena_config(arena)->is_simt;
-        default: return true;
+        case AsInput:
+        case AsOutput: return ShdScopeInvocation;
+        case AsSubgroup: return ShdScopeSubgroup;
+        case AsShared: return ShdScopeWorkgroup;
+        case AsGlobal:
+        case AsUInput: return ShdScopeDevice;
+        default: return ShdScopeTop;
     }
+}
+
+bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
+    return shd_get_addr_space_scope(as) <= ShdScopeWorkgroup;
 }
 
 const Type* shd_get_actual_mask_type(IrArena* arena) {
