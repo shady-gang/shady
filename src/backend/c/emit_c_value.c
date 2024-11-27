@@ -1010,7 +1010,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Load payload = instruction->payload.load;
             shd_c_emit_mem(emitter, fn, payload.mem);
             CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
-            return term_from_cvalue(dereferenced);
+            return shd_c_bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
