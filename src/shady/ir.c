@@ -10,11 +10,11 @@
 #include <assert.h>
 #include <stdarg.h>
 
-static KeyHash shd_hash_nodes(Nodes* nodes);
+KeyHash shd_hash_nodes(Nodes* nodes);
 bool shd_compare_nodes(Nodes* a, Nodes* b);
 
-static KeyHash shd_hash_strings(Strings* strings);
-static bool shd_compare_strings(Strings* a, Strings* b);
+KeyHash shd_hash_strings(Strings* strings);
+bool shd_compare_strings(Strings* a, Strings* b);
 
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);

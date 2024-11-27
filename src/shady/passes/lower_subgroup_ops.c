@@ -17,8 +17,40 @@
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
-    struct Dict* fns;
+    struct Dict* cache;
 } Context;
+
+typedef struct {
+    String iset;
+    Op opcode;
+    Nodes params;
+} SubgroupOp;
+
+typedef struct {
+    const Type* t;
+    SubgroupOp op;
+} Key;
+
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
+
+KeyHash shd_hash_nodes(Nodes* nodes);
+bool shd_compare_nodes(Nodes* a, Nodes* b);
+
+KeyHash shd_hash_node(const Node** pnode);
+bool shd_compare_node(const Node** pa, const Node** pb);
+
+static KeyHash hash_key(Key* key) {
+    return shd_hash_node(&key->t) ^ shd_hash_string(&key->op.iset) ^ shd_hash(&key->op.opcode, sizeof(sizeof(Op))) & shd_hash_nodes(&key->op.params);
+}
+
+static bool compare_key(Key* a, Key* b) {
+    if (a == b)
+        return true;
+    if (!!a != !!b)
+        return false;
+    return shd_compare_node(&a->t, &b->t) && strcmp(a->op.iset, b->op.iset) == 0 && a->op.opcode == b->op.opcode && shd_compare_nodes(&a->op.params, &b->op.params);
+}
 
 static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_vectors) {
     switch (t->tag) {
@@ -33,9 +65,13 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
     }
 }
 
-static bool is_supported_natively(Context* ctx, const Type* element_type) {
+static bool is_supported_natively(Context* ctx, SubgroupOp op, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
-    if (element_type->tag == Int_TAG && element_type->payload.int_type.width == IntTy32) {
+    if (element_type->tag == Int_TAG && element_type->payload.int_type.width <= IntTy32) {
+        return true;
+    } else if (element_type->tag == Float_TAG /* TODO is it */) {
+        return true;
+    } else if (element_type->tag == Bool_TAG) {
         return true;
     } else if (!ctx->config->lower.emulate_subgroup_ops_extended_types && is_extended_type(a, element_type, true)) {
         return true;
@@ -44,9 +80,9 @@ static bool is_supported_natively(Context* ctx, const Type* element_type) {
     return false;
 }
 
-static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src);
+static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp, const Node* src, bool);
 
-static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* t, const Node* param) {
+static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const Type* t, SubgroupOp op, const Node* param) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* original_t = t;
     t = shd_get_maybe_nominal_type_body(t);
@@ -58,7 +94,7 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {
                 const Node* e = shd_extract_helper(a, param, shd_singleton(shd_uint32_literal(a, i)));
-                elements[i] = build_subgroup_first(ctx, bb, scope, e);
+                elements[i] = rebuild_op(ctx, bb, op, e, false);
             }
             return composite_helper(a, original_t, shd_nodes(a, element_types.count, elements));
         }
@@ -67,8 +103,8 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
                 const Node* hi = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, param, shd_int32_literal(a, 32)));
                 hi = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), hi);
                 const Node* lo = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), param);
-                hi = build_subgroup_first(ctx, bb, scope, hi);
-                lo = build_subgroup_first(ctx, bb, scope, lo);
+                hi = rebuild_op(ctx, bb, op, hi, false);
+                lo = rebuild_op(ctx, bb, op, lo, false);
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = shd_bld_convert_int_zero_extend(bb, it, hi);
                 lo = shd_bld_convert_int_zero_extend(bb, it, lo);
@@ -79,52 +115,57 @@ static const Node* generate(Context* ctx, BodyBuilder* bb, const Node* scope, co
         }
         case Type_PtrType_TAG: {
             param = shd_bld_reinterpret_cast(bb, shd_uint64_type(a), param);
-            return shd_bld_reinterpret_cast(bb, t, generate(ctx, bb, scope, shd_uint64_type(a), param));
+            return shd_bld_reinterpret_cast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));
         }
         default: break;
     }
-    return NULL;
+    return rebuild_op(ctx, bb, op, param, true);
 }
-
-static void build_fn_body(Context* ctx, Node* fn, const Node* scope, const Node* param, const Type* t) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fn));
-    const Node* result = generate(ctx, bb, scope, t, param);
-    if (result) {
-        shd_set_abstraction_body(fn, shd_bld_finish(bb, fn_ret(a, (Return) {
-            .args = shd_singleton(result),
-            .mem = shd_bb_mem(bb),
-        })));
-        return;
-    }
-
-    shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");
-    shd_log_node(ERROR, t);
-    shd_log_fmt(ERROR, ".\n");
-    shd_error_die();
-}
-
-static const Node* build_subgroup_first(Context* ctx, BodyBuilder* bb, const Node* scope, const Node* src) {
+static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, const Node* src, bool error_if_not_native) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
-    const Node* t = shd_get_unqualified_type(src->type);
-    if (is_supported_natively(ctx, t))
-        return shd_bld_ext_instruction(bb, "spirv.core", SpvOpGroupNonUniformBroadcastFirst, shd_as_qualified_type(t, true), mk_nodes(a, scope, src));
+    const Node* src_t = shd_get_unqualified_type(src->type);
 
-    if (shd_resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
-        shd_error("TODO")
+    Key key = {
+        .t = src_t,
+        .op = op,
+    };
+
+    if (is_supported_natively(ctx, op, src_t)) {
+        if (strcmp("shady.primop", op.iset) == 0)
+            return prim_op_helper(a, op.opcode, shd_empty(a), shd_singleton(src));
+        return shd_bld_ext_instruction(bb, op.iset, op.opcode, shd_as_qualified_type(src_t, true), shd_nodes_append(a, op.params, src));
+    } else if (error_if_not_native) {
+        shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");
+        shd_log_node(ERROR, src_t);
+        shd_log_fmt(ERROR, ".\n");
+        shd_error_die();
+    }
+
+    // if (shd_resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
+    //     shd_error("TODO")
+
+    if (shd_bb_mem(bb) == NULL) {
+        return rebuild_op_deconstruct(ctx, bb, src_t, op, src);
+    }
 
     Node* fn = NULL;
-    Node** found = shd_dict_find_value(const Node*, Node*, ctx->fns, t);
+    Node** found = shd_dict_find_value(Key, Node*, ctx->cache, key);
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param(a, shd_as_qualified_type(t, false), "src");
-        fn = function(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "subgroup_first_%s", shd_get_type_name(a, t)),
+        const Node* src_param = param(a, shd_as_qualified_type(src_t, false), "src");
+        fn = function(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)),
                       mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(
-                        shd_as_qualified_type(t, true)));
-        shd_dict_insert(const Node*, Node*, ctx->fns, t, fn);
-        build_fn_body(ctx, fn, scope, src_param, t);
+                        shd_as_qualified_type(src_t, true)));
+        shd_dict_insert(Key, Node*, ctx->cache, key, fn);
+
+        BodyBuilder* fn_bb = shd_bld_begin(a, shd_get_abstraction_mem(fn));
+        const Node* result = rebuild_op_deconstruct(ctx, fn_bb, src_t, op, src_param);
+        shd_set_abstraction_body(fn, shd_bld_finish(fn_bb, fn_ret(a, (Return) {
+            .args = shd_singleton(result),
+            .mem = shd_bb_mem(fn_bb),
+        })));
     }
 
     return shd_first(shd_bld_call(bb, fn_addr_helper(a, fn), shd_singleton(src)));
@@ -138,17 +179,32 @@ static const Node* process(Context* ctx, const Node* node) {
             ExtInstr payload = node->payload.ext_instr;
             if (strcmp(payload.set, "spirv.core") == 0 && payload.opcode == SpvOpGroupNonUniformBroadcastFirst) {
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
+                SubgroupOp op = {
+                    .iset = payload.set,
+                    .opcode = payload.opcode,
+                    .params = shd_singleton(shd_rewrite_node(r, payload.operands.nodes[0])),
+                };
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(
-                    build_subgroup_first(ctx, bb, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1]))));
+                    rebuild_op(ctx, bb, op, shd_rewrite_node(r, payload.operands.nodes[1]), false)));
+            }
+        }
+        case PrimOp_TAG: {
+            PrimOp payload = node->payload.prim_op;
+            if (payload.op == subgroup_assume_uniform_op) {
+                BodyBuilder* bb = shd_bld_begin_pure(a);
+                SubgroupOp op = {
+                    .iset = "shady.primop",
+                    .opcode = payload.op,
+                    .params = shd_empty(a),
+                };
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(
+                    rebuild_op(ctx, bb, op, shd_rewrite_node(r, payload.operands.nodes[0]), false)));
             }
         }
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, node);
 }
-
-KeyHash shd_hash_node(Node** pnode);
-bool shd_compare_node(Node** pa, Node** pb);
 
 Module* shd_pass_lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
@@ -158,10 +214,10 @@ Module* shd_pass_lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
-        .fns =  shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
+        .cache =  shd_new_dict(Key, Node*, (HashFn) hash_key, (CmpFn) compare_key)
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
-    shd_destroy_dict(ctx.fns);
+    shd_destroy_dict(ctx.cache);
     return dst;
 }
