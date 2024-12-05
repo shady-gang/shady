@@ -33,14 +33,6 @@ CompilerConfig shd_default_compiler_config(void) {
             }
         },
 
-        /*.shader_diagnostics = {
-            .max_top_iterations = 10,
-        },
-
-        .printf_trace = {
-            .god_function = true,
-        },*/
-
         .target = shd_default_target_config(),
 
         .specialization = {
