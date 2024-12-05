@@ -41,7 +41,7 @@ RewritePass shd_pass_normalize_builtins;
 
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
 RewritePass shd_pass_lower_callf;
-/// Emulates tailcalls, forks and joins using a god function
+/// Emulates tailcalls, forks and joins using a top function
 RewritePass shd_pass_lower_tailcalls;
 
 /// @}
