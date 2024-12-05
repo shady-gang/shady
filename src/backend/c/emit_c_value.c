@@ -434,7 +434,11 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
             const Type* t = shd_get_unqualified_type(value_type);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
         }
-        default: shd_error("TODO");
+        case CDialect_GLSL: {
+            const Type* t = shd_get_unqualified_type(value_type);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
+        }
+        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
     }
 }
 
@@ -763,8 +767,36 @@ ExtISelEntry ext_isel_ispc_entries[] = {
     {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "packmask" }},
 };
 
+ExtISelEntry ext_isel_glsl_entries[] = {
+    // reduce add
+    {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    // min
+    {{ "spirv.core", SpvOpGroupSMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupUMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupFMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    // max
+    {{ "spirv.core", SpvOpGroupSMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupUMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupFMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    // rest
+    {{ "spirv.core", SpvOpGroupNonUniformAllEqual, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupAllEqual" }},
+    {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupBallot" }},
+
+    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupBroadcastFirst" }},
+    {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupElect" }},
+
+};
+
 ExtISelEntry ext_isel_entries[] = {
-    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_broadcast_first" }},
     {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
 };
 
@@ -796,6 +828,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
     switch (e->config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
+        case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
         default: break;
     }
     scan_entries(ext_isel_entries);
@@ -1058,13 +1091,22 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             }
             String args_list = shd_printer_growy_unwrap(args_printer);
             switch (emitter->config.dialect) {
-                case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
+                case CDialect_ISPC:
+                    shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
                 case CDialect_CUDA:
-                case CDialect_C11:shd_print(p, "\nprintf(%s);", args_list);
+                case CDialect_C11:
+                    shd_print(p, "\nprintf(%s);", args_list);
                     break;
-                case CDialect_GLSL: shd_warn_print("printf is not supported in GLSL");
+                case CDialect_GLSL: {
+                    if (emitter->config.glsl_version < 460) {
+                        static bool flag = false;
+                        shd_warn_print_once(flag, "Warning: printf is not supported in GLSL\n");
+                    } else {
+                        shd_print(p, "\ndebugPrintfEXT(%s);", args_list);
+                    }
                     break;
+                }
             }
             free((char*) args_list);
 
