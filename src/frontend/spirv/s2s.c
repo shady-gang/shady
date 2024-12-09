@@ -740,13 +740,13 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             assert(shd_is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = shd_bb_mem(parser->current_block.builder) }), 1));
+                const Node* ptr = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = shd_bld_mem(parser->current_block.builder) }), 1));
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    shd_bld_add_instruction_extract_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bb_mem(parser->current_block.builder) }), 1);
+                    shd_bld_add_instruction_extract_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bld_mem(parser->current_block.builder) }), 1);
             } else {
                 Nodes annotations = shd_empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
@@ -1069,13 +1069,13 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpLoad: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, load(a, (Load) { .ptr = src, .mem = shd_bb_mem(parser->current_block.builder) }), 1));
+            parser->defs[result].node = shd_first(shd_bld_add_instruction_extract_count(parser->current_block.builder, load(a, (Load) { .ptr = src, .mem = shd_bld_mem(parser->current_block.builder) }), 1));
             break;
         }
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            shd_bld_add_instruction_extract_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bb_mem(parser->current_block.builder) }), 0);
+            shd_bld_add_instruction_extract_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bld_mem(parser->current_block.builder) }), 0);
             break;
         }
         case SpvOpCopyMemory:
@@ -1280,7 +1280,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->current_block.finished = shd_bld_finish(bb, jump(parser->arena, (Jump) {
                 .target = get_def_block(parser, instruction[1]),
                 .args = get_args_from_phi(parser, instruction[1], parser->current_block.id),
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             }));
             parser->current_block.builder = NULL;
             break;
@@ -1289,9 +1289,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             SpvId destinations[2] = { instruction[2], instruction[3] };
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = shd_bld_finish(bb, branch(parser->arena, (Branch) {
-                .true_jump = jump_helper(parser->arena, shd_bb_mem(bb), get_def_block(parser, destinations[0]),
+                .true_jump = jump_helper(parser->arena, shd_bld_mem(bb), get_def_block(parser, destinations[0]),
                                          get_args_from_phi(parser, destinations[0], parser->current_block.id)),
-                .false_jump = jump_helper(parser->arena, shd_bb_mem(bb), get_def_block(parser, destinations[1]),
+                .false_jump = jump_helper(parser->arena, shd_bld_mem(bb), get_def_block(parser, destinations[1]),
                                           get_args_from_phi(parser, destinations[1], parser->current_block.id)),
                 .condition = get_def_ssa_value(parser, instruction[1]),
             }));

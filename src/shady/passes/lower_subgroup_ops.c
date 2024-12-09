@@ -145,7 +145,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     // if (shd_resolve_to_int_literal(scope)->value != SpvScopeSubgroup)
     //     shd_error("TODO")
 
-    if (shd_bb_mem(bb) == NULL) {
+    if (shd_bld_mem(bb) == NULL) {
         return rebuild_op_deconstruct(ctx, bb, src_t, op, src);
     }
 
@@ -164,7 +164,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
         const Node* result = rebuild_op_deconstruct(ctx, fn_bb, src_t, op, src_param);
         shd_set_abstraction_body(fn, shd_bld_finish(fn_bb, fn_ret(a, (Return) {
             .args = shd_singleton(result),
-            .mem = shd_bb_mem(fn_bb),
+            .mem = shd_bld_mem(fn_bb),
         })));
     }
 

@@ -33,7 +33,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
                 shd_set_value_name((Node*) ctx2.stack_size_on_entry, shd_fmt_string_irarena(a, "saved_stack_ptr_entering_%s", shd_get_abstraction_name(fun)));
             }
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), shd_bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             if (node->payload.fun.body)
                 shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body)));
             else
@@ -49,7 +49,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_bld_set_stack_size(bb, ctx->stack_size_on_entry);
             }
             return shd_bld_finish(bb, fn_ret(a, (Return) {
-                .mem = shd_bb_mem(bb),
+                .mem = shd_bld_mem(bb),
                 .args = shd_rewrite_nodes(r, payload.args),
             }));
         }

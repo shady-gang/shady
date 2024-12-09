@@ -120,7 +120,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.frame_size = shd_bld_convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
-            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(node))));
 
             shd_destroy_dict(ctx2.prepared_offsets);

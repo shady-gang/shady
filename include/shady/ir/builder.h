@@ -43,7 +43,7 @@ begin_loop_helper_t shd_bld_begin_loop_helper(BodyBuilder* bb, Nodes yield_types
 
 Nodes shd_bld_control(BodyBuilder* bb, Nodes yield_types, Node* body);
 
-const Node* shd_bb_mem(BodyBuilder* bb);
+const Node* shd_bld_mem(BodyBuilder* bb);
 
 const Node* shd_bld_finish(BodyBuilder* bb, const Node* terminator);
 const Node* shd_bld_return(BodyBuilder* bb, Nodes args);

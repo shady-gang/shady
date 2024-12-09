@@ -270,7 +270,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 exit_numbers[i] = shd_int32_literal(arena, i);
                 shd_set_abstraction_body(exit_bb, shd_bld_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
-                exit_jumps[i] = jump_helper(arena, shd_bb_mem(outer_bb), exit_bb, shd_empty(arena));
+                exit_jumps[i] = jump_helper(arena, shd_bld_mem(outer_bb), exit_bb, shd_empty(arena));
             }
 
             const Node* outer_body;
@@ -283,7 +283,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                     .default_jump = exit_jumps[0],
                     .case_values = shd_nodes(arena, exiting_nodes_count, exit_numbers),
                     .case_jumps = shd_nodes(arena, exiting_nodes_count, exit_jumps),
-                    .mem = shd_bb_mem(outer_bb)
+                    .mem = shd_bld_mem(outer_bb)
                 }));
             }
             shd_set_abstraction_body(loop_container, outer_body);

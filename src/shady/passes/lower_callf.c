@@ -56,7 +56,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Node* fun = function(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
             shd_register_processed(&ctx->rewriter, old, fun);
 
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
             shd_set_abstraction_body(prelude, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, old->payload.fun.body)));
             shd_set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), prelude, shd_empty(a)));
             return fun;
@@ -96,7 +96,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 return shd_bld_finish(bb, join(a, (Join) {
                     .join_point = return_jp,
                     .args = nargs,
-                    .mem = shd_bb_mem(bb),
+                    .mem = shd_bld_mem(bb),
                 }));
             } else {
                 assert(false);

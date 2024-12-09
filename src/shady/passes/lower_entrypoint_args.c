@@ -72,7 +72,7 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
         shd_register_processed(&ctx->rewriter, params.nodes[i], val);
     }
 
-    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), shd_bb_mem(bb));
+    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), shd_bld_mem(bb));
     return shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old_entry_point->payload.fun.body));
 }
 

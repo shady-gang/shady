@@ -132,7 +132,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     if (entry_point_annotation) {
                         shd_bld_call(bb, fn_addr_helper(a, ctx2.init_fn), shd_empty(a));
                     }
-                    shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+                    shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
                     shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
                 }
 
@@ -168,7 +168,7 @@ static const Node* process(Context* ctx, const Node* old) {
                     shd_set_value_name((Node*) popped, old_param->payload.param.name);
                 shd_register_processed(&ctx->rewriter, old_param, popped);
             }
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
             shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
             shd_destroy_uses_map(ctx2.uses);
             shd_destroy_cfg(ctx2.cfg);
@@ -219,7 +219,7 @@ static const Node* process(Context* ctx, const Node* old) {
             target = shd_bld_conversion(bb, shd_uint32_type(a), target);
 
             shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
-            return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));
+            return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
         }
         case Join_TAG: {
             Join payload = old->payload.join;
@@ -240,7 +240,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
             shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
-            return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) }));
+            return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
@@ -376,7 +376,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* zero_lit = shd_uint64_literal(a, 0);
     shd_list_append(const Node*, literals, zero_lit);
-    const Node* zero_jump = jump_helper(a, shd_bb_mem(loop_body_builder), zero_case_lam, shd_empty(a));
+    const Node* zero_jump = jump_helper(a, shd_bld_mem(loop_body_builder), zero_case_lam, shd_empty(a));
     shd_list_append(const Node*, jumps, zero_jump);
 
     Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
@@ -412,7 +412,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
             }));
 
             shd_list_append(const Node*, literals, fn_lit);
-            const Node* j = jump_helper(a, shd_bb_mem(loop_body_builder), fn_case, shd_empty(a));
+            const Node* j = jump_helper(a, shd_bld_mem(loop_body_builder), fn_case, shd_empty(a));
             shd_list_append(const Node*, jumps, j);
         }
     }
@@ -421,11 +421,11 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     shd_set_abstraction_body(default_case, unreachable(a, (Unreachable) { .mem = shd_get_abstraction_mem(default_case) }));
 
     shd_set_abstraction_body(loop_inside_case, shd_bld_finish(loop_body_builder, br_switch(a, (Switch) {
-        .mem = shd_bb_mem(loop_body_builder),
+        .mem = shd_bld_mem(loop_body_builder),
         .switch_value = next_function,
         .case_values = shd_nodes(a, shd_list_count(literals), shd_read_list(const Node*, literals)),
         .case_jumps = shd_nodes(a, shd_list_count(jumps), shd_read_list(const Node*, jumps)),
-        .default_jump = jump_helper(a, shd_bb_mem(loop_body_builder), default_case, shd_empty(a))
+        .default_jump = jump_helper(a, shd_bld_mem(loop_body_builder), default_case, shd_empty(a))
     })));
 
     shd_destroy_list(literals);
@@ -436,7 +436,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 
     shd_set_abstraction_body(*ctx->top_dispatcher_fn, shd_bld_finish(dispatcher_body_builder, fn_ret(a, (Return) {
         .args = shd_nodes(a, 0, NULL),
-        .mem = shd_bb_mem(dispatcher_body_builder),
+        .mem = shd_bld_mem(dispatcher_body_builder),
     })));
 }
 

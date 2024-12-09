@@ -103,7 +103,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* stack_pointer = ctx->stack_pointer;
             shd_bld_store(bb, stack_pointer, shd_uint32_literal(a, 0));
         }
-        shd_register_processed(r, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+        shd_register_processed(r, shd_get_abstraction_mem(old), shd_bld_mem(bb));
         shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
         return new;
     }

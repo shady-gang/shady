@@ -128,7 +128,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         }
 
         c = c2;
-        shd_set_abstraction_body(c2, shd_bld_finish(bb, jump_helper(a, shd_bb_mem(bb), shd_find_processed(r, dst), results)));
+        shd_set_abstraction_body(c2, shd_bld_finish(bb, jump_helper(a, shd_bld_mem(bb), shd_find_processed(r, dst), results)));
     }
 
     const Node* body = jump_helper(a, shd_get_abstraction_mem(nabs), c, shd_empty(a));

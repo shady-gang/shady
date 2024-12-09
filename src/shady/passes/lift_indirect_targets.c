@@ -150,7 +150,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         shd_register_processed(r, ovar, recovered_value);
     }
 
-    shd_register_processed(r, shd_get_abstraction_mem(liftee), shd_bb_mem(bb));
+    shd_register_processed(r, shd_get_abstraction_mem(liftee), shd_bld_mem(bb));
     shd_register_processed(r, liftee, new_fn);
     const Node* substituted = shd_rewrite_node(r, obody);
     shd_destroy_rewriter(r);
@@ -211,7 +211,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 jp = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
-                shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bb_mem(bb));
+                shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bld_mem(bb));
                 shd_register_processed(r, oinside, NULL);
                 return shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(oinside)));
             }

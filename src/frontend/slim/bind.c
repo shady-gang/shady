@@ -162,10 +162,10 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
-                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bb_mem(bb) });
+                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bld_mem(bb) });
                 const Node* ptr = shd_bld_add_instruction_extract_count(bb, alloca, 1).nodes[0];
                 shd_set_value_name(ptr, name);
-                shd_bld_add_instruction_extract_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bb_mem(bb) }), 0);
+                shd_bld_add_instruction_extract_count(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bld_mem(bb) }), 0);
 
                 add_binding(ctx, true, name, ptr);
                 shd_log_fmt(DEBUGV, "Bound mutable variable '%s'\n", name);
