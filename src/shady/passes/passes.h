@@ -25,6 +25,8 @@ RewritePass shd_pass_scope_heuristic;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass shd_pass_reconvergence_heuristics;
 
+RewritePass shd_pass_add_init_fini;
+
 /// @}
 
 /// @name Control flow lowering strategies

@@ -33,7 +33,8 @@ typedef struct Context_ {
     const UsesMap* uses;
 
     Node** top_dispatcher_fn;
-    Node* init_fn;
+    const Node* init_fn;
+    const Node* fini_fn;
 } Context;
 
 static const Node* process(Context* ctx, const Node* old);
@@ -94,21 +95,19 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     // Initialise next_fn/next_mask to the entry function
-    const Node* jump_fn = get_fn(&ctx->rewriter, "builtin_fork");
-    const Node* fn_addr = shd_uint32_literal(a, get_fn_ptr(ctx, old));
+    const Node* fork_fn = get_fn(&ctx->rewriter, "builtin_fork");
+    const Node* entry_point_addr = shd_uint32_literal(a, get_fn_ptr(ctx, old));
     // fn_addr = gen_conversion(bb, lowered_fn_type(ctx), fn_addr);
-    shd_bld_call(bb, jump_fn, shd_singleton(fn_addr));
+    shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
     }
 
     shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
+    shd_bld_call(bb, fn_addr_helper(a, ctx->fini_fn), shd_empty(a));
 
-    shd_set_abstraction_body(new_entry_pt, shd_bld_finish(bb, fn_ret(a, (Return) {
-        .args = shd_nodes(a, 0, NULL),
-        .mem = shd_bb_mem(bb),
-    })));
+    shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
 }
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -130,7 +129,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (old->payload.fun.body) {
                     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
                     if (entry_point_annotation) {
-                        shd_bld_call(bb, fn_addr_helper(a, ctx2.init_fn), shd_empty(a));
+                        // shd_bld_call(bb, fn_addr_helper(a, ctx2.init_fn), shd_empty(a));
                     }
                     shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
                     shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
@@ -178,8 +177,13 @@ static const Node* process(Context* ctx, const Node* old) {
         case Call_TAG: {
             Call payload = old->payload.call;
             assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
+            FnAddr callee = payload.callee->payload.fn_addr;
+            const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn);
+            if (ncallee == ctx->init_fn || ncallee == ctx->fini_fn) {
+                return shd_rewrite_node(r, payload.mem);
+            }
             return call(a, (Call) {
-                .callee = fn_addr_helper(a, shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn)),
+                .callee = fn_addr_helper(a, ncallee),
                 .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
                 .mem = shd_rewrite_node(r, payload.mem)
             });
@@ -450,9 +454,6 @@ Module* shd_pass_lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Modu
 
     struct Dict* ptrs = shd_new_dict(const Node*, FnPtr, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
 
-    Node* init_fn = function(dst, shd_nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
-    shd_set_abstraction_body(init_fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(init_fn) }));
-
     FnPtr next_fn_ptr = 1;
 
     Node* top_dispatcher_fn = NULL;
@@ -465,8 +466,10 @@ Module* shd_pass_lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Modu
         .next_fn_ptr = &next_fn_ptr,
 
         .top_dispatcher_fn = &top_dispatcher_fn,
-        .init_fn = init_fn,
     };
+
+    ctx.init_fn = shd_find_or_process_decl(&ctx.rewriter, "generated_init");
+    ctx.fini_fn = shd_find_or_process_decl(&ctx.rewriter, "generated_fini");
 
     shd_rewrite_module(&ctx.rewriter);
 

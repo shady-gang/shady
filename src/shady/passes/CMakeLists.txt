@@ -1,6 +1,7 @@
 target_sources(shady PRIVATE
     import.c
     cleanup.c
+    add_init_fini.c
     lower_cf_instrs.c
     lift_indirect_targets.c
     lower_callf.c
