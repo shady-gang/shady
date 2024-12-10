@@ -215,13 +215,6 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             const Node* decl = value->payload.ref_decl.decl;
             shd_c_emit_decl(emitter, decl);
 
-            if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
-                if (shd_get_addr_space_scope(decl->payload.global_variable.address_space) > ShdScopeSubgroup && !shd_is_decl_builtin(decl)) {
-                    assert(fn && "ISPC backend cannot statically refer to a varying variable");
-                    return shd_ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *shd_c_lookup_existing_term(emitter, NULL, decl));
-                }
-            }
-
             return *shd_c_lookup_existing_term(emitter, NULL, decl);
         }
     }
@@ -994,7 +987,7 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
-        acc = shd_c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+        acc = shd_c_bind_intermediary_result(emitter, p, qualified_type_helper(emitter->arena, uniform, curr_ptr_type), acc);
 
     return acc;
 }
@@ -1014,10 +1007,7 @@ static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     const Type* ptr_type = instr->type;
     shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
-    if (emitter->config.dialect == CDialect_ISPC && !ptr_type->payload.ptr_type.is_reference) {
-        variable = shd_ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
-    }
-   return variable;
+    return variable;
 }
 
 static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instruction) {

@@ -104,17 +104,6 @@ static bool has_forward_declarations(CDialect dialect) {
     }
 }
 
-/// hack for ISPC: there is no nice way to get a set of varying pointers (instead of a "pointer to a varying") pointing to a varying global
-CTerm shd_ispc_varying_ptr_helper(Emitter* emitter, Printer* block_printer, const Type* ptr_type, CTerm term) {
-    String interm = shd_make_unique_name(emitter->arena, "intermediary_ptr_value");
-    assert(ptr_type->tag == PtrType_TAG);
-    const Type* ut = shd_as_qualified_type(ptr_type, true);
-    const Type* vt = shd_as_qualified_type(ptr_type, false);
-    String lhs = shd_c_emit_type(emitter, vt, interm);
-    shd_print(block_printer, "\n%s = ((%s) %s) + programIndex;", lhs, shd_c_emit_type(emitter, ut, NULL), shd_c_to_ssa(emitter, term));
-    return term_from_cvalue(interm);
-}
-
 void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer) {
     assert((mut || initializer != NULL) && "unbound results are only allowed when creating a mutable local variable");
 

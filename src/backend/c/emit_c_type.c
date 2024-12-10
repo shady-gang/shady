@@ -208,10 +208,11 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         case Type_RecordType_TAG: {
-            //if (type->payload.record_type.members.count == 0) {
-            //    emitted = "void";
-            //    break;
-            //}
+            RecordType payload = type->payload.record_type;
+            if (payload.members.count == 0 && payload.special == MultipleReturn) {
+                emitted = "void";
+                break;
+            }
 
             emitted = shd_make_unique_name(emitter->arena, "Record");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
@@ -238,9 +239,10 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
         case Type_PtrType_TAG: {
             CType t = shd_c_emit_type(emitter, type->payload.ptr_type.pointed_type, shd_format_string_arena(emitter->arena->arena, "* %s", center));
-            // we always emit pointers to _uniform_ data, no exceptions
-            if (emitter->config.dialect == CDialect_ISPC)
-                t = shd_format_string_arena(emitter->arena->arena, "uniform %s", t);
+            if (emitter->config.dialect == CDialect_ISPC) {
+                ShdScope scope = shd_get_addr_space_scope(type->payload.ptr_type.address_space);
+                t = shd_format_string_arena(emitter->arena->arena, "%s %s", scope > ShdScopeSubgroup ? "varying" : "uniform", t);
+            }
             return t;
         }
         case Type_FnType_TAG: {
