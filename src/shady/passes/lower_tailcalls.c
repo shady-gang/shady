@@ -179,7 +179,7 @@ static const Node* process(Context* ctx, const Node* old) {
             assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
             FnAddr callee = payload.callee->payload.fn_addr;
             const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn);
-            if (ncallee == ctx->init_fn || ncallee == ctx->fini_fn) {
+            if (!ctx->disable_lowering && (ncallee == ctx->init_fn || ncallee == ctx->fini_fn)) {
                 return shd_rewrite_node(r, payload.mem);
             }
             return call(a, (Call) {
