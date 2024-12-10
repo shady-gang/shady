@@ -142,6 +142,17 @@ void l2s_process_llvm_annotations(Parser* p, LLVMValueRef global) {
                         .value = shd_int32_literal(a, strtol(strtok(NULL, "::"), NULL, 10))
                     })
                 });
+            } else if (strcmp(keyword, "io") == 0) {
+                assert(target->tag == GlobalVariable_TAG);
+                AddressSpace as = l2s_convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));
+                if (is_io_as(as))
+                    ((Node*) target)->payload.global_variable.init = NULL;
+                add_annotation(p, target, (ParsedAnnotation) {
+                    .payload = annotation_value(a, (AnnotationValue) {
+                        .name = "IO",
+                        .value = shd_int32_literal(a, as)
+                    })
+                });
             } else if (strcmp(keyword, "extern") == 0) {
                 assert(target->tag == GlobalVariable_TAG);
                 AddressSpace as = l2s_convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));

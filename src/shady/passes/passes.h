@@ -70,6 +70,7 @@ RewritePass shd_pass_lower_memcpy;
 RewritePass shd_pass_lower_decay_ptrs;
 RewritePass shd_pass_lower_generic_globals;
 RewritePass shd_pass_lower_logical_pointers;
+RewritePass shd_pass_promote_io_variables;
 
 /// @}
 

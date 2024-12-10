@@ -43,4 +43,5 @@ target_sources(shady PRIVATE
     lcssa.c
     remove_critical_edges.c
     lower_inclusive_scan.c
+    promote_io_variables.c
 )
