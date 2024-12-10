@@ -175,7 +175,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ptr = ptr->payload.ref_decl.decl;
             if (ptr == shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-                const Node* loaded = shd_first(shd_bld_add_instruction_extract(bb, shd_recreate_node(&ctx->rewriter, node)));
+                const Node* loaded = shd_bld_add_instruction(bb, shd_recreate_node(&ctx->rewriter, node));
                 const Node* uniformized = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(loaded));
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(uniformized));
             }

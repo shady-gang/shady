@@ -96,7 +96,7 @@ static void test_body_builder_impure_block(IrArena* a) {
 
     BodyBuilder* block_builder = shd_bld_begin_pseudo_instr(a, shd_bld_mem(bb));
     shd_bld_store(block_builder, p1, shd_uint32_literal(a, 0));
-    shd_bld_add_instruction_extract(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
+    shd_bld_add_instruction(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
 
     const Node* second_load = shd_bld_load(bb, p1);
 
@@ -139,7 +139,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     shd_bld_store(if_true_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(if_true_case, shd_bld_selection_merge(if_true_builder, shd_empty(a)));
     shd_bld_if(block_builder, shd_empty(a), prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
-    shd_bld_add_instruction_extract(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
+    shd_bld_add_instruction(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
 
     const Node* second_load = shd_bld_load(bb, p1);
 

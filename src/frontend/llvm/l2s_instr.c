@@ -37,7 +37,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     IrArena* a = dst_t->arena;
     LARRAY(const Node*, nops, ops.count);
     for (size_t i = 0; i < ops.count; i++)
-        nops[i] = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(dst_t), shd_singleton(ops.nodes[i])), 1));
+        nops[i] = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(dst_t), shd_singleton(ops.nodes[i])));
     return shd_nodes(a, ops.count, nops);
 }
 
@@ -104,8 +104,6 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         assert(false);
 
     const Type* t = l2s_convert_type(p, LLVMTypeOf(instr));
-
-#define BIND_PREV_R(t) shd_bld_add_instruction_extract_count(b, r, 1)
 
     //if (LLVMIsATerminatorInst(instr)) {
     //if (LLVMIsAInstruction(instr) && !LLVMIsATerminatorInst(instr)) {
@@ -226,10 +224,10 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = l2s_convert_type(p, LLVMGetAllocatedType(instr));
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
-            const Node* r = shd_first(shd_bld_add_instruction_extract_count(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bld_mem(b) }), 1));
+            const Node* r = shd_bld_add_instruction(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bld_mem(b) }));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
-                r = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r)), 1));
+                r = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r)));
             }
             return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(r));
         }
@@ -241,7 +239,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* element_t = t;
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
             }
             return shd_bld_add_instruction(b, load(a, (Load) { .ptr = ptr, .mem = shd_bld_mem(b) }));
         }
@@ -254,7 +252,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* element_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
             }
             return shd_bld_add_instruction(b, store(a, (Store) { .ptr = ptr, .value = ops.nodes[0], .mem = shd_bld_mem(b) }));
         }
@@ -265,7 +263,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* element_t = l2s_convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_first(shd_bld_add_instruction_extract_count(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)), 1));
+                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
             }
             ops = shd_change_node_at_index(a, ops, 0, ptr);
             const Node* r = lea_helper(a, ops.nodes[0], ops.nodes[1], shd_nodes(a, ops.count - 2, &ops.nodes[2]));
@@ -275,8 +273,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 bool idk;
                 //element_t = shd_as_qualified_type(element_t, false);
                 shd_enter_composite_type_indices(&element_t, &idk, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
-                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                r = prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), BIND_PREV_R(typed_ptr));
+                r = prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r));
             }
             return r;
         }
@@ -294,13 +291,13 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 assert(src_t->tag == Int_TAG);
                 const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = src_t->payload.int_type.width, .is_signed = false });
                 r = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, shd_first(ops), one));
-                r = prim_op_helper(a, eq_op, shd_empty(a), mk_nodes(a, shd_first(BIND_PREV_R(int_type(a, (Int) { .width = src_t->payload.int_type.width, .is_signed = false }))), one));
+                r = prim_op_helper(a, eq_op, shd_empty(a), mk_nodes(a, r, one));
             } else {
                 // reinterpret as unsigned, convert to change size, reinterpret back to target T
                 const Type* unsigned_src_t = change_int_t_sign(src_t, false);
                 const Type* unsigned_dst_t = change_int_t_sign(t, false);
                 r = prim_op_helper(a, convert_op, shd_singleton(unsigned_dst_t), reinterpret_operands(b, ops, unsigned_src_t));
-                r = prim_op_helper(a, reinterpret_op, shd_singleton(t), BIND_PREV_R(unsigned_dst_t));
+                r = prim_op_helper(a, reinterpret_op, shd_singleton(t), shd_singleton(r));
             }
             return r;
         } case LLVMSExt: {
@@ -555,7 +552,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         LARRAY(const Node*, processed_ops, ops.count);
                         for (i = 0; i < num_args; i++) {
                             if (decoded[i].is_byval)
-                                processed_ops[i] = shd_first(shd_bld_add_instruction_extract_count(b, load(a, (Load) { .ptr = ops.nodes[i], .mem = shd_bld_mem(b) }), 1));
+                                processed_ops[i] = shd_bld_add_instruction(b, load(a, (Load) { .ptr = ops.nodes[i], .mem = shd_bld_mem(b) }));
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }

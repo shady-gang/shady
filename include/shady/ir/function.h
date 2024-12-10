@@ -15,7 +15,10 @@ static inline Node* case_(IrArena* a, Nodes params) { return basic_block(a, para
 
 /// For typing instructions that return nothing (equivalent to C's void f())
 static inline const Type* empty_multiple_return_type(IrArena* arena) {
-    return shd_as_qualified_type(unit_type(arena), true);
+    return record_type(arena, (RecordType) {
+        .members = shd_empty(arena),
+        .special = MultipleReturn,
+    });
 }
 
 inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }

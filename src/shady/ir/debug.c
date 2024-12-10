@@ -27,7 +27,7 @@ void shd_set_value_name(const Node* var, String name) {
 }
 
 void shd_bld_comment(BodyBuilder* bb, String str) {
-    shd_bld_add_instruction_extract(bb, comment(shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bld_mem(bb) }));
+    shd_bld_add_instruction(bb, comment(shd_get_bb_arena(bb), (Comment) { .string = str, .mem = shd_bld_mem(bb) }));
 }
 
 void shd_bld_debug_printf(BodyBuilder* bb, String pattern, Nodes args) {

@@ -74,26 +74,32 @@ const Node* shd_bld_mem(BodyBuilder* bb) {
     return bb->mem;
 }
 
-static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
+static void bind_internal(BodyBuilder* bb, const Node* instruction) {
     if (shd_get_arena_config(bb->arena)->check_types) {
         assert(is_mem(instruction));
     }
     if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
         bb->mem = instruction;
-    return shd_deconstruct_composite(bb->arena, instruction, outputs_count);
 }
 
 const Node* shd_bld_add_instruction(BodyBuilder* bb, const Node* instr) {
-    return shd_first(shd_bld_add_instruction_extract_count(bb, instr, 1));
+    bind_internal(bb, instr);
+    return instr;
+    // return shd_first(shd_bld_add_instruction_extract_count(bb, instr, 1));
 }
 
 Nodes shd_bld_add_instruction_extract(BodyBuilder* bb, const Node* instruction) {
     assert(shd_get_arena_config(bb->arena)->check_types);
-    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
+    assert(is_value(instruction));
+    Nodes types = shd_unwrap_multiple_yield_types(bb->arena, instruction->type);
+    bind_internal(bb, instruction);
+    return shd_deconstruct_composite(bb->arena, instruction, types.count);
 }
 
 Nodes shd_bld_add_instruction_extract_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
-    return bind_internal(bb, instruction, outputs_count);
+    assert(is_value(instruction));
+    bind_internal(bb, instruction);
+    return shd_deconstruct_composite(bb->arena, instruction, outputs_count);
 }
 
 static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
@@ -223,7 +229,7 @@ const Node* shd_bld_to_instr_with_last_instr(BodyBuilder* bb, const Node* instru
         shd_bld_cancel(bb);
         return instruction;
     }
-    bind_internal(bb, instruction, 0);
+    bind_internal(bb, instruction);
     return shd_bld_to_instr_yield_value(bb, instruction);
 }
 
