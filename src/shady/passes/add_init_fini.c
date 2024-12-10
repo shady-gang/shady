@@ -26,7 +26,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* entry_pt = shd_lookup_annotation(old, "EntryPoint");
             if (entry_pt) {
                 // Nodes annotations = shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "EntryPoint");
-                Node* new = function(m, shd_recreate_params(r, get_abstraction_params(old)), shd_fmt_string_irarena(a, "%s_", payload.name), shd_empty(a), shd_rewrite_nodes(r, payload.return_types));
+                Node* new = function(m, shd_recreate_params(r, get_abstraction_params(old)), shd_fmt_string_irarena(a, "%s_", payload.name), mk_nodes(a, annotation_helper(a, "Leaf")), shd_rewrite_nodes(r, payload.return_types));
                 shd_register_processed(r, old, new);
                 shd_register_processed_list(r, get_abstraction_params(old), get_abstraction_params(new));
                 shd_recreate_node_body(r, old, new);
@@ -47,7 +47,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(r, old);
 }
 
-Module* shd_pass_add_init_fini(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_pass_add_init_fini(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -55,10 +55,14 @@ Module* shd_pass_add_init_fini(SHADY_UNUSED const CompilerConfig* config, Module
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
 
-    Node* fini_fn = function(dst, shd_nodes(a, 0, NULL), "generated_fini", mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Leaf"), annotation_helper(a, "NoInline")), shd_nodes(a, 0, NULL));
+    Nodes annotations = mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Leaf"), annotation_helper(a, "Internal"));
+    // if (!config->specialization.entry_point)
+    //     annotations = shd_nodes_append(a, annotations, annotation_helper(a, "Exported"));
+
+    Node* fini_fn = function(dst, shd_nodes(a, 0, NULL), "generated_fini", annotations, shd_nodes(a, 0, NULL));
     shd_set_abstraction_body(fini_fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(fini_fn) }));
 
-    Node* init_fn = function(dst, shd_nodes(a, 0, NULL), "generated_init", mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Leaf"), annotation_helper(a, "NoInline")), shd_nodes(a, 0, NULL));
+    Node* init_fn = function(dst, shd_nodes(a, 0, NULL), "generated_init", annotations, shd_nodes(a, 0, NULL));
     shd_set_abstraction_body(init_fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(init_fn) }));
 
     ctx.init_fn = init_fn;

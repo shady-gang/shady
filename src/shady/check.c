@@ -583,8 +583,10 @@ const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
 static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
     if (param_types.count != arg_types.count)
         shd_error("Mismatched number of arguments/parameters");
-    for (size_t i = 0; i < param_types.count; i++)
+    for (size_t i = 0; i < param_types.count; i++) {
+        assert(shd_is_value_type(param_types.nodes[i]));
         shd_check_subtype(param_types.nodes[i], arg_types.nodes[i]);
+    }
 }
 
 /// Shared logic between indirect calls and tailcalls
