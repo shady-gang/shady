@@ -17,6 +17,37 @@ typedef struct {
     BodyBuilder* fini_bld;
 } Context;
 
+static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node* io) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    Module* m = r->dst_module;
+    assert(io->tag == GlobalVariable_TAG);
+    Node* phy = global_var(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", io->payload.global_variable.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup);
+    const Type* pt = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = io->payload.global_variable.type });
+    const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(ref_decl_helper(a, phy)));
+    phy = constant(m, shd_empty(a), pt, shd_fmt_string_irarena(a, "%s_generic", io->payload.global_variable.name));
+    phy->payload.constant.value = converted;
+
+    switch (io->payload.global_variable.address_space) {
+        case AsPushConstant:
+        case AsUniformConstant:
+        case AsUInput:
+        case AsInput: {
+            const Node* value = shd_bld_load(ctx->init_bld, ref_decl_helper(a, io));
+            shd_bld_store(ctx->init_bld, ref_decl_helper(a, phy), value);
+            // shd_bld_add_instruction(ctx->init_bld, copy_bytes_helper(a, shd_bld_mem(ctx->init_bld), phy, io, ))
+            break;
+        }
+        case AsOutput: {
+            const Node* value = shd_bld_load(ctx->fini_bld, ref_decl_helper(a, phy));
+            shd_bld_store(ctx->fini_bld, ref_decl_helper(a, io), value);
+            break;
+        }
+        default: assert(false);
+    }
+    return phy;
+}
+
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -24,45 +55,29 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = node->payload.global_variable;
-            AddressSpace as;
             const Node* io = NULL;
             ShdScope scope;
             const Node* io_annotation = shd_lookup_annotation(node, "IO");
             const Node* builtin_annotation = shd_lookup_annotation(node, "Builtin");
             if (io_annotation) {
-                as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
-                io = global_var(m, shd_rewrite_nodes(r, payload.annotations), shd_rewrite_node(r, payload.type), payload.name, as);
+                AddressSpace as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
+                io = global_var(m, shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "IO"), shd_rewrite_node(r, payload.type), payload.name, as);
                 scope = shd_get_addr_space_scope(as);
             } else if (builtin_annotation) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
-                as = shd_get_builtin_address_space(b);
                 io = shd_get_or_create_builtin(m, b, payload.name);
                 scope = shd_get_builtin_scope(b);
             } else break;
 
             assert(io && io->tag == GlobalVariable_TAG);
-            Node* phy = global_var(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", payload.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup);
-            const Type* pt = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = io->payload.global_variable.type });
-            const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(ref_decl_helper(a, phy)));
-            phy = constant(m, shd_empty(a), pt, shd_fmt_string_irarena(a, "%s_generic", payload.name));
-            phy->payload.constant.value = converted;
-            shd_register_processed(r, node, phy);
-            switch (as) {
-                case AsUInput:
-                case AsInput: {
-                    const Node* value = shd_bld_load(ctx->init_bld, ref_decl_helper(a, io));
-                    shd_bld_store(ctx->init_bld, ref_decl_helper(a, phy), value);
-                    // shd_bld_add_instruction(ctx->init_bld, copy_bytes_helper(a, shd_bld_mem(ctx->init_bld), phy, io, ))
-                    break;
-                }
-                case AsOutput: {
-                    const Node* value = shd_bld_load(ctx->init_bld, ref_decl_helper(a, phy));
-                    shd_bld_store(ctx->init_bld, ref_decl_helper(a, io), value);
-                    break;
-                }
-                default: assert(false);
-            }
-            return phy;
+
+            bool can_be_physical = shd_is_physical_data_type(payload.type);
+
+            if (can_be_physical)
+                io = promote_to_physical(ctx, scope, io);
+
+            shd_register_processed(r, node, io);
+            return io;
         }
         default: break;
     }
