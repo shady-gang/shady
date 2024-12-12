@@ -55,7 +55,7 @@ Module* shd_pass_add_init_fini(const CompilerConfig* config, Module* src) {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
 
-    Nodes annotations = mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Leaf"), annotation_helper(a, "Internal"));
+    Nodes annotations = mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Leaf"));
     // if (!config->specialization.entry_point)
     //     annotations = shd_nodes_append(a, annotations, annotation_helper(a, "Exported"));
 
