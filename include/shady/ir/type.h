@@ -23,8 +23,8 @@ void shd_check_subtype(const Type* supertype, const Type* type);
 /// Is this a type that a value in the language can have ?
 bool shd_is_value_type(const Type*);
 
-/// Is this a valid data type (for usage in other types and as type arguments) ?
 bool shd_is_data_type(const Type*);
+bool shd_is_physical_data_type(const Type* t);
 
 bool shd_is_arithm_type(const Type*);
 bool shd_is_shiftable_type(const Type*);

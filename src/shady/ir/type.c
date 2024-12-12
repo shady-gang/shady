@@ -161,8 +161,7 @@ bool shd_is_value_type(const Type* type) {
     return shd_is_data_type(shd_get_unqualified_type(type));
 }
 
-/// Is this a valid data type (for usage in other types and as type arguments) ?
-bool shd_is_data_type(const Type* type) {
+bool shd_is_physical_data_type(const Type* type) {
     switch (is_type(type)) {
         case Type_MaskType_TAG:
         case Type_JoinPointType_TAG:
@@ -171,7 +170,7 @@ bool shd_is_data_type(const Type* type) {
         case Type_Bool_TAG:
             return true;
         case Type_PtrType_TAG:
-            return true;
+            return !type->payload.ptr_type.is_reference;
         case Type_ArrType_TAG:
             // array types _must_ be sized to be real data types
             return type->payload.arr_type.size != NULL;
@@ -186,14 +185,14 @@ bool shd_is_data_type(const Type* type) {
         }
         case Type_TypeDeclRef_TAG:
             return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
-        // qualified types are not data types because that information is only meant for values
+            // qualified types are not data types because that information is only meant for values
         case Type_QualifiedType_TAG: return false;
-        // values cannot contain abstractions
+            // values cannot contain abstractions
         case Type_FnType_TAG:
         case Type_BBType_TAG:
         case Type_LamType_TAG:
             return false;
-        // this type has no values to begin with
+            // this type has no values to begin with
         case Type_NoRet_TAG:
             return false;
         case NotAType:
@@ -202,7 +201,21 @@ bool shd_is_data_type(const Type* type) {
         case Type_SampledImageType_TAG:
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
+            return false;
+    }
+}
+
+/// Is this a valid data type (for usage in other types and as type arguments) ?
+bool shd_is_data_type(const Type* type) {
+    switch (is_type(type)) {
+        case Type_PtrType_TAG:
             return true;
+        // Image stuff is data (albeit opaque)
+        case Type_SampledImageType_TAG:
+        case Type_SamplerType_TAG:
+        case Type_ImageType_TAG:
+            return true;
+        default: return shd_is_physical_data_type(type);
     }
 }
 

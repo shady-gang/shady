@@ -66,21 +66,30 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
-        if (ptr_type.pointed_type->tag == ArrType_TAG) {
-            assert(shd_is_data_type(ptr_type.pointed_type->payload.arr_type.element_type));
-            return NULL;
-        }
-        if (ptr_type.pointed_type->tag == FnType_TAG || ptr_type.pointed_type == unit_type(arena)) {
-            // no diagnostic required, we just allow these
-            return NULL;
-        }
         const Node* maybe_record_type = ptr_type.pointed_type;
         if (maybe_record_type->tag == TypeDeclRef_TAG)
             maybe_record_type = shd_get_nominal_type_body(maybe_record_type);
         if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
             return NULL;
         }
-        assert(shd_is_data_type(ptr_type.pointed_type));
+        switch (ptr_type.pointed_type->tag) {
+            // these are unconditionally OK
+            case FnType_TAG:
+                return NULL;
+            case ArrType_TAG:
+                return NULL; // allows pointer to unsized arrays
+            case RecordType_TAG:
+                switch (ptr_type.pointed_type->payload.record_type.special) {
+                    case NotSpecial: break;
+                    case DecorateBlock: return NULL; // explicitly OK even if the pointee is not a datatype
+                    case MultipleReturn: shd_error("Pointers to multiple-return definitions are not allowed")
+                }
+                break;
+            default:
+                break;
+        }
+        if (!shd_is_data_type(ptr_type.pointed_type))
+            shd_error("Found an illegal pointer");
     }
     return NULL;
 }
