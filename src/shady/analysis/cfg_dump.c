@@ -69,7 +69,14 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
 
     String abs_name = shd_get_abstraction_name_safe(bb);
 
-    shd_print(p, "%s: \n%d: ", abs_name, bb->id);
+    Nodes params = get_abstraction_params(bb);
+    shd_print(p, "%%%d %s", bb->id, abs_name);
+    shd_print(p, "(");
+    for (size_t i = 0; i < params.count; i++) {
+        const Node* param = params.nodes[i];
+        shd_print(p, "%%%d %s: %s", param->id, param->payload.param.name, shd_get_type_name(bb->arena, param->type));
+    }
+    shd_print(p, "): \n");
 
     if (getenv("SHADY_CFG_SCOPE_ONLY")) {
         const Nodes* scope = find_scope_info(bb);
