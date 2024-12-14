@@ -76,8 +76,8 @@ CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod)
         RUN_PASS(shd_pass_scope2control)
     } else if (config->input_cf.restructure_with_heuristics) {
         RUN_PASS(shd_pass_remove_critical_edges)
-        // RUN_PASS(shd_pass_lcssa)
-        RUN_PASS(shd_pass_lift_everything)
+        RUN_PASS(shd_pass_lcssa)
+        // RUN_PASS(shd_pass_lift_everything)
         RUN_PASS(shd_pass_reconvergence_heuristics)
     }
 

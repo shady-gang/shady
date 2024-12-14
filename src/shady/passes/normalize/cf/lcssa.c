@@ -43,20 +43,20 @@ static const LTNode* get_loop(const LTNode* n) {
 
 static String loop_name(const LTNode* n) {
     if (n && n->type == LF_HEAD && shd_list_count(n->cf_nodes) > 0) {
-        return shd_get_abstraction_name(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
+        return shd_get_abstraction_name_safe(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
     }
-    return "";
+    return "fn entry";
 }
 
-static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, Nodes* lparams, Nodes* nargs) {
+static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* nparams, Nodes* lparams) {
     IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
     assert(old->tag == BasicBlock_TAG);
 
     const LTNode* bb_loop = get_loop(shd_loop_tree_lookup(ctx->loop_tree, old));
 
     *nparams = shd_empty(a);
     *lparams = shd_empty(a);
-    *nargs = shd_empty(a);
 
     struct Dict* fvs = shd_free_frontier(ctx->scheduler, ctx->cfg, old);
     const Node* fv;
@@ -67,19 +67,14 @@ static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* npar
         if (!is_child(defining_loop, bb_loop)) {
             // that's it, that variable is leaking !
             shd_log_fmt(DEBUGV, "lcssa: ");
-            shd_log_node(DEBUGV, fv);
-            shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s %s\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
-            const Node* narg = shd_rewrite_node(&ctx->rewriter, fv);
-            const Node* nparam = param(a, narg->type, "lcssa_phi");
+            // shd_log_node(DEBUGV, fv);
+            shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s (use in %s)\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
+            const Node* nparam = param(a, shd_rewrite_node(r, fv->type), "lcssa_phi");
             *nparams = shd_nodes_append(a, *nparams, nparam);
             *lparams = shd_nodes_append(a, *lparams, fv);
-            *nargs = shd_nodes_append(a, *nargs, narg);
         }
     }
     shd_destroy_dict(fvs);
-
-    if (nparams->count > 0)
-        shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old, *nparams);
 }
 
 static const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
@@ -104,31 +99,33 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
     }
 
     LARRAY(Node*, new_children, children_count);
-    LARRAY(Nodes, lifted_params, children_count);
+    LARRAY(Nodes, lifted, children_count);
     LARRAY(Nodes, new_params, children_count);
     for (size_t i = 0; i < children_count; i++) {
-        Nodes nargs;
-        find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted_params[i], &nargs);
+        shd_debugv_print("doing %s\n", shd_get_abstraction_name_safe(old_children[i]));
+        find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted[i]);
         Nodes nparams = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
         new_children[i] = basic_block(a, shd_concat_nodes(a, nparams, new_params[i]), shd_get_abstraction_name(old_children[i]));
         shd_register_processed(&ctx->rewriter, old_children[i], new_children[i]);
         shd_register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
-        shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], nargs);
+        assert(!shd_dict_find_key(const Node*, ctx->lifted_arguments, old_children[i]));
+        shd_dict_insert(const Node*, Nodes, ctx->lifted_arguments, old_children[i], lifted[i]);
     }
 
     const Node* new = shd_rewrite_node(&ctx->rewriter, body);
 
-    ctx->rewriter.map = shd_clone_dict(ctx->rewriter.map);
+    struct Dict* old_map = ctx->rewriter.map;
 
     for (size_t i = 0; i < children_count; i++) {
-        for (size_t j = 0; j < lifted_params[i].count; j++) {
-            shd_dict_remove(const Node*, ctx->rewriter.map, lifted_params[i].nodes[j]);
+        ctx->rewriter.map = shd_clone_dict(old_map);
+        for (size_t j = 0; j < lifted[i].count; j++) {
+            shd_dict_remove(const Node*, ctx->rewriter.map, lifted[i].nodes[j]);
         }
-        shd_register_processed_list(&ctx->rewriter, lifted_params[i], new_params[i]);
+        shd_register_processed_list(&ctx->rewriter, lifted[i], new_params[i]);
         new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
+        shd_destroy_dict(ctx->rewriter.map);
     }
 
-    shd_destroy_dict(ctx->rewriter.map);
 
     return new;
 }
@@ -166,9 +163,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Jump_TAG: {
             Jump payload = old->payload.jump;
             Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, old->payload.jump.args);
-            Nodes* lifted_args = shd_dict_find_value(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
-            if (lifted_args) {
-                nargs = shd_concat_nodes(a, nargs, *lifted_args);
+            Nodes* to_lift = shd_dict_find_value(const Node*, Nodes, ctx->lifted_arguments, old->payload.jump.target);
+            if (to_lift) {
+                Nodes lifted = shd_rewrite_nodes(r, *to_lift);
+                nargs = shd_concat_nodes(a, nargs, lifted);
             }
             return jump(a, (Jump) {
                 .target = shd_rewrite_node(&ctx->rewriter, old->payload.jump.target),
