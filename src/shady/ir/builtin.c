@@ -1,5 +1,4 @@
 #include "shady/ir/builtin.h"
-#include "shady/ir/builder.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/module.h"
 #include "shady/ir/mem.h"
@@ -13,7 +12,7 @@
 #include <string.h>
 
 static AddressSpace builtin_as[] = {
-#define BUILTIN(_, as, _2) as,
+#define BUILTIN(_, as, _2, _3) as,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
@@ -24,8 +23,20 @@ AddressSpace shd_get_builtin_address_space(Builtin builtin) {
     return builtin_as[builtin];
 }
 
+static ShdScope builtin_scope[] = {
+#define BUILTIN(_, _2, scope, _3) ShdScope##scope,
+SHADY_BUILTINS()
+#undef BUILTIN
+};
+
+ShdScope shd_get_builtin_scope(Builtin builtin) {
+    if (builtin >= BuiltinsCount)
+        return ShdScopeBottom;
+    return builtin_scope[builtin];
+}
+
 static String builtin_names[] = {
-#define BUILTIN(name, _, _2) #name,
+#define BUILTIN(name, _, _2, _3) #name,
 SHADY_BUILTINS()
 #undef BUILTIN
 };
@@ -38,7 +49,7 @@ String shd_get_builtin_name(Builtin builtin) {
 
 const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin) {
     switch (builtin) {
-#define BUILTIN(name, _, datatype) case Builtin##name: return datatype;
+#define BUILTIN(name, _, _2, datatype) case Builtin##name: return datatype;
 SHADY_BUILTINS()
 #undef BUILTIN
         default: shd_error("Unhandled builtin")
@@ -47,7 +58,7 @@ SHADY_BUILTINS()
 
 // What's the decoration for the builtin
 static SpvBuiltIn spv_builtins[] = {
-#define BUILTIN(name, _, _2) SpvBuiltIn##name,
+#define BUILTIN(name, _, _2, _3) SpvBuiltIn##name,
 SHADY_BUILTINS()
 #undef BUILTIN
 };

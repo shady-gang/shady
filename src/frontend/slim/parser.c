@@ -303,7 +303,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                     .result_t = type,
                     .set = set->payload.string_lit.string,
                     .opcode = strtoll(opcode->payload.untyped_number.plaintext, NULL, 10),
-                    .mem = shd_bb_mem(bb),
+                    .mem = shd_bld_mem(bb),
                     .operands = ops,
                 }));
             } else if (strcmp(id, "alloca") == 0) {
@@ -312,19 +312,19 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 expect(ops.count == 0, "no operands");
                 return shd_bld_add_instruction(bb, stack_alloc(arena, (StackAlloc) {
                     .type = type,
-                    .mem = shd_bb_mem(bb),
+                    .mem = shd_bld_mem(bb),
                 }));
             } else if (strcmp(id, "debug_printf") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
                 return shd_bld_add_instruction(bb, debug_printf(arena, (DebugPrintf) {
                     .string = shd_get_string_literal(arena, shd_first(ops)),
                     .args = shd_nodes(arena, ops.count - 1, &ops.nodes[1]),
-                    .mem = shd_bb_mem(bb),
+                    .mem = shd_bld_mem(bb),
                 }));
             }
 
             if (bb)
-                return shd_bld_add_instruction(bb, make_unbound(arena, shd_bb_mem(bb), id));
+                return shd_bld_add_instruction(bb, make_unbound(arena, shd_bld_mem(bb), id));
             return make_unbound(arena, NULL, id);
         }
         case hex_lit_tok:
@@ -618,7 +618,7 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
-        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimFrontendOpsSlimDereferenceSHADY, .operands = shd_singleton(expr), .mem = shd_bb_mem(bb) }));
+        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimFrontendOpsSlimDereferenceSHADY, .operands = shd_singleton(expr), .mem = shd_bld_mem(bb) }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
@@ -627,7 +627,7 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
             .result_t = unit_type(arena),
             .opcode = SlimFrontendOpsSlimAddrOfSHADY,
             .operands = shd_singleton(expr),
-            .mem = shd_bb_mem(bb),
+            .mem = shd_bld_mem(bb),
         }));
     }
 
@@ -659,7 +659,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                         .opcode = SlimFrontendOpsSlimAssignSHADY,
                         .result_t = unit_type(arena),
                         .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
-                        .mem = shd_bb_mem(bb),
+                        .mem = shd_bld_mem(bb),
                     }));
                     break;
                 }
@@ -669,7 +669,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                         .opcode = SlimFrontendOpsSlimSubscriptSHADY,
                         .result_t = unit_type(arena),
                         .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
-                        .mem = shd_bb_mem(bb),
+                        .mem = shd_bld_mem(bb),
                     }));
                     break;
                 }
@@ -684,7 +684,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                 expr = shd_bld_add_instruction(bb, call(arena, (Call) {
                     .callee = expr,
                     .args = ops,
-                    .mem = shd_bb_mem(bb),
+                    .mem = shd_bld_mem(bb),
                 }));
                 continue;
             }
@@ -807,7 +807,7 @@ static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
             return call(arena, (Call) {
                     .callee = callee,
                     .args = args,
-                    .mem = shd_bb_mem(bb)
+                    .mem = shd_bld_mem(bb)
             });
         }
         default: break;
@@ -895,12 +895,12 @@ static const Node* expect_jump(ctxparams, BodyBuilder* bb) {
     String target = accept_identifier(ctx);
     expect(target, "jump target name");
     Nodes args = expect_operands(ctx, bb);
-    const Node* tgt = make_unbound(arena, shd_bb_mem(bb), target);
+    const Node* tgt = make_unbound(arena, shd_bld_mem(bb), target);
     shd_bld_add_instruction(bb, tgt);
     return jump(arena, (Jump) {
         .target = tgt,
         .args = args,
-        .mem = shd_bb_mem(bb)
+        .mem = shd_bld_mem(bb)
     });
 }
 
@@ -927,7 +927,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                 .condition = condition,
                 .true_jump = true_target,
                 .false_jump = false_target,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case switch_tok: {
@@ -961,7 +961,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
                 .case_values = values,
                 .case_jumps = cases,
                 .default_jump = default_jump,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case return_tok: {
@@ -969,7 +969,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = expect_operands(ctx, bb);
             return fn_ret(arena, (Return) {
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case merge_selection_tok: {
@@ -977,7 +977,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_selection(arena, (MergeSelection) {
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case continue_tok: {
@@ -985,7 +985,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_continue(arena, (MergeContinue) {
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case break_tok: {
@@ -993,7 +993,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             Nodes args = shd_curr_token(tokenizer).tag == lpar_tok ? expect_operands(ctx, bb) : shd_nodes(arena, 0, NULL);
             return merge_break(arena, (MergeBreak) {
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case join_tok: {
@@ -1005,7 +1005,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             return join(arena, (Join) {
                 .join_point = jp,
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case tailcall_tok: {
@@ -1017,14 +1017,14 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             return tail_call(arena, (TailCall) {
                 .callee = callee,
                 .args = args,
-                .mem = shd_bb_mem(bb)
+                .mem = shd_bld_mem(bb)
             });
         }
         case unreachable_tok: {
             shd_next_token(tokenizer);
             expect(accept_token(ctx, lpar_tok), "'('");
             expect(accept_token(ctx, rpar_tok), "')'");
-            return unreachable(arena, (Unreachable) { .mem = shd_bb_mem(bb) });
+            return unreachable(arena, (Unreachable) { .mem = shd_bld_mem(bb) });
         }
         default: break;
     }
@@ -1049,7 +1049,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     if (!terminator) {
         if (default_terminator)
-            terminator = default_terminator(shd_bb_mem(terminator_bb));
+            terminator = default_terminator(shd_bld_mem(terminator_bb));
         else
             syntax_error("expected terminator: return, jump, branch ...");
     }

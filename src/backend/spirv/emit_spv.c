@@ -173,6 +173,10 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     SpvBuiltIn d = shd_get_builtin_spv_id(b);
                     uint32_t decoration_payload[] = { d };
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
+                    if (gvar->address_space == AsUInput || gvar->address_space == AsInput) {
+                        if (gvar->type->tag == Int_TAG)
+                            spvb_decorate(emitter->file_builder, given_id, SpvDecorationFlat, 0, NULL);
+                    }
                 } else if (strcmp(name, "Location") == 0) {
                     size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);

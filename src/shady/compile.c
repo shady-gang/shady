@@ -100,12 +100,15 @@ CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod)
 
     //RUN_PASS(shd_pass_opt_stack)
 
+    if (config->specialization.entry_point)
+        RUN_PASS(shd_pass_specialize_entry_point)
+
+    RUN_PASS(shd_pass_add_init_fini)
+    RUN_PASS(shd_pass_promote_io_variables)
+
     RUN_PASS(shd_pass_lower_tailcalls)
     //RUN_PASS(shd_pass_lower_switch_btree)
     //RUN_PASS(shd_pass_opt_mem2reg)
-
-    if (config->specialization.entry_point)
-        RUN_PASS(shd_pass_specialize_entry_point)
 
     RUN_PASS(shd_pass_lower_logical_pointers)
 

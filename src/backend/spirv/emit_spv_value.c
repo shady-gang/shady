@@ -312,8 +312,8 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             case SpvOpGroupNonUniformIAdd: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
                 SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(instr.operands));
-                SpvGroupOperation group_op = shd_get_int_literal_value(*shd_resolve_to_int_literal(instr.operands.nodes[2]), false);
-                return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), NULL);
+                SpvGroupOperation group_op = shd_get_int_literal_value(*shd_resolve_to_int_literal(instr.operands.nodes[1]), false);
+                return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[2]), NULL);
             }
             case SpvOpGroupNonUniformElect: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
@@ -342,6 +342,8 @@ static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_
 
     const Node* fn = call.callee;
     const Type* callee_type = fn->type;
+    shd_deconstruct_qualified_type(&callee_type);
+    shd_deconstruct_pointer_type(&callee_type);
     assert(callee_type->tag == FnType_TAG);
     Nodes return_types = callee_type->payload.fn_type.return_types;
     SpvId return_type = spv_types_to_codom(emitter, return_types);
@@ -575,12 +577,19 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
 static bool can_appear_at_top_level(const Node* node) {
     switch (node->tag) {
         case Undef_TAG:
-        case Composite_TAG:
         case FloatLiteral_TAG:
         case IntLiteral_TAG:
         case True_TAG:
         case False_TAG:
             return true;
+        case Composite_TAG: {
+            bool ok = true;
+            Nodes components = node->payload.composite.contents;
+            for (size_t i = 0; i < components.count; i++) {
+                ok &= can_appear_at_top_level(components.nodes[i]);
+            }
+            return ok;
+        }
         default: break;
     }
     return false;

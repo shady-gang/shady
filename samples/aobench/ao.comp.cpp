@@ -4,8 +4,8 @@
 
 #define location(i) __attribute__((annotate("shady::location::"#i)))
 
-#define input __attribute__((address_space(389)))
-#define output __attribute__((address_space(390)))
+#define input __attribute__((annotate("shady::io::389")))
+#define output __attribute__((annotate("shady::io::390")))
 #define global __attribute__((address_space(1)))
 
 typedef uint32_t uvec4 __attribute__((ext_vector_type(4)));

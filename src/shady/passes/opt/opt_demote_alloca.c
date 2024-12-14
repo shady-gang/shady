@@ -66,11 +66,12 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
         } else if (use->user->tag == PrimOp_TAG) {
             PrimOp payload = use->user->payload.prim_op;
             switch (payload.op) {
-                case reinterpret_op: {
+                /*case reinterpret_op: {
                     k->non_logical_use = true;
                     visit_ptr_uses(use->user, slice_type, k, map);
                     continue;
-                }
+                }*/
+                case reinterpret_op:
                 case convert_op: {
                     if (shd_first(payload.type_arguments)->tag == PtrType_TAG) {
                         k->non_logical_use = true;
@@ -146,15 +147,14 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
     // debugv_print("demote_alloca: uses analysis results for ");
     // log_node(DEBUGV, old);
     // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
-    if (!k->leaks) {
+    if (!k->leaks && !k->non_logical_use) {
         if (!k->read_from/* this should include killing dead stores! */) {
             *ctx->todo |= true;
             const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
-        }
-        if (!k->non_logical_use && shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
+        } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
             *ctx->todo |= old->tag != LocalAlloc_TAG;
             const Node* new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = nmem });
             k->new = new;

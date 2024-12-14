@@ -25,6 +25,8 @@ RewritePass shd_pass_scope_heuristic;
 /// Try to identify reconvergence points throughout the program for unstructured control flow programs
 RewritePass shd_pass_reconvergence_heuristics;
 
+RewritePass shd_pass_add_init_fini;
+
 /// @}
 
 /// @name Control flow lowering strategies
@@ -41,7 +43,7 @@ RewritePass shd_pass_normalize_builtins;
 
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
 RewritePass shd_pass_lower_callf;
-/// Emulates tailcalls, forks and joins using a god function
+/// Emulates tailcalls, forks and joins using a top function
 RewritePass shd_pass_lower_tailcalls;
 
 /// @}
@@ -68,6 +70,7 @@ RewritePass shd_pass_lower_memcpy;
 RewritePass shd_pass_lower_decay_ptrs;
 RewritePass shd_pass_lower_generic_globals;
 RewritePass shd_pass_lower_logical_pointers;
+RewritePass shd_pass_promote_io_variables;
 
 /// @}
 

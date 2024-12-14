@@ -70,30 +70,36 @@ const Node* _shd_bb_insert_block(BodyBuilder* bb) {
     return bb->block_entry_block;
 }
 
-const Node* shd_bb_mem(BodyBuilder* bb) {
+const Node* shd_bld_mem(BodyBuilder* bb) {
     return bb->mem;
 }
 
-static Nodes bind_internal(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
+static void bind_internal(BodyBuilder* bb, const Node* instruction) {
     if (shd_get_arena_config(bb->arena)->check_types) {
         assert(is_mem(instruction));
     }
     if (is_mem(instruction) && /* avoid things like ExtInstr with null mem input! */ shd_get_parent_mem(instruction))
         bb->mem = instruction;
-    return shd_deconstruct_composite(bb->arena, instruction, outputs_count);
 }
 
 const Node* shd_bld_add_instruction(BodyBuilder* bb, const Node* instr) {
-    return shd_first(shd_bld_add_instruction_extract_count(bb, instr, 1));
+    bind_internal(bb, instr);
+    return instr;
+    // return shd_first(shd_bld_add_instruction_extract_count(bb, instr, 1));
 }
 
 Nodes shd_bld_add_instruction_extract(BodyBuilder* bb, const Node* instruction) {
     assert(shd_get_arena_config(bb->arena)->check_types);
-    return bind_internal(bb, instruction, shd_singleton(instruction->type).count);
+    assert(is_value(instruction));
+    Nodes types = shd_unwrap_multiple_yield_types(bb->arena, instruction->type);
+    bind_internal(bb, instruction);
+    return shd_deconstruct_composite(bb->arena, instruction, types.count);
 }
 
 Nodes shd_bld_add_instruction_extract_count(BodyBuilder* bb, const Node* instruction, size_t outputs_count) {
-    return bind_internal(bb, instruction, outputs_count);
+    assert(is_value(instruction));
+    bind_internal(bb, instruction);
+    return shd_deconstruct_composite(bb->arena, instruction, outputs_count);
 }
 
 static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
@@ -137,34 +143,34 @@ const Node* shd_bld_finish(BodyBuilder* bb, const Node* terminator) {
 const Node* shd_bld_return(BodyBuilder* bb, Nodes args) {
     return shd_bld_finish(bb, fn_ret(bb->arena, (Return) {
         .args = args,
-        .mem = shd_bb_mem(bb)
+        .mem = shd_bld_mem(bb)
     }));
 }
 
 const Node* shd_bld_unreachable(BodyBuilder* bb) {
     return shd_bld_finish(bb, unreachable(bb->arena, (Unreachable) {
-        .mem = shd_bb_mem(bb)
+        .mem = shd_bld_mem(bb)
     }));
 }
 
 const Node* shd_bld_selection_merge(BodyBuilder* bb, Nodes args) {
     return shd_bld_finish(bb, merge_selection(bb->arena, (MergeSelection) {
         .args = args,
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
     }));
 }
 
 const Node* shd_bld_loop_continue(BodyBuilder* bb, Nodes args)  {
     return shd_bld_finish(bb, merge_continue(bb->arena, (MergeContinue) {
         .args = args,
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
     }));
 }
 
 const Node* shd_bld_loop_break(BodyBuilder* bb, Nodes args) {
     return shd_bld_finish(bb, merge_break(bb->arena, (MergeBreak) {
         .args = args,
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
     }));
 }
 
@@ -172,7 +178,7 @@ const Node* shd_bld_join(BodyBuilder* bb, const Node* jp, Nodes args) {
     return shd_bld_finish(bb, join(bb->arena, (Join) {
         .join_point = jp,
         .args = args,
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
     }));
 }
 
@@ -180,14 +186,14 @@ const Node* shd_bld_jump(BodyBuilder* bb, const Node* target, Nodes args) {
     return shd_bld_finish(bb, jump(bb->arena, (Jump) {
         .target = target,
         .args = args,
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
     }));
 }
 
 const Node* shd_bld_to_instr_yield_value(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
     if (!bb->tail_block && shd_list_count(bb->stack) == 0) {
-        const Node* last_mem = shd_bb_mem(bb);
+        const Node* last_mem = shd_bld_mem(bb);
         shd_bld_cancel(bb);
         if (last_mem)
             return mem_and_value(a, (MemAndValue) {
@@ -199,7 +205,7 @@ const Node* shd_bld_to_instr_yield_value(BodyBuilder* bb, const Node* value) {
     assert(bb->block_entry_mem && "This builder wasn't started with 'shd_bld_begin_pure' or 'shd_bld_begin_pseudo_instr'");
     bb->tail_block->payload.basic_block.insert = bb;
     const Node* r = mem_and_value(bb->arena, (MemAndValue) {
-        .mem = shd_bb_mem(bb),
+        .mem = shd_bld_mem(bb),
         .value = value
     });
     return r;
@@ -223,7 +229,7 @@ const Node* shd_bld_to_instr_with_last_instr(BodyBuilder* bb, const Node* instru
         shd_bld_cancel(bb);
         return instruction;
     }
-    bind_internal(bb, instruction, 0);
+    bind_internal(bb, instruction);
     return shd_bld_to_instr_yield_value(bb, instruction);
 }
 
@@ -257,22 +263,22 @@ static Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_
         case NotAStructured_construct: shd_error("")
         case Structured_construct_If_TAG: {
             entry.structured.payload.if_instr.tail = tail;
-            entry.structured.payload.if_instr.mem = shd_bb_mem(bb);
+            entry.structured.payload.if_instr.mem = shd_bld_mem(bb);
             break;
         }
         case Structured_construct_Match_TAG: {
             entry.structured.payload.match_instr.tail = tail;
-            entry.structured.payload.match_instr.mem = shd_bb_mem(bb);
+            entry.structured.payload.match_instr.mem = shd_bld_mem(bb);
             break;
         }
         case Structured_construct_Loop_TAG: {
             entry.structured.payload.loop_instr.tail = tail;
-            entry.structured.payload.loop_instr.mem = shd_bb_mem(bb);
+            entry.structured.payload.loop_instr.mem = shd_bld_mem(bb);
             break;
         }
         case Structured_construct_Control_TAG: {
             entry.structured.payload.control.tail = tail;
-            entry.structured.payload.control.mem = shd_bb_mem(bb);
+            entry.structured.payload.control.mem = shd_bld_mem(bb);
             break;
         }
     }

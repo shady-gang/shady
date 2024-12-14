@@ -157,13 +157,13 @@ static const Node* process(Context* ctx, const Node* node) {
 
                         shd_set_abstraction_body(loop_body, shd_bld_finish(body_bb, merge_continue(a, (MergeContinue) {
                             .args = shd_singleton(prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, params[dim], shd_uint32_literal(a, 1)))),
-                            .mem = shd_bb_mem(body_bb)
+                            .mem = shd_bld_mem(body_bb)
                         })));
                         shd_bld_loop(depth > 0 ? builders[depth - 1] : bb, shd_empty(a), shd_singleton(shd_uint32_literal(a, 0)), loop_body);
                     }
                 }
 
-                shd_set_abstraction_body(wrapper, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) })));
+                shd_set_abstraction_body(wrapper, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) })));
                 return wrapper;
             }
             return shd_recreate_node(&ctx2.rewriter, node);
@@ -175,7 +175,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ptr = ptr->payload.ref_decl.decl;
             if (ptr == shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinSubgroupId, NULL)) {
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-                const Node* loaded = shd_first(shd_bld_add_instruction_extract(bb, shd_recreate_node(&ctx->rewriter, node)));
+                const Node* loaded = shd_bld_add_instruction(bb, shd_recreate_node(&ctx->rewriter, node));
                 const Node* uniformized = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(loaded));
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(uniformized));
             }

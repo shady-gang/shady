@@ -141,7 +141,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 .case_jumps = shd_nodes(a, max_tag, jumps),
                 .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = shd_bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_singleton(final_loaded_value), .mem = shd_bld_mem(bb) })));
             break;
         }
         case StoreFn: {
@@ -178,7 +178,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
                 .case_jumps = shd_nodes(a, max_tag, jumps),
                 .default_jump = jump_helper(a, shd_get_abstraction_mem(r.case_), default_case, shd_empty(a))
             }));
-            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bb_mem(bb) })));
+            shd_set_abstraction_body(new_fn, shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) })));
             break;
         }
     }

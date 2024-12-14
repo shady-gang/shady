@@ -121,7 +121,7 @@ Module* shd_pass_specialize_entry_point(const CompilerConfig* config, Module* sr
     Nodes old_decls = shd_module_get_declarations(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
-        if (shd_lookup_annotation(old_decl, "RetainAfterSpecialization"))
+        if (shd_lookup_annotation(old_decl, "Internal"))
             shd_rewrite_node(&ctx.rewriter, old_decl);
     }
 

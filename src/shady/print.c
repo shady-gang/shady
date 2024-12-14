@@ -1043,8 +1043,13 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
             p = ctx2.bb_printers[dst->rpo_index];
     }
 
-    if (print_def)
-        shd_print(p, "%%%d = %s\n", node->id, s);
+    if (print_def) {
+        if (node->type) {
+            emit_node(ctx, node->type);
+            shd_print(p, "%%%d: %%%d = %s\n", node->id, node->type->id, s);
+        } else
+            shd_print(p, "%%%d = %s\n", node->id, s);
+    }
 
     if (print_inline) {
         String is = shd_string(node->arena, s);

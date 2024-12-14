@@ -162,6 +162,31 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             argv[i] = NULL;
             i++;
             config->target.memory.ptr_size = parse_int_size(argv[i]);
+        } else if (strcmp(argv[i], "--printf-trace") == 0) {
+            argv[i++] = NULL;
+            char* s = argv[i];
+            char* a = strtok(s, ",");
+            while (a) {
+                if (strcmp(a, "top") == 0) {
+                    config->printf_trace.top_function = true;
+                } else if (strcmp(a, "stack") == 0) {
+                    config->printf_trace.stack_size = true;
+                } else if (strcmp(a, "stack-access") == 0) {
+                    config->printf_trace.stack_accesses = true;
+                } else if (strcmp(a, "memory-access") == 0) {
+                    config->printf_trace.memory_accesses = true;
+                } else if (strcmp(a, "subgroup") == 0) {
+                    config->printf_trace.subgroup_ops = true;
+                } else {
+                    shd_log_fmt(ERROR, "Invalid '%s' argument for --printf-trace.");
+                    shd_log_fmt(ERROR, "Valid arguments: 'top', 'stack', 'stack-access', 'memory-access', 'subgroup'");
+                }
+                a = strtok(NULL, ",");
+            }
+        } else if (strcmp(argv[i], "--max-top-iterations") == 0) {
+            argv[i] = NULL;
+            i++;
+            config->shader_diagnostics.max_top_iterations = atoi(argv[i]);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;

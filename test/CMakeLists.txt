@@ -52,7 +52,7 @@ if (BUILD_TESTING)
         add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=$<TARGET_FILE:${F_COMPILER}> -DT=${F_NAME} "-DTARGS=${F_EXTRA_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
     endfunction()
 
-    spv_outputting_test(NAME samples/fib.slim COMPILER slim EXTRA_ARGS --entry-point main)
+    spv_outputting_test(NAME samples/fib.slim COMPILER slim EXTRA_ARGS --entry-point fib_main)
     spv_outputting_test(NAME samples/hello_world.slim COMPILER slim EXTRA_ARGS --entry-point main)
 
     if (TARGET vcc)

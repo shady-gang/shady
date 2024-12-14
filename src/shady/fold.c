@@ -346,7 +346,10 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
         }
         case Store_TAG: {
             if (node->payload.store.ptr->tag == Undef_TAG)
-                return mem_and_value(arena, (MemAndValue) { .value = shd_tuple_helper(arena, shd_empty(arena)), .mem = node->payload.store.mem });
+                return node->payload.store.mem;
+                // return mem_and_value(arena, (MemAndValue) { .value = undef_helper(arena, node->type), .mem = node->payload.store.mem });
+                // return mem_and_value(arena, (MemAndValue) { .value = empty_multiple_return_value(arena), .mem = node->payload.store.mem });
+                // return mem_and_value(arena, (MemAndValue) { .value = shd_tuple_helper(arena, shd_empty(arena)), .mem = node->payload.store.mem });
             break;
         }
         case PtrArrayElementOffset_TAG: {
@@ -459,10 +462,10 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
 
     // catch bad folding rules that mess things up
     if (is_value(original_node)) assert(is_value(node));
-    if (is_instruction(original_node)) assert(is_instruction(node) || is_value(node));
+    // if (is_instruction(original_node)) assert(is_instruction(node) || is_value(node));
     if (is_terminator(original_node)) assert(is_terminator(node));
 
-    if (node->type)
+    if (original_node->type && shd_is_value_type(original_node->type))
         assert(shd_is_subtype(original_node->type, node->type));
 
     return node;

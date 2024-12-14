@@ -174,7 +174,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Node* new_fn = shd_recreate_node_head(r, node);
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_fn));
             shd_bld_ext_instruction(bb, "shady.scope", 0, unit_type(a), shd_empty(a));
-            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             shd_set_abstraction_body(new_fn, shd_bld_finish(bb, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
             shd_destroy_cfg(fn_ctx.cfg);
             free(fn_ctx.depth_per_rpo);
@@ -188,7 +188,7 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_bb));
             CFNode* n = shd_cfg_lookup(ctx->cfg, node);
             shd_bld_ext_instruction(bb, "shady.scope", 0, unit_type(a), ctx->depth_per_rpo[n->rpo_index]);
-            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bb_mem(bb));
+            shd_register_processed(r, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             shd_set_abstraction_body(new_bb, shd_bld_finish(bb, shd_rewrite_node(r, get_abstraction_body(node))));
             return new_bb;
         }

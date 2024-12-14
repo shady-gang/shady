@@ -16,10 +16,8 @@ static bool should_convert(Context* ctx, const Type* t) {
 }
 
 static void extract_low_hi_halves(IrArena* a, BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
-    *lo = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a,
-                                                                (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) })));
-    *hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a,
-                                                                (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) })));
+    *lo = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) }));
+    *hi = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) }));
 }
 
 static void extract_low_hi_halves_list(IrArena* a, BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {
@@ -62,8 +60,8 @@ static const Node* process(Context* ctx, const Node* node) {
                     Nodes low_and_carry = shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_carry_op, .operands = shd_nodes(a, 2, lows) }));
                     const Node* lo = shd_first(low_and_carry);
                     // compute the high side, without forgetting the carry bit
-                    const Node* hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = shd_nodes(a, 2, his) })));
-                                hi = shd_first(shd_bld_add_instruction_extract(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1]) })));
+                    const Node* hi = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = shd_nodes(a, 2, his) }));
+                                hi = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = add_op, .operands = mk_nodes(a, hi, low_and_carry.nodes[1]) }));
                     return shd_bld_to_instr_yield_values(bb, shd_singleton(shd_tuple_helper(a, mk_nodes(a, lo, hi))));
                 } break;
                 default: break;

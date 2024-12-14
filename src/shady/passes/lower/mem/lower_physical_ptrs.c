@@ -348,7 +348,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                     if (is_as_emulated(ctx, as))
                         store_init_data(ctx, as, ctx->collected[as], bb);
                 }
-                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), shd_bb_mem(bb));
+                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
                 shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
                 return new;
             }

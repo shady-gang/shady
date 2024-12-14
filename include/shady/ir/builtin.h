@@ -4,6 +4,7 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/int.h"
 #include "shady/ir/float.h"
+#include "shady/ir/type.h"
 
 #define shd_u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_uint32_type(arena) })
 #define shd_i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_int32_type(arena) })
@@ -12,31 +13,31 @@
 #define shd_f32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = shd_fp32_type(arena) })
 
 #define SHADY_BUILTINS() \
-BUILTIN(BaseInstance,              AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(BaseVertex,                AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(DeviceIndex,               AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(DrawIndex,                 AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(VertexIndex,               AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(FragCoord,                 AsInput,  shd_f32vec4_type(arena) )\
-BUILTIN(FragDepth,                 AsOutput, shd_fp32_type(arena)    )\
-BUILTIN(InstanceId,                AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(InvocationId,              AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(InstanceIndex,             AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(LocalInvocationId,         AsInput,  shd_u32vec3_type(arena) )\
-BUILTIN(LocalInvocationIndex,      AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(GlobalInvocationId,        AsInput,  shd_u32vec3_type(arena) )\
-BUILTIN(WorkgroupId,               AsUInput, shd_u32vec3_type(arena) )\
-BUILTIN(WorkgroupSize,             AsUInput, shd_u32vec3_type(arena) )\
-BUILTIN(NumSubgroups,              AsUInput, shd_uint32_type(arena)   )\
-BUILTIN(NumWorkgroups,             AsUInput, shd_u32vec3_type(arena) )\
-BUILTIN(Position,                  AsOutput, shd_f32vec4_type(arena) )\
-BUILTIN(PrimitiveId,               AsInput,  shd_uint32_type(arena)   )\
-BUILTIN(SubgroupLocalInvocationId, AsInput,  shd_uint32_type(arena)  )\
-BUILTIN(SubgroupId,                AsUInput, shd_uint32_type(arena)  )\
-BUILTIN(SubgroupSize,              AsInput,  shd_uint32_type(arena)  )\
+BUILTIN(BaseInstance,              AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(BaseVertex,                AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(DeviceIndex,               AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(DrawIndex,                 AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(VertexIndex,               AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(FragCoord,                 AsInput,  Invocation, shd_f32vec4_type(arena) )\
+BUILTIN(FragDepth,                 AsOutput, Invocation, shd_fp32_type(arena)    )\
+BUILTIN(InstanceId,                AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(InvocationId,              AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(InstanceIndex,             AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(LocalInvocationId,         AsInput,  Invocation, shd_u32vec3_type(arena) )\
+BUILTIN(LocalInvocationIndex,      AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(GlobalInvocationId,        AsInput,  Invocation, shd_u32vec3_type(arena) )\
+BUILTIN(WorkgroupId,               AsUInput, Workgroup,  shd_u32vec3_type(arena) )\
+BUILTIN(WorkgroupSize,             AsUInput, Device,     shd_u32vec3_type(arena) )\
+BUILTIN(NumSubgroups,              AsUInput, Invocation, shd_uint32_type(arena)   )\
+BUILTIN(NumWorkgroups,             AsUInput, Device,     shd_u32vec3_type(arena) )\
+BUILTIN(Position,                  AsOutput, Invocation, shd_f32vec4_type(arena) )\
+BUILTIN(PrimitiveId,               AsInput,  Invocation, shd_uint32_type(arena)   )\
+BUILTIN(SubgroupLocalInvocationId, AsInput,  Invocation, shd_uint32_type(arena)  )\
+BUILTIN(SubgroupId,                AsUInput, Subgroup,   shd_uint32_type(arena)  )\
+BUILTIN(SubgroupSize,              AsInput,  Device,     shd_uint32_type(arena)  )\
 
 typedef enum {
-#define BUILTIN(name, as, datatype) Builtin##name,
+#define BUILTIN(name, as, scope, datatype) Builtin##name,
 SHADY_BUILTINS()
 #undef BUILTIN
   BuiltinsCount
@@ -44,6 +45,7 @@ SHADY_BUILTINS()
 
 AddressSpace shd_get_builtin_address_space(Builtin builtin);
 String shd_get_builtin_name(Builtin builtin);
+ShdScope shd_get_builtin_scope(Builtin builtin);
 
 const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin);
 Builtin shd_get_builtin_by_name(String s);

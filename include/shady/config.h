@@ -102,7 +102,7 @@ struct CompilerConfig_ {
     struct {
         bool memory_accesses;
         bool stack_accesses;
-        bool god_function;
+        bool top_function;
         bool stack_size;
         bool subgroup_ops;
     } printf_trace;

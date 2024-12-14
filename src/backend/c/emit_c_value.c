@@ -215,14 +215,6 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             const Node* decl = value->payload.ref_decl.decl;
             shd_c_emit_decl(emitter, decl);
 
-            if (emitter->config.dialect == CDialect_ISPC && decl->tag == GlobalVariable_TAG) {
-                if (!shd_is_addr_space_uniform(emitter->arena, decl->payload.global_variable.address_space) && !shd_is_decl_builtin(
-                        decl)) {
-                    assert(fn && "ISPC backend cannot statically refer to a varying variable");
-                    return shd_ispc_varying_ptr_helper(emitter, fn->instruction_printers[0], decl->type, *shd_c_lookup_existing_term(emitter, NULL, decl));
-                }
-            }
-
             return *shd_c_lookup_existing_term(emitter, NULL, decl);
         }
     }
@@ -433,11 +425,13 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
     switch (emitter->config.dialect) {
         case CDialect_ISPC: {
             const Type* t = shd_get_unqualified_type(value_type);
-            if (t->tag == PtrType_TAG)
-                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract_ptr(%s, count_trailing_zeros(lanemask()))", value));
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "extract(%s, count_trailing_zeros(lanemask()))", value));
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
         }
-        default: shd_error("TODO");
+        case CDialect_GLSL: {
+            const Type* t = shd_get_unqualified_type(value_type);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
+        }
+        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
     }
 }
 
@@ -766,8 +760,36 @@ ExtISelEntry ext_isel_ispc_entries[] = {
     {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "packmask" }},
 };
 
+ExtISelEntry ext_isel_glsl_entries[] = {
+    // reduce add
+    {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    // min
+    {{ "spirv.core", SpvOpGroupSMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupUMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupFMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMin, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMin" }},
+    // max
+    {{ "spirv.core", SpvOpGroupSMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupUMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupFMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformSMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformUMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    {{ "spirv.core", SpvOpGroupNonUniformFMax, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupMax" }},
+    // rest
+    {{ "spirv.core", SpvOpGroupNonUniformAllEqual, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupAllEqual" }},
+    {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupBallot" }},
+
+    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupBroadcastFirst" }},
+    {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "subgroupElect" }},
+
+};
+
 ExtISelEntry ext_isel_entries[] = {
-    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_broadcast_first" }},
     {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
 };
 
@@ -799,6 +821,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
     switch (e->config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
+        case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
         default: break;
     }
     scan_entries(ext_isel_entries);
@@ -964,7 +987,7 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
-        acc = shd_c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
+        acc = shd_c_bind_intermediary_result(emitter, p, qualified_type_helper(emitter->arena, uniform, curr_ptr_type), acc);
 
     return acc;
 }
@@ -984,10 +1007,7 @@ static CTerm emit_alloca(Emitter* emitter, Printer* p, const Type* instr) {
     const Type* ptr_type = instr->type;
     shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
-    if (emitter->config.dialect == CDialect_ISPC && !ptr_type->payload.ptr_type.is_reference) {
-        variable = shd_ispc_varying_ptr_helper(emitter, p, shd_get_unqualified_type(instr->type), variable);
-    }
-   return variable;
+    return variable;
 }
 
 static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instruction) {
@@ -1013,7 +1033,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Load payload = instruction->payload.load;
             shd_c_emit_mem(emitter, fn, payload.mem);
             CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
-            return term_from_cvalue(dereferenced);
+            return shd_c_bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
         }
         case Instruction_Store_TAG: {
             Store payload = instruction->payload.store;
@@ -1026,7 +1046,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             CValue cvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
             if (emitter->config.dialect == CDialect_ISPC && addr_uniform && shd_is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
-                cvalue = shd_format_string_arena(emitter->arena->arena, "extract_ptr(%s, count_trailing_zeros(lanemask()))", cvalue);
+                cvalue = shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
             return empty_term();
@@ -1055,19 +1075,28 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
 
                 // special casing for the special child
                 if (emitter->config.dialect == CDialect_ISPC)
-                    shd_print(args_printer, ", extract(%s, printf_thread_index)", str);
+                    shd_print(args_printer, ", __shady_extract(%s, printf_thread_index)", str);
                 else
                     shd_print(args_printer, ", %s", str);
             }
             String args_list = shd_printer_growy_unwrap(args_printer);
             switch (emitter->config.dialect) {
-                case CDialect_ISPC:shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
+                case CDialect_ISPC:
+                    shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
                 case CDialect_CUDA:
-                case CDialect_C11:shd_print(p, "\nprintf(%s);", args_list);
+                case CDialect_C11:
+                    shd_print(p, "\nprintf(%s);", args_list);
                     break;
-                case CDialect_GLSL: shd_warn_print("printf is not supported in GLSL");
+                case CDialect_GLSL: {
+                    if (emitter->config.glsl_version < 460) {
+                        static bool flag = false;
+                        shd_warn_print_once(flag, "Warning: printf is not supported in GLSL\n");
+                    } else {
+                        shd_print(p, "\ndebugPrintfEXT(%s);", args_list);
+                    }
                     break;
+                }
             }
             free((char*) args_list);
 
