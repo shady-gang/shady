@@ -221,6 +221,7 @@ err_post_obj_create:
 void shd_rt_vk_destroy_buffer(VkrBuffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
     vkFreeMemory(buffer->device->device, buffer->memory, NULL);
+    free(buffer);
 }
 
 static VkDeviceAddress vkr_get_buffer_device_pointer(VkrBuffer* buf) {

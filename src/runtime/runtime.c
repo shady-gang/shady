@@ -53,6 +53,7 @@ void shd_rt_shutdown(Runtime* runtime) {
         Backend* bk = shd_read_list(Backend*, runtime->backends)[i];
         bk->cleanup(bk);
     }
+    shd_destroy_list(runtime->backends);
     free(runtime);
 }
 
