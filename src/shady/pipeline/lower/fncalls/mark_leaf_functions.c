@@ -103,6 +103,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx = &fn_ctx;
 
             Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
+            annotations = shd_filter_out_annotation(a, annotations, "Leaf");
             Node* new = function(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 shd_register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);

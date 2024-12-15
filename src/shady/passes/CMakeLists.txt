@@ -1,47 +1,46 @@
 target_sources(shady PRIVATE
     import.c
     opt/cleanup.c
-    normalize/cf/lower_cf_instrs.c
-    lower/fncalls/lift_indirect_targets.c
-    lower/fncalls/lower_callf.c
-    lower/stack/lower_alloca.c
-    lower/stack/lower_stack.c
-    lower/mem/lower_lea.c
-    lower/mem/lower_physical_ptrs.c
-    lower/mem/lower_generic_ptrs.c
-    lower/mem/lower_memory_layout.c
-    lower/mem/lower_memcpy.c
-    normalize/mem/lower_decay_ptrs.c
+        ../pipeline/cf/lower_cf_instrs.c
+        ../pipeline/lower/fncalls/lift_indirect_targets.c
+        ../pipeline/lower/fncalls/lower_callf.c
+        ../pipeline/lower/stack/lower_alloca.c
+        ../pipeline/lower/stack/lower_stack.c
+        ../pipeline/mem/lower_lea.c
+        ../pipeline/mem/lower_physical_ptrs.c
+        ../pipeline/mem/lower_generic_ptrs.c
+        ../pipeline/mem/lower_memory_layout.c
+        ../pipeline/mem/lower_memcpy.c
+        ../pipeline/mem/lower_decay_ptrs.c
     normalize/add_init_fini.c
-    lower/fncalls/lower_tailcalls.c
-    lower/subgroup/lower_mask.c
-    lower/polyfill/lower_fill.c
-    lower/mem/lower_nullptr.c
-    lower/cf/lower_switch_btree.c
-    lower/stack/setup_stack_frames.c
+        ../pipeline/lower/fncalls/lower_tailcalls.c
+        ../pipeline/lower/subgroup/lower_mask.c
+        ../pipeline/polyfill/lower_fill.c
+        ../pipeline/mem/lower_nullptr.c
+        ../pipeline/cf/lower_switch_btree.c
+        ../pipeline/lower/stack/setup_stack_frames.c
     opt/eliminate_constants.c
-    lower/abi/normalize_builtins.c
-    lower/subgroup/lower_subgroup_ops.c
-    lower/subgroup/lower_subgroup_vars.c
-    lower/polyfill/lower_int64.c
-    lower/polyfill/lower_vec_arr.c
-    lower/abi/lower_workgroups.c
-    lower/abi/lower_generic_globals.c
-    lower/fncalls/mark_leaf_functions.c
+        ../pipeline/lower/abi/normalize_builtins.c
+        ../pipeline/lower/subgroup/lower_subgroup_ops.c
+        ../pipeline/lower/subgroup/lower_subgroup_vars.c
+        ../pipeline/polyfill/lower_int64.c
+        ../pipeline/polyfill/lower_vec_arr.c
+        ../pipeline/lower/abi/lower_workgroups.c
+        ../pipeline/lower/abi/lower_generic_globals.c
+        ../pipeline/lower/fncalls/mark_leaf_functions.c
     opt/opt_inline.c
-    lower/cf/restructure.c
+        ../pipeline/cf/restructure.c
     opt/opt_demote_alloca.c
     opt/opt_mem2reg.c
-    lower/abi/specialize_entry_point.c
-    lower/abi/specialize_execution_model.c
-    lower/mem/lower_logical_pointers.c
-    lower/abi/lower_entrypoint_args.c
-    normalize/cf/scope2control.c
-    normalize/cf/lift_everything.c
-    normalize/cf/scope_heuristic.c
-    normalize/cf/reconvergence_heuristics.c
-    normalize/cf/lcssa.c
-    normalize/cf/remove_critical_edges.c
-    lower/subgroup/lower_inclusive_scan.c
-    lower/mem/promote_io_variables.c
+        ../pipeline/shader/specialize_entry_point.c
+        ../pipeline/mem/lower_logical_pointers.c
+        ../pipeline/lower/abi/lower_entrypoint_args.c
+        ../pipeline/cf/scope2control.c
+        ../pipeline/cf/lift_everything.c
+        ../pipeline/cf/scope_heuristic.c
+        ../pipeline/cf/reconvergence_heuristics.c
+        ../pipeline/cf/lcssa.c
+        ../pipeline/cf/remove_critical_edges.c
+        ../pipeline/lower/subgroup/lower_inclusive_scan.c
+        ../pipeline/mem/promote_io_variables.c
 )

@@ -1,10 +1,12 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
+#include "shady/pipeline/pipeline.h"
 #include "shady/print.h"
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
 #include "shady/be/dump.h"
 
+#include "passes/passes.h"
 #include "../frontend/slim/parser.h"
 
 #include "list.h"
@@ -21,6 +23,7 @@
 
 #ifdef SPV_PARSER_PRESENT
 #include "../frontend/spirv/s2s.h"
+
 #endif
 
 #pragma GCC diagnostic error "-Wswitch"
@@ -114,11 +117,58 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     return NoError;
 }
 
+void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+
+static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
+    const Node* old_entry_point_decl = shd_module_get_declaration(mod, entry_point);
+    if (!old_entry_point_decl)
+        shd_error("Cannot specialize: No function named '%s'", entry_point)
+    if (old_entry_point_decl->tag != Function_TAG)
+        shd_error("Cannot specialize: '%s' is not a function.", entry_point)
+    const Node* ep = shd_lookup_annotation(old_entry_point_decl, "EntryPoint");
+    if (!ep)
+        shd_error("%s is not annotated with @EntryPoint", entry_point);
+    return shd_execution_model_from_string(shd_get_annotation_string_payload(ep));
+}
+
+static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* config, const Module* mod) {
+    if (config->config.specialization.entry_point && config->config.specialization.execution_model == EmNone) {
+        config->config.specialization.execution_model = get_execution_model_for_entry_point(config->config.specialization.entry_point, mod);
+    }
+
+    shd_pipeline_add_normalize_input_cf(pipeline);
+    shd_pipeline_add_shader_target_lowering(pipeline, config->config.target, config->config.specialization.execution_model, config->config.specialization.entry_point);
+
+    switch (config->target) {
+        case TgtAuto:
+            break;
+        case TgtSPV:
+            shd_pipeline_add_spirv_target_passes(pipeline, &config->spirv_target_config);
+            break;
+        case TgtC:
+        case TgtGLSL:
+        case TgtISPC:
+            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            break;
+    }
+}
+
 ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
+    mod = shd_import(&args->config, mod);
+
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, &args->config, mod);
 
-    CompilationResult result = shd_run_compiler_passes(&args->config, &mod);
+    if (args->output_filename) {
+        if (args->target == TgtAuto)
+            args->target = shd_guess_target(args->output_filename);
+    }
+
+    ShdPipeline pipeline = shd_create_empty_pipeline();
+    create_pipeline_for_config(pipeline, args, mod);
+    CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
+    shd_destroy_pipeline(pipeline);
     if (result != CompilationNoError) {
         shd_error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
@@ -155,25 +205,23 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     }
 
     if (args->output_filename) {
-        if (args->target == TgtAuto)
-            args->target = shd_guess_target(args->output_filename);
         FILE* f = fopen(args->output_filename, "wb");
         size_t output_size;
         char* output_buffer;
         switch (args->target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: shd_emit_spirv(&args->config, mod, &output_size, &output_buffer, NULL); break;
+            case TgtSPV: shd_emit_spirv(&args->config, args->spirv_target_config, mod, &output_size, &output_buffer); break;
             case TgtC:
-                args->c_emitter_config.dialect = CDialect_C11;
-                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                args->c_target_config.dialect = CDialect_C11;
+                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
                 break;
             case TgtGLSL:
-                args->c_emitter_config.dialect = CDialect_GLSL;
-                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                args->c_target_config.dialect = CDialect_GLSL;
+                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
                 break;
             case TgtISPC:
-                args->c_emitter_config.dialect = CDialect_ISPC;
-                shd_emit_c(&args->config, args->c_emitter_config, mod, &output_size, &output_buffer, NULL);
+                args->c_target_config.dialect = CDialect_ISPC;
+                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
                 break;
         }
         shd_debug_print("Wrote result to %s\n", args->output_filename);

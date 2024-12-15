@@ -5,14 +5,9 @@
 #define MiB * 1024 KiB
 
 CompilerConfig shd_default_compiler_config(void) {
-    return (CompilerConfig) {
+    CompilerConfig config = {
         .dynamic_scheduling = true,
         .per_thread_stack_size = 4 KiB,
-
-        .target_spirv_version = {
-            .major = 1,
-            .minor = 4
-        },
 
         .lower = {
             .emulate_physical_memory = true,
@@ -34,21 +29,28 @@ CompilerConfig shd_default_compiler_config(void) {
         },
 
         .target = shd_default_target_config(),
-
-        .specialization = {
-            .subgroup_size = 8,
-            .entry_point = NULL
-        }
     };
+    return config;
 }
 
 TargetConfig shd_default_target_config(void) {
-    return (TargetConfig) {
+    TargetConfig config = {
         .memory = {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
         },
+
+        .subgroup_size = 8,
+        .subgroup_mask_representation = SubgroupMaskAbstract,
     };
+
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        // by default, all address spaces are physical !
+        config.address_spaces[i].physical = true;
+        config.address_spaces[i].allowed = true;
+    }
+
+    return config;
 }
 
 ArenaConfig shd_default_arena_config(const TargetConfig* target) {
@@ -66,14 +68,8 @@ ArenaConfig shd_default_arena_config(const TargetConfig* target) {
             .delete_unreachable_structured_cases = true,
         },
 
-        .memory = target->memory
+        .target = *target
     };
-
-    for (size_t i = 0; i < NumAddressSpaces; i++) {
-        // by default, all address spaces are physical !
-        config.address_spaces[i].physical = true;
-        config.address_spaces[i].allowed = true;
-    }
 
     return config;
 }

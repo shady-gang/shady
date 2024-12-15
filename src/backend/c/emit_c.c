@@ -147,7 +147,7 @@ void shd_c_emit_unpack_code(Printer* p, String src, Strings dst) {
 void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
-    bool is_fs = emitter->compiler_config->specialization.execution_model == EmFragment;
+    bool is_fs = emitter->compiler_config->target.execution_model == EmFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->config.dialect) {
         case CDialect_C11: {
@@ -260,7 +260,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
                 return;
             }
 
-            if (ass == AsOutput && emitter->compiler_config->specialization.execution_model == EmFragment) {
+            if (ass == AsOutput && emitter->compiler_config->target.execution_model == EmFragment) {
                 int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 shd_c_register_emitted(emitter, NULL, decl, t);
@@ -361,20 +361,24 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
     }
 }
 
-static Module* run_backend_specific_passes(const CompilerConfig* config, CEmitterConfig* econfig, Module* initial_mod) {
-    IrArena* initial_arena = initial_mod->arena;
-    Module** pmod = &initial_mod;
+#include "shady/pipeline/pipeline.h"
 
+static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
-    RUN_PASS(shd_pass_eliminate_constants)
+    RUN_PASS(shd_pass_eliminate_constants, config)
     if (econfig->dialect == CDialect_ISPC) {
-        RUN_PASS(shd_pass_lower_workgroups)
-        RUN_PASS(shd_pass_lower_inclusive_scan)
+        RUN_PASS(shd_pass_lower_workgroups, config)
+        RUN_PASS(shd_pass_lower_inclusive_scan, config)
     }
     if (econfig->dialect != CDialect_GLSL) {
-        RUN_PASS(shd_pass_lower_vec_arr)
+        RUN_PASS(shd_pass_lower_vec_arr, config)
     }
-    return *pmod;
+
+    return CompilationNoError;
+}
+
+void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, CTargetConfig* econfig) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CTargetConfig));
 }
 
 static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
@@ -404,15 +408,14 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     return shd_printer_growy_unwrap(p);
 }
 
-CEmitterConfig shd_default_c_emitter_config(void) {
-    return (CEmitterConfig) {
+CTargetConfig shd_default_c_target_config(void) {
+    return (CTargetConfig) {
         .glsl_version = 420,
     };
 }
 
-void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
-    IrArena* initial_arena = shd_module_get_arena(mod);
-    mod = run_backend_specific_passes(compiler_config, &config, mod);
+void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_config, Module* mod, size_t* output_size, char** output) {
+    mod = shd_import(compiler_config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 
     Growy* type_decls_g = shd_new_growy();
@@ -421,7 +424,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Mo
 
     Emitter emitter = {
         .compiler_config = compiler_config,
-        .config = config,
+        .config = target_config,
         .arena = arena,
         .type_decls = shd_new_printer_from_growy(type_decls_g),
         .fn_decls = shd_new_printer_from_growy(fn_decls_g),
@@ -519,8 +522,5 @@ void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Mo
     *output = shd_growy_deconstruct(final);
     shd_destroy_printer(finalp);
 
-    if (new_mod)
-        *new_mod = mod;
-    else if (initial_arena != arena)
-        shd_destroy_ir_arena(arena);
+    shd_destroy_ir_arena(arena);
 }

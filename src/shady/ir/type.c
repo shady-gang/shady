@@ -274,7 +274,7 @@ bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 }
 
 const Type* shd_get_actual_mask_type(IrArena* arena) {
-    switch (shd_get_arena_config(arena)->specializations.subgroup_mask_representation) {
+    switch (shd_get_arena_config(arena)->target.subgroup_mask_representation) {
         case SubgroupMaskAbstract: return mask_type(arena);
         case SubgroupMaskInt64: return shd_uint64_type(arena);
         default: assert(false);

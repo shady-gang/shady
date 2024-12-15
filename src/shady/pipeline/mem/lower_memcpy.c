@@ -22,7 +22,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case CopyBytes_TAG: {
             CopyBytes payload = old->payload.copy_bytes;
-            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
+            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.target.memory.word_size });
 
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 

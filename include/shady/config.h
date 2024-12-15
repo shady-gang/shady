@@ -6,17 +6,17 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/execution_model.h"
 
+typedef enum {
+    ShdFeatureSupportBanned,
+    ShdFeatureSupportSupported,
+    ShdFeatureSupportEmulate,
+} ShdFeatureSupport;
+
 typedef struct {
     IntSizes ptr_size;
     /// The base type for emulated memory
     IntSizes word_size;
 } PointerModel;
-
-typedef struct {
-    PointerModel memory;
-} TargetConfig;
-
-TargetConfig shd_default_target_config(void);
 
 typedef enum {
     /// Uses the MaskType
@@ -24,6 +24,23 @@ typedef enum {
     /// Uses a 64-bit integer
     SubgroupMaskInt64
 } SubgroupMaskRepresentation;
+
+typedef struct {
+    PointerModel memory;
+
+    struct {
+        bool physical;
+        bool allowed;
+    } address_spaces[NumAddressSpaces];
+
+    /// Selects which type the subgroup intrinsic primops use to manipulate masks
+    SubgroupMaskRepresentation subgroup_mask_representation;
+
+    ExecutionModel execution_model;
+    uint32_t subgroup_size;
+} TargetConfig;
+
+TargetConfig shd_default_target_config(void);
 
 typedef struct ArenaConfig_ ArenaConfig;
 struct ArenaConfig_ {
@@ -35,18 +52,10 @@ struct ArenaConfig_ {
     bool is_simt;
 
     struct {
-        bool physical;
-        bool allowed;
-    } address_spaces[NumAddressSpaces];
-
-    struct {
-        /// Selects which type the subgroup intrinsic primops use to manipulate masks
-        SubgroupMaskRepresentation subgroup_mask_representation;
-
         uint32_t workgroup_size[3];
     } specializations;
 
-    PointerModel memory;
+    TargetConfig target;
 
     /// 'folding' optimisations - happen in the constructors directly
     struct {
@@ -66,11 +75,6 @@ struct CompilerConfig_ {
     uint32_t per_thread_stack_size;
 
     struct {
-        uint8_t major;
-        uint8_t minor;
-    } target_spirv_version;
-
-    struct {
         bool restructure_with_heuristics;
         bool add_scope_annotations;
         bool has_scope_annotations;
@@ -87,7 +91,6 @@ struct CompilerConfig_ {
     } lower;
 
     struct {
-        bool spv_shuffle_instead_of_broadcast_first;
         bool force_join_point_lifting;
     } hacks;
 
@@ -118,14 +121,13 @@ struct CompilerConfig_ {
     struct {
         String entry_point;
         ExecutionModel execution_model;
-        uint32_t subgroup_size;
     } specialization;
 
     TargetConfig target;
 
-    struct {
-        struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
-    } hooks;
+    // struct {
+    //     struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;
+    // } hooks;
 };
 
 CompilerConfig shd_default_compiler_config(void);

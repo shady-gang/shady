@@ -22,11 +22,11 @@ TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLa
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 
 static inline const Node* size_t_type(IrArena* a) {
-    return int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false });
+    return int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false });
 }
 
 static inline const Node* size_t_literal(IrArena* a, uint64_t value) {
-    return int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false, .value = value });
+    return int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = value });
 }
 
 const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes);

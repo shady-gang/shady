@@ -49,14 +49,14 @@ int main(int argc, char* argv[]) {
     Program* program;
     IrArena* arena = NULL;
     ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.config.target);
-    arena = shd_new_ir_arena(&aconfig);
+    Module* module;
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
-        Module* module;
         shd_driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader,
                                     "runtime_test", &module);
         program = shd_rt_new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
-        Module* module = shd_new_module(arena, "my_module");
+        arena = shd_new_ir_arena(&aconfig);
+        module = shd_new_module(arena, "my_module");
         int err = shd_driver_load_source_files(&args.driver_config, module);
         if (err)
             return err;
@@ -77,6 +77,8 @@ int main(int argc, char* argv[]) {
     shd_rt_shutdown(runtime);
     if (arena)
         shd_destroy_ir_arena(arena);
+    else
+        shd_destroy_ir_arena(shd_module_get_arena(module));
     shd_destroy_driver_config(&args.driver_config);
     return 0;
 }

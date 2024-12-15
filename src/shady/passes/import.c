@@ -9,11 +9,13 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-static void replace_or_compare(const Node** dst, const Node* with) {
+static void replace_or_compare(bool weak, const Node** dst, const Node* with) {
     if (!*dst)
         *dst = with;
-    else {
+    else if (!weak) {
         assert(*dst == with && "conflicting definitions");
+    } else {
+        // keep the source
     }
 }
 
@@ -38,19 +40,20 @@ static const Node* import_node(Rewriter* r, const Node* node) {
                 shd_error_print(".\n");
                 shd_error_die();
             }
+            bool weak = shd_lookup_annotation(existing, "Weak");
             switch (is_declaration(node)) {
                 case NotADeclaration: assert(false);
                 case Declaration_Function_TAG:
-                    replace_or_compare(&existing->payload.fun.body, shd_rewrite_node(r, node->payload.fun.body));
+                    replace_or_compare(weak, &existing->payload.fun.body, shd_rewrite_node(r, node->payload.fun.body));
                     break;
                 case Declaration_Constant_TAG:
-                    replace_or_compare(&existing->payload.constant.value, shd_rewrite_node(r, node->payload.constant.value));
+                    replace_or_compare(weak, &existing->payload.constant.value, shd_rewrite_node(r, node->payload.constant.value));
                     break;
                 case Declaration_GlobalVariable_TAG:
-                    replace_or_compare(&existing->payload.global_variable.init, shd_rewrite_node(r, node->payload.global_variable.init));
+                    replace_or_compare(weak, &existing->payload.global_variable.init, shd_rewrite_node(r, node->payload.global_variable.init));
                     break;
                 case Declaration_NominalType_TAG:
-                    replace_or_compare(&existing->payload.nom_type.body, shd_rewrite_node(r, node->payload.nom_type.body));
+                    replace_or_compare(weak, &existing->payload.nom_type.body, shd_rewrite_node(r, node->payload.nom_type.body));
                     break;
             }
             return existing;
@@ -60,7 +63,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_import(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_import(SHADY_UNUSED void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

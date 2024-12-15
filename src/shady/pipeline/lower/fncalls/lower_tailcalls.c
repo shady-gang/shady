@@ -18,7 +18,7 @@
 
 #include <assert.h>
 #include <string.h>
-#include <shady/ir/memory_layout.h>
+#include "shady/ir/memory_layout.h"
 
 typedef uint64_t FnPtr;
 

@@ -27,20 +27,18 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     Module* m = shd_new_module(initial_arena, name);
     slim_parse_string(pconfig, contents, m);
     Module** pmod = &m;
-    Module* old_mod = NULL;
 
     shd_debugv_print("Parsed slim module:\n");
     shd_log_module(DEBUGV, config, *pmod);
 
     shd_generate_dummy_constants(config, *pmod);
 
-    RUN_PASS(slim_pass_bind)
-    RUN_PASS(slim_pass_normalize)
+    RUN_PASS(slim_pass_bind, config)
+    RUN_PASS(slim_pass_normalize, config)
 
-    RUN_PASS(shd_pass_normalize_builtins)
-    RUN_PASS(slim_pass_infer)
-    RUN_PASS(shd_pass_lower_cf_instrs)
+    RUN_PASS(shd_pass_normalize_builtins, config)
+    RUN_PASS(slim_pass_infer, config)
+    RUN_PASS(shd_pass_lower_cf_instrs, config)
 
-    shd_destroy_ir_arena(initial_arena);
     return *pmod;
 }

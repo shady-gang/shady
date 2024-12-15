@@ -5,8 +5,6 @@
 #include "passes/passes.h"
 #include "analysis/verify.h"
 
-#include "../frontend/slim/parser.h"
-#include "shady_scheduler_src.h"
 #include "transform/internal_constants.h"
 
 #include "util.h"
@@ -14,31 +12,21 @@
 
 #include <stdbool.h>
 
-static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
-    SlimParserConfig pconfig = {
-        .front_end = true,
-    };
-    Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, shady_scheduler_src, "builtin_scheduler");
-    shd_debug_print("Adding builtin scheduler code");
-    shd_module_link(dst, builtin_scheduler_mod);
-    shd_destroy_ir_arena(shd_module_get_arena(builtin_scheduler_mod));
-}
-
 #ifdef NDEBUG
 #define SHADY_RUN_VERIFY 0
 #else
 #define SHADY_RUN_VERIFY 1
 #endif
 
-void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* initial_arena, RewritePass pass, String pass_name) {
+void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass pass, String pass_name, void* payload) {
     Module* old_mod = NULL;
     old_mod = *pmod;
-    *pmod = pass(config, *pmod);
+    *pmod = pass(payload, *pmod);
     (*pmod)->sealed = true;
     shd_debugvv_print("After pass %s: \n", pass_name);
     if (SHADY_RUN_VERIFY)
         shd_verify_module(config, *pmod);
-    if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod) && shd_module_get_arena(old_mod) != initial_arena)
+    if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
@@ -46,10 +34,10 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, IrArena* ini
     shd_log_module(DEBUGVV, config, *pmod);
     if (SHADY_RUN_VERIFY)
         shd_verify_module(config, *pmod);
-    if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod) && shd_module_get_arena(old_mod) != initial_arena)
+    if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
-    if (config->hooks.after_pass.fn)
-        config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
+    // if (config->hooks.after_pass.fn)
+    //     config->hooks.after_pass.fn(config->hooks.after_pass.uptr, pass_name, *pmod);
 }
 
 void shd_apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, OptPass pass, String pass_name) {
@@ -62,7 +50,7 @@ void shd_apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, Op
     }
 }
 
-CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod) {
+/*CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod) {
     IrArena* initial_arena = (*pmod)->arena;
 
     // we don't want to mess with the original module
@@ -104,16 +92,16 @@ CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod)
         RUN_PASS(shd_pass_specialize_entry_point)
 
     RUN_PASS(shd_pass_add_init_fini)
-    RUN_PASS(shd_pass_promote_io_variables)
 
     RUN_PASS(shd_pass_lower_tailcalls)
+    RUN_PASS(shd_pass_lower_mask)
     //RUN_PASS(shd_pass_lower_switch_btree)
     //RUN_PASS(shd_pass_opt_mem2reg)
+    RUN_PASS(shd_pass_lower_subgroup_ops)
 
+    RUN_PASS(shd_pass_promote_io_variables)
     RUN_PASS(shd_pass_lower_logical_pointers)
 
-    RUN_PASS(shd_pass_lower_mask)
-    RUN_PASS(shd_pass_lower_subgroup_ops)
     if (config->lower.emulate_physical_memory) {
         RUN_PASS(shd_pass_lower_alloca)
     }
@@ -142,6 +130,6 @@ CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod)
     RUN_PASS(shd_pass_restructurize)
 
     return CompilationNoError;
-}
+}*/
 
 #undef mod

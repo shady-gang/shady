@@ -60,12 +60,12 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case Bool_TAG: {
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
             const Node* value = shd_bld_load(bb, logical_ptr);
-            return prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size })));
+            return prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobal: {
                 // TODO: add a per-as size configuration
-                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
+                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
                 return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
             }
@@ -75,7 +75,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             assert(element_type->tag == Int_TAG);
             const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
-            size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
+            size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
             const Node* offset = shd_bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
@@ -147,15 +147,15 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
     switch (element_type->tag) {
         case Bool_TAG: {
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
-            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.memory.word_size });
-            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.memory.word_size });
+            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
+            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
             const Node* int_value = prim_op_helper(a, select_op, shd_empty(a), mk_nodes(a, value, one_b, zero_b));
             shd_bld_store(bb, logical_ptr, int_value);
             return;
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobal: {
-                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false });
+                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_value = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_int_t), shd_singleton(value));
                 return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
             }
@@ -169,7 +169,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
 
             // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
-            size_t word_size_in_bytes = int_size_in_bytes(a->config.memory.word_size);
+            size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
             const Node* offset = shd_bytes_to_words(bb, address);
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
@@ -185,7 +185,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 }*/
                 const Node* word = value;
                 word = (prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
-                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
 
                 offset = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
@@ -258,7 +258,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
 
     IrArena* a = ctx->rewriter.dst_arena;
 
-    const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
     const Node* address_param = param(a, qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || uniform_address, .type = emulated_ptr_type }), "ptr");
 
     const Type* input_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && shd_is_addr_space_uniform(a, as) && false), .type = element_type });
@@ -324,7 +324,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case StackAlloc_TAG: shd_error("This needs to be lowered (see setup_stack_frames.c)")
         case PtrType_TAG: {
             if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+                return int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
             break;
         }
         case NullPtr_TAG: {
@@ -400,7 +400,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         member_names[i] = decl->payload.global_variable.name;
 
         // Turn the old global variable into a pointer (which are also now integers)
-        const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+        const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
         Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
         Node* new_address = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
 
@@ -444,8 +444,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     Module* m = ctx->rewriter.dst_module;
     String as_name = shd_get_address_space_name(as);
 
-    const Type* word_type = int_type(a, (Int) { .width = a->config.memory.word_size, .is_signed = false });
-    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
+    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
 
     ctx->collected[as] = collect_globals(ctx, as);
     if (ctx->collected[as].count == 0) {
@@ -481,9 +481,9 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 
 Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.address_spaces[AsPrivate].physical = false;
-    aconfig.address_spaces[AsShared].physical = false;
-    aconfig.address_spaces[AsSubgroup].physical = false;
+    aconfig.target.address_spaces[AsPrivate].physical = false;
+    aconfig.target.address_spaces[AsShared].physical = false;
+    aconfig.target.address_spaces[AsSubgroup].physical = false;
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -494,9 +494,9 @@ Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) 
     };
 
     construct_emulated_memory_array(&ctx, AsPrivate);
-    if (dst->arena->config.address_spaces[AsSubgroup].allowed)
+    if (dst->arena->config.target.address_spaces[AsSubgroup].allowed)
         construct_emulated_memory_array(&ctx, AsSubgroup);
-    if (dst->arena->config.address_spaces[AsShared].allowed)
+    if (dst->arena->config.target.address_spaces[AsShared].allowed)
         construct_emulated_memory_array(&ctx, AsShared);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {

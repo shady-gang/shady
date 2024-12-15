@@ -41,7 +41,7 @@ KeyHash shd_hash_node(const Node** pnode);
 bool shd_compare_node(const Node** pa, const Node** pb);
 
 static KeyHash hash_key(Key* key) {
-    return shd_hash_node(&key->t) ^ shd_hash_string(&key->op.iset) ^ shd_hash(&key->op.opcode, sizeof(sizeof(Op))) & shd_hash_nodes(&key->op.params);
+    return shd_hash_node(&key->t) ^ shd_hash_string(&key->op.iset) ^ shd_hash(&key->op.opcode, sizeof(Op)) & shd_hash_nodes(&key->op.params);
 }
 
 static bool compare_key(Key* a, Key* b) {

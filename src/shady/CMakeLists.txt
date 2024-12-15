@@ -41,6 +41,7 @@ add_subdirectory(analysis)
 add_subdirectory(transform)
 add_subdirectory(passes)
 add_subdirectory(ir)
+add_subdirectory(pipeline)
 
 target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 

@@ -1,5 +1,5 @@
-#ifndef SHADY_CLI
-#define SHADY_CLI
+#ifndef SHADY_DRIVER_H
+#define SHADY_DRIVER_H
 
 #include "shady/ir/base.h"
 #include "shady/config.h"
@@ -54,7 +54,8 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
-    CEmitterConfig c_emitter_config;
+    CTargetConfig c_target_config;
+    SPIRVTargetConfig spirv_target_config;
     struct List* input_filenames;
     CodegenTarget target;
     const char*     output_filename;
@@ -75,6 +76,6 @@ typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
 
-CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod);
+// CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod);
 
 #endif

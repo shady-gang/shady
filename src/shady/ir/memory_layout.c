@@ -56,7 +56,7 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
 }
 
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
-    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->memory.word_size);
+    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
         case FnType_TAG:  shd_error("Functions have an opaque memory representation");
@@ -65,7 +65,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsSubgroup:
             case AsShared:
             case AsGlobal:
-            case AsGeneric: return shd_get_mem_layout(a, int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
+            case AsGeneric: return shd_get_mem_layout(a, int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
             default: shd_error("Pointers in address space '%s' does not have a defined memory layout", shd_get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
@@ -112,14 +112,14 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
 
 const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bytes->arena;
-    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->memory.word_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.word_size, .is_signed = false });
     size_t word_width = shd_get_type_bitwidth(word_type);
     const Node* bytes_per_word = size_t_literal(a, word_width / 8);
     return prim_op_helper(a, div_op, shd_empty(a), mk_nodes(a, bytes, bytes_per_word));
 }
 
 uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes) {
-    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->memory.word_size);
+    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
     return bytes / word_width;
 }
 
@@ -137,8 +137,8 @@ size_t shd_get_type_bitwidth(const Type* t) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
-            if (aconfig->address_spaces[t->payload.ptr_type.address_space].physical)
-                return int_size_in_bytes(aconfig->memory.ptr_size) * 8;
+            if (aconfig->target.address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
             break;
         }
         default: break;

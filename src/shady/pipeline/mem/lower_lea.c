@@ -26,7 +26,7 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
 
 static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* index) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* ptr = base;
@@ -82,7 +82,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
 
 static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* ptr = base;
@@ -109,7 +109,7 @@ static const Node* process(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
 
     switch (old->tag) {
         case PtrArrayElementOffset_TAG: {

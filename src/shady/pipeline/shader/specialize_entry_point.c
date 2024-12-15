@@ -1,4 +1,6 @@
-#include "shady/pass.h"
+#include "pipeline/pipeline_private.h"
+#include "passes/passes.h"
+
 #include "shady/ir/builtin.h"
 
 #include "ir_private.h"
@@ -7,6 +9,11 @@
 #include "log.h"
 
 #include <string.h>
+
+typedef struct {
+    const CompilerConfig* config;
+    String entry_pt;
+} PassConfig;
 
 typedef struct {
     Rewriter rewriter;
@@ -52,7 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 wg_size[0] = a->config.specializations.workgroup_size[0];
                 wg_size[1] = a->config.specializations.workgroup_size[1];
                 wg_size[2] = a->config.specializations.workgroup_size[2];
-                uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->specialization.subgroup_size;
+                uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->target.subgroup_size;
                 if (subgroups_per_wg == 0)
                     subgroups_per_wg = 1; // uh-oh
                 ncnst->payload.constant.value = shd_uint32_literal(a, subgroups_per_wg);
@@ -64,31 +71,16 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-static const Node* find_entry_point(Module* m, const CompilerConfig* config) {
-    if (!config->specialization.entry_point)
-        return NULL;
-    const Node* found = NULL;
-    Nodes old_decls = shd_module_get_declarations(m);
-    for (size_t i = 0; i < old_decls.count; i++) {
-        if (strcmp(get_declaration_name(old_decls.nodes[i]), config->specialization.entry_point) == 0) {
-            assert(!found);
-            found = old_decls.nodes[i];
-        }
-    }
-    assert(found);
-    return found;
-}
-
-static void specialize_arena_config(const CompilerConfig* config, Module* src, ArenaConfig* target) {
-    const Node* old_entry_point_decl = find_entry_point(src, config);
+static void specialize_arena_config(String entry_point, const CompilerConfig* config, Module* src, ArenaConfig* target) {
+    const Node* old_entry_point_decl = shd_module_get_declaration(src, entry_point);
     if (!old_entry_point_decl)
         shd_error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
-        shd_error("%s is not a function", config->specialization.entry_point);
+        shd_error("%s is not a function", entry_point);
     const Node* ep = shd_lookup_annotation(old_entry_point_decl, "EntryPoint");
     if (!ep)
-        shd_error("%s is not annotated with @EntryPoint", config->specialization.entry_point);
-    switch (shd_execution_model_from_string(shd_get_annotation_string_payload(ep))) {
+        shd_error("%s is not annotated with @EntryPoint", entry_point);
+    switch (config->specialization.execution_model) {
         case EmNone: shd_error("Unknown entry point type: %s", shd_get_annotation_string_payload(ep))
         case EmCompute: {
             const Node* old_wg_size_annotation = shd_lookup_annotation(old_entry_point_decl, "WorkgroupSize");
@@ -104,18 +96,18 @@ static void specialize_arena_config(const CompilerConfig* config, Module* src, A
     }
 }
 
-Module* shd_pass_specialize_entry_point(const CompilerConfig* config, Module* src) {
+static Module* specialize_entry_point_pass(PassConfig* cfg, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    specialize_arena_config(config, src, &aconfig);
+    specialize_arena_config(cfg->entry_pt, cfg->config, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
+        .config = cfg->config,
     };
 
-    const Node* old_entry_point_decl = find_entry_point(src, config);
+    const Node* old_entry_point_decl = shd_module_get_declaration(src, cfg->entry_pt);
     shd_rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
     Nodes old_decls = shd_module_get_declarations(src);
@@ -127,4 +119,15 @@ Module* shd_pass_specialize_entry_point(const CompilerConfig* config, Module* sr
 
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+static void specialize_entry_point(String* entry_point, const CompilerConfig* config, Module** pmod) {
+    //*pmod = specialize_entry_point_pass(*entry_point, config, *pmod);
+    PassConfig specialize_config = { .config = config, .entry_pt = *entry_point };
+    RUN_PASS(((RewritePass*) &specialize_entry_point_pass), &specialize_config)
+    RUN_PASS(shd_pass_add_init_fini, config)
+}
+
+void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point, &entry_point, sizeof(entry_point));
 }

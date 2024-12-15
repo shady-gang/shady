@@ -286,7 +286,7 @@
       "name": "UntypedNumber",
       "class": "value",
       "ops": [
-        { "name": "plaintext", "type": "String" }
+        { "name": "plaintext", "class": "string" }
       ]
     },
     {

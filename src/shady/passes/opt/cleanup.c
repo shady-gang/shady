@@ -157,5 +157,6 @@ Module* shd_cleanup(const CompilerConfig* config, Module* const src) {
     } while (todo);
     if (changed_at_all)
         shd_debugv_print("After %d rounds of cleanup:\n", r);
+
     return shd_import(config, m);
 }

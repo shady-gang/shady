@@ -228,6 +228,7 @@ struct VkrSpecProgram_ {
     VkrDevice* device;
     Arena* arena;
 
+    CompilerConfig specialized_config;
     Module* specialized_module;
 
     size_t spirv_size;

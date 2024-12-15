@@ -67,7 +67,7 @@ static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) 
     IrArena* initial_arena = shd_module_get_arena(initial_mod);
     Module** pmod = &initial_mod;
 
-    RUN_PASS(shd_cleanup)
+    RUN_PASS(shd_cleanup, config)
     check_module(*pmod);
 
     return *pmod;

@@ -242,33 +242,29 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
-static CompilerConfig get_compiler_config_for_device(VkrDevice* device, const CompilerConfig* base_config) {
-    CompilerConfig config = *base_config;
-
+static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* config, SPIRVTargetConfig* spv_config) {
     assert(device->caps.subgroup_size.max > 0);
-    config.specialization.subgroup_size = device->caps.subgroup_size.max;
+    config->target.subgroup_size = device->caps.subgroup_size.max;
     // config.per_thread_stack_size = ...
 
-    config.target_spirv_version.major = device->caps.spirv_version.major;
-    config.target_spirv_version.minor = device->caps.spirv_version.minor;
+    spv_config->target_version.major = device->caps.spirv_version.major;
+    spv_config->target_version.minor = device->caps.spirv_version.minor;
 
     if (!device->caps.features.subgroup_extended_types.shaderSubgroupExtendedTypes)
-        config.lower.emulate_subgroup_ops_extended_types = true;
+        config->lower.emulate_subgroup_ops_extended_types = true;
 
-    config.lower.int64 = !device->caps.features.base.features.shaderInt64;
+    config->lower.int64 = !device->caps.features.base.features.shaderInt64;
 
     if (device->caps.implementation.is_moltenvk) {
         shd_warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
-        config.lower.emulate_subgroup_ops_extended_types = true;
+        config->lower.emulate_subgroup_ops_extended_types = true;
         shd_warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
-        config.lower.decay_ptrs = true;
+        config->lower.decay_ptrs = true;
     }
     if (device->caps.properties.driver_properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
         shd_warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
-        config.hacks.spv_shuffle_instead_of_broadcast_first = true;
+        spv_config->hacks.shuffle_instead_of_broadcast_first = true;
     }
-
-    return config;
 }
 
 static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) {
@@ -374,18 +370,32 @@ static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) 
     return true;
 }
 
+#include "shady/pipeline/pipeline.h"
+#include "shady/pass.h"
+
+void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+
 static bool compile_specialized_program(VkrSpecProgram* spec) {
-    CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
+    CompilerConfig config = *spec->key.base->base_config;
+    spec->specialized_module = shd_import(&config, spec->key.base->module);
+
+    SPIRVTargetConfig spv_cfg = shd_default_spirv_target_config();
+    get_compiler_config_for_device(spec->device, &config, &spv_cfg);
+    config.specialization.execution_model = EmCompute;
     config.specialization.entry_point = spec->key.entry_point;
 
-    CHECK(shd_run_compiler_passes(&config, &spec->specialized_module) == CompilationNoError, return false);
+    ShdPipeline pipeline = shd_create_empty_pipeline();
+    shd_pipeline_add_normalize_input_cf(pipeline);
+    shd_pipeline_add_shader_target_lowering(pipeline, config.target, config.specialization.execution_model, config.specialization.entry_point);
+    shd_pipeline_add_spirv_target_passes(pipeline, &spv_cfg);
+    CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->specialized_module);
+    shd_destroy_pipeline(pipeline);
 
-    Module* final_mod;
-    shd_emit_spirv(&config, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes, &final_mod);
+    CHECK(result == CompilationNoError, return false);
 
-    CHECK(extract_parameters_info(&spec->parameters, final_mod), return false);
-
-    spec->specialized_module = final_mod;
+    shd_emit_spirv(&config, spv_cfg, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes);
+    CHECK(extract_parameters_info(&spec->parameters, spec->specialized_module), return false);
 
     if (spec->key.base->runtime->config.dump_spv) {
         String module_name = shd_module_get_name(spec->specialized_module);
@@ -480,7 +490,6 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
 
     spec_program->key = key;
     spec_program->device = device;
-    spec_program->specialized_module = key.base->module;
     spec_program->arena = shd_new_arena();
 
     CHECK(compile_specialized_program(spec_program), return NULL);

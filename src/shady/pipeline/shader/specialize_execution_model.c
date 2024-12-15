@@ -1,8 +1,13 @@
-#include "shady/pass.h"
+#include "pipeline/pipeline_private.h"
 
 #include "portability.h"
 
 #include <string.h>
+
+typedef struct {
+    const CompilerConfig* config;
+    ExecutionModel em;
+} PassConfig;
 
 typedef struct {
     Rewriter rewriter;
@@ -15,7 +20,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Constant_TAG: {
             Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
             if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
-                ncnst->payload.constant.value = shd_uint32_literal(a, ctx->config->specialization.subgroup_size);
+                ncnst->payload.constant.value = shd_uint32_literal(a, ctx->config->target.subgroup_size);
             }
             return ncnst;
         }
@@ -24,8 +29,9 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-static void specialize_arena_config(const CompilerConfig* config, Module* m, ArenaConfig* target) {
-    switch (config->specialization.execution_model) {
+static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
+    target->execution_model = em;
+    switch (em) {
         case EmVertex:
         case EmFragment: {
             target->address_spaces[AsShared].allowed = false;
@@ -35,21 +41,28 @@ static void specialize_arena_config(const CompilerConfig* config, Module* m, Are
     }
 }
 
-Module* shd_pass_specialize_execution_model(const CompilerConfig* config, Module* src) {
+static Module* specialize_execution_model_pass(PassConfig* cfg, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    specialize_arena_config(config, src, &aconfig);
+    specialize_arena_config(cfg->em, &aconfig.target);
+
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
-    size_t subgroup_size = config->specialization.subgroup_size;
-    assert(subgroup_size);
-
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
+        .config = cfg->config,
     };
 
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+static void specialize_execution_model(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
+    PassConfig cfg = { .config = config, .em = *em };
+    RUN_PASS((RewritePass*) specialize_execution_model_pass, &cfg);
+}
+
+void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ExecutionModel em) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_execution_model, &em, sizeof(ExecutionModel));
 }

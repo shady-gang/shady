@@ -25,7 +25,6 @@ int main(int argc, char** argv) {
     }
 
     ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
-    IrArena* arena = shd_new_ir_arena(&aconfig);
 
     vcc_check_clang();
 
@@ -42,6 +41,5 @@ int main(int argc, char** argv) {
     shd_info_print("Done\n");
 
     destroy_vcc_options(vcc_options);
-    shd_destroy_ir_arena(arena);
     shd_destroy_driver_config(&args);
 }

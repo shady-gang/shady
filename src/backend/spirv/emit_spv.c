@@ -17,6 +17,16 @@
 #include <stdint.h>
 #include <assert.h>
 
+SPIRVTargetConfig shd_default_spirv_target_config(void) {
+    SPIRVTargetConfig config = {
+        .target_version = {
+            .major = 1,
+            .minor = 4
+        },
+    };
+    return config;
+}
+
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
@@ -252,8 +262,8 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
         const Node* node = declarations.nodes[i];
         if (node->tag != GlobalVariable_TAG) continue;
         // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
-        if (emitter->configuration->target_spirv_version.major == 1 &&
-            emitter->configuration->target_spirv_version.minor < 4) {
+        if (emitter->spirv_tgt.target_version.major == 1 &&
+            emitter->spirv_tgt.target_version.minor < 4) {
             switch (node->payload.global_variable.address_space) {
                 case AsOutput:
                 case AsInput: break;
@@ -316,32 +326,35 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
 RewritePass shd_spvbe_pass_map_entrypoint_args;
 RewritePass shd_spvbe_pass_lift_globals_ssbo;
 
-static Module* run_backend_specific_passes(const CompilerConfig* config, Module* initial_mod) {
-    IrArena* initial_arena = initial_mod->arena;
-    Module** pmod = &initial_mod;
+#include "shady/pipeline/pipeline.h"
 
-    RUN_PASS(shd_pass_lower_entrypoint_args)
-    RUN_PASS(shd_spvbe_pass_map_entrypoint_args)
-    RUN_PASS(shd_spvbe_pass_lift_globals_ssbo)
-    RUN_PASS(shd_pass_eliminate_constants)
-    RUN_PASS(shd_import)
+static CompilationResult run_spv_backend_transforms(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
+    RUN_PASS(shd_pass_lower_entrypoint_args, config)
+    RUN_PASS(shd_spvbe_pass_map_entrypoint_args, config)
+    RUN_PASS(shd_spvbe_pass_lift_globals_ssbo, config)
+    RUN_PASS(shd_pass_eliminate_constants, config)
+    RUN_PASS(shd_import, config)
 
-    return *pmod;
+    return CompilationNoError;
 }
 
-void shd_emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_size, char** output, Module** new_mod) {
-    IrArena* initial_arena = shd_module_get_arena(mod);
-    mod = run_backend_specific_passes(config, mod);
+void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, SPIRVTargetConfig* econfig) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, NULL, 0);
+}
+
+void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_config, Module* mod, size_t* output_size, char** output) {
+    mod = shd_import(config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 
     FileBuilder file_builder = spvb_begin();
-    spvb_set_version(file_builder, config->target_spirv_version.major, config->target_spirv_version.minor);
+    spvb_set_version(file_builder, target_config.target_version.major, target_config.target_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelLogical);
 
     Emitter emitter = {
         .module = mod,
         .arena = arena,
         .configuration = config,
+        .spirv_tgt = target_config,
         .file_builder = file_builder,
         .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
@@ -370,8 +383,5 @@ void shd_emit_spirv(const CompilerConfig* config, Module* mod, size_t* output_si
     shd_destroy_dict(emitter.bb_builders);
     shd_destroy_dict(emitter.extended_instruction_sets);
 
-    if (new_mod)
-        *new_mod = mod;
-    else if (initial_arena != arena)
-        shd_destroy_ir_arena(arena);
+    shd_destroy_ir_arena(arena);
 }

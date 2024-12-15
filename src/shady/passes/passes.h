@@ -6,7 +6,6 @@
 /// @name Boring, regular compiler stuff
 /// @{
 
-RewritePass shd_import;
 RewritePass shd_cleanup;
 
 /// @}

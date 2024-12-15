@@ -60,7 +60,7 @@ const Type* _shd_check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
-    if (!arena->config.address_spaces[ptr_type.address_space].allowed) {
+    if (!arena->config.target.address_spaces[ptr_type.address_space].allowed) {
         shd_error_print("Address space %s is not allowed in this arena\n", shd_get_address_space_name(ptr_type.address_space));
         shd_error_die();
     }
@@ -422,7 +422,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
+                .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
             });
         }
         case offset_of_op: {
@@ -433,7 +433,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(uniform && optype->tag == Int_TAG);
             return qualified_type(arena, (QualifiedType) {
                 .is_uniform = true,
-                .type = int_type(arena, (Int) { .width = arena->config.memory.ptr_size, .is_signed = false })
+                .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
             });
         }
         case select_op: {

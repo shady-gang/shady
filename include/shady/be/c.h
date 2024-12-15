@@ -3,6 +3,8 @@
 
 #include "shady/ir/base.h"
 
+typedef struct ShdPipeline_* ShdPipeline;
+
 typedef enum {
     CDialect_C11,
     CDialect_GLSL,
@@ -16,12 +18,14 @@ typedef struct {
     bool allow_compound_literals;
     bool decay_unsized_arrays;
     int glsl_version;
-} CEmitterConfig;
+} CTargetConfig;
 
-CEmitterConfig shd_default_c_emitter_config(void);
+CTargetConfig shd_default_c_target_config(void);
 
 typedef struct CompilerConfig_ CompilerConfig;
-void shd_emit_c(const CompilerConfig* compiler_config, CEmitterConfig config, Module* mod, size_t* output_size, char** output, Module** new_mod);
+
+void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, CTargetConfig* econfig);
+void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_config, Module* mod, size_t* output_size, char** output);
 
 #endif
 

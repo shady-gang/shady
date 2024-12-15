@@ -46,7 +46,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
-    const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false});
+    const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
     const Node* first_non_tag_bit = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, nptr, size_t_literal(a, shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
@@ -70,7 +70,7 @@ static bool allowed(Context* ctx, AddressSpace as) {
     if (as == AsGeneric)
         return false;
     // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
-    if (!ctx->rewriter.dst_arena->config.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.address_spaces[as].allowed)
+    if (!ctx->rewriter.dst_arena->config.target.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.target.address_spaces[as].allowed)
         return false;
     return true;
 }
@@ -279,7 +279,7 @@ Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
-        .generic_ptr_type = int_type(a, (Int) {.width = a->config.memory.ptr_size, .is_signed = false}),
+        .generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false}),
         .config = config,
     };
     shd_rewrite_module(&ctx.rewriter);
