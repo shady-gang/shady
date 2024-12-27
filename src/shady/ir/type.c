@@ -116,8 +116,8 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return supertype->payload.pack_type.width == type->payload.pack_type.width;
         }
-        case Type_TypeDeclRef_TAG: {
-            return supertype->payload.type_decl_ref.decl == type->payload.type_decl_ref.decl;
+        case NominalType_TAG: {
+            return false;
         }
         case Type_ImageType_TAG: {
             if (!shd_is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
@@ -183,7 +183,7 @@ bool shd_is_physical_data_type(const Type* type) {
             // multi-return record types are the results of instructions, but are not values themselves
             return type->payload.record_type.special == NotSpecial;
         }
-        case Type_TypeDeclRef_TAG:
+        case NominalType_TAG:
             return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
             // qualified types are not data types because that information is only meant for values
         case Type_QualifiedType_TAG: return false;
@@ -295,7 +295,7 @@ String shd_get_type_name(IrArena* arena, const Type* t) {
         }
         case Type_Float_TAG: return shd_fmt_string_irarena(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        case Type_TypeDeclRef_TAG: return t->payload.type_decl_ref.decl->payload.nom_type.name;
+        case NominalType_TAG: return t->payload.nom_type.name;
         default: break;
     }
     return shd_make_unique_name(arena, shd_get_node_tag_string(t->tag));
@@ -462,35 +462,20 @@ AddressSpace shd_deconstruct_pointer_type(const Type** type) {
     return t->payload.ptr_type.address_space;
 }
 
-const Node* shd_get_nominal_type_decl(const Type* type) {
-    assert(type->tag == TypeDeclRef_TAG);
-    return shd_get_maybe_nominal_type_decl(type);
-}
-
 const Type* shd_get_nominal_type_body(const Type* type) {
-    assert(type->tag == TypeDeclRef_TAG);
-    return shd_get_maybe_nominal_type_body(type);
-}
-
-const Node* shd_get_maybe_nominal_type_decl(const Type* type) {
-    if (type->tag == TypeDeclRef_TAG) {
-        const Node* decl = type->payload.type_decl_ref.decl;
-        assert(decl->tag == NominalType_TAG);
-        return decl;
-    }
-    return NULL;
+    assert(type->tag == NominalType_TAG);
+    return type->payload.nom_type.body;
 }
 
 const Type* shd_get_maybe_nominal_type_body(const Type* type) {
-    const Node* decl = shd_get_maybe_nominal_type_decl(type);
-    if (decl)
-        return decl->payload.nom_type.body;
+    if (type->tag == NominalType_TAG)
+        return type->payload.nom_type.body;
     return type;
 }
 
 Nodes shd_get_composite_type_element_types(const Type* type) {
     switch (is_type(type)) {
-        case Type_TypeDeclRef_TAG: {
+        case NominalType_TAG: {
             type = shd_get_nominal_type_body(type);
             assert(type->tag == RecordType_TAG);
             SHADY_FALLTHROUGH
@@ -564,7 +549,7 @@ const Node* shd_get_default_value(IrArena* a, const Type* t) {
         case Type_RecordType_TAG:
         case Type_ArrType_TAG:
         case Type_PackType_TAG:
-        case Type_TypeDeclRef_TAG: {
+        case NominalType_TAG: {
             Nodes elem_tys = shd_get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);

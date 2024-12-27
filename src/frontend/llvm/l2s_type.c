@@ -52,7 +52,7 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
             const Node* result = NULL;
             if (name) {
                 decl = nominal_type(p->dst, shd_empty(a), name);
-                result = type_decl_ref_helper(a, decl);
+                result = decl;
                 shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
             }
 

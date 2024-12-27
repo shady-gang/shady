@@ -253,14 +253,6 @@
       ]
     },
     {
-      "name": "TypeDeclRef",
-      "class": "type",
-      "type": false,
-      "ops": [
-        { "name": "decl", "class": "declaration" }
-      ]
-    },
-    {
       "name": "Param",
       "class": ["value", "param"],
       "constructor": "custom",
@@ -604,7 +596,7 @@
     {
       "name": "NominalType",
       "snake_name": "nom_type",
-      "class": "declaration",
+      "class": ["declaration", "type"],
       "constructor": "custom",
       "nominal": true,
       "type": false,

@@ -188,9 +188,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 .mem = shd_rewrite_node(r, payload.mem)
             });
         }
-        case JoinPointType_TAG: return type_decl_ref(a, (TypeDeclRef) {
-            .decl = shd_find_or_process_decl(&ctx->rewriter, "JoinPoint"),
-        });
+        case JoinPointType_TAG: return shd_find_or_process_decl(&ctx->rewriter, "JoinPoint");
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
             if (strcmp(payload.set, "shady.internal") == 0) {

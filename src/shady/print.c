@@ -482,8 +482,8 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
-        case TypeDeclRef_TAG: {
-            printf("%s", get_declaration_name(node->payload.type_decl_ref.decl));
+        case NominalType_TAG: {
+            printf("%s", get_declaration_name(node));
             break;
         }
         default:_shd_print_node_generated(ctx, node);

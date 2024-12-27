@@ -58,10 +58,8 @@ void shd_enter_composite_type(const Type** datatype, bool* uniform, const Node* 
             current_type = current_type->payload.arr_type.element_type;
             break;
         }
-        case TypeDeclRef_TAG: {
-            const Node* nom_decl = current_type->payload.type_decl_ref.decl;
-            assert(nom_decl->tag == NominalType_TAG);
-            current_type = nom_decl->payload.nom_type.body;
+        case NominalType_TAG: {
+            current_type = current_type->payload.nom_type.body;
             goto try_again;
         }
         case PackType_TAG: {

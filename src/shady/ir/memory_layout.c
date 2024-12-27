@@ -104,7 +104,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             };
         }
         case QualifiedType_TAG: return shd_get_mem_layout(a, type->payload.qualified_type.type);
-        case TypeDeclRef_TAG: return shd_get_mem_layout(a, type->payload.type_decl_ref.decl->payload.nom_type.body);
+        case NominalType_TAG: return shd_get_mem_layout(a, type->payload.nom_type.body);
         case RecordType_TAG: return shd_get_record_layout(a, type, NULL);
         default: shd_error("not a known type");
     }

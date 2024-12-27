@@ -106,9 +106,7 @@ const Type* shd_get_pointer_type_element(const Type* type);
 AddressSpace shd_deconstruct_pointer_type(const Type** type);
 
 // Nominal type helpers
-const Node* shd_get_nominal_type_decl(const Type* type);
 const Type* shd_get_nominal_type_body(const Type* type);
-const Node* shd_get_maybe_nominal_type_decl(const Type* type);
 const Type* shd_get_maybe_nominal_type_body(const Type* type);
 
 // Composite type helpers

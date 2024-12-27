@@ -40,7 +40,7 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
 }
 
 static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
-    if (!is_type(node)) {
+    if (!is_type(node) || shd_is_node_nominal(node)) {
         shd_register_processed(rewriter, node, node);
         return node;
     }
@@ -139,7 +139,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         } case PtrType_TAG: {
             SpvStorageClass sc = spv_emit_addr_space(emitter, type->payload.ptr_type.address_space);
             const Type* pointed_type = type->payload.ptr_type.pointed_type;
-            if (shd_get_maybe_nominal_type_decl(pointed_type) && sc == SpvStorageClassPhysicalStorageBuffer) {
+            if (pointed_type->tag == NominalType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
                 spv_register_emitted(emitter, NULL, type, new);
                 SpvId pointee = spv_emit_type(emitter, pointed_type);
@@ -200,8 +200,8 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spv_emit_nominal_type_body(emitter, type, new);
             return new;
         }
-        case Type_TypeDeclRef_TAG: {
-            new = spv_emit_decl(emitter, type->payload.type_decl_ref.decl);
+        case NominalType_TAG: {
+            new = spv_emit_decl(emitter, type);
             break;
         }
         case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;

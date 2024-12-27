@@ -51,10 +51,8 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             });
             break;
         }
-        case TypeDeclRef_TAG: {
-            const Node* nom_decl = pointed_type->payload.type_decl_ref.decl;
-            assert(nom_decl && nom_decl->tag == NominalType_TAG);
-            pointed_type = nom_decl->payload.nom_type.body;
+        case NominalType_TAG: {
+            pointed_type = pointed_type->payload.nom_type.body;
             SHADY_FALLTHROUGH
         }
         case RecordType_TAG: {

@@ -67,7 +67,7 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
         const Node* maybe_record_type = ptr_type.pointed_type;
-        if (maybe_record_type->tag == TypeDeclRef_TAG)
+        if (maybe_record_type->tag == NominalType_TAG)
             maybe_record_type = shd_get_nominal_type_body(maybe_record_type);
         if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
             return NULL;

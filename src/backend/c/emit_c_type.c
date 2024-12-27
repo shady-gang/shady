@@ -311,9 +311,9 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         }
-        case Type_TypeDeclRef_TAG: {
-            shd_c_emit_decl(emitter, type->payload.type_decl_ref.decl);
-            emitted = *shd_c_lookup_existing_type(emitter, type->payload.type_decl_ref.decl);
+        case NominalType_TAG: {
+            shd_c_emit_decl(emitter, type);
+            emitted = *shd_c_lookup_existing_type(emitter, type);
             goto type_goes_on_left;
         }
     }

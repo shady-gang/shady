@@ -42,14 +42,6 @@ static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED Str
     IrArena* a = r->dst_arena;
     switch (op_class) {
         case NcType: {
-            switch (node->tag) {
-                case NominalType_TAG: {
-                    return type_decl_ref(ctx->rewriter.dst_arena, (TypeDeclRef) {
-                        .decl = process_node(ctx, node),
-                    });
-                }
-                default: break;
-            }
             assert(is_type(node));
             const Node* type = process_node(ctx, node);
             assert(is_type(type));

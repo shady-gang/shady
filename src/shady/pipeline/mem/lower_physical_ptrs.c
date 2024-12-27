@@ -104,7 +104,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
             return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
         }
-        case TypeDeclRef_TAG:
+        case NominalType_TAG:
         case RecordType_TAG: {
             const Type* compound_type = element_type;
             compound_type = shd_get_maybe_nominal_type_body(compound_type);
@@ -216,10 +216,8 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             }
             return;
         }
-        case TypeDeclRef_TAG: {
-            const Node* nom = element_type->payload.type_decl_ref.decl;
-            assert(nom && nom->tag == NominalType_TAG);
-            gen_serialisation(ctx, bb, nom->payload.nom_type.body, arr, address, value);
+        case NominalType_TAG: {
+            gen_serialisation(ctx, bb, element_type->payload.nom_type.body, arr, address, value);
             return;
         }
         case ArrType_TAG:
@@ -407,7 +405,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = shd_bld_begin_pure(a);
-        const Node* offset = prim_op_helper(a, offset_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_singleton(size_t_literal(a, i)));
+        const Node* offset = prim_op_helper(a, offset_of_op, shd_singleton(global_struct_t), shd_singleton(size_t_literal(a, i)));
         new_address->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(offset));
 
         shd_register_processed(&ctx->rewriter, decl, new_address);
@@ -463,7 +461,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 
     // compute the size
     BodyBuilder* bb = shd_bld_begin_pure(a);
-    const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(type_decl_ref(a, (TypeDeclRef) { .decl = global_struct_t })), shd_empty(a));
+    const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(global_struct_t), shd_empty(a));
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));

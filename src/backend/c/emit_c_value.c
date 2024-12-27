@@ -513,7 +513,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             break;
         case offset_of_op: {
             const Type* t = shd_first(prim_op->type_arguments);
-            while (t->tag == TypeDeclRef_TAG) {
+            while (t->tag == NominalType_TAG) {
                 t = shd_get_nominal_type_body(t);
             }
             const Node* index = shd_first(prim_op->operands);
@@ -635,10 +635,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 const IntLiteral* static_index = shd_resolve_to_int_literal(index);
 
                 switch (is_type(t)) {
-                    case Type_TypeDeclRef_TAG: {
-                        const Node* decl = t->payload.type_decl_ref.decl;
-                        assert(decl && decl->tag == NominalType_TAG);
-                        t = decl->payload.nom_type.body;
+                    case NominalType_TAG: {
+                        t = t->payload.nom_type.body;
                         SHADY_FALLTHROUGH
                     }
                     case Type_RecordType_TAG: {
@@ -922,7 +920,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             });
             break;
         }
-        case TypeDeclRef_TAG: {
+        case NominalType_TAG: {
             pointee_type = shd_get_nominal_type_body(pointee_type);
             SHADY_FALLTHROUGH
         }

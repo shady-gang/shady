@@ -54,7 +54,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
 
             const Type* element_type = shd_rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
             assert(shd_is_data_type(element_type));
-            const Node* slot_offset = prim_op_helper(a, offset_of_op, shd_singleton(type_decl_ref_helper(a, vctx->nom_t)), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
+            const Node* slot_offset = prim_op_helper(a, offset_of_op, shd_singleton(vctx->nom_t), shd_singleton(shd_int32_literal(a, shd_list_count(vctx->members))));
             shd_list_append(const Type*, vctx->members, element_type);
 
             StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
@@ -116,7 +116,7 @@ static const Node* process(Context* ctx, const Node* node) {
             });
             shd_destroy_list(vctx.members);
             ctx2.num_slots = vctx.num_slots;
-            ctx2.frame_size = prim_op_helper(a, size_of_op, shd_singleton(type_decl_ref_helper(a, vctx.nom_t)), shd_empty(a));
+            ctx2.frame_size = prim_op_helper(a, size_of_op, shd_singleton(vctx.nom_t), shd_empty(a));
             ctx2.frame_size = shd_bld_convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
