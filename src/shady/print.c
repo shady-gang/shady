@@ -1045,8 +1045,8 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     if (print_def) {
         if (node->type) {
-            emit_node(ctx, node->type);
-            shd_print(p, "%%%d: %%%d = %s\n", node->id, node->type->id, s);
+            String t = emit_node(ctx, node->type);
+            shd_print(p, "%%%d: %s= %s\n", node->id, t, s);
         } else
             shd_print(p, "%%%d = %s\n", node->id, s);
     }
