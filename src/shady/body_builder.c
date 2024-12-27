@@ -383,3 +383,18 @@ void shd_bld_cancel(BodyBuilder* bb) {
     //destroy_list(bb->stack_stack);
     free(bb);
 }
+
+#include "shady/rewrite.h"
+
+BodyBuilder* shd_bld_begin_fn_rewrite(Rewriter* r, const Node* old, Node** new) {
+    assert(old);
+    *new = shd_recreate_node_head(r, old);
+    shd_register_processed(r, old, *new);
+    BodyBuilder* bld = shd_bld_begin(r->dst_arena, shd_get_abstraction_mem(*new));
+    return bld;
+}
+
+void shd_bld_finish_fn_rewrite(Rewriter* r, const Node* old, Node* new, BodyBuilder* bld) {
+    shd_register_processed(r, shd_get_abstraction_mem(old), shd_bld_mem(bld));
+    shd_set_abstraction_body(new, shd_bld_finish(bld, shd_rewrite_node(r, get_abstraction_body(old))));
+}

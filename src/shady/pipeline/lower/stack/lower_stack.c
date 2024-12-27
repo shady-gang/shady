@@ -92,22 +92,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    if (old->tag == Function_TAG && strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
-        Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-        BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
-
-        // Make sure to zero-init the stack pointers
-        // TODO isn't this redundant with thoose things having an initial value already ?
-        // is this an old forgotten workaround ?
-        if (ctx->stack) {
-            const Node* stack_pointer = ctx->stack_pointer;
-            shd_bld_store(bb, stack_pointer, shd_uint32_literal(a, 0));
-        }
-        shd_register_processed(r, shd_get_abstraction_mem(old), shd_bld_mem(bb));
-        shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
-        return new;
-    }
-
     switch (old->tag) {
         case GetStackSize_TAG: {
             assert(ctx->stack);

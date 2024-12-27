@@ -45,6 +45,28 @@ Node* shd_module_get_declaration(const Module* m, String name) {
     return NULL;
 }
 
+static Node* make_init_fini_fn(Module* m, String name) {
+    IrArena* a = shd_module_get_arena(m);
+    Nodes annotations = mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Internal"), annotation_helper(a, "Leaf"));
+    Node* fn = function(m, shd_nodes(a, 0, NULL), name, annotations, shd_nodes(a, 0, NULL));
+    shd_set_abstraction_body(fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(fn) }));
+    return fn;
+}
+
+Node* shd_module_get_init_fn(Module* m) {
+    Node* found = shd_module_get_declaration(m, "generated_init");
+    if (found)
+        return found;
+    return make_init_fini_fn(m, "generated_init");
+}
+
+Node* shd_module_get_fini_fn(Module* m) {
+    Node* found = shd_module_get_declaration(m, "generated_fini");
+    if (found)
+        return found;
+    return make_init_fini_fn(m, "generated_fini");
+}
+
 void shd_destroy_module(Module* m) {
     shd_destroy_list(m->decls);
 }

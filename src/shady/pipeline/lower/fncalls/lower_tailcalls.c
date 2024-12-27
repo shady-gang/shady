@@ -33,8 +33,6 @@ typedef struct Context_ {
     const UsesMap* uses;
 
     Node** top_dispatcher_fn;
-    const Node* init_fn;
-    const Node* fini_fn;
 } Context;
 
 static const Node* process(Context* ctx, const Node* old);
@@ -86,7 +84,6 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
 
-    shd_bld_call(bb, fn_addr_helper(a, ctx->init_fn), shd_empty(a));
     shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
 
     // shove the arguments on the stack
@@ -105,7 +102,6 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     }
 
     shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
-    shd_bld_call(bb, fn_addr_helper(a, ctx->fini_fn), shd_empty(a));
 
     shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
 }
@@ -179,7 +175,7 @@ static const Node* process(Context* ctx, const Node* old) {
             assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
             FnAddr callee = payload.callee->payload.fn_addr;
             const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn);
-            if (!ctx->disable_lowering && (ncallee == ctx->init_fn || ncallee == ctx->fini_fn)) {
+            if (!ctx->disable_lowering) {
                 return shd_rewrite_node(r, payload.mem);
             }
             return call(a, (Call) {
@@ -465,9 +461,6 @@ Module* shd_pass_lower_tailcalls(SHADY_UNUSED const CompilerConfig* config, Modu
 
         .top_dispatcher_fn = &top_dispatcher_fn,
     };
-
-    ctx.init_fn = shd_find_or_process_decl(&ctx.rewriter, "generated_init");
-    ctx.fini_fn = shd_find_or_process_decl(&ctx.rewriter, "generated_fini");
 
     shd_rewrite_module(&ctx.rewriter);
 

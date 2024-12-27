@@ -85,20 +85,6 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-static BodyBuilder* begin_wrapper_rewrite(Rewriter* r, Module* src, String name, const Node** old, Node** new) {
-    *old = shd_module_get_declaration(src, name);
-    assert(*old);
-    *new = shd_recreate_node_head(r, *old);
-    shd_register_processed(r, *old, *new);
-    BodyBuilder* bld = shd_bld_begin(r->dst_arena, shd_get_abstraction_mem(*new));
-    return bld;
-}
-
-static void finish_wrapper_rewrite(Rewriter* r, const Node* old, Node* new, BodyBuilder* bld) {
-    shd_register_processed(r, shd_get_abstraction_mem(old), shd_bld_mem(bld));
-    shd_set_abstraction_body(new, shd_bld_finish(bld, shd_rewrite_node(r, get_abstraction_body(old))));
-}
-
 Module* shd_pass_promote_io_variables(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     if (!config->specialization.entry_point)
         return src;
@@ -111,12 +97,13 @@ Module* shd_pass_promote_io_variables(SHADY_UNUSED const CompilerConfig* config,
 
     Rewriter* r = &ctx.rewriter;
     Node* init, *fini;
-    const Node* oinit, *ofini;
-    ctx.init_bld = begin_wrapper_rewrite(r, src, "generated_init", &oinit, &init);
-    ctx.fini_bld = begin_wrapper_rewrite(r, src, "generated_fini", &ofini, &fini);
+    const Node* oinit = shd_module_get_init_fn(src);
+    const Node* ofini = shd_module_get_fini_fn(src);
+    ctx.init_bld = shd_bld_begin_fn_rewrite(r, oinit, &init);
+    ctx.fini_bld = shd_bld_begin_fn_rewrite(r, ofini, &fini);
     shd_rewrite_module(r);
-    finish_wrapper_rewrite(r, oinit, init, ctx.init_bld);
-    finish_wrapper_rewrite(r, ofini, fini, ctx.fini_bld);
+    shd_bld_finish_fn_rewrite(r, oinit, init, ctx.init_bld);
+    shd_bld_finish_fn_rewrite(r, ofini, fini, ctx.fini_bld);
 
     shd_destroy_rewriter(r);
     return dst;

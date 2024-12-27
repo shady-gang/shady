@@ -338,20 +338,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
             }
             break;
         }
-        case Function_TAG: {
-            if (strcmp(shd_get_abstraction_name(old), "generated_init") == 0) {
-                Node* new = shd_recreate_node_head(&ctx->rewriter, old);
-                BodyBuilder *bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
-                for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
-                    if (is_as_emulated(ctx, as))
-                        store_init_data(ctx, as, ctx->collected[as], bb);
-                }
-                shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
-                shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&ctx->rewriter, old->payload.fun.body)));
-                return new;
-            }
-            break;
-        }
         default: break;
     }
 
@@ -506,7 +492,17 @@ Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) 
         }
     }
 
+    Rewriter* r = &ctx.rewriter;
+    Node* ninit;
+    const Node* oinit = shd_module_get_init_fn(src);
+    BodyBuilder* ninit_bld = shd_bld_begin_fn_rewrite(r, oinit, &ninit);
     shd_rewrite_module(&ctx.rewriter);
+    for (AddressSpace as = 0; as < NumAddressSpaces; as++) {
+        if (is_as_emulated(&ctx, as))
+            store_init_data(&ctx, as, ctx.collected[as], ninit_bld);
+    }
+    shd_bld_finish_fn_rewrite(r, oinit, ninit, ninit_bld);
+
     shd_destroy_rewriter(&ctx.rewriter);
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {

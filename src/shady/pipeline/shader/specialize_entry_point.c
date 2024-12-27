@@ -125,7 +125,6 @@ static void specialize_entry_point(String* entry_point, const CompilerConfig* co
     //*pmod = specialize_entry_point_pass(*entry_point, config, *pmod);
     PassConfig specialize_config = { .config = config, .entry_pt = *entry_point };
     RUN_PASS(((RewritePass*) &specialize_entry_point_pass), &specialize_config)
-    RUN_PASS(shd_pass_add_init_fini, config)
 }
 
 void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point) {

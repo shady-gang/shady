@@ -20,9 +20,13 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig 
 
     if (entry_point) {
         shd_pipeline_add_specialize_entry_point(pipeline, entry_point);
-        shd_pipeline_add_tailcall_elimination(pipeline);
     }
 
+    shd_pipeline_add_tailcall_elimination(pipeline);
     shd_pipeline_add_feature_lowering(pipeline, tgt);
     shd_pipeline_add_restructure_cf(pipeline);
+
+    if (entry_point) {
+        shd_pipeline_add_init_fini(pipeline);
+    }
 }

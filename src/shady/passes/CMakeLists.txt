@@ -12,7 +12,7 @@ target_sources(shady PRIVATE
         ../pipeline/mem/lower_memory_layout.c
         ../pipeline/mem/lower_memcpy.c
         ../pipeline/mem/lower_decay_ptrs.c
-    normalize/add_init_fini.c
+        normalize/call_init_fini.c
         ../pipeline/lower/fncalls/lower_tailcalls.c
         ../pipeline/lower/subgroup/lower_mask.c
         ../pipeline/polyfill/lower_fill.c

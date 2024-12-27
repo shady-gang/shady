@@ -62,4 +62,8 @@ const Node* shd_bld_to_instr_with_last_instr(BodyBuilder* bb, const Node* instru
 
 const Node* shd_bld_to_instr_pure_with_values(BodyBuilder* bb, Nodes values);
 
+typedef struct Rewriter_ Rewriter;
+BodyBuilder* shd_bld_begin_fn_rewrite(Rewriter* r, const Node* old, Node** new);
+void shd_bld_finish_fn_rewrite(Rewriter* r, const Node* old, Node* new, BodyBuilder* bld);
+
 #endif
