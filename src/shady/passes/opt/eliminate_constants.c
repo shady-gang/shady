@@ -17,7 +17,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Constant_TAG:
             if (!node->payload.constant.value)
                 break;
-            if (!ctx->all && !shd_lookup_annotation(node, "Inline"))
+            if (!ctx->all)
                 break;
             return NULL;
         case RefDecl_TAG: {

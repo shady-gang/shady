@@ -264,10 +264,9 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
         if (UNTYPED_POINTERS) {
-            Node* untyped_wrapper = constant(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "Inline" })), ptr_t, shd_fmt_string_irarena(a, "%s_untyped", name));
-            untyped_wrapper->payload.constant.value = ref_decl_helper(a, decl);
-            untyped_wrapper->payload.constant.value = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(ref_decl_helper(a, decl)));
-            decl = untyped_wrapper;
+            const Node* r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(ref_decl_helper(a, decl)));
+            shd_dict_insert(LLVMValueRef, const Node*, p->map, global, r);
+            return r;
         }
     } else {
         const Type* type = l2s_convert_type(p, LLVMTypeOf(global));

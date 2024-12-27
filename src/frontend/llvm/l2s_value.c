@@ -74,16 +74,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             break;
         case LLVMConstantExprValueKind: {
             String name = LLVMGetValueName(v);
-            if (!name || strlen(name) == 0)
-                name = shd_make_unique_name(a, "constant_expr");
-            Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Inline" }));
-            assert(t);
-            Node* decl = constant(p->dst, annotations, t, name);
-            r = ref_decl_helper(a, decl);
-            shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
             BodyBuilder* bb = shd_bld_begin_pure(a);
-            decl->payload.constant.value = shd_bld_to_instr_yield_value(bb, l2s_convert_instruction(p, NULL, NULL, bb, v));
-            return r;
+            return shd_bld_to_instr_yield_value(bb, l2s_convert_instruction(p, NULL, NULL, bb, v));
         }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);
