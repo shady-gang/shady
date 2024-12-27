@@ -146,11 +146,21 @@ static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* confi
         case TgtSPV:
             shd_pipeline_add_spirv_target_passes(pipeline, &config->spirv_target_config);
             break;
-        case TgtC:
-        case TgtGLSL:
-        case TgtISPC:
+        case TgtC: {
+            config->c_target_config.dialect = CDialect_C11;
             shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
             break;
+        }
+        case TgtGLSL: {
+            config->c_target_config.dialect = CDialect_GLSL;
+            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            break;
+        }
+        case TgtISPC: {
+            config->c_target_config.dialect = CDialect_ISPC;
+            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            break;
+        }
     }
 }
 
@@ -212,21 +222,14 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
             case TgtAuto: SHADY_UNREACHABLE;
             case TgtSPV: shd_emit_spirv(&args->config, args->spirv_target_config, mod, &output_size, &output_buffer); break;
             case TgtC:
-                args->c_target_config.dialect = CDialect_C11;
-                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
-                break;
             case TgtGLSL:
-                args->c_target_config.dialect = CDialect_GLSL;
-                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
-                break;
             case TgtISPC:
-                args->c_target_config.dialect = CDialect_ISPC;
                 shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
                 break;
         }
         shd_debug_print("Wrote result to %s\n", args->output_filename);
         fwrite(output_buffer, output_size, 1, f);
-        free((void*) output_buffer);
+        free(output_buffer);
         fclose(f);
     }
     shd_destroy_ir_arena(shd_module_get_arena(mod));
