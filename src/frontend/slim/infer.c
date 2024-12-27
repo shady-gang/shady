@@ -139,11 +139,14 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
              return ngvar;
         }
         case NominalType_TAG: {
-            const NominalType* onom_type = &node->payload.nom_type;
-            Node* nnominal_type = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, onom_type->annotations), onom_type->name);
-            shd_register_processed(&ctx->rewriter, node, nnominal_type);
-            nnominal_type->payload.nom_type.body = infer(ctx, onom_type->body, NULL);
-            return nnominal_type;
+            NominalType payload = node->payload.nom_type;
+            if (shd_lookup_annotation(node, "Alias")) {
+                return infer(ctx, payload.body, NULL);
+            }
+            Node* new = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), payload.name);
+            shd_register_processed(&ctx->rewriter, node, new);
+            new->payload.nom_type.body = infer(ctx, payload.body, NULL);
+            return new;
         }
         case NotADeclaration: shd_error("not a decl");
     }
@@ -192,6 +195,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 expected_type = valid_int ? shd_int32_type(a) : shd_fp32_type(a);
             }
             expected_type = remove_uniformity_qualifier(expected_type);
+            expected_type = shd_get_maybe_nominal_type_body(expected_type);
             if (expected_type->tag == Int_TAG) {
                 // TODO chop off extra bits based on width ?
                 return int_literal(a, (IntLiteral) {
@@ -199,7 +203,8 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                     .is_signed = expected_type->payload.int_literal.is_signed,
                     .value = i
                 });
-            } else if (expected_type->tag == Float_TAG) {
+            }
+            if (expected_type->tag == Float_TAG) {
                 uint64_t v;
                 switch (expected_type->payload.float_type.width) {
                     case FloatTy16:
@@ -217,6 +222,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 }
                 return float_literal(a, (FloatLiteral) {.value = v, .width = expected_type->payload.float_type.width});
             }
+            shd_error("Expected type of untyped number is not integer of float");
         }
         case FloatLiteral_TAG: {
             if (expected_type) {
@@ -575,7 +581,9 @@ static const Node* process(Context* src_ctx, const Node* node) {
 
     IrArena* a = ctx.rewriter.dst_arena;
 
-    if (is_type(node)) {
+    if (is_declaration(node)) {
+        return infer_decl(&ctx, node);
+    } else if (is_type(node)) {
         assert(expected_type == NULL);
         return infer_type(&ctx, node);
     } else if (is_instruction(node)) {
@@ -590,8 +598,6 @@ static const Node* process(Context* src_ctx, const Node* node) {
     } else if (is_terminator(node)) {
         assert(expected_type == NULL);
         return infer_terminator(&ctx, node);
-    } else if (is_declaration(node)) {
-        return infer_decl(&ctx, node);
     } else if (is_annotation(node)) {
         assert(expected_type == NULL);
         return infer_annotation(&ctx, node);

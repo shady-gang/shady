@@ -1,11 +1,16 @@
-@Internal type TreeNode = struct {
+@Internal @Alias
+type fn_ptr_t = u32;
+
+@Internal
+type TreeNode = struct {
     mask_t threads;
     u32 depth;
 };
 
-@Internal type JoinPoint = struct {
+@Internal
+type JoinPoint = struct {
     TreeNode node;
-    u32 destination;
+    fn_ptr_t destination;
     u32 payload;
 };
 
@@ -20,9 +25,9 @@
 
 @Internal var logical subgroup u32 scheduler_cursor = 0;
 @Internal var logical subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-@Internal var logical subgroup [u32; SUBGROUP_SIZE] resume_at;
+@Internal var logical subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
 
-@Internal var logical subgroup u32 next_fn;
+@Internal var logical subgroup fn_ptr_t next_fn;
 @Internal var logical subgroup TreeNode active_branch;
 
 @Internal @Builtin("SubgroupLocalInvocationId")
@@ -62,7 +67,7 @@ fn builtin_entry_join_point uniform JoinPoint() {
 }
 
 @Internal @Exported
-fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, varying u32 payload) {
+fn builtin_create_control_point varying JoinPoint(uniform fn_ptr_t join_destination, varying u32 payload) {
     val curr_mask = subgroup_active_mask();
     val depth = ext_instr["spirv.core", 338, uniform u32](3, scheduler_vector#(subgroup_local_id)#1);
     val tree_node = composite TreeNode(curr_mask, depth);
@@ -75,8 +80,8 @@ fn builtin_create_control_point varying JoinPoint(uniform u32 join_destination, 
 }
 
 @Internal @Exported
-fn builtin_fork(varying u32 branch_destination) {
-    val first_branch = ext_instr["spirv.core", 338, uniform u32](3, branch_destination);
+fn builtin_fork(varying fn_ptr_t branch_destination) {
+    val first_branch = ext_instr["spirv.core", 338, uniform fn_ptr_t](3, branch_destination);
 
     // if there is disagreement on the destination, then increase the depth of every branch
     val uniform_branch = subgroup_active_mask() == subgroup_ballot(first_branch == branch_destination);
@@ -88,7 +93,7 @@ fn builtin_fork(varying u32 branch_destination) {
 
     // Partition the set of branch destinations and adapt the masks in turn
     loop() {
-        val elected = ext_instr["spirv.core", 338, uniform u32](3, branch_destination);
+        val elected = ext_instr["spirv.core", 338, uniform fn_ptr_t](3, branch_destination);
         resume_at#(subgroup_local_id) = elected;
         scheduler_vector#(subgroup_local_id)#0 = subgroup_ballot(elected == branch_destination);
         if (elected == branch_destination) {
@@ -99,7 +104,7 @@ fn builtin_fork(varying u32 branch_destination) {
     // We must pick one branch as our 'favourite child' to schedule for immediate execution
     // we could do fancy intrinsics, but for now we'll just pick the first one
     if (ext_instr["spirv.core", 333, varying bool](3)) {
-        next_fn = ext_instr["spirv.core", 338, uniform u32](3, branch_destination);
+        next_fn = ext_instr["spirv.core", 338, uniform fn_ptr_t](3, branch_destination);
         active_branch = ext_instr["spirv.core", 338, uniform TreeNode](3, scheduler_vector#(subgroup_local_id));
 
         // tag those variables as not in use#
@@ -110,7 +115,7 @@ fn builtin_fork(varying u32 branch_destination) {
 }
 
 @Internal @Exported
-fn builtin_yield(uniform u32 resume_target) {
+fn builtin_yield(uniform fn_ptr_t resume_target) {
     resume_at#(subgroup_local_id) = resume_target;
     // resume_with#(subgroup_local_id) = subgroup_active_mask();
 
@@ -124,7 +129,7 @@ fn builtin_yield(uniform u32 resume_target) {
 }
 
 @Internal @Exported
-fn builtin_join(varying u32 join_at, varying TreeNode token) {
+fn builtin_join(varying fn_ptr_t join_at, varying TreeNode token) {
     resume_at#(subgroup_local_id) = join_at;
     scheduler_vector#(subgroup_local_id) = token;
 
@@ -175,7 +180,7 @@ fn builtin_find_schedulable_leaf() {
         continue(i + u32 1);
     }
 
-    next_fn = ext_instr["spirv.core", 338, uniform u32](3, resume_at#reduced);
+    next_fn = ext_instr["spirv.core", 338, uniform fn_ptr_t](3, resume_at#reduced);
     active_branch = ext_instr["spirv.core", 338, uniform TreeNode](3, scheduler_vector#reduced);
     return ();
 }
