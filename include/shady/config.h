@@ -33,6 +33,8 @@ typedef struct {
         bool allowed;
     } address_spaces[NumAddressSpaces];
 
+    IntSizes fn_ptr_size;
+
     /// Selects which type the subgroup intrinsic primops use to manipulate masks
     SubgroupMaskRepresentation subgroup_mask_representation;
 

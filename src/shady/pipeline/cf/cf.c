@@ -23,11 +23,18 @@ void shd_pipeline_add_remove_indirect_calls(ShdPipeline pipeline) {
 #include "../frontend/slim/parser.h"
 #include "shady_scheduler_src.h"
 
+#include "printer.h"
+
 static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     SlimParserConfig pconfig = {
             .front_end = true,
     };
-    Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, shady_scheduler_src, "builtin_scheduler");
+    Printer* p = shd_new_printer_from_growy(shd_new_growy());
+    shd_print(p, "@Internal @Alias type fn_ptr_t = u%d; \n", int_size_in_bytes(config->target.fn_ptr_size) * 8);
+    shd_print(p, "%s", shady_scheduler_src);
+    String s = shd_printer_growy_unwrap(p);
+    Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, s, "builtin_scheduler");
+    free((char*) s);
     shd_debug_print("Adding builtin scheduler code");
     shd_module_link(dst, builtin_scheduler_mod);
     shd_destroy_ir_arena(shd_module_get_arena(builtin_scheduler_mod));
