@@ -6,6 +6,7 @@
 
 typedef struct {
     bool front_end;
+    const TargetConfig* target_config;
 } SlimParserConfig;
 
 Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConfig* pconfig, const char* contents, String name);

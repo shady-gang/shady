@@ -38,7 +38,6 @@ target_sources(shady PRIVATE
 )
 
 add_subdirectory(analysis)
-add_subdirectory(transform)
 add_subdirectory(passes)
 add_subdirectory(ir)
 add_subdirectory(pipeline)

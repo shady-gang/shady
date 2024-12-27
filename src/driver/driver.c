@@ -65,6 +65,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, Source
         case SrcSlim: {
             SlimParserConfig pconfig = {
                 .front_end = lang == SrcSlim,
+                .target_config = &config->target,
             };
             shd_debugvv_print("Parsing: \n%s\n", file_contents);
             *mod = shd_parse_slim_module(config, &pconfig, (const char*) file_contents, name);
