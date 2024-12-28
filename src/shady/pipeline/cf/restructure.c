@@ -44,10 +44,10 @@ typedef struct {
     void* payload;
 } TmpAllocCleanupClosure;
 
-static TmpAllocCleanupClosure create_delete_dict_closure(struct Dict* d) {
+static TmpAllocCleanupClosure create_delete_rewriter_closure(Rewriter* r) {
     return (TmpAllocCleanupClosure) {
-        .fn = (TmpAllocCleanupFn) shd_destroy_dict,
-        .payload = d,
+        .fn = (TmpAllocCleanupFn) shd_destroy_rewriter,
+        .payload = r,
     };
 }
 
@@ -62,7 +62,10 @@ typedef struct {
     Rewriter rewriter;
     struct List* cleanup_stack;
 
-    jmp_buf bail;
+    struct {
+        size_t stack_size;
+        jmp_buf buf;
+    } bail;
 
     bool lower;
     Node* fn;
@@ -97,6 +100,17 @@ static const Node* make_selection_merge_case(IrArena* a) {
 
 static const Node* structure(Context* ctx, const Node* abs, const Node* exit);
 
+static void bail(Context* ctx) {
+    // if we do a longjmp, we must cleanup before we tear down the stack
+    // (some of the data just lives there, specifically the rewriters)
+    while (shd_list_count(ctx->cleanup_stack) > ctx->bail.stack_size) {
+        TmpAllocCleanupClosure cj = shd_list_pop(TmpAllocCleanupClosure, ctx->cleanup_stack);
+        cj.fn(cj.payload);
+    }
+    
+    longjmp(ctx->bail.buf, 1);
+}
+
 static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, const Node* exit) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -114,9 +128,9 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
             assert(entry2);
             path[path_len - 1 - i] = entry2->old;
             if (entry2->in_loop)
-                longjmp(ctx->bail, 1);
+                bail(ctx);
             if (entry2->containing_control != ctx->control_stack)
-                longjmp(ctx->bail, 1);
+                bail(ctx);
             entry2->in_loop = true;
             entry2 = entry2->parent;
         }
@@ -129,22 +143,21 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         Nodes oparams = get_abstraction_params(old_target);
         assert(oparams.count == oargs.count);
         LARRAY(const Node*, nparams, oargs.count);
-        Context ctx2 = *ctx;
+        Context children_ctx = *ctx;
 
         // Record each step of the depth-first search on a stack so we can identify loops
         DFSStackEntry dfs_entry = { .parent = ctx->dfs_stack, .old = old_target, .containing_control = ctx->control_stack };
-        ctx2.dfs_stack = &dfs_entry;
+        children_ctx.dfs_stack = &dfs_entry;
 
         BodyBuilder* bb = shd_bld_begin(a, mem);
         TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-        struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);
-        TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
+        children_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+        TmpAllocCleanupClosure cj2 = create_delete_rewriter_closure(&children_ctx.rewriter);
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
-        ctx2.rewriter.map = tmp_processed;
         for (size_t i = 0; i < oargs.count; i++) {
             nparams[i] = param(a, shd_rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
-            shd_register_processed(&ctx2.rewriter, oparams.nodes[i], nparams[i]);
+            shd_register_processed(&children_ctx.rewriter, oparams.nodes[i], nparams[i]);
         }
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
@@ -152,13 +165,13 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
 
         // Just jumps to the actual ladder
         Node* structured_target = case_(a, shd_nodes(a, oargs.count, nparams));
-        shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old_target), shd_get_abstraction_mem(structured_target));
-        const Node* structured = structure(&ctx2, get_abstraction_body(old_target), inner_exit_ladder_bb);
+        shd_register_processed(&children_ctx.rewriter, shd_get_abstraction_mem(old_target), shd_get_abstraction_mem(structured_target));
+        const Node* structured = structure(&children_ctx, get_abstraction_body(old_target), inner_exit_ladder_bb);
         assert(is_terminator(structured));
         shd_set_abstraction_body(structured_target, structured);
 
         // forget we rewrote all that
-        shd_destroy_dict(tmp_processed);
+        shd_destroy_rewriter(&children_ctx.rewriter);
         shd_list_pop_impl(ctx->cleanup_stack);
         shd_list_pop_impl(ctx->cleanup_stack);
 
@@ -294,7 +307,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             Join payload = body->payload.join;
             ControlEntry* control = search_containing_control(ctx, body->payload.join.join_point);
             if (!control)
-                longjmp(ctx->bail, 1);
+                bail(ctx);
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_store(bb, ctx->level_ptr, shd_int32_literal(a, control->depth - 1));
@@ -310,7 +323,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         case Return_TAG:
         case Unreachable_TAG: return shd_recreate_node(&ctx->rewriter, body);
 
-        case TailCall_TAG: longjmp(ctx->bail, 1);
+        case TailCall_TAG: bail(ctx);
 
         case If_TAG:
         case Match_TAG:
@@ -339,51 +352,44 @@ static const Node* process(Context* ctx, const Node* node) {
     if (node->tag == Function_TAG) {
         Node* new = shd_recreate_node_head(&ctx->rewriter, node);
 
-        size_t alloc_stack_size_now = shd_list_count(ctx->cleanup_stack);
-
-        Context ctx2 = *ctx;
-        ctx2.dfs_stack = NULL;
-        ctx2.control_stack = NULL;
+        Context fn_ctx = *ctx;
+        fn_ctx.dfs_stack = NULL;
+        fn_ctx.control_stack = NULL;
         bool is_builtin = shd_lookup_annotation(node, "Builtin");
         bool is_leaf = false;
-        if (is_builtin || !node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(ctx2.bail)) {
-            ctx2.lower = false;
-            ctx2.rewriter.map = ctx->rewriter.map;
+        fn_ctx.bail.stack_size = shd_list_count(ctx->cleanup_stack);
+        if (is_builtin || !node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(fn_ctx.bail.buf)) {
+            fn_ctx.lower = false;
+            // make sure to reset this
+            fn_ctx.rewriter = ctx->rewriter;
             if (node->payload.fun.body)
-                shd_set_abstraction_body(new, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
+                shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
             // builtin functions are always considered leaf functions
             is_leaf = is_builtin || !node->payload.fun.body;
         } else {
-            ctx2.lower = true;
+            fn_ctx.lower = true;
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
             TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
             const Node* ptr = shd_bld_local_alloc(bb, shd_int32_type(a));
             shd_set_value_name(ptr, "cf_depth");
             shd_bld_store(bb, ptr, shd_int32_literal(a, 0));
-            ctx2.level_ptr = ptr;
-            ctx2.fn = new;
-            struct Dict* tmp_processed = shd_clone_dict(ctx->rewriter.map);
-            TmpAllocCleanupClosure cj2 = create_delete_dict_closure(tmp_processed);
+            fn_ctx.level_ptr = ptr;
+            fn_ctx.fn = new;
+            fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+            TmpAllocCleanupClosure cj2 = create_delete_rewriter_closure(&fn_ctx.rewriter);
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
-            ctx2.rewriter.map = tmp_processed;
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
-            shd_set_abstraction_body(new, shd_bld_finish(bb, structure(&ctx2, get_abstraction_body(node), make_unreachable_case(a))));
+            shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
+            shd_set_abstraction_body(new, shd_bld_finish(bb, structure(&fn_ctx, get_abstraction_body(node), make_unreachable_case(a))));
             is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
             shd_list_pop_impl(ctx->cleanup_stack);
             shd_list_pop_impl(ctx->cleanup_stack);
-            shd_destroy_dict(tmp_processed);
+            shd_destroy_rewriter(&fn_ctx.rewriter);
         }
 
         //if (is_leaf)
         //    new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
-
-        // if we did a longjmp, we might have orphaned a few of those
-        while (alloc_stack_size_now < shd_list_count(ctx->cleanup_stack)) {
-            TmpAllocCleanupClosure cj = shd_list_pop(TmpAllocCleanupClosure, ctx->cleanup_stack);
-            cj.fn(cj.payload);
-        }
 
         new->payload.fun.annotations = shd_filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
 
@@ -408,7 +414,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             // if we don't manage that, give up :(
             assert(false); // actually that should not come up.
-            longjmp(ctx->bail, 1);
+            bail(ctx);
         }
         case BasicBlock_TAG: shd_error("All basic blocks should be processed explicitly")
         default: break;
