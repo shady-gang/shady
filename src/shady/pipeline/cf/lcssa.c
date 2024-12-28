@@ -114,16 +114,13 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
 
     const Node* new = shd_rewrite_node(&ctx->rewriter, body);
 
-    struct Dict* old_map = ctx->rewriter.map;
+    Rewriter* old_rewriter = &ctx->rewriter;
 
     for (size_t i = 0; i < children_count; i++) {
-        ctx->rewriter.map = shd_clone_dict(old_map);
-        for (size_t j = 0; j < lifted[i].count; j++) {
-            shd_dict_remove(const Node*, ctx->rewriter.map, lifted[i].nodes[j]);
-        }
+        ctx->rewriter = shd_create_children_rewriter(old_rewriter);
         shd_register_processed_list(&ctx->rewriter, lifted[i], new_params[i]);
         new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
-        shd_destroy_dict(ctx->rewriter.map);
+        shd_destroy_rewriter(&ctx->rewriter);
     }
 
 

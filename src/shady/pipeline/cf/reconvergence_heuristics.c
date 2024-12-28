@@ -174,33 +174,21 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             });
             shd_set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
+            // inside the loop we want certain things to be rewritten directly!
+            Rewriter inside_rewriter = shd_create_children_rewriter(rewriter);
             // replace the exit nodes by the exit wrappers
-            LARRAY(const Node**, cached_exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
-                cached_exits[i] = shd_search_processed(rewriter, exiting_node->node);
-                if (cached_exits[i])
-                    shd_dict_remove(const Node*, rewriter->map, exiting_node->node);
-                shd_register_processed(rewriter, exiting_node->node, exits[i].wrapper);
+                shd_register_processed(&inside_rewriter, exiting_node->node, exits[i].wrapper);
             }
             // ditto for the loop entry and the continue wrapper
-            const Node** cached_entry = shd_search_processed(rewriter, node);
-            if (cached_entry)
-                shd_dict_remove(const Node*, rewriter->map, node);
-            shd_register_processed(rewriter, node, continue_wrapper);
+            shd_register_processed(&inside_rewriter, node, continue_wrapper);
 
-            // make sure we haven't started rewriting this...
-            // for (size_t i = 0; i < old_params.count; i++) {
-            //     assert(!search_processed(rewriter, old_params.nodes[i]));
-            // }
-
-            struct Dict* old_map = rewriter->map;
-            rewriter->map = shd_clone_dict(rewriter->map);
-            Nodes inner_loop_params = shd_recreate_params(rewriter, get_abstraction_params(node));
-            shd_register_processed_list(rewriter, get_abstraction_params(node), inner_loop_params);
+            Nodes inner_loop_params = shd_recreate_params(&inside_rewriter, get_abstraction_params(node));
+            shd_register_processed_list(&inside_rewriter, get_abstraction_params(node), inner_loop_params);
             Node* inner_control_case = case_(arena, shd_singleton(join_token_continue));
-            shd_register_processed(rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
-            const Node* loop_body = shd_rewrite_node(rewriter, get_abstraction_body(node));
+            shd_register_processed(&inside_rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
+            const Node* loop_body = shd_rewrite_node(&inside_rewriter, get_abstraction_body(node));
 
             // save the context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -220,19 +208,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             shd_set_abstraction_body(inner_control_case, loop_body);
 
-            shd_destroy_dict(rewriter->map);
-            rewriter->map = old_map;
-            //register_processed_list(rewriter, get_abstraction_params(node), nparams);
-
-            // restore the old context
-            for (size_t i = 0; i < exiting_nodes_count; i++) {
-                shd_dict_remove(const Node*, rewriter->map, shd_read_list(CFNode *, exiting_nodes)[i]->node);
-                if (cached_exits[i])
-                    shd_register_processed(rewriter, shd_read_list(CFNode*, exiting_nodes)[i]->node, *cached_exits[i]);
-            }
-            shd_dict_remove(const Node*, rewriter->map, node);
-            if (cached_entry)
-                shd_register_processed(rewriter, node, *cached_entry);
+            shd_destroy_rewriter(&inside_rewriter);
 
             Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
             BodyBuilder* inner_bb = shd_bld_begin(arena, shd_get_abstraction_mem(loop_outer));
@@ -436,31 +412,27 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .mem = shd_get_abstraction_mem(pre_join),
             }));
 
-            const Node** cached = shd_search_processed(r, post_dominator);
-            if (cached)
-                shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
+            Rewriter inside_rewriter = shd_create_children_rewriter(r);
             for (size_t i = 0; i < old_params.count; i++) {
-                assert(!shd_search_processed(r, old_params.nodes[i]));
+                assert(!shd_search_processed(&inside_rewriter, old_params.nodes[i]));
             }
 
-            shd_register_processed(r, post_dominator, pre_join);
+            shd_register_processed(&inside_rewriter, post_dominator, pre_join);
 
             Node* control_case = case_(a, shd_singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = shd_get_abstraction_mem(control_case),
                 .condition = shd_rewrite_node(r, payload.condition),
                 .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
-                                         shd_rewrite_node(r, payload.true_jump->payload.jump.target),
+                                         shd_rewrite_node(&inside_rewriter, payload.true_jump->payload.jump.target),
                                          shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
                 .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
-                                          shd_rewrite_node(r, payload.false_jump->payload.jump.target),
+                                          shd_rewrite_node(&inside_rewriter, payload.false_jump->payload.jump.target),
                                           shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
             shd_set_abstraction_body(control_case, inner_terminator);
 
-            shd_dict_remove(const Node*, is_declaration(post_dominator) ? r->decls_map : r->map, post_dominator);
-            if (cached)
-                shd_register_processed(r, post_dominator, *cached);
+            shd_destroy_rewriter(&inside_rewriter);
 
             const Node* join_target = shd_rewrite_node(r, post_dominator);
 
