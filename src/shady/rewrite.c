@@ -76,14 +76,6 @@ Rewriter shd_create_children_rewriter(Rewriter* parent) {
     return r;
 }
 
-Rewriter shd_create_decl_rewriter(Rewriter* parent) {
-    Rewriter r = *parent;
-    r.map = create_dict(r.rewrite_op_fn);
-    r.arena = shd_new_arena();
-    r.own_decls = false;
-    return r;
-}
-
 static const Node** search_in_map(struct Dict* map, const Node* key, bool use_mask, NodeClass mask) {
     if (use_mask) {
         MaskedEntry** found = shd_dict_find_value(const Node*, MaskedEntry*, map, key);

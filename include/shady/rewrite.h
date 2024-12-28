@@ -46,9 +46,8 @@ struct Rewriter_ {
 Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter shd_create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter shd_create_importer(Module* src, Module* dst);
-
 Rewriter shd_create_children_rewriter(Rewriter* parent);
-Rewriter shd_create_decl_rewriter(Rewriter* parent);
+
 void shd_destroy_rewriter(Rewriter* r);
 
 void shd_rewrite_module(Rewriter* rewriter);

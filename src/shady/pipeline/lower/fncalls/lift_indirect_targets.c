@@ -94,7 +94,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = shd_create_decl_rewriter(&ctx->rewriter);
+    lifting_ctx.rewriter = shd_create_children_rewriter(&ctx->root_ctx->rewriter);
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
