@@ -11,8 +11,9 @@
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-typedef struct {
+typedef struct Context_ {
     Rewriter rewriter;
+    struct Context_* fn_ctx;
     struct Dict* lift;
     CFG* cfg;
     Scheduler* scheduler;
@@ -25,7 +26,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.scheduler = shd_new_scheduler(fn_ctx.cfg);
+            fn_ctx.scheduler = shd_new_scheduler(fn_ctx.cfg);\
+            fn_ctx.fn_ctx = &fn_ctx;
 
             Node* new_fn = shd_recreate_node_head(r, node);
             shd_recreate_node_body(&fn_ctx.rewriter, node, new_fn);
@@ -64,16 +66,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_dict_insert(const Node*, Nodes, ctx->lift, node, additional_args);
             Node* new_bb = basic_block(a, new_params, shd_get_abstraction_name_unsafe(node));
 
-            Context* fn_ctx = ctx;
-            while (fn_ctx->rewriter.parent) {
-                Context* parent_ctx = (Context*) fn_ctx->rewriter.parent;
-                if (parent_ctx->cfg)
-                    fn_ctx = parent_ctx;
-                else
-                    break;
-            }
-
-            shd_register_processed(&fn_ctx->rewriter, node, new_bb);
+            shd_register_processed(&ctx->fn_ctx->rewriter, node, new_bb);
             shd_set_abstraction_body(new_bb, shd_rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));
             shd_destroy_rewriter(&bb_ctx.rewriter);
             return new_bb;
