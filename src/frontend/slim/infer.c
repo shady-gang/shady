@@ -603,7 +603,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         return infer_annotation(&ctx, node);
     } else if (is_basic_block(node)) {
         return _infer_basic_block(&ctx, node);
-    }else if (is_mem(node)) {
+    } else if (is_mem(node)) {
         return shd_recreate_node(&ctx.rewriter, node);
     }
     assert(false);
