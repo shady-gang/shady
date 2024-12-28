@@ -31,10 +31,6 @@ struct Rewriter_ {
     Module* dst_module;
     RewriteNodeFn rewrite_fn;
     RewriteOpFn rewrite_op_fn;
-    struct {
-        bool search_map;
-        bool write_map;
-    } config;
 
     Arena* arena;
     Rewriter* parent;

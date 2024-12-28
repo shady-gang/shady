@@ -620,8 +620,6 @@ Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
     };
-    //ctx.rewriter.config.search_map = false;
-    //ctx.rewriter.config.write_map = false;
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
