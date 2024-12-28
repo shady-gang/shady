@@ -30,10 +30,6 @@ static Rewriter shd_create_rewriter_base(Module* src, Module* dst, bool use_mask
         .dst_arena = dst->arena,
         .src_module = src,
         .dst_module = dst,
-        .config = {
-            .search_map = true,
-            .write_map = true,
-        },
         .map = create_dict(use_masks),
         .own_decls = true,
         .decls_map = create_dict(use_masks),
@@ -119,22 +115,11 @@ const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, Nod
     return search_processed_internal(ctx, old, mask, true);
 }
 
-static bool should_memoize(const Node* node) {
-    if (is_declaration(node))
-        return false;
-    if (node->tag == BasicBlock_TAG)
-        return false;
-    return true;
-}
-
 const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
     assert(rewriter->rewrite_fn);
     if (!node)
         return NULL;
-    const Node** found = NULL;
-    if (rewriter->config.search_map) {
-        found = shd_search_processed(rewriter, node);
-    }
+    const Node** found = shd_search_processed(rewriter, node);
     if (found)
         return *found;
 
@@ -142,9 +127,7 @@ const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, Rewri
     // assert(rewriter->dst_arena == rewritten->arena);
     if (is_declaration(node))
         return rewritten;
-    if (rewriter->config.write_map && should_memoize(node)) {
-        shd_register_processed(rewriter, node, rewritten);
-    }
+    shd_register_processed(rewriter, node, rewritten);
     return rewritten;
 }
 
@@ -169,21 +152,14 @@ const Node* shd_rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String o
     assert(rewriter->rewrite_op_fn);
     if (!node)
         return NULL;
-    const Node** found = NULL;
-    if (rewriter->config.search_map) {
-        found = shd_search_processed_mask(rewriter, node, class);
-    }
+    const Node** found = shd_search_processed_mask(rewriter, node, class);
     if (found)
         return *found;
 
     OpRewriteResult result = fn(rewriter, class, op_name, node);
     if (!result.mask)
         result.mask = shd_get_node_class_from_tag(result.result->tag);
-    // if (is_declaration(node))
-    //     return result.result;
-    if (rewriter->config.write_map/* && should_memoize(node)*/) {
-        shd_register_processed_mask(rewriter, node, result.result, result.mask);
-    }
+    shd_register_processed_mask(rewriter, node, result.result, result.mask);
     return result.result;
 }
 
