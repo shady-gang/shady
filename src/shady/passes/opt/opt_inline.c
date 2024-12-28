@@ -105,7 +105,7 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
 
     shd_log_fmt(DEBUG, "Inlining '%s' inside '%s'\n", shd_get_abstraction_name(ocallee), shd_get_abstraction_name(ctx->fun));
     Context inline_context = *ctx;
-    inline_context.rewriter.map = shd_clone_dict(inline_context.rewriter.map);
+    inline_context.rewriter = shd_create_children_rewriter(&ctx->rewriter);
 
     ctx = &inline_context;
     InlinedCall inlined_call = {
@@ -120,7 +120,7 @@ static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nm
 
     const Node* nbody = shd_rewrite_node(&inline_context.rewriter, get_abstraction_body(ocallee));
 
-    shd_destroy_dict(inline_context.rewriter.map);
+    shd_destroy_rewriter(&inline_context.rewriter);
 
     assert(is_terminator(nbody));
     return nbody;
@@ -147,14 +147,14 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_register_processed(r, node, new);
 
             Context fn_ctx = *ctx;
-            fn_ctx.rewriter.map = shd_clone_dict(fn_ctx.rewriter.map);
+            fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
             fn_ctx.old_fun = node;
             fn_ctx.fun = new;
             fn_ctx.inlined_call = NULL;
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
                 shd_register_processed(&fn_ctx.rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
             shd_recreate_node_body(&fn_ctx.rewriter, node, new);
-            shd_destroy_dict(fn_ctx.rewriter.map);
+            shd_destroy_rewriter(&fn_ctx.rewriter);
             return new;
         }
         case Call_TAG: {
