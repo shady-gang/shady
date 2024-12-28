@@ -4,7 +4,6 @@
 #include "shady/ir/mem.h"
 #include "shady/ir/decl.h"
 
-#include "dict.h"
 #include "portability.h"
 #include "log.h"
 
@@ -23,17 +22,16 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Node* newfun = shd_recreate_node_head(r, node);
             if (get_abstraction_body(node)) {
-                Context functx = *ctx;
-                functx.rewriter.map = shd_clone_dict(functx.rewriter.map);
-                shd_dict_clear(functx.rewriter.map);
-                shd_register_processed_list(&functx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
-                functx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
+                Context fn_ctx = *ctx;
+                fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+                shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
+                fn_ctx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
-                shd_register_processed(&functx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
-                shd_set_abstraction_body(post_prelude, shd_rewrite_node(&functx.rewriter, get_abstraction_body(node)));
-                shd_set_abstraction_body(newfun, shd_bld_finish(functx.bb, jump_helper(a, shd_bld_mem(functx.bb), post_prelude,
+                shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
+                shd_set_abstraction_body(post_prelude, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node)));
+                shd_set_abstraction_body(newfun, shd_bld_finish(fn_ctx.bb, jump_helper(a, shd_bld_mem(fn_ctx.bb), post_prelude,
                                                                                        shd_empty(a))));
-                shd_destroy_dict(functx.rewriter.map);
+                shd_destroy_rewriter(&fn_ctx.rewriter);
             }
             return newfun;
         }
