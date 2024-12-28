@@ -5,7 +5,6 @@
 #include "analysis/looptree.h"
 
 #include "list.h"
-#include "dict.h"
 #include "log.h"
 #include "portability.h"
 #include "util.h"
@@ -55,23 +54,6 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
     }
 }
 
-static void find_unbound_vars(const Node* exiting_node, struct Dict* bound_set, struct Dict* free_set, struct List* leaking) {
-    const Node* v;
-    size_t i = 0;
-    while (shd_dict_iter(free_set, &i, &v, NULL)) {
-        if (shd_dict_find_key(const Node*, bound_set, v))
-            continue;
-
-        shd_log_fmt(DEBUGVV, "Found variable used outside it's control scope: ");
-        shd_log_node(DEBUGVV, v);
-        shd_log_fmt(DEBUGVV, " (exiting_node:");
-        shd_log_node(DEBUGVV, exiting_node);
-        shd_log_fmt(DEBUGVV, " )\n");
-
-        shd_list_append(const Node*, leaking, v);
-    }
-}
-
 typedef struct {
     const Node* alloca;
     bool uniform;
@@ -89,8 +71,8 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
     Context new_context = *ctx;
     ctx = &new_context;
     ctx->current_abstraction = node;
-    Rewriter* rewriter = &ctx->rewriter;
-    IrArena* arena = rewriter->dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     CFNode* current_node = shd_cfg_lookup(ctx->fwd_cfg, node);
     LTNode* lt_node = shd_loop_tree_lookup(ctx->current_looptree, node);
@@ -122,15 +104,15 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
         size_t exiting_nodes_count = shd_list_count(exiting_nodes);
         if (exiting_nodes_count > 0) {
-            Nodes nparams = shd_recreate_params(rewriter, get_abstraction_params(node));
-            Node* loop_container = basic_block(arena, nparams, node->payload.basic_block.name);
-            BodyBuilder* outer_bb = shd_bld_begin(arena, shd_get_abstraction_mem(loop_container));
-            Nodes inner_yield_types = shd_strip_qualifiers(arena, shd_get_param_types(arena, nparams));
+            Nodes nparams = shd_recreate_params(r, get_abstraction_params(node));
+            Node* loop_container = basic_block(a, nparams, node->payload.basic_block.name);
+            BodyBuilder* outer_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_container));
+            Nodes inner_yield_types = shd_strip_qualifiers(a, shd_get_param_types(a, nparams));
 
             LARRAY(Exit, exits, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
-                Nodes exit_param_types = shd_rewrite_nodes(rewriter, shd_get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
+                Nodes exit_param_types = shd_rewrite_nodes(r, shd_get_param_types(ctx->rewriter.src_arena, get_abstraction_params(exiting_node->node)));
 
                 ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
@@ -145,14 +127,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(arena));
+                exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(a));
 
-            const Node* join_token_exit = param(arena, shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
-                    .yield_types = shd_empty(arena)
+            const Node* join_token_exit = param(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+                    .yield_types = shd_empty(a)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = param(arena,
-                                                    shd_as_qualified_type(join_point_type(arena, (JoinPointType) {
+            const Node* join_token_continue = param(a,
+                                                    shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                                                             .yield_types = inner_yield_types
                                                     }), true), "jp_continue");
 
@@ -161,13 +143,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(exiting_node->node));
 
-                Node* wrapper = basic_block(arena, exit_wrapper_params, shd_format_string_arena(arena->arena, "exit_wrapper_%d", i));
+                Node* wrapper = basic_block(a, exit_wrapper_params, shd_format_string_arena(a->arena, "exit_wrapper_%d", i));
                 exits[i].wrapper = wrapper;
             }
 
-            Nodes continue_wrapper_params = shd_recreate_params(rewriter, get_abstraction_params(node));
-            Node* continue_wrapper = basic_block(arena, continue_wrapper_params, "continue");
-            const Node* continue_wrapper_body = join(arena, (Join) {
+            Nodes continue_wrapper_params = shd_recreate_params(r, get_abstraction_params(node));
+            Node* continue_wrapper = basic_block(a, continue_wrapper_params, "continue");
+            const Node* continue_wrapper_body = join(a, (Join) {
                 .join_point = join_token_continue,
                 .args = continue_wrapper_params,
                 .mem = shd_get_abstraction_mem(continue_wrapper),
@@ -175,7 +157,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             shd_set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // inside the loop we want certain things to be rewritten directly!
-            Rewriter inside_rewriter = shd_create_children_rewriter(rewriter);
+            Rewriter inside_rewriter = shd_create_children_rewriter(r);
             // replace the exit nodes by the exit wrappers
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
@@ -186,7 +168,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             Nodes inner_loop_params = shd_recreate_params(&inside_rewriter, get_abstraction_params(node));
             shd_register_processed_list(&inside_rewriter, get_abstraction_params(node), inner_loop_params);
-            Node* inner_control_case = case_(arena, shd_singleton(join_token_continue));
+            Node* inner_control_case = case_(a, shd_singleton(join_token_continue));
             shd_register_processed(&inside_rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
             const Node* loop_body = shd_rewrite_node(&inside_rewriter, get_abstraction_body(node));
 
@@ -195,58 +177,58 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
                 assert(exiting_node->node && exiting_node->node->tag != Function_TAG);
                 Nodes exit_wrapper_params = get_abstraction_params(exits[i].wrapper);
-                BodyBuilder* exit_wrapper_bb = shd_bld_begin(arena, shd_get_abstraction_mem(exits[i].wrapper));
+                BodyBuilder* exit_wrapper_bb = shd_bld_begin(a, shd_get_abstraction_mem(exits[i].wrapper));
 
                 for (size_t j = 0; j < exits[i].params_count; j++)
                     shd_bld_store(exit_wrapper_bb, exits[i].params[j].alloca, exit_wrapper_params.nodes[j]);
                 // Set the destination if there's more than one option
                 if (exiting_nodes_count > 1)
-                    shd_bld_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(arena, i));
+                    shd_bld_store(exit_wrapper_bb, exit_destination_alloca, shd_int32_literal(a, i));
 
-                shd_set_abstraction_body(exits[i].wrapper, shd_bld_join(exit_wrapper_bb, join_token_exit, shd_empty(arena)));
+                shd_set_abstraction_body(exits[i].wrapper, shd_bld_join(exit_wrapper_bb, join_token_exit, shd_empty(a)));
             }
 
             shd_set_abstraction_body(inner_control_case, loop_body);
 
             shd_destroy_rewriter(&inside_rewriter);
 
-            Node* loop_outer = basic_block(arena, inner_loop_params, "loop_outer");
-            BodyBuilder* inner_bb = shd_bld_begin(arena, shd_get_abstraction_mem(loop_outer));
+            Node* loop_outer = basic_block(a, inner_loop_params, "loop_outer");
+            BodyBuilder* inner_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_outer));
             Nodes inner_control_results = shd_bld_control(inner_bb, inner_yield_types, inner_control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
                 if (shd_is_qualified_type_uniform(nparams.nodes[j]->type))
-                    inner_control_results = shd_change_node_at_index(arena, inner_control_results, j, prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(inner_control_results.nodes[j])));
+                    inner_control_results = shd_change_node_at_index(a, inner_control_results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(inner_control_results.nodes[j])));
             }
             shd_set_abstraction_body(loop_outer, shd_bld_jump(inner_bb, loop_outer, inner_control_results));
-            Node* outer_control_case = case_(arena, shd_singleton(join_token_exit));
-            shd_set_abstraction_body(outer_control_case, jump(arena, (Jump) {
+            Node* outer_control_case = case_(a, shd_singleton(join_token_exit));
+            shd_set_abstraction_body(outer_control_case, jump(a, (Jump) {
                 .target = loop_outer,
                 .args = nparams,
                 .mem = shd_get_abstraction_mem(outer_control_case),
             }));
-            shd_bld_control(outer_bb, shd_empty(arena), outer_control_case);
+            shd_bld_control(outer_bb, shd_empty(a), outer_control_case);
 
             LARRAY(const Node*, exit_numbers, exiting_nodes_count);
             LARRAY(const Node*, exit_jumps, exiting_nodes_count);
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
-                Node* exit_bb = basic_block(arena, shd_empty(arena), shd_format_string_arena(arena->arena, "exit_recover_values_%s", shd_get_abstraction_name_safe(exiting_node->node)));
-                BodyBuilder* exit_recover_bb = shd_bld_begin(arena, shd_get_abstraction_mem(exit_bb));
+                Node* exit_bb = basic_block(a, shd_empty(a), shd_format_string_arena(a->arena, "exit_recover_values_%s", shd_get_abstraction_name_safe(exiting_node->node)));
+                BodyBuilder* exit_recover_bb = shd_bld_begin(a, shd_get_abstraction_mem(exit_bb));
 
-                const Node* recreated_exit = shd_rewrite_node(rewriter, exiting_node->node);
+                const Node* recreated_exit = shd_rewrite_node(r, exiting_node->node);
 
                 LARRAY(const Node*, recovered_args, exits[i].params_count);
                 for (size_t j = 0; j < exits[i].params_count; j++) {
                     recovered_args[j] = shd_bld_load(exit_recover_bb, exits[i].params[j].alloca);
                     if (exits[i].params[j].uniform)
-                        recovered_args[j] = prim_op_helper(arena, subgroup_assume_uniform_op, shd_empty(arena), shd_singleton(recovered_args[j]));
+                        recovered_args[j] = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(recovered_args[j]));
                 }
 
-                exit_numbers[i] = shd_int32_literal(arena, i);
-                shd_set_abstraction_body(exit_bb, shd_bld_jump(exit_recover_bb, recreated_exit, shd_nodes(arena, exits[i].params_count, recovered_args)));
-                exit_jumps[i] = jump_helper(arena, shd_bld_mem(outer_bb), exit_bb, shd_empty(arena));
+                exit_numbers[i] = shd_int32_literal(a, i);
+                shd_set_abstraction_body(exit_bb, shd_bld_jump(exit_recover_bb, recreated_exit, shd_nodes(a, exits[i].params_count, recovered_args)));
+                exit_jumps[i] = jump_helper(a, shd_bld_mem(outer_bb), exit_bb, shd_empty(a));
             }
 
             const Node* outer_body;
@@ -254,11 +236,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 outer_body = shd_bld_finish(outer_bb, exit_jumps[0]);
             else {
                 const Node* loaded_destination = shd_bld_load(outer_bb, exit_destination_alloca);
-                outer_body = shd_bld_finish(outer_bb, br_switch(arena, (Switch) {
+                outer_body = shd_bld_finish(outer_bb, br_switch(a, (Switch) {
                     .switch_value = loaded_destination,
                     .default_jump = exit_jumps[0],
-                    .case_values = shd_nodes(arena, exiting_nodes_count, exit_numbers),
-                    .case_jumps = shd_nodes(arena, exiting_nodes_count, exit_jumps),
+                    .case_values = shd_nodes(a, exiting_nodes_count, exit_numbers),
+                    .case_jumps = shd_nodes(a, exiting_nodes_count, exit_jumps),
                     .mem = shd_bld_mem(outer_bb)
                 }));
             }
