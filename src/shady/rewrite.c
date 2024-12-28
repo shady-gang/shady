@@ -119,12 +119,6 @@ const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, Nod
     return search_processed_internal(ctx, old, mask, true);
 }
 
-const Node* shd_find_processed(const Rewriter* ctx, const Node* old) {
-    const Node** found = shd_search_processed(ctx, old);
-    assert(found && "this node was supposed to have been processed before");
-    return *found;
-}
-
 static bool should_memoize(const Node* node) {
     if (is_declaration(node))
         return false;

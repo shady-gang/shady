@@ -66,8 +66,7 @@ Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams);
 /// Looks up if the node was already processed
 const Node** shd_search_processed(const Rewriter* ctx, const Node* old);
 const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, NodeClass mask);
-/// Same as shd_search_processed but asserts if it fails to find a mapping
-const Node* shd_find_processed(const Rewriter* ctx, const Node* old);
+
 void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new);
 void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new, NodeClass mask);
 void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new);
