@@ -350,8 +350,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             assert(idom_lt_node);
             assert(current_node);
 
-            Node* fn = (Node*) shd_find_processed(r, ctx->current_fn);
-
             //Regular if/then/else case. Control flow joins at the immediate post dominator.
             Nodes yield_types;
             Nodes exit_args;
