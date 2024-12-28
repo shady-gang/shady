@@ -22,12 +22,12 @@ Nodes shd_rewrite_ops(Rewriter* rewriter, NodeClass class, String op_name, Nodes
 Nodes shd_rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, Nodes values, RewriteOpFn fn);
 
 struct Rewriter_ {
-    RewriteNodeFn rewrite_fn;
-    RewriteOpFn rewrite_op_fn;
     IrArena* src_arena;
     IrArena* dst_arena;
     Module* src_module;
     Module* dst_module;
+    RewriteNodeFn rewrite_fn;
+    RewriteOpFn rewrite_op_fn;
     struct {
         bool search_map;
         bool write_map;

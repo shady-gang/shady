@@ -137,8 +137,6 @@ void l2s_postprocess(Parser* p, Module* src, Module* dst) {
         .arena = shd_new_arena(),
     };
 
-    ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_arena(ctx.arena);
     shd_destroy_rewriter(&ctx.rewriter);

@@ -311,8 +311,6 @@ Module* shd_pass_scope2control(const CompilerConfig* config, Module* src) {
         .jump2wrapper = shd_new_dict(const Node*, Wrapped, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
 
-    ctx.rewriter.rewrite_fn = (RewriteNodeFn) process_node;
-
     shd_rewrite_module(&ctx.rewriter);
 
     size_t i = 0;
