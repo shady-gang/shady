@@ -10,94 +10,28 @@ typedef struct Context_ {
     Rewriter rewriter;
 } Context;
 
-static const Node* process_node(Context* ctx, const Node* node);
-
-static const Node* force_to_be_value(Context* ctx, const Node* node) {
-    if (node == NULL) return NULL;
-    IrArena* a = ctx->rewriter.dst_arena;
+static OpRewriteResult process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED String op_name, const Node* node) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
         // All decls map to refdecl/fnaddr
         case Constant_TAG:
         case GlobalVariable_TAG: {
-            return ref_decl_helper(a, process_node(ctx, node));
+            if (op_class == NcValue)
+                return (OpRewriteResult) { ref_decl_helper(a, shd_rewrite_op(r, NcDeclaration, "decl", node)), NcValue };
+            break;
         }
         case Function_TAG: {
-            return fn_addr_helper(a, process_node(ctx, node));
+            if (op_class == NcValue)
+                return (OpRewriteResult) { fn_addr_helper(a, shd_rewrite_op(r, NcDeclaration, "decl", node)), NcValue };
+            break;
         }
-        case Param_TAG: return shd_find_processed(&ctx->rewriter, node);
         default:
             break;
     }
 
-    assert(is_value(node));
-    const Node* value = process_node(ctx, node);
-    assert(is_value(value));
-    return value;
-}
-
-static const Node* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED String op_name, const Node* node) {
-    if (node == NULL) return NULL;
-    Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
-    switch (op_class) {
-        case NcType: {
-            assert(is_type(node));
-            const Node* type = process_node(ctx, node);
-            assert(is_type(type));
-            return type;
-        }
-        case NcValue:
-            return force_to_be_value(ctx, node);
-        case NcParam:
-            break;
-        case NcInstruction: {
-            if (is_instruction(node)) {
-                const Node* new = process_node(ctx, node);
-                //register_processed(r, node, new);
-                return new;
-            }
-            const Node* val = force_to_be_value(ctx, node);
-            return val;
-        }
-        case NcTerminator:
-            break;
-        case NcDeclaration:
-            break;
-        case NcBasic_block:
-            break;
-        case NcAnnotation:
-            break;
-        case NcJump:
-            break;
-        case NcStructured_construct:
-            break;
-    }
-    return process_node(ctx, node);
-}
-
-static const Node* process_node(Context* ctx, const Node* node) {
-    const Node** already_done = shd_search_processed(&ctx->rewriter, node);
-    if (already_done)
-        return *already_done;
-
-    Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
-
-    // add a builder to each abstraction...
-    switch (node->tag) {
-        // case Let_TAG: {
-        //     const Node* ninstr = rewrite_op(r, NcInstruction, "instruction", get_let_instruction(node));
-        //     register_processed(r, get_let_instruction(node), ninstr);
-        //     return let(a, ninstr, rewrite_op(r, NcTerminator, "in", node->payload.let.in));
-        // }
-        default: break;
-    }
-
-    const Node* new = shd_recreate_node(&ctx->rewriter, node);
-    if (is_instruction(new))
-        shd_register_processed(r, node, new);
-    return new;
+    return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
 }
 
 Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
@@ -108,9 +42,6 @@ Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* s
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process_op),
     };
-
-    ctx.rewriter.config.search_map = false;
-    ctx.rewriter.config.write_map = false;
 
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

@@ -6,7 +6,8 @@
 typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
-typedef const Node* (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
+typedef struct { const Node* result; NodeClass mask; } OpRewriteResult;
+typedef OpRewriteResult (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
 
 const Node* shd_rewrite_node(Rewriter* rewriter, const Node* node);
 const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn);
@@ -21,6 +22,8 @@ Nodes shd_rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn 
 Nodes shd_rewrite_ops(Rewriter* rewriter, NodeClass class, String op_name, Nodes old_nodes);
 Nodes shd_rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, Nodes values, RewriteOpFn fn);
 
+typedef struct Arena_ Arena;
+
 struct Rewriter_ {
     IrArena* src_arena;
     IrArena* dst_arena;
@@ -33,14 +36,13 @@ struct Rewriter_ {
         bool write_map;
     } config;
 
+    Arena* arena;
     Rewriter* parent;
-
     struct Dict* map;
     bool own_decls;
     struct Dict* decls_map;
 };
 
-Rewriter shd_create_rewriter_base(Module* src, Module* dst);
 Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter shd_create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter shd_create_importer(Module* src, Module* dst);
@@ -64,9 +66,11 @@ Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams);
 
 /// Looks up if the node was already processed
 const Node** shd_search_processed(const Rewriter* ctx, const Node* old);
+const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, NodeClass mask);
 /// Same as shd_search_processed but asserts if it fails to find a mapping
 const Node* shd_find_processed(const Rewriter* ctx, const Node* old);
 void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new);
+void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new, NodeClass mask);
 void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new);
 
 void shd_dump_rewriter_map(Rewriter* r);
