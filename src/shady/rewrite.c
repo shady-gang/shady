@@ -315,20 +315,18 @@ Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old) {
             Nodes nyield_types = rewrite_ops_helper(rewriter, NcType, "return_types", old->payload.fun.return_types);
             new = function(rewriter->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
             assert(new && new->tag == Function_TAG);
-            shd_register_processed_mask(rewriter, old, new, NcAbstraction);
             shd_register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
             break;
         }
         case NominalType_TAG: {
             Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.nom_type.annotations);
             new = nominal_type(rewriter->dst_module, new_annotations, old->payload.nom_type.name);
-            shd_register_processed_mask(rewriter, old, new, NcType);
             break;
         }
         case NotADeclaration: shd_error("not a decl");
     }
     assert(new);
-    shd_register_processed_mask(rewriter, old, new, NcDeclaration);
+    shd_register_processed_mask(rewriter, old, new, shd_get_node_class_from_tag(new->tag));
     return new;
 }
 
