@@ -88,7 +88,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
     if (found)
         return *found;
 
-    const Node* ptr_param = param(a, shd_as_qualified_type(ctx->generic_ptr_type, uniform_ptr), "ptr");
+    const Node* ptr_param = param_helper(a, shd_as_qualified_type(ctx->generic_ptr_type, uniform_ptr), "ptr");
     const Node* value_param;
     Nodes params = shd_singleton(ptr_param);
     Nodes return_ts = shd_empty(a);
@@ -97,7 +97,7 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             return_ts = shd_singleton(shd_as_qualified_type(t, uniform_ptr));
             break;
         case StoreFn:
-            value_param = param(a, shd_as_qualified_type(t, false), "value");
+            value_param = param_helper(a, shd_as_qualified_type(t, false), "value");
             params = shd_nodes_append(a, params, value_param);
             break;
     }

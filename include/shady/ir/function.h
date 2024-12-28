@@ -4,11 +4,9 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/type.h"
 
-Node* _shd_param(IrArena*, const Type* type, const char* name);
 Node* _shd_function(Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
 Node* _shd_basic_block(IrArena*, Nodes params, const char* name);
 
-static inline Node* param(IrArena* a, const Type* type, const char* name) { return _shd_param(a, type, name); }
 static inline Node* function(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) { return _shd_function(m, params, name, annotations, return_types); }
 static inline Node* basic_block(IrArena* a, Nodes params, const char* name) { return _shd_basic_block(a, params, name); }
 static inline Node* case_(IrArena* a, Nodes params) { return basic_block(a, params, NULL); }

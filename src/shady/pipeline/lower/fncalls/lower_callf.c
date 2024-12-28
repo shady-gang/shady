@@ -48,7 +48,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
                                                          shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
-                const Node* jp_variable = param(a, shd_as_qualified_type(jp_type, false), "return_jp");
+                const Node* jp_variable = param_helper(a, shd_as_qualified_type(jp_type, false), "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }
@@ -126,7 +126,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
                     .is_uniform = false
             });
-            const Node* jp = param(a, jp_type, "fn_return_point");
+            const Node* jp = param_helper(a, jp_type, "fn_return_point");
 
             // Add that join point as the last argument to the newly made function
             nargs = shd_nodes_append(a, nargs, jp);

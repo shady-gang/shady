@@ -56,7 +56,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (is_value(value)) {
                     additional_args = shd_nodes_append(a, additional_args, value);
                     const Type* t = shd_rewrite_node(r, value->type);
-                    const Node* p = param(a, t, NULL);
+                    const Node* p = param_helper(a, t, NULL);
                     new_params = shd_nodes_append(a, new_params, p);
                     shd_register_processed(&bb_ctx.rewriter, value, p);
                 }

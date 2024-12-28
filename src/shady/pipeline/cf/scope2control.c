@@ -53,7 +53,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             else
                 t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
         }
-        nvars[i] = param(a, t, node->payload.param.name);
+        nvars[i] = param_helper(a, t, node->payload.param.name);
         assert(nvars[i]->tag == Param_TAG);
     }
     return shd_nodes(a, old.count, nvars);
@@ -223,7 +223,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types
                     });
-                    const Node* join_token = param(a, shd_as_qualified_type(jp_type, false), shd_get_abstraction_name_unsafe(dst));
+                    const Node* join_token = param_helper(a, shd_as_qualified_type(jp_type, false), shd_get_abstraction_name_unsafe(dst));
 
                     Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {

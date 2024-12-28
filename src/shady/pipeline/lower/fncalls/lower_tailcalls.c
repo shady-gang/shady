@@ -260,7 +260,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = shd_rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
                 });
-                const Node* new_jp = param(a, shd_as_qualified_type(new_jp_type, true), old_jp->payload.param.name);
+                const Node* new_jp = param_helper(a, shd_as_qualified_type(new_jp_type, true), old_jp->payload.param.name);
                 shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = case_(a, shd_singleton(new_jp));
                 shd_register_processed(r, payload.inside, new_control_case);

@@ -154,7 +154,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param(a, shd_as_qualified_type(src_t, false), "src");
+        const Node* src_param = param_helper(a, shd_as_qualified_type(src_t, false), "src");
         fn = function(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)),
                       mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(
                         shd_as_qualified_type(src_t, true)));

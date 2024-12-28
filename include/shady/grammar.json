@@ -255,7 +255,6 @@
     {
       "name": "Param",
       "class": ["value", "param"],
-      "constructor": "custom",
       "nominal": true,
       "ops": [
         { "name": "type", "class": "type" },

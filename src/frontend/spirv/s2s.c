@@ -854,7 +854,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Value;
             String param_name = get_name(parser, result);
             param_name = param_name ? param_name : shd_format_string_arena(parser->arena->arena, "param%d", parser->fun_arg_i);
-            parser->defs[result].node = param(parser->arena,
+            parser->defs[result].node = param_helper(parser->arena,
                                               shd_as_qualified_type(get_def_type(parser, result_t), parser->is_entry_pt), param_name);
             break;
         }
@@ -914,7 +914,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Value;
             String phi_name = get_name(parser, result);
             phi_name = phi_name ? phi_name : shd_make_unique_name(parser->arena, "phi");
-            parser->defs[result].node = param(parser->arena,
+            parser->defs[result].node = param_helper(parser->arena,
                                               shd_as_qualified_type(get_def_type(parser, result_t), false), phi_name);
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;

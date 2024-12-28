@@ -275,7 +275,7 @@ void shd_rewrite_module(Rewriter* rewriter) {
 
 const Node* shd_recreate_param(Rewriter* rewriter, const Node* old) {
     assert(old->tag == Param_TAG);
-    return param(rewriter->dst_arena, rewrite_op_helper(rewriter, NcType, "type", old->payload.param.type), old->payload.param.name);
+    return param_helper(rewriter->dst_arena, rewrite_op_helper(rewriter, NcType, "type", old->payload.param.type), old->payload.param.name);
 }
 
 Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams) {

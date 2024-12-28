@@ -114,7 +114,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     // Create and register new parameters for the lifted continuation
     LARRAY(const Node*, new_params_arr, ovariables.count);
     for (size_t i = 0; i < ovariables.count; i++)
-        new_params_arr[i] = param(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), shd_get_value_name_unsafe(ovariables.nodes[i]));
+        new_params_arr[i] = param_helper(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), shd_get_value_name_unsafe(ovariables.nodes[i]));
     Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
 
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
@@ -124,7 +124,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     shd_register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
+    const Node* payload = param_helper(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
 
     // Keep annotations the same
     Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));
