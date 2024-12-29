@@ -156,7 +156,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         TmpAllocCleanupClosure cj2 = create_delete_rewriter_closure(&children_ctx.rewriter);
         shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
         for (size_t i = 0; i < oargs.count; i++) {
-            nparams[i] = param(a, shd_rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
+            nparams[i] = param_helper(a, shd_rewrite_node(&ctx->rewriter, oparams.nodes[i]->type), "arg");
             shd_register_processed(&children_ctx.rewriter, oparams.nodes[i], nparams[i]);
         }
 

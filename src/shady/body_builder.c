@@ -246,7 +246,7 @@ static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     Nodes qyield_types = shd_add_qualifiers(a, yield_types, false);
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
-        tail_params[i] = param(a, qyield_types.nodes[i], NULL);
+        tail_params[i] = param_helper(a, qyield_types.nodes[i], NULL);
     return shd_nodes(a, yield_types.count, tail_params);
 }
 
@@ -340,7 +340,7 @@ begin_control_t shd_bld_begin_control(BodyBuilder* bb, Nodes yield_types) {
             .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
             .is_uniform = true
     });
-    const Node* jp = param(a, jp_type, NULL);
+    const Node* jp = param_helper(a, jp_type, NULL);
     Node* c = case_(a, shd_singleton(jp));
     return (begin_control_t) {
         .results = shd_bld_control(bb, yield_types, c),
@@ -356,7 +356,7 @@ begin_loop_helper_t shd_bld_begin_loop_helper(BodyBuilder* bb, Nodes yield_types
     BodyBuilder* outer_control_case_builder = shd_bld_begin(a, shd_get_abstraction_mem(outer_control.case_));
     LARRAY(const Node*, params, arg_types.count);
     for (size_t i = 0; i < arg_types.count; i++) {
-        params[i] = param(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
+        params[i] = param_helper(a, shd_as_qualified_type(arg_types.nodes[i], false), NULL);
     }
     Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
     shd_set_abstraction_body(outer_control.case_, shd_bld_jump(outer_control_case_builder, loop_header, initial_values));

@@ -190,21 +190,31 @@ void generate_node_ctor(Growy* g, json_object* src, json_object* nodes) {
         // Generate helper variant
         if (ops) {
             shd_growy_append_formatted(g, "static inline const Node* %s_helper(IrArena* arena, ", snake_name);
+            bool first = true;
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
-                shd_growy_append_formatted(g, "\t%s %s", get_type_for_operand(src, op), op_name);
-                if (j + 1 < json_object_array_length(ops))
+                if (json_object_get_boolean(json_object_object_get(op, "ignore")))
+                    continue;
+                if (first)
+                    first = false;
+                else
                     shd_growy_append_formatted(g, ", ");
+                shd_growy_append_formatted(g, "%s %s", get_type_for_operand(src, op), op_name);
             }
             shd_growy_append_formatted(g, ") {\n");
             shd_growy_append_formatted(g, "\treturn %s(arena, (%s) {", snake_name, name);
+            first = true;
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
-                shd_growy_append_formatted(g, ".%s = %s", op_name, op_name);
-                if (j + 1 < json_object_array_length(ops))
+                if (json_object_get_boolean(json_object_object_get(op, "ignore")))
+                    continue;
+                if (first)
+                    first = false;
+                else
                     shd_growy_append_formatted(g, ", ");
+                shd_growy_append_formatted(g, ".%s = %s", op_name, op_name);
             }
             shd_growy_append_formatted(g, "});\n");
             shd_growy_append_formatted(g, "}\n");

@@ -129,11 +129,11 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count > 1)
                 exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(a));
 
-            const Node* join_token_exit = param(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+            const Node* join_token_exit = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = shd_empty(a)
             }), true), "jp_exit");
 
-            const Node* join_token_continue = param(a,
+            const Node* join_token_continue = param_helper(a,
                                                     shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                                                             .yield_types = inner_yield_types
                                                     }), true), "jp_continue");
@@ -374,14 +374,14 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     //if (contains_qualified_type(types[j]))
                     types[j] = shd_get_unqualified_type(qualified_type);
                     uniform_param[j] = shd_is_qualified_type_uniform(qualified_type);
-                    inner_args[j] = param(a, qualified_type, old_params.nodes[j]->payload.param.name);
+                    inner_args[j] = param_helper(a, qualified_type, old_params.nodes[j]->payload.param.name);
                 }
 
                 yield_types = shd_nodes(a, old_params.count, types);
                 exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
-            const Node* join_token = param(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+            const Node* join_token = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
             }), true), "jp_postdom");
 
