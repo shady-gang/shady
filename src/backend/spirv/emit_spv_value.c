@@ -551,6 +551,8 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             break;
         }
         case Value_Fill_TAG: shd_error("lower me")
+        case Value_GlobalVariable_TAG:
+        case Value_Constant_TAG: return spv_emit_decl(emitter, node);
         default: {
             shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));
         }
