@@ -25,9 +25,8 @@
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-typedef struct Context_ {
+typedef struct {
     Rewriter rewriter;
-    struct Context_* root_ctx;
 
     CFG* cfg;
     const UsesMap* uses;
@@ -94,7 +93,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = shd_create_children_rewriter(&ctx->root_ctx->rewriter);
+    lifting_ctx.rewriter = shd_create_children_rewriter(shd_get_top_rewriter(&ctx->rewriter));
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
@@ -169,7 +168,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
     switch (is_declaration(node)) {
         case Function_TAG: {
-            Context fn_ctx = *ctx->root_ctx;
+            Context fn_ctx = *ctx;
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
             fn_ctx.disable_lowering = shd_lookup_annotation(node, "Internal");
@@ -240,7 +239,6 @@ Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, Module* src
 
             .todo = &todo
         };
-        ctx.root_ctx = &ctx;
 
         shd_rewrite_module(&ctx.rewriter);
 

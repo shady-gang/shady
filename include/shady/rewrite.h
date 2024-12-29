@@ -35,8 +35,6 @@ struct Rewriter_ {
     Arena* arena;
     Rewriter* parent;
     struct Dict* map;
-    bool own_decls;
-    struct Dict* decls_map;
 };
 
 Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
@@ -66,6 +64,8 @@ const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, Nod
 void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new);
 void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new, NodeClass mask);
 void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new);
+
+Rewriter* shd_get_top_rewriter(Rewriter*);
 
 void shd_dump_rewriter_map(Rewriter* r);
 
