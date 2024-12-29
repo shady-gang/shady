@@ -7,9 +7,8 @@
 #include "portability.h"
 #include "log.h"
 
-typedef struct Context_ {
+typedef struct {
     Rewriter rewriter;
-    struct Context_* root_ctx;
     const CompilerConfig* config;
     BodyBuilder* bb;
     Node* lifted_globals_decl;
@@ -23,8 +22,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Node* newfun = shd_recreate_node_head(r, node);
             if (get_abstraction_body(node)) {
-                Context fn_ctx = *ctx->root_ctx;
-                fn_ctx.rewriter = shd_create_children_rewriter(&ctx->root_ctx->rewriter);
+                Context fn_ctx = *ctx;
+                fn_ctx.rewriter = shd_create_children_rewriter(shd_get_top_rewriter(r));
                 shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
                 fn_ctx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block(a, shd_empty(a), "post-prelude");
@@ -70,7 +69,6 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config
     };
-    ctx.root_ctx = &ctx;
 
     Nodes old_decls = shd_module_get_declarations(src);
     LARRAY(const Type*, member_tys, old_decls.count);
