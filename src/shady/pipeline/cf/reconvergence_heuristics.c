@@ -68,8 +68,8 @@ typedef struct {
 
 static const Node* process_abstraction(Context* ctx, const Node* node) {
     assert(node && is_abstraction(node));
-    Context new_context = *ctx;
-    ctx = &new_context;
+    Context abs_ctx = *ctx;
+    ctx = &abs_ctx;
     ctx->current_abstraction = node;
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -157,20 +157,21 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             shd_set_abstraction_body(continue_wrapper, continue_wrapper_body);
 
             // inside the loop we want certain things to be rewritten directly!
-            Rewriter inside_rewriter = shd_create_children_rewriter(r);
+            Context loop_ctx = *ctx;
+            loop_ctx.rewriter = shd_create_children_rewriter(r);
             // replace the exit nodes by the exit wrappers
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
-                shd_register_processed(&inside_rewriter, exiting_node->node, exits[i].wrapper);
+                shd_register_processed(&loop_ctx.rewriter, exiting_node->node, exits[i].wrapper);
             }
             // ditto for the loop entry and the continue wrapper
-            shd_register_processed(&inside_rewriter, node, continue_wrapper);
+            shd_register_processed(&loop_ctx.rewriter, node, continue_wrapper);
 
-            Nodes inner_loop_params = shd_recreate_params(&inside_rewriter, get_abstraction_params(node));
-            shd_register_processed_list(&inside_rewriter, get_abstraction_params(node), inner_loop_params);
+            Nodes inner_loop_params = shd_recreate_params(&loop_ctx.rewriter, get_abstraction_params(node));
+            shd_register_processed_list(&loop_ctx.rewriter, get_abstraction_params(node), inner_loop_params);
             Node* inner_control_case = case_(a, shd_singleton(join_token_continue));
-            shd_register_processed(&inside_rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
-            const Node* loop_body = shd_rewrite_node(&inside_rewriter, get_abstraction_body(node));
+            shd_register_processed(&loop_ctx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner_control_case));
+            const Node* loop_body = shd_rewrite_node(&loop_ctx.rewriter, get_abstraction_body(node));
 
             // save the context
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -190,7 +191,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             shd_set_abstraction_body(inner_control_case, loop_body);
 
-            shd_destroy_rewriter(&inside_rewriter);
+            shd_destroy_rewriter(&loop_ctx.rewriter);
 
             Node* loop_outer = basic_block(a, inner_loop_params, "loop_outer");
             BodyBuilder* inner_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_outer));
@@ -261,11 +262,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    Context new_context = *ctx;
-
     switch (node->tag) {
         case Function_TAG: {
-            ctx = &new_context;
+            Context fn_ctx = *ctx;
+            ctx = &fn_ctx;
             ctx->current_fn = NULL;
             if (!(shd_lookup_annotation(node, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
@@ -283,7 +283,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Constant_TAG: {
-            ctx = &new_context;
+            ctx = (Context*) shd_get_top_rewriter(r);
             ctx->current_fn = NULL;
             r = &ctx->rewriter;
             break;
@@ -392,27 +392,28 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .mem = shd_get_abstraction_mem(pre_join),
             }));
 
-            Rewriter inside_rewriter = shd_create_children_rewriter(r);
+            Context control_ctx = *ctx;
+            control_ctx.rewriter = shd_create_children_rewriter(r);
             for (size_t i = 0; i < old_params.count; i++) {
-                assert(!shd_search_processed(&inside_rewriter, old_params.nodes[i]));
+                assert(!shd_search_processed(&control_ctx.rewriter, old_params.nodes[i]));
             }
 
-            shd_register_processed(&inside_rewriter, post_dominator, pre_join);
+            shd_register_processed(&control_ctx.rewriter, post_dominator, pre_join);
 
             Node* control_case = case_(a, shd_singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = shd_get_abstraction_mem(control_case),
                 .condition = shd_rewrite_node(r, payload.condition),
                 .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
-                                         shd_rewrite_node(&inside_rewriter, payload.true_jump->payload.jump.target),
+                                         shd_rewrite_node(&control_ctx.rewriter, payload.true_jump->payload.jump.target),
                                          shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
                 .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
-                                          shd_rewrite_node(&inside_rewriter, payload.false_jump->payload.jump.target),
+                                          shd_rewrite_node(&control_ctx.rewriter, payload.false_jump->payload.jump.target),
                                           shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
             shd_set_abstraction_body(control_case, inner_terminator);
 
-            shd_destroy_rewriter(&inside_rewriter);
+            shd_destroy_rewriter(&control_ctx.rewriter);
 
             const Node* join_target = shd_rewrite_node(r, post_dominator);
 

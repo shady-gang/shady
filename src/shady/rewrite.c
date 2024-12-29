@@ -89,6 +89,7 @@ static const Node** search_processed_internal(const Rewriter* ctx, const Node* o
         const Node** found = search_in_map(ctx->map, old, ctx->rewrite_op_fn, mask);
         if (found)
             return found;
+        assert(ctx != ctx->parent && "impossible loop constructed, somehow");
         if (deep)
             ctx = ctx->parent;
         else
