@@ -629,12 +629,12 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             printf(")");
             return true;
         }
-        case Value_RefDecl_TAG: {
+        /*case Value_RefDecl_TAG: {
             printf(BYELLOW);
             printf("%s", (char*) get_declaration_name(node->payload.ref_decl.decl));
             printf(RESET);
             return true;
-        }
+        }*/
         case FnAddr_TAG:
             printf(BYELLOW);
             printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
@@ -1022,7 +1022,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     if (is_declaration(node)) {
         r = get_declaration_name(node);
         print_def = false;
-    } else if (is_param(node) || is_basic_block(node) || node->tag == RefDecl_TAG || node->tag == FnAddr_TAG) {
+    } else if (is_param(node) || is_basic_block(node) || node->tag == FnAddr_TAG) {
         print_def = false;
         r = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
     } else {

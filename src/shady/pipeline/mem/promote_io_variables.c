@@ -24,7 +24,7 @@ static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node*
     assert(io->tag == GlobalVariable_TAG);
     Node* phy = global_var(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", io->payload.global_variable.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup);
     const Type* pt = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = io->payload.global_variable.type });
-    const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(ref_decl_helper(a, phy)));
+    const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(phy));
     phy = constant(m, shd_empty(a), pt, shd_fmt_string_irarena(a, "%s_generic", io->payload.global_variable.name));
     phy->payload.constant.value = converted;
 
@@ -33,14 +33,14 @@ static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node*
         case AsUniformConstant:
         case AsUInput:
         case AsInput: {
-            const Node* value = shd_bld_load(ctx->init_bld, ref_decl_helper(a, io));
-            shd_bld_store(ctx->init_bld, ref_decl_helper(a, phy), value);
+            const Node* value = shd_bld_load(ctx->init_bld, io);
+            shd_bld_store(ctx->init_bld, phy, value);
             // shd_bld_add_instruction(ctx->init_bld, copy_bytes_helper(a, shd_bld_mem(ctx->init_bld), phy, io, ))
             break;
         }
         case AsOutput: {
-            const Node* value = shd_bld_load(ctx->fini_bld, ref_decl_helper(a, phy));
-            shd_bld_store(ctx->fini_bld, ref_decl_helper(a, io), value);
+            const Node* value = shd_bld_load(ctx->fini_bld, phy);
+            shd_bld_store(ctx->fini_bld, io, value);
             break;
         }
         default: assert(false);

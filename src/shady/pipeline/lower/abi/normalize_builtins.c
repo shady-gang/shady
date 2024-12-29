@@ -34,7 +34,6 @@ static const Type* get_req_cast(Context* ctx, const Node* src) {
             }
             break;
         }
-        case RefDecl_TAG: return get_req_cast(ctx, src->payload.ref_decl.decl);
         case PtrCompositeElement_TAG: {
             const Type* src_req_cast = get_req_cast(ctx, src->payload.ptr_composite_element.ptr);
             if (src_req_cast) {

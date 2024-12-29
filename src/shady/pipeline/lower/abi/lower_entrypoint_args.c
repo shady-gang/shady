@@ -56,7 +56,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     String name = shd_fmt_string_irarena(a, "__%s_args", old_entry_point->payload.fun.name);
     Node* var = global_var(rewriter->dst_module, annotations, type, name, AsExternal);
 
-    return ref_decl_helper(a, var);
+    return var;
 }
 
 static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct) {

@@ -15,13 +15,6 @@ static OpRewriteResult process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED
     IrArena* a = r->dst_arena;
 
     switch (node->tag) {
-        // All decls map to refdecl/fnaddr
-        case Constant_TAG:
-        case GlobalVariable_TAG: {
-            if (op_class == NcValue)
-                return (OpRewriteResult) { ref_decl_helper(a, shd_rewrite_op(r, NcDeclaration, "decl", node)), NcValue };
-            break;
-        }
         case Function_TAG: {
             if (op_class == NcValue)
                 return (OpRewriteResult) { fn_addr_helper(a, shd_rewrite_op(r, NcDeclaration, "decl", node)), NcValue };

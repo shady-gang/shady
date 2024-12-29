@@ -455,8 +455,6 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 if (strcmp(intrinsic, "llvm.dbg.declare") == 0) {
                     const Node* target = l2s_convert_value(p, LLVMGetOperand(instr, 0));
                     const Node* meta = l2s_convert_value(p, LLVMGetOperand(instr, 1));
-                    assert(meta->tag == RefDecl_TAG);
-                    meta = meta->payload.ref_decl.decl;
                     assert(meta->tag == GlobalVariable_TAG);
                     meta = meta->payload.global_variable.init;
                     assert(meta && meta->tag == Composite_TAG);

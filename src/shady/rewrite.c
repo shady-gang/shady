@@ -220,20 +220,28 @@ void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new
         shd_error("The same node got processed twice !");
     }
 #endif
-    struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
+    Arena* a = ctx->arena;
+    struct Dict* map = ctx->map;
+    if (is_declaration(old)) {
+        map = ctx->decls_map;
+        Rewriter* top = ctx;
+        while (top->parent)
+            top = top->parent;
+        a = top->arena;
+    }
     assert(map && "this rewriter has no processed cache");
     if (ctx->rewrite_op_fn) {
         MaskedEntry** found = shd_dict_find_value(const Node*, MaskedEntry*, map, old);
         MaskedEntry* entry = found ? *found : NULL;
         if (!entry) {
-            entry = shd_arena_alloc(ctx->arena, sizeof(MaskedEntry));
+            entry = shd_arena_alloc(a, sizeof(MaskedEntry));
             bool r = shd_dict_insert_get_result(const Node*, MaskedEntry*, map, old, entry);
             assert(r);
         } else {
             MaskedEntry* tail = entry;
             while (tail->next)
                 tail = tail->next;
-            entry = shd_arena_alloc(ctx->arena, sizeof(MaskedEntry));
+            entry = shd_arena_alloc(a, sizeof(MaskedEntry));
             tail->next = entry;
         }
         *entry = (MaskedEntry) {

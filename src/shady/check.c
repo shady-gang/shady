@@ -203,21 +203,6 @@ const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     });
 }
 
-const Type* _shd_check_type_ref_decl(IrArena* arena, RefDecl ref_decl) {
-    const Type* t = ref_decl.decl->type;
-    assert(t && "RefDecl needs to be applied on a decl with a non-null type. Did you forget to set 'type' on a constant ?");
-    switch (ref_decl.decl->tag) {
-        case GlobalVariable_TAG:
-        case Constant_TAG: break;
-        default: shd_error("You can only use RefDecl on a global or a constant. See FnAddr for taking addresses of functions.")
-    }
-    assert(t->tag != QualifiedType_TAG && "decl types may not be qualified");
-    return qualified_type(arena, (QualifiedType) {
-        .type = t,
-        .is_uniform = true,
-    });
-}
-
 const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     for (size_t i = 0; i < prim_op.type_arguments.count; i++) {
         const Node* ta = prim_op.type_arguments.nodes[i];
@@ -957,16 +942,16 @@ const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable globa
 
     assert(global_variable.address_space < NumAddressSpaces);
 
-    return ptr_type(arena, (PtrType) {
+    return qualified_type_helper(arena, true, ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
         .is_reference = shd_lookup_annotation_list(global_variable.annotations, "Logical"),
-    });
+    }));
 }
 
 const Type* _shd_check_type_constant(IrArena* arena, Constant cnst) {
     assert(shd_is_data_type(cnst.type_hint));
-    return cnst.type_hint;
+    return qualified_type_helper(arena, true, cnst.type_hint);
 }
 
 #include "type_generated.c"

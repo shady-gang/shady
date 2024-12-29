@@ -306,7 +306,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         iterations_count_param = shd_first(l.params);
     BodyBuilder* loop_body_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_inside_case));
 
-    const Node* next_function = shd_bld_load(loop_body_builder, ref_decl_helper(a, shd_find_or_process_decl(r, "next_fn")));
+    const Node* next_function = shd_bld_load(loop_body_builder, shd_find_or_process_decl(r, "next_fn"));
     const Node* get_active_branch_fn = get_fn(r, "builtin_get_active_branch");
     const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, get_active_branch_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
@@ -314,7 +314,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
     if (ctx->config->printf_trace.top_function) {
-        const Node* resume_at = shd_bld_load(loop_body_builder, lea_helper(a, ref_decl_helper(a, shd_find_or_process_decl(r, "resume_at")), shd_uint32_literal(a, 0), mk_nodes(a, local_id)));
+        const Node* resume_at = shd_bld_load(loop_body_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0), mk_nodes(a, local_id)));
         if (count_iterations)
             shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx resume_at=%d\n", mk_nodes(a, sid, local_id, iterations_count_param, next_function, next_mask, resume_at));
         else

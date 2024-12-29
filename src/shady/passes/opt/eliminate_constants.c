@@ -10,27 +10,26 @@ typedef struct {
     bool all;
 } Context;
 
-static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
+static OpRewriteResult process(Context* ctx, NodeClass use, String name, const Node* node) {
+    Rewriter* r = &ctx->rewriter;
 
     switch (node->tag) {
-        case Constant_TAG:
-            if (!node->payload.constant.value)
+        case Constant_TAG: {
+            Constant payload = node->payload.constant;
+            if (!payload.value)
                 break;
             if (!ctx->all)
                 break;
-            return NULL;
-        case RefDecl_TAG: {
-            const Node* decl = node->payload.ref_decl.decl;
-            if (decl->tag == Constant_TAG && decl->payload.constant.value) {
-                return shd_rewrite_node(&ctx->rewriter, decl->payload.constant.value);
-            }
-            break;
+            // rewrite the constant as the old value if it's used as such
+            if (use == NcValue)
+                return (OpRewriteResult) { shd_rewrite_op(r, NcValue, "value", payload.value), NcValue };
+            // and null otherwise
+            return (OpRewriteResult) { NULL, ~NcValue };
         }
         default: break;
     }
 
-    return shd_recreate_node(&ctx->rewriter, node);
+    return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
 }
 
 static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
@@ -38,7 +37,7 @@ static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, M
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
-        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
         .all = all,
     };
 

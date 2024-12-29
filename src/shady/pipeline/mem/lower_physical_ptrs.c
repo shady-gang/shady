@@ -418,7 +418,7 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         if (old_init) {
             const Node* value = shd_rewrite_node(r, old_init);
             const Node* fn = gen_serdes_fn(ctx, shd_get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
-            shd_bld_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, ref_decl_helper(oa, old_decl)), value));
+            shd_bld_call(bb, fn_addr_helper(a, fn), mk_nodes(a, shd_rewrite_node(r, old_decl), value));
         }
     }
 }
@@ -455,12 +455,12 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,
-        .size = ref_decl_helper(a, constant_decl)
+        .size = constant_decl
     });
 
     Node* words_array = global_var(m, shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
 
-    *get_emulated_as_word_array(ctx, as) = ref_decl_helper(a, words_array);
+    *get_emulated_as_word_array(ctx, as) = words_array;
 }
 
 Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) {

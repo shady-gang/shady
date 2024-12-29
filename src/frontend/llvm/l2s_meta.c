@@ -28,7 +28,7 @@ static const Node* convert_named_tuple_metadata(Parser* p, LLVMValueRef v, Strin
     if (!name || strlen(name) == 0)
         name = shd_make_unique_name(a, node_name);
     Node* g = global_var(p->dst, shd_singleton(annotation(a, (Annotation) { .name = "LLVMMetaData" })), unit_type(a), name, AsDebugInfo);
-    const Node* r = ref_decl_helper(a, g);
+    const Node* r = g;
     shd_dict_insert(LLVMValueRef, const Type*, p->map, v, r);
 
     Nodes args = convert_mdnode_operands(p, v);
