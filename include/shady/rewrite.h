@@ -9,18 +9,18 @@ typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
 typedef struct { const Node* result; NodeClass mask; } OpRewriteResult;
 typedef OpRewriteResult (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
 
-const Node* shd_rewrite_node(Rewriter* rewriter, const Node* node);
-const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn);
+const Node* shd_rewrite_node(Rewriter*, const Node* old);
+const Node* shd_rewrite_node_with_fn(Rewriter*, const Node* old, RewriteNodeFn fn);
 
-const Node* shd_rewrite_op(Rewriter* rewriter, NodeClass class, String op_name, const Node* node);
-const Node* shd_rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String op_name, const Node* node, RewriteOpFn fn);
+const Node* shd_rewrite_op(Rewriter*, NodeClass class, String op_name, const Node* old);
+const Node* shd_rewrite_op_with_fn(Rewriter*, NodeClass class, String op_name, const Node* old, RewriteOpFn fn);
 
 /// Applies the rewriter to all nodes in the collection
-Nodes shd_rewrite_nodes(Rewriter* rewriter, Nodes old_nodes);
-Nodes shd_rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn);
+Nodes shd_rewrite_nodes(Rewriter*, Nodes old);
+Nodes shd_rewrite_nodes_with_fn(Rewriter*, Nodes old, RewriteNodeFn fn);
 
-Nodes shd_rewrite_ops(Rewriter* rewriter, NodeClass class, String op_name, Nodes old_nodes);
-Nodes shd_rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, Nodes values, RewriteOpFn fn);
+Nodes shd_rewrite_ops(Rewriter*, NodeClass class, String op_name, Nodes old);
+Nodes shd_rewrite_ops_with_fn(Rewriter*, NodeClass class, String op_name, Nodes old, RewriteOpFn fn);
 
 typedef struct Arena_ Arena;
 
@@ -42,31 +42,31 @@ Rewriter shd_create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);
 Rewriter shd_create_importer(Module* src, Module* dst);
 Rewriter shd_create_children_rewriter(Rewriter* parent);
 
-void shd_destroy_rewriter(Rewriter* r);
+void shd_destroy_rewriter(Rewriter*);
 
-void shd_rewrite_module(Rewriter* rewriter);
+void shd_rewrite_module(Rewriter*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
-const Node* shd_recreate_node(Rewriter* rewriter, const Node* node);
+const Node* shd_recreate_node(Rewriter*, const Node* node);
 
 /// Rewrites a constant / function header
-Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old);
-void  shd_recreate_node_body(Rewriter* rewriter, const Node* old, Node* new);
+Node* shd_recreate_node_head(Rewriter*, const Node* old);
+void  shd_recreate_node_body(Rewriter*, const Node* old, Node* new);
 
 /// Rewrites a variable under a new identity
-const Node* shd_recreate_param(Rewriter* rewriter, const Node* old);
-Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams);
+const Node* shd_recreate_param(Rewriter*, const Node* oparam);
+Nodes shd_recreate_params(Rewriter*, Nodes oparams);
 
 /// Looks up if the node was already processed
-const Node** shd_search_processed(const Rewriter* ctx, const Node* old);
-const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, NodeClass mask);
+const Node** shd_search_processed(const Rewriter*, const Node* old);
+const Node** shd_search_processed_mask(const Rewriter*, const Node* old, NodeClass mask);
 
-void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new);
-void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new, NodeClass mask);
-void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new);
+void shd_register_processed(Rewriter*, const Node* old, const Node* new);
+void shd_register_processed_mask(Rewriter*, const Node* old, const Node* new, NodeClass mask);
+void shd_register_processed_list(Rewriter*, Nodes old, Nodes new);
 
 Rewriter* shd_get_top_rewriter(Rewriter*);
 
-void shd_dump_rewriter_map(Rewriter* r);
+void shd_dump_rewriter_map(Rewriter*);
 
 #endif

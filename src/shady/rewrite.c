@@ -83,111 +83,111 @@ static const Node** search_in_map(struct Dict* map, const Node* key, bool use_ma
     }
 }
 
-static const Node** search_processed_internal(const Rewriter* ctx, const Node* old, NodeClass mask, bool deep) {
-    while (ctx) {
-        assert(ctx->map && "this rewriter has no processed cache");
-        const Node** found = search_in_map(ctx->map, old, ctx->rewrite_op_fn, mask);
+static const Node** search_processed_internal(const Rewriter* r, const Node* old, NodeClass mask, bool deep) {
+    while (r) {
+        assert(r->map && "this rewriter has no processed cache");
+        const Node** found = search_in_map(r->map, old, r->rewrite_op_fn, mask);
         if (found)
             return found;
-        assert(ctx != ctx->parent && "impossible loop constructed, somehow");
+        assert(r != r->parent && "impossible loop constructed, somehow");
         if (deep)
-            ctx = ctx->parent;
+            r = r->parent;
         else
-            ctx = NULL;
+            r = NULL;
     }
     return NULL;
 }
 
-const Node** shd_search_processed(const Rewriter* ctx, const Node* old) {
-    return search_processed_internal(ctx, old, ~0, true);
+const Node** shd_search_processed(const Rewriter* r, const Node* old) {
+    return search_processed_internal(r, old, ~0, true);
 }
 
-const Node** shd_search_processed_mask(const Rewriter* ctx, const Node* old, NodeClass mask) {
-    return search_processed_internal(ctx, old, mask, true);
+const Node** shd_search_processed_mask(const Rewriter* r, const Node* old, NodeClass mask) {
+    return search_processed_internal(r, old, mask, true);
 }
 
-const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, RewriteNodeFn fn) {
-    assert(rewriter->rewrite_fn);
-    if (!node)
+const Node* shd_rewrite_node_with_fn(Rewriter* r, const Node* old, RewriteNodeFn fn) {
+    assert(r->rewrite_fn);
+    if (!old)
         return NULL;
-    const Node** found = shd_search_processed(rewriter, node);
+    const Node** found = shd_search_processed(r, old);
     if (found)
         return *found;
 
-    const Node* rewritten = fn(rewriter, node);
-    shd_register_processed(rewriter, node, rewritten);
+    const Node* rewritten = fn(r, old);
+    shd_register_processed(r, old, rewritten);
     return rewritten;
 }
 
-Nodes shd_rewrite_nodes_with_fn(Rewriter* rewriter, Nodes values, RewriteNodeFn fn) {
-    LARRAY(const Node*, arr, values.count);
-    for (size_t i = 0; i < values.count; i++)
-        arr[i] = shd_rewrite_node_with_fn(rewriter, values.nodes[i], fn);
-    return shd_nodes(rewriter->dst_arena, values.count, arr);
+Nodes shd_rewrite_nodes_with_fn(Rewriter* r, Nodes old, RewriteNodeFn fn) {
+    LARRAY(const Node*, arr, old.count);
+    for (size_t i = 0; i < old.count; i++)
+        arr[i] = shd_rewrite_node_with_fn(r, old.nodes[i], fn);
+    return shd_nodes(r->dst_arena, old.count, arr);
 }
 
-const Node* shd_rewrite_node(Rewriter* rewriter, const Node* node) {
-    assert(rewriter->rewrite_fn);
-    return shd_rewrite_node_with_fn(rewriter, node, rewriter->rewrite_fn);
+const Node* shd_rewrite_node(Rewriter* r, const Node* old) {
+    assert(r->rewrite_fn);
+    return shd_rewrite_node_with_fn(r, old, r->rewrite_fn);
 }
 
-Nodes shd_rewrite_nodes(Rewriter* rewriter, Nodes old_nodes) {
-    assert(rewriter->rewrite_fn);
-    return shd_rewrite_nodes_with_fn(rewriter, old_nodes, rewriter->rewrite_fn);
+Nodes shd_rewrite_nodes(Rewriter* r, Nodes old) {
+    assert(r->rewrite_fn);
+    return shd_rewrite_nodes_with_fn(r, old, r->rewrite_fn);
 }
 
-const Node* shd_rewrite_op_with_fn(Rewriter* rewriter, NodeClass class, String op_name, const Node* node, RewriteOpFn fn) {
-    assert(rewriter->rewrite_op_fn);
-    if (!node)
+const Node* shd_rewrite_op_with_fn(Rewriter* r, NodeClass class, String op_name, const Node* old, RewriteOpFn fn) {
+    assert(r->rewrite_op_fn);
+    if (!old)
         return NULL;
-    const Node** found = shd_search_processed_mask(rewriter, node, class);
+    const Node** found = shd_search_processed_mask(r, old, class);
     if (found)
         return *found;
 
-    OpRewriteResult result = fn(rewriter, class, op_name, node);
+    OpRewriteResult result = fn(r, class, op_name, old);
     if (!result.mask)
         result.mask = shd_get_node_class_from_tag(result.result->tag);
-    shd_register_processed_mask(rewriter, node, result.result, result.mask);
+    shd_register_processed_mask(r, old, result.result, result.mask);
     return result.result;
 }
 
-Nodes shd_rewrite_ops_with_fn(Rewriter* rewriter, NodeClass class, String op_name, Nodes values, RewriteOpFn fn) {
-    LARRAY(const Node*, arr, values.count);
-    for (size_t i = 0; i < values.count; i++)
-        arr[i] = shd_rewrite_op_with_fn(rewriter, class, op_name, values.nodes[i], fn);
-    return shd_nodes(rewriter->dst_arena, values.count, arr);
+Nodes shd_rewrite_ops_with_fn(Rewriter* r, NodeClass class, String op_name, Nodes old, RewriteOpFn fn) {
+    LARRAY(const Node*, arr, old.count);
+    for (size_t i = 0; i < old.count; i++)
+        arr[i] = shd_rewrite_op_with_fn(r, class, op_name, old.nodes[i], fn);
+    return shd_nodes(r->dst_arena, old.count, arr);
 }
 
-const Node* shd_rewrite_op(Rewriter* rewriter, NodeClass class, String op_name, const Node* node) {
-    assert(rewriter->rewrite_op_fn);
-    return shd_rewrite_op_with_fn(rewriter, class, op_name, node, rewriter->rewrite_op_fn);
+const Node* shd_rewrite_op(Rewriter* r, NodeClass class, String op_name, const Node* old) {
+    assert(r->rewrite_op_fn);
+    return shd_rewrite_op_with_fn(r, class, op_name, old, r->rewrite_op_fn);
 }
 
-Nodes shd_rewrite_ops(Rewriter* rewriter, NodeClass class, String op_name, Nodes old_nodes) {
-    assert(rewriter->rewrite_op_fn);
-    return shd_rewrite_ops_with_fn(rewriter, class, op_name, old_nodes, rewriter->rewrite_op_fn);
+Nodes shd_rewrite_ops(Rewriter* r, NodeClass class, String op_name, Nodes old) {
+    assert(r->rewrite_op_fn);
+    return shd_rewrite_ops_with_fn(r, class, op_name, old, r->rewrite_op_fn);
 }
 
-static const Node* rewrite_op_helper(Rewriter* rewriter, NodeClass class, String op_name, const Node* node) {
-    if (rewriter->rewrite_op_fn)
-        return shd_rewrite_op_with_fn(rewriter, class, op_name, node, rewriter->rewrite_op_fn);
-    assert(rewriter->rewrite_fn);
-    return shd_rewrite_node_with_fn(rewriter, node, rewriter->rewrite_fn);
+static const Node* rewrite_op_helper(Rewriter* r, NodeClass class, String op_name, const Node* old) {
+    if (r->rewrite_op_fn)
+        return shd_rewrite_op_with_fn(r, class, op_name, old, r->rewrite_op_fn);
+    assert(r->rewrite_fn);
+    return shd_rewrite_node_with_fn(r, old, r->rewrite_fn);
 }
 
-static Nodes rewrite_ops_helper(Rewriter* rewriter, NodeClass class, String op_name, Nodes old_nodes) {
-    if (rewriter->rewrite_op_fn)
-        return shd_rewrite_ops_with_fn(rewriter, class, op_name, old_nodes, rewriter->rewrite_op_fn);
-    assert(rewriter->rewrite_fn);
-    return shd_rewrite_nodes_with_fn(rewriter, old_nodes, rewriter->rewrite_fn);
+static Nodes rewrite_ops_helper(Rewriter* r, NodeClass class, String op_name, Nodes old) {
+    if (r->rewrite_op_fn)
+        return shd_rewrite_ops_with_fn(r, class, op_name, old, r->rewrite_op_fn);
+    assert(r->rewrite_fn);
+    return shd_rewrite_nodes_with_fn(r, old, r->rewrite_fn);
 }
 
-void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new, NodeClass mask) {
-    assert(old->arena == ctx->src_arena);
-    assert(new ? new->arena == ctx->dst_arena : true);
+void shd_register_processed_mask(Rewriter* r, const Node* old, const Node* new, NodeClass mask) {
+    assert(old->arena == r->src_arena);
+    assert(new ? new->arena == r->dst_arena : true);
 #ifndef NDEBUG
     // In debug mode, we run this extra check so we can provide nice diagnostics
-    const Node** found = search_processed_internal(ctx, old, mask, false);
+    const Node** found = search_processed_internal(r, old, mask, false);
     if (found) {
         // this can happen and is typically harmless
         // ie: when rewriting a jump into a loop, the outer jump cannot be finished until the loop body is rebuilt
@@ -208,20 +208,20 @@ void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new
         shd_error("The same node got processed twice !");
     }
 #endif
-    struct Dict* map = ctx->map;
+    struct Dict* map = r->map;
     assert(map && "this rewriter has no processed cache");
-    if (ctx->rewrite_op_fn) {
+    if (r->rewrite_op_fn) {
         MaskedEntry** found = shd_dict_find_value(const Node*, MaskedEntry*, map, old);
         MaskedEntry* entry = found ? *found : NULL;
         if (!entry) {
-            entry = shd_arena_alloc(ctx->arena, sizeof(MaskedEntry));
+            entry = shd_arena_alloc(r->arena, sizeof(MaskedEntry));
             bool r = shd_dict_insert_get_result(const Node*, MaskedEntry*, map, old, entry);
             assert(r);
         } else {
             MaskedEntry* tail = entry;
             while (tail->next)
                 tail = tail->next;
-            entry = shd_arena_alloc(ctx->arena, sizeof(MaskedEntry));
+            entry = shd_arena_alloc(r->arena, sizeof(MaskedEntry));
             tail->next = entry;
         }
         *entry = (MaskedEntry) {
@@ -235,14 +235,14 @@ void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new
     }
 }
 
-void shd_register_processed(Rewriter* ctx, const Node* old, const Node* new) {
-    return shd_register_processed_mask(ctx, old, new, ~0);
+void shd_register_processed(Rewriter* r, const Node* old, const Node* new) {
+    return shd_register_processed_mask(r, old, new, ~0);
 }
 
-void shd_register_processed_list(Rewriter* rewriter, Nodes old, Nodes new) {
+void shd_register_processed_list(Rewriter* r, Nodes old, Nodes new) {
     assert(old.count == new.count);
     for (size_t i = 0; i < old.count; i++)
-        shd_register_processed(rewriter, old.nodes[i], new.nodes[i]);
+        shd_register_processed(r, old.nodes[i], new.nodes[i]);
 }
 
 KeyHash shd_hash_node(Node** pnode);
@@ -252,36 +252,36 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 #include "rewrite_generated.c"
 
-void shd_rewrite_module(Rewriter* rewriter) {
-    assert(rewriter->dst_module != rewriter->src_module);
-    Nodes old_decls = shd_module_get_declarations(rewriter->src_module);
+void shd_rewrite_module(Rewriter* r) {
+    assert(r->dst_module != r->src_module);
+    Nodes old_decls = shd_module_get_declarations(r->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         if (!shd_lookup_annotation(old_decls.nodes[i], "Exported") && !shd_lookup_annotation(old_decls.nodes[i], "EntryPoint") && !shd_lookup_annotation(old_decls.nodes[i], "Internal")) continue;
-        rewrite_op_helper(rewriter, NcDeclaration, "decl", old_decls.nodes[i]);
+        rewrite_op_helper(r, NcDeclaration, "decl", old_decls.nodes[i]);
     }
 }
 
-const Node* shd_recreate_param(Rewriter* rewriter, const Node* old) {
-    assert(old->tag == Param_TAG);
-    return param_helper(rewriter->dst_arena, rewrite_op_helper(rewriter, NcType, "type", old->payload.param.type), old->payload.param.name);
+const Node* shd_recreate_param(Rewriter* r, const Node* oparam) {
+    assert(oparam->tag == Param_TAG);
+    return param_helper(r->dst_arena, rewrite_op_helper(r, NcType, "type", oparam->payload.param.type), oparam->payload.param.name);
 }
 
-Nodes shd_recreate_params(Rewriter* rewriter, Nodes oparams) {
+Nodes shd_recreate_params(Rewriter* r, Nodes oparams) {
     LARRAY(const Node*, nparams, oparams.count);
     for (size_t i = 0; i < oparams.count; i++) {
-        nparams[i] = shd_recreate_param(rewriter, oparams.nodes[i]);
+        nparams[i] = shd_recreate_param(r, oparams.nodes[i]);
         assert(nparams[i]->tag == Param_TAG);
     }
-    return shd_nodes(rewriter->dst_arena, oparams.count, nparams);
+    return shd_nodes(r->dst_arena, oparams.count, nparams);
 }
 
-Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old) {
+Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
     Node* new = NULL;
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
-            Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.global_variable.annotations);
-            const Node* ntype = rewrite_op_helper(rewriter, NcType, "type", old->payload.global_variable.type);
-            new = global_var(rewriter->dst_module,
+            Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.global_variable.annotations);
+            const Node* ntype = rewrite_op_helper(r, NcType, "type", old->payload.global_variable.type);
+            new = global_var(r->dst_module,
                              new_annotations,
                              ntype,
                              old->payload.global_variable.name,
@@ -289,32 +289,32 @@ Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old) {
             break;
         }
         case Constant_TAG: {
-            Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.constant.annotations);
-            const Node* ntype = rewrite_op_helper(rewriter, NcType, "type_hint", old->payload.constant.type_hint);
-            new = constant(rewriter->dst_module,
+            Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.constant.annotations);
+            const Node* ntype = rewrite_op_helper(r, NcType, "type_hint", old->payload.constant.type_hint);
+            new = constant(r->dst_module,
                            new_annotations,
                            ntype,
                            old->payload.constant.name);
             break;
         }
         case Function_TAG: {
-            Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.fun.annotations);
-            Nodes new_params = shd_recreate_params(rewriter, old->payload.fun.params);
-            Nodes nyield_types = rewrite_ops_helper(rewriter, NcType, "return_types", old->payload.fun.return_types);
-            new = function(rewriter->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
+            Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.fun.annotations);
+            Nodes new_params = shd_recreate_params(r, old->payload.fun.params);
+            Nodes nyield_types = rewrite_ops_helper(r, NcType, "return_types", old->payload.fun.return_types);
+            new = function(r->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
             assert(new && new->tag == Function_TAG);
-            shd_register_processed_list(rewriter, old->payload.fun.params, new->payload.fun.params);
+            shd_register_processed_list(r, old->payload.fun.params, new->payload.fun.params);
             break;
         }
         case NominalType_TAG: {
-            Nodes new_annotations = rewrite_ops_helper(rewriter, NcAnnotation, "annotations", old->payload.nom_type.annotations);
-            new = nominal_type(rewriter->dst_module, new_annotations, old->payload.nom_type.name);
+            Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.nom_type.annotations);
+            new = nominal_type(r->dst_module, new_annotations, old->payload.nom_type.name);
             break;
         }
         case NotADeclaration: shd_error("not a decl");
     }
     assert(new);
-    shd_register_processed_mask(shd_get_top_rewriter(rewriter), old, new, shd_get_node_class_from_tag(new->tag));
+    shd_register_processed_mask(shd_get_top_rewriter(r), old, new, shd_get_node_class_from_tag(new->tag));
     return new;
 }
 
