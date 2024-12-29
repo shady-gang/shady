@@ -31,8 +31,6 @@ static Rewriter shd_create_rewriter_base(Module* src, Module* dst, bool use_mask
         .src_module = src,
         .dst_module = dst,
         .map = create_dict(use_masks),
-        .own_decls = true,
-        .decls_map = create_dict(use_masks),
         .parent = NULL,
         .arena = shd_new_arena(),
     };
@@ -55,8 +53,6 @@ void shd_destroy_rewriter(Rewriter* r) {
     assert(r->map);
     shd_destroy_arena(r->arena);
     shd_destroy_dict(r->map);
-    if (r->own_decls)
-        shd_destroy_dict(r->decls_map);
 }
 
 Rewriter shd_create_importer(Module* src, Module* dst) {
@@ -68,7 +64,6 @@ Rewriter shd_create_children_rewriter(Rewriter* parent) {
     r.map = create_dict(r.rewrite_op_fn);
     r.arena = shd_new_arena();
     r.parent = parent;
-    r.own_decls = false;
     return r;
 }
 
@@ -89,11 +84,6 @@ static const Node** search_in_map(struct Dict* map, const Node* key, bool use_ma
 }
 
 static const Node** search_processed_internal(const Rewriter* ctx, const Node* old, NodeClass mask, bool deep) {
-    if (is_declaration(old)) {
-        const Node** found = search_in_map(ctx->decls_map, old, ctx->rewrite_op_fn, mask);
-        return found ? found : NULL;
-    }
-
     while (ctx) {
         assert(ctx->map && "this rewriter has no processed cache");
         const Node** found = search_in_map(ctx->map, old, ctx->rewrite_op_fn, mask);
@@ -124,9 +114,6 @@ const Node* shd_rewrite_node_with_fn(Rewriter* rewriter, const Node* node, Rewri
         return *found;
 
     const Node* rewritten = fn(rewriter, node);
-    // assert(rewriter->dst_arena == rewritten->arena);
-    if (is_declaration(node))
-        return rewritten;
     shd_register_processed(rewriter, node, rewritten);
     return rewritten;
 }
@@ -220,7 +207,7 @@ void shd_register_processed_mask(Rewriter* ctx, const Node* old, const Node* new
         shd_error("The same node got processed twice !");
     }
 #endif
-    struct Dict* map = is_declaration(old) ? ctx->decls_map : ctx->map;
+    struct Dict* map = ctx->map;
     assert(map && "this rewriter has no processed cache");
     if (ctx->rewrite_op_fn) {
         MaskedEntry** found = shd_dict_find_value(const Node*, MaskedEntry*, map, old);
@@ -326,7 +313,7 @@ Node* shd_recreate_node_head(Rewriter* rewriter, const Node* old) {
         case NotADeclaration: shd_error("not a decl");
     }
     assert(new);
-    shd_register_processed_mask(rewriter, old, new, shd_get_node_class_from_tag(new->tag));
+    shd_register_processed_mask(shd_get_top_rewriter(rewriter), old, new, shd_get_node_class_from_tag(new->tag));
     return new;
 }
 
@@ -390,6 +377,12 @@ const Node* shd_recreate_node(Rewriter* rewriter, const Node* node) {
         }
     }
     assert(false);
+}
+
+Rewriter* shd_get_top_rewriter(Rewriter* r) {
+    while (r->parent)
+        r = r->parent;
+    return r;
 }
 
 void shd_dump_rewriter_map(Rewriter* r) {

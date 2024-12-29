@@ -144,7 +144,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
             Node* new = function(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            shd_register_processed(r, node, new);
+            shd_register_processed(shd_get_top_rewriter(r), node, new);
 
             Context fn_ctx = *ctx;
             fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);

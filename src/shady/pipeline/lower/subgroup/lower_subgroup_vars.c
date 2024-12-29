@@ -62,7 +62,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 assert(shd_lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
                 Node* new = global_var(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared);
-                shd_register_processed(&ctx->rewriter, node, new);
+                shd_register_processed(shd_get_top_rewriter(r), node, new);
 
                 if (node->payload.global_variable.init) {
                     new->payload.global_variable.init = fill(a, (Fill) {
