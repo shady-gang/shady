@@ -211,6 +211,11 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             emitted = shd_format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
         }
+        case Value_GlobalVariable_TAG:
+        case Value_Constant_TAG: {
+            shd_c_emit_decl(emitter, value);
+            return *shd_c_lookup_existing_term(emitter, NULL, value);
+        }
     }
 
     assert(emitted);
