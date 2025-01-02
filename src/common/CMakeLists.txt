@@ -13,7 +13,7 @@ target_link_libraries(common INTERFACE "$<BUILD_INTERFACE:common_api>")
 add_executable(embedder embed.c)
 
 function(embed_file TYPE NAME SRC)
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h COMMAND embedder ${TYPE} ${NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} embedder VERBATIM)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h COMMAND $<TARGET_FILE:embedder> ${TYPE} ${NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} embedder VERBATIM)
     set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h PROPERTIES GENERATED TRUE)
 	add_custom_target("${NAME}_h" DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h)
 
