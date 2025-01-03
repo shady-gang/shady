@@ -94,9 +94,6 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
             case Constant_TAG:
                 node = node->payload.constant.value;
                 continue;
-            case RefDecl_TAG:
-                node = node->payload.ref_decl.decl;
-                continue;
             case Load_TAG: {
                 if (config.enter_loads) {
                     const Node* source = node->payload.load.ptr;
@@ -147,10 +144,6 @@ const char* shd_get_string_literal(IrArena* arena, const Node* node) {
         }
         case Declaration_Constant_TAG: {
             return shd_get_string_literal(arena, node->payload.constant.value);
-        }
-        case RefDecl_TAG: {
-            const Node* decl = node->payload.ref_decl.decl;
-            return shd_get_string_literal(arena, decl);
         }
         /*case Lea_TAG: {
             Lea lea = node->payload.lea;

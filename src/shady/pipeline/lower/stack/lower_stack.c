@@ -188,8 +188,8 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         Node* stack_ptr_decl = global_var(dst, shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), stack_counter_t, "stack_ptr", AsPrivate);
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
 
-        ctx.stack = ref_decl_helper(a, stack_decl);
-        ctx.stack_pointer = ref_decl_helper(a, stack_ptr_decl);
+        ctx.stack = stack_decl;
+        ctx.stack_pointer = stack_ptr_decl;
     }
 
     shd_rewrite_module(&ctx.rewriter);

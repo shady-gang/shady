@@ -264,7 +264,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
         if (UNTYPED_POINTERS) {
-            const Node* r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(ref_decl_helper(a, decl)));
+            const Node* r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(decl));
             shd_dict_insert(LLVMValueRef, const Node*, p->map, global, r);
             return r;
         }
@@ -275,7 +275,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
     }
 
     assert(decl && is_declaration(decl));
-    const Node* r = ref_decl_helper(a, decl);
+    const Node* r = decl;
 
     shd_dict_insert(LLVMValueRef, const Node*, p->map, global, r);
     return r;

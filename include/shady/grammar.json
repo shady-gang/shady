@@ -352,20 +352,9 @@
       ]
     },
     {
-      "name": "RefDecl",
-      "class": "value",
-      "description": [
-        "References either a global (yielding a pointer to it), or a constant (yielding a value of the type itself)",
-        "Declarations are not values themselves, this node is required to \"convert\" them."
-      ],
-      "ops": [
-        { "name": "decl", "class": "declaration" }
-      ]
-    },
-    {
       "name": "FnAddr",
       "class": "value",
-      "description": "Like RefDecl but for functions, it yields a _function pointer_ !",
+      "description": "Obtains a function pointer from a function declaration",
       "ops": [
         { "name": "fn", "class": "declaration" }
       ]
@@ -566,7 +555,7 @@
     },
     {
       "name": "Constant",
-      "class": "declaration",
+      "class": ["declaration", "value"],
       "constructor": "custom",
       "description": "Constants are used to express possibly complicated compile-time expressions",
       "nominal": true,
@@ -580,7 +569,7 @@
     },
     {
       "name": "GlobalVariable",
-      "class": "declaration",
+      "class": ["declaration", "value"],
       "constructor": "custom",
       "nominal": true,
       "ops": [

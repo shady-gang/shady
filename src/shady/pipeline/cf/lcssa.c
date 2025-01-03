@@ -114,15 +114,13 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
 
     const Node* new = shd_rewrite_node(&ctx->rewriter, body);
 
-    Rewriter* old_rewriter = &ctx->rewriter;
-
     for (size_t i = 0; i < children_count; i++) {
-        ctx->rewriter = shd_create_children_rewriter(old_rewriter);
-        shd_register_processed_list(&ctx->rewriter, lifted[i], new_params[i]);
-        new_children[i]->payload.basic_block.body = process_abstraction_body(ctx, old_children[i], get_abstraction_body(old_children[i]));
-        shd_destroy_rewriter(&ctx->rewriter);
+        Context child_ctx = *ctx;
+        child_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+        shd_register_processed_list(&child_ctx.rewriter, lifted[i], new_params[i]);
+        new_children[i]->payload.basic_block.body = process_abstraction_body(&child_ctx, old_children[i], get_abstraction_body(old_children[i]));
+        shd_destroy_rewriter(&child_ctx.rewriter);
     }
-
 
     return new;
 }

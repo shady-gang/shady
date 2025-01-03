@@ -24,7 +24,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
         .name = "Generated",
     })), t, shd_fmt_string_irarena(a, "nullptr_%s", shd_get_type_name(a, t)));
     decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(nul));
-    const Node* ref = ref_decl_helper(a, decl);
+    const Node* ref = decl;
     shd_dict_insert(const Type*, const Node*, ctx->map, t, ref);
     return ref;
 }
@@ -47,6 +47,7 @@ static const Node* process(Context* ctx, const Node* node) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
+///TODO: The way this pass is implemented is dubious, shouldn't null refs turn into undef ?
 Module* shd_pass_lower_nullptr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);

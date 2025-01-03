@@ -75,9 +75,6 @@ void l2s_process_llvm_annotations(Parser* p, LLVMValueRef global) {
         const Node* annotation_payload = entry->payload.composite.contents.nodes[1];
         // eliminate dummy reinterpret cast
         annotation_payload = look_past_stuff(annotation_payload);
-        if (annotation_payload->tag == RefDecl_TAG) {
-            annotation_payload = annotation_payload->payload.ref_decl.decl;
-        }
         if (annotation_payload->tag == GlobalVariable_TAG) {
             annotation_payload = annotation_payload->payload.global_variable.init;
         }

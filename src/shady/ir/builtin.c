@@ -106,8 +106,6 @@ bool shd_is_builtin_load_op(const Node* n, Builtin* out) {
     assert(is_instruction(n));
     if (n->tag == Load_TAG) {
         const Node* src = n->payload.load.ptr;
-        if (src->tag == RefDecl_TAG)
-            src = src->payload.ref_decl.decl;
         if (src->tag == GlobalVariable_TAG) {
             const Node* a = shd_lookup_annotation(src, "Builtin");
             if (a) {
@@ -155,5 +153,5 @@ const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n) {
 }
 
 const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
-    return shd_bld_load(bb, ref_decl_helper(shd_module_get_arena(m), shd_get_or_create_builtin(m, b, NULL)));
+    return shd_bld_load(bb, shd_get_or_create_builtin(m, b, NULL));
 }

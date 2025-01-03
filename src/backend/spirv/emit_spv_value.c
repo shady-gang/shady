@@ -284,7 +284,7 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                 SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, shd_int32_literal(emitter->arena, SpvScopeSubgroup));
                 if (emitter->spirv_tgt.hacks.shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
-                    const Node* b = ref_decl_helper(emitter->arena, shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL));
+                    const Node* b = shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId, NULL);
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
                     return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(instr.operands)), local_id);
                 }
@@ -551,21 +551,8 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             break;
         }
         case Value_Fill_TAG: shd_error("lower me")
-        case RefDecl_TAG: {
-            const Node* decl = node->payload.ref_decl.decl;
-            switch (decl->tag) {
-                case GlobalVariable_TAG: {
-                    new = spv_emit_decl(emitter, decl);
-                    break;
-                }
-                case Constant_TAG: {
-                    new = spv_emit_value(emitter, fn_builder, decl->payload.constant.value);
-                    break;
-                }
-                default: shd_error("RefDecl must reference a constant or global");
-            }
-            break;
-        }
+        case Value_GlobalVariable_TAG:
+        case Value_Constant_TAG: return spv_emit_decl(emitter, node);
         default: {
             shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));
         }

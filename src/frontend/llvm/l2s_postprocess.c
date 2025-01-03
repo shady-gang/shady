@@ -112,8 +112,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* result = decl;
             if (old_as != as) {
                 const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
-                const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(ref_decl_helper(a, decl)));
-                shd_register_processed(r, ref_decl_helper(node->arena, node), converted);
+                const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(decl));
+                shd_register_processed(r, node, converted);
                 return NULL;
             }
 

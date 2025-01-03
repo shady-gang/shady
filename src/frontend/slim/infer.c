@@ -235,7 +235,6 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         case True_TAG: return true_lit(a);
         case False_TAG: return false_lit(a);
         case StringLiteral_TAG: return string_lit(a, (StringLiteral) { .string = shd_string(a, node->payload.string_lit.string )});
-        case RefDecl_TAG: break;
         case FnAddr_TAG: break;
         case Value_Undef_TAG: break;
         case Value_Composite_TAG: {
