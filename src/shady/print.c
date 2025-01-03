@@ -237,7 +237,55 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static String emit_abs_body(PrinterCtx* ctx, const Node* abs);
+static void print_basic_block(PrinterCtx* ctx, const CFNode* node);
+
+static void print_abs(PrinterCtx* ctx, const Node* abs) {
+    print_param_list(ctx, get_abstraction_params(abs), NULL);
+
+    if (!get_abstraction_body(abs)) {
+        printf(";");
+    } else {
+        printf(" {");
+        shd_printer_indent(ctx->printer);
+        printf("\n");
+
+        Growy* g = shd_new_growy();
+        Printer* p = shd_new_printer_from_growy(g);
+        CFNode* cfnode = ctx->cfg ? shd_cfg_lookup(ctx->cfg, abs) : NULL;
+        if (cfnode)
+            ctx->bb_printers[cfnode->rpo_index] = p;
+
+        emit_node(ctx, get_abstraction_body(abs));
+
+        if (cfnode) {
+            Growy* g2 = shd_new_growy();
+            Printer* p2 = shd_new_printer_from_growy(g2);
+            size_t count = cfnode->dominates->elements_count;
+            for (size_t i = 0; i < count; i++) {
+                const CFNode* dominated = shd_read_list(const CFNode*, cfnode->dominates)[i];
+                assert(is_basic_block(dominated->node));
+                PrinterCtx bbCtx = *ctx;
+                bbCtx.printer = p2;
+                print_basic_block(&bbCtx, dominated);
+                if (i + 1 < count)
+                    shd_newline(bbCtx.printer);
+            }
+
+            String bbs = shd_printer_growy_unwrap(p2);
+            shd_print(p, "%s", bbs);
+            free((void*) bbs);
+        }
+
+        String s = shd_printer_growy_unwrap(p);
+        if (cfnode)
+            ctx->bb_printers[cfnode->rpo_index] = NULL;
+        printf("%s", s);
+        free((void*) s);
+
+        shd_printer_deindent(ctx->printer);
+        printf("\n}");
+    }
+}
 
 static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
     const Node* bb = node->node;
@@ -252,50 +300,8 @@ static void print_basic_block(PrinterCtx* ctx, const CFNode* node) {
     if (ctx->config.print_ptrs) {
         printf(" %zu:: ", (size_t)(void*)bb);
     }
-    print_param_list(ctx, bb->payload.basic_block.params, NULL);
 
-    printf(" {");
-    shd_printer_indent(ctx->printer);
-    printf("\n");
-    printf("%s", emit_abs_body(ctx, bb));
-    shd_printer_deindent(ctx->printer);
-    printf("\n}");
-}
-
-static String emit_abs_body(PrinterCtx* ctx, const Node* abs) {
-    Growy* g = shd_new_growy();
-    Printer* p = shd_new_printer_from_growy(g);
-    CFNode* cfnode = ctx->cfg ? shd_cfg_lookup(ctx->cfg, abs) : NULL;
-    if (cfnode)
-        ctx->bb_printers[cfnode->rpo_index] = p;
-
-    emit_node(ctx, get_abstraction_body(abs));
-
-    if (cfnode) {
-        Growy* g2 = shd_new_growy();
-        Printer* p2 = shd_new_printer_from_growy(g2);
-        size_t count = cfnode->dominates->elements_count;
-        for (size_t i = 0; i < count; i++) {
-            const CFNode* dominated = shd_read_list(const CFNode*, cfnode->dominates)[i];
-            assert(is_basic_block(dominated->node));
-            PrinterCtx bb_ctx = *ctx;
-            bb_ctx.printer = p2;
-            print_basic_block(&bb_ctx, dominated);
-            if (i + 1 < count)
-                shd_newline(bb_ctx.printer);
-        }
-
-        String bbs = shd_printer_growy_unwrap(p2);
-        shd_print(p, "%s", bbs);
-        free((void*) bbs);
-    }
-
-    String s = shd_printer_growy_unwrap(p);
-    String s2 = shd_string(ctx->fn->arena, s);
-    if (cfnode)
-        ctx->bb_printers[cfnode->rpo_index] = NULL;
-    free((void*) s);
-    return s2;
+    print_abs(ctx, node->node);
 }
 
 static void print_function(PrinterCtx* ctx, const Node* node) {
@@ -317,19 +323,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     ctx = &sub_ctx;
 
     print_yield_types(ctx, node->payload.fun.return_types);
-    print_param_list(ctx, node->payload.fun.params, NULL);
-    if (!get_abstraction_body(node)) {
-        printf(";");
-    } else {
-        printf(" {");
-        shd_printer_indent(ctx->printer);
-        printf("\n");
-
-        printf("%s", emit_abs_body(ctx, node));
-
-        shd_printer_deindent(ctx->printer);
-        printf("\n}");
-    }
+    print_abs(ctx, node);
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)
@@ -613,7 +607,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             print_node(type);
             printf("]");
             print_args_list(ctx, node->payload.composite.contents);
-            return true;
+            return false;
         }
         case Value_Fill_TAG: {
             const Type* type = node->payload.fill.type;
@@ -629,18 +623,18 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             printf(")");
             return true;
         }
-        /*case Value_RefDecl_TAG: {
-            printf(BYELLOW);
-            printf("%s", (char*) get_declaration_name(node->payload.ref_decl.decl));
-            printf(RESET);
-            return true;
-        }*/
         case FnAddr_TAG:
+            printf(GREEN);
+            printf("FunctionAddress");
+            printf(RESET);
+            printf("(");
             printf(BYELLOW);
             printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
             printf(RESET);
+            printf(")");
             return true;
-        default:_shd_print_node_generated(ctx, node);
+        default:
+            _shd_print_node_generated(ctx, node);
             break;
     }
     return false;
@@ -1017,18 +1011,13 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     if (found)
         return *found;
 
-    bool print_def = true;
-    String r;
+    String printed_node_name;
     if (is_declaration(node)) {
-        r = get_declaration_name(node);
-        print_def = false;
-    } else if (is_param(node) || is_basic_block(node) || node->tag == FnAddr_TAG) {
-        print_def = false;
-        r = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
+        printed_node_name = get_declaration_name(node);
     } else {
-        r = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
+        printed_node_name = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
     }
-    shd_dict_insert(const Node*, String, ctx->emitted, node, r);
+    shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
 
     Growy* g = shd_new_growy();
     PrinterCtx ctx2 = *ctx;
@@ -1036,29 +1025,31 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     bool print_inline = print_node_impl(&ctx2, node);
 
     String s = shd_printer_growy_unwrap(ctx2.printer);
-    Printer* p = ctx->root_printer;
-    if (ctx->scheduler) {
-        CFNode* dst = shd_schedule_instruction(ctx->scheduler, node);
-        if (dst)
-            p = ctx2.bb_printers[dst->rpo_index];
-    }
 
-    if (print_def) {
+    if (!print_inline) {
+        Printer* p = ctx->root_printer;
+        if (ctx->scheduler) {
+            CFNode* dst = shd_schedule_instruction(ctx->scheduler, node);
+            if (dst) {
+                p = ctx2.bb_printers[dst->rpo_index];
+                assert(p);
+            }
+        }
         if (node->type) {
             String t = emit_node(ctx, node->type);
-            shd_print(p, "%%%d: %s= %s\n", node->id, t, s);
+            shd_print(p, "%%%d: %s = %s\n", node->id, t, s);
         } else
             shd_print(p, "%%%d = %s\n", node->id, s);
     }
 
     if (print_inline) {
-        String is = shd_string(node->arena, s);
-        shd_dict_insert(const Node*, String, ctx->emitted, node, is);
+        printed_node_name = shd_string(node->arena, s);
+        shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
         free((void*) s);
-        return is;
+        return printed_node_name;
     } else {
         free((void*) s);
-        return r;
+        return printed_node_name;
     }
 }
 
@@ -1079,6 +1070,7 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
         printf(BYELLOW);
         printf("%s", get_declaration_name(node));
         printf(RESET);
+        return true;
     } else if (is_annotation(node)) {
         print_annotation(ctx, node);
         return true;
