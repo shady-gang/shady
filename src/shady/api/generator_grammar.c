@@ -179,10 +179,10 @@ void generate_node_ctor(Growy* g, json_object* src, json_object* nodes) {
         shd_growy_append_formatted(g, "\tmemset((void*) &node, 0, sizeof(Node));\n");
         shd_growy_append_formatted(g, "\tnode = (Node) {\n");
         shd_growy_append_formatted(g, "\t\t.arena = arena,\n");
+        shd_growy_append_formatted(g, "\t\t.type = NULL,\n");
         shd_growy_append_formatted(g, "\t\t.tag = %s_TAG,\n", name);
         if (ops)
-            shd_growy_append_formatted(g, "\t\t.payload.%s = payload,\n", snake_name);
-        shd_growy_append_formatted(g, "\t\t.type = NULL,\n");
+            shd_growy_append_formatted(g, "\t\t.payload = { .%s = payload },\n", snake_name);
         shd_growy_append_formatted(g, "\t};\n");
         shd_growy_append_formatted(g, "\treturn _shd_create_node_helper(arena, node, NULL);\n");
         shd_growy_append_formatted(g, "}\n");
