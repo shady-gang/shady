@@ -27,7 +27,7 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 bool ignore = json_object_get_boolean(json_object_object_get(op, "ignore"));
                 bool tail = json_object_get_boolean(json_object_object_get(op, "tail"));
-                if (ignore || tail)
+                if (ignore)
                     continue;
 
                 if (first) {
