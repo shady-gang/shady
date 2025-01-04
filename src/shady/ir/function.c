@@ -24,7 +24,6 @@ Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotatio
     assert(!mod->sealed);
     IrArena* arena = mod->arena;
     Function payload = {
-        .module = mod,
         .params = params,
         .body = NULL,
         .name = name,

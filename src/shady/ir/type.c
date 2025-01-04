@@ -520,7 +520,6 @@ Type* _shd_nominal_type(Module* mod, Nodes annotations, String name) {
     IrArena* arena = shd_module_get_arena(mod);
     NominalType payload = {
         .name = shd_string(arena, name),
-        .module = mod,
         .annotations = annotations,
         .body = NULL,
     };
