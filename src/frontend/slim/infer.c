@@ -129,12 +129,12 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             return nconstant;
         }
         case GlobalVariable_TAG: {
-             const GlobalVariable* old_gvar = &node->payload.global_variable;
-             const Type* imported_ty = infer(ctx, old_gvar->type, NULL);
-             Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, old_gvar->annotations), imported_ty, old_gvar->name, old_gvar->address_space);
+             GlobalVariable payload = node->payload.global_variable;
+             const Type* imported_ty = infer(ctx, payload.type, NULL);
+             Node* ngvar = global_var(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), imported_ty, payload.name, payload.address_space, payload.is_ref);
             shd_register_processed(&ctx->rewriter, node, ngvar);
 
-             ngvar->payload.global_variable.init = infer(ctx, old_gvar->init, shd_as_qualified_type(imported_ty, true));
+             ngvar->payload.global_variable.init = infer(ctx, payload.init, shd_as_qualified_type(imported_ty, true));
              return ngvar;
         }
         case NominalType_TAG: {

@@ -8,4 +8,6 @@ IrArena* shd_new_ir_arena(const ArenaConfig* config);
 void shd_destroy_ir_arena(IrArena* arena);
 const Node* shd_get_node_by_id(const IrArena* a, NodeId id);
 
+const ArenaConfig* shd_ir_arena_get_config(const IrArena*);
+
 #endif

@@ -39,16 +39,6 @@ const Type* shd_get_pointee_type(IrArena*, const Type*);
 
 String shd_get_address_space_name(AddressSpace);
 
-typedef enum {
-    ShdScopeTop,
-    ShdScopeCrossDevice = ShdScopeTop,
-    ShdScopeDevice,
-    ShdScopeWorkgroup,
-    ShdScopeSubgroup,
-    ShdScopeInvocation,
-    ShdScopeBottom = ShdScopeInvocation
-} ShdScope;
-
 /// Returns the scope of an address space.
 /// Two identical pointers are considered pointing to the same data from the perspective of two different invocations if they're on the same instance of the scope.
 /// Examples:

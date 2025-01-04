@@ -285,7 +285,8 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
                              new_annotations,
                              ntype,
                              old->payload.global_variable.name,
-                             old->payload.global_variable.address_space);
+                             old->payload.global_variable.address_space,
+                             old->payload.global_variable.is_ref);
             break;
         }
         case Constant_TAG: {

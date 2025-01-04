@@ -2,6 +2,7 @@
 #include "shady/ir/annotation.h"
 #include "shady/ir/module.h"
 #include "shady/ir/mem.h"
+#include "shady/ir/arena.h"
 #include "shady/ir/decl.h"
 
 #include "log.h"
@@ -148,7 +149,8 @@ const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n) {
     AddressSpace as = shd_get_builtin_address_space(b);
     IrArena* a = shd_module_get_arena(m);
     decl = global_var(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a,shd_get_builtin_name(b)))),
-                      shd_get_builtin_type(a, b), n ? n : shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), as);
+                      shd_get_builtin_type(a, b), n ? n : shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), as,
+                      !shd_ir_arena_get_config(a)->target.builtins[b].physical);
     return decl;
 }
 

@@ -577,7 +577,8 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type", "class": "type" },
-        { "name": "address_space", "type": "AddressSpace"},
+        { "name": "address_space", "type": "AddressSpace" },
+        { "name": "is_ref", "type": "bool" },
         { "name": "init", "class": "value", "nullable": true }
       ]
     },

@@ -4,6 +4,7 @@
 #include "shady/ir/base.h"
 #include "shady/ir/int.h"
 #include "shady/ir/grammar.h"
+#include "shady/ir/builtin.h"
 #include "shady/ir/execution_model.h"
 
 typedef enum {
@@ -32,6 +33,10 @@ typedef struct {
         bool physical;
         bool allowed;
     } address_spaces[NumAddressSpaces];
+
+    struct {
+        bool physical;
+    } builtins[BuiltinsCount];
 
     IntSizes fn_ptr_size;
 

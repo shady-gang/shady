@@ -44,6 +44,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
             break;
         }
         case GlobalVariable_TAG: {
+            GlobalVariable payload = node->payload.global_variable;
             AddressSpace as = node->payload.global_variable.address_space;
             if (as == AsSubgroup) {
                 if (use_class == NcValue) {
@@ -59,8 +60,8 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                         .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
                     });
 
-                    assert(shd_lookup_annotation(node, "Logical") && "All subgroup variables should be logical by now!");
-                    Node* new = global_var(ctx->rewriter.dst_module, shd_rewrite_ops(&ctx->rewriter, NcAnnotation, "annotation", node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared);
+                    assert(payload.is_ref && "All subgroup variables should be logical by now!");
+                    Node* new = global_var(ctx->rewriter.dst_module, shd_rewrite_ops(&ctx->rewriter, NcAnnotation, "annotation", node->payload.global_variable.annotations), atype, node->payload.global_variable.name, AsShared, true);
                     shd_register_processed_mask(&ctx->rewriter, node, new, ~NcValue);
 
                     if (node->payload.global_variable.init) {

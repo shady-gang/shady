@@ -945,7 +945,7 @@ const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable globa
     return qualified_type_helper(arena, true, ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
-        .is_reference = shd_lookup_annotation_list(global_variable.annotations, "Logical"),
+        .is_reference = global_variable.is_ref,
     }));
 }
 

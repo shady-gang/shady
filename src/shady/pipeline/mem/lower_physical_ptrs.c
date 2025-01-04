@@ -331,9 +331,9 @@ static const Node* process_node(Context* ctx, const Node* old) {
             break;
         }
         case GlobalVariable_TAG: {
-            const GlobalVariable* old_gvar = &old->payload.global_variable;
+            const GlobalVariable payload = old->payload.global_variable;
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
-            if (!shd_lookup_annotation(old, "Logical") && is_as_emulated(ctx, old_gvar->address_space)) {
+            if (!payload.is_ref && is_as_emulated(ctx, payload.address_space)) {
                 assert(false);
             }
             break;
@@ -355,9 +355,11 @@ static Nodes collect_globals(Context* ctx, AddressSpace as) {
 
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* decl = old_decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG) continue;
-        if (decl->payload.global_variable.address_space != as) continue;
-        if (shd_lookup_annotation(decl, "Logical")) continue;
+        if (decl->tag != GlobalVariable_TAG)
+            continue;
+        GlobalVariable payload = decl->payload.global_variable;
+        if (payload.is_ref || payload.address_space != as)
+            continue;
         collected[members_count] = decl;
         members_count++;
     }
@@ -458,7 +460,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_var(m, shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Logical" })), words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
+    Node* words_array = global_var(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as, true);
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }

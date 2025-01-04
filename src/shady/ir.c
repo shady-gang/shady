@@ -45,6 +45,10 @@ const Node* shd_get_node_by_id(const IrArena* a, NodeId id) {
     return ((const Node**) shd_growy_data(a->ids))[id];
 }
 
+const ArenaConfig* shd_ir_arena_get_config(const IrArena* a) {
+    return &a->config;
+}
+
 void shd_destroy_ir_arena(IrArena* arena) {
     for (size_t i = 0; i < shd_list_count(arena->modules); i++) {
         shd_destroy_module(shd_read_list(Module*, arena->modules)[i]);

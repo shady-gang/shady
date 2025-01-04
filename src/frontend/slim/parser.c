@@ -1221,12 +1221,6 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
         }
     }
 
-    if (logical) {
-        annotations = shd_nodes_append(arena, annotations, annotation(arena, (Annotation) {
-            .name = "Logical"
-        }));
-    }
-
     const Type* type = accept_unqualified_type(ctx);
     expect(type, "global variable type");
     const char* id = accept_identifier(ctx);
@@ -1240,7 +1234,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* gv = global_var(mod, annotations, type, id, as);
+    Node* gv = global_var(mod, annotations, type, id, as, logical);
     gv->payload.global_variable.init = initial_value;
     return gv;
 }

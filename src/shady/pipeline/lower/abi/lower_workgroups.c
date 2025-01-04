@@ -32,6 +32,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case GlobalVariable_TAG: {
+            GlobalVariable payload = node->payload.global_variable;
             const Node* ba = shd_lookup_annotation(node, "Builtin");
             if (ba) {
                 Nodes filtered_as = shd_rewrite_nodes(&ctx->rewriter, shd_filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
@@ -41,9 +42,9 @@ static const Node* process(Context* ctx, const Node* node) {
                     case BuiltinWorkgroupId:
                     case BuiltinGlobalInvocationId:
                     case BuiltinLocalInvocationId:
-                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate);
+                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate, payload.is_ref);
                     case BuiltinNumWorkgroups:
-                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
+                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal, payload.is_ref);
                     default:
                         break;
                 }

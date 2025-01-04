@@ -14,6 +14,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
     IrArena* a = r->dst_arena;
     switch (node->tag) {
         case GlobalVariable_TAG: {
+            GlobalVariable payload = node->payload.global_variable;
             if (node->payload.global_variable.address_space == AsGeneric) {
                 AddressSpace dst_as = AsGlobal;
                 const Type* t = shd_rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
@@ -23,7 +24,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
                     const Node* converted = prim_op_helper(a, convert_op, shd_singleton(dst_t), shd_singleton(new_global));
                     return (OpRewriteResult) { converted, NcValue };
                 } else {
-                    Node* new_global = global_var(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotations", node->payload.global_variable.annotations), t, node->payload.global_variable.name, dst_as);
+                    Node* new_global = global_var(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotations", node->payload.global_variable.annotations), t, node->payload.global_variable.name, dst_as, payload.is_ref);
                     shd_register_processed_mask(r, node, new_global, ~NcValue);
                     shd_recreate_node_body(r, node, new_global);
                     return (OpRewriteResult) { new_global, ~NcValue };

@@ -207,8 +207,8 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     assert(is_declaration(decl));
     switch (decl->tag) {
         case GlobalVariable_TAG: {
-            const GlobalVariable* ogvar = &decl->payload.global_variable;
-            Node* bound = global_var(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, ogvar->annotations), shd_rewrite_node(&ctx->rewriter, ogvar->type), ogvar->name, ogvar->address_space);
+            GlobalVariable payload = decl->payload.global_variable;
+            Node* bound = global_var(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, payload.annotations), shd_rewrite_node(&ctx->rewriter, payload.type), payload.name, payload.address_space, payload.is_ref);
             shd_register_processed(&ctx->rewriter, decl, bound);
             bound->payload.global_variable.init = shd_rewrite_node(&ctx->rewriter, decl->payload.global_variable.init);
             return bound;

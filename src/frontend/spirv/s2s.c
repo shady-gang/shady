@@ -754,7 +754,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 }
 
                 parser->defs[result].type = Decl;
-                Node* global = global_var(parser->mod, annotations, contents_t, name, as);
+                Node* global = global_var(parser->mod, annotations, contents_t, name, as, false);
                 parser->defs[result].node = global;
 
                 if (size == 5)
