@@ -55,14 +55,16 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = node->payload.global_variable;
+            payload = shd_rewrite_global_head_payload(r, payload);
             const Node* io = NULL;
             ShdScope scope;
             const Node* io_annotation = shd_lookup_annotation(node, "IO");
             const Node* builtin_annotation = shd_lookup_annotation(node, "Builtin");
             if (io_annotation) {
-                AddressSpace as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
-                io = global_variable_helper(m, shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "IO"), shd_rewrite_node(r, payload.type), payload.name, as);
-                scope = shd_get_addr_space_scope(as);
+                payload.address_space = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
+                payload.annotations = shd_filter_out_annotation(a, payload.annotations, "IO");
+                io = shd_global_var(r->dst_module, payload);
+                scope = shd_get_addr_space_scope(payload.address_space);
             } else if (builtin_annotation) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
                 io = shd_get_or_create_builtin(m, b, payload.name);

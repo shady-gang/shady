@@ -54,19 +54,19 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                     const Node* slice = lea_helper(a, ndecl, shd_int32_literal(a, 0), mk_nodes(a, index));
                     return (OpRewriteResult)  { slice, NcValue };
                 } else {
-                    const Type* ntype = shd_rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
-                    const Type* atype = arr_type(a, (ArrType) {
-                        .element_type = ntype,
-                        .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
-                    });
-
                     assert(payload.is_ref && "All subgroup variables should be logical by now!");
-                    Node* new = global_variable_helper(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotation", payload.annotations), atype, payload.name, AsShared);
+                    payload = shd_rewrite_global_head_payload(r, payload);
+                    payload.address_space = AsShared;
+                    payload.type = arr_type(a, (ArrType) {
+                        .element_type = payload.type,
+                        .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
+                    });;
+                    Node* new = shd_global_var(r->dst_module, payload);
                     shd_register_processed_mask(shd_get_top_rewriter(r), node, new, ~NcValue);
 
                     if (node->payload.global_variable.init) {
                         new->payload.global_variable.init = fill(a, (Fill) {
-                            .type = atype,
+                            .type = payload.type,
                             .value = shd_rewrite_op(&ctx->rewriter, NcValue, "init", node->payload.global_variable.init)
                         });
                     }
