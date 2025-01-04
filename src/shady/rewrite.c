@@ -281,7 +281,7 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
         case GlobalVariable_TAG: {
             Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.global_variable.annotations);
             const Node* ntype = rewrite_op_helper(r, NcType, "type", old->payload.global_variable.type);
-            new = global_var(r->dst_module,
+            new = global_variable_helper(r->dst_module,
                              new_annotations,
                              ntype,
                              old->payload.global_variable.name,
@@ -292,7 +292,7 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
         case Constant_TAG: {
             Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.constant.annotations);
             const Node* ntype = rewrite_op_helper(r, NcType, "type_hint", old->payload.constant.type_hint);
-            new = constant(r->dst_module,
+            new = constant_helper(r->dst_module,
                            new_annotations,
                            ntype,
                            old->payload.constant.name);

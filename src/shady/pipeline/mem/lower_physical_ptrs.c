@@ -388,7 +388,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         // Turn the old global variable into a pointer (which are also now integers)
         const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
         Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
-        Node* new_address = constant(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
+        Node* new_address = constant_helper(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
@@ -452,7 +452,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(global_struct_t), shd_empty(a));
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
-    Node* constant_decl = constant(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
+    Node* constant_decl = constant_helper(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
     constant_decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
@@ -460,7 +460,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_var(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as, true);
+    Node* words_array = global_variable_helper(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as, true);
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }

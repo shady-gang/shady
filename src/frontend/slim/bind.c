@@ -208,14 +208,14 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
     switch (decl->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = decl->payload.global_variable;
-            Node* bound = global_var(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, payload.annotations), shd_rewrite_node(&ctx->rewriter, payload.type), payload.name, payload.address_space, payload.is_ref);
+            Node* bound = global_variable_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, payload.annotations), shd_rewrite_node(&ctx->rewriter, payload.type), payload.name, payload.address_space, payload.is_ref);
             shd_register_processed(&ctx->rewriter, decl, bound);
             bound->payload.global_variable.init = shd_rewrite_node(&ctx->rewriter, decl->payload.global_variable.init);
             return bound;
         }
         case Constant_TAG: {
             const Constant* cnst = &decl->payload.constant;
-            Node* bound = constant(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, cnst->annotations), shd_rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
+            Node* bound = constant_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, cnst->annotations), shd_rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
             shd_register_processed(&ctx->rewriter, decl, bound);
             bound->payload.constant.value = shd_rewrite_node(&ctx->rewriter, decl->payload.constant.value);
             return bound;

@@ -38,7 +38,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
                 const Node* type = rewrite_args_type(&ctx->rewriter, node->payload.global_variable.type);
 
-                const Node* new_var = global_var(ctx->rewriter.dst_module,
+                const Node* new_var = global_variable_helper(ctx->rewriter.dst_module,
                     annotations,
                     type,
                     node->payload.global_variable.name,

@@ -108,7 +108,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
                 an = an->next;
             }
-            Node* decl = global_var(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as, false);
+            Node* decl = global_variable_helper(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as, false);
             Node* result = decl;
             if (old_as != as) {
                 const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });

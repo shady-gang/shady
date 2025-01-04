@@ -61,7 +61,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                     });
 
                     assert(payload.is_ref && "All subgroup variables should be logical by now!");
-                    Node* new = global_var(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotation", payload.annotations), atype, payload.name, AsShared, true);
+                    Node* new = global_variable_helper(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotation", payload.annotations), atype, payload.name, AsShared, true);
                     shd_register_processed_mask(shd_get_top_rewriter(r), node, new, ~NcValue);
 
                     if (node->payload.global_variable.init) {

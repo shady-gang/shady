@@ -63,7 +63,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (ctx->builtins[b])
                     return ctx->builtins[b];
                 const Type* t = shd_get_builtin_type(a, b);
-                Node* ndecl = global_var(r->dst_module, shd_rewrite_nodes(r, global_variable.annotations), t, global_variable.name,
+                Node* ndecl = global_variable_helper(r->dst_module, shd_rewrite_nodes(r, global_variable.annotations), t, global_variable.name,
                                          shd_get_builtin_address_space(b), global_variable.is_ref);
                 shd_register_processed(r, node, ndecl);
                 // no 'init' for builtins, right ?

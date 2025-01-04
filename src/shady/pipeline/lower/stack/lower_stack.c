@@ -182,10 +182,10 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
 
         // Arrays for the stacks
-        Node* stack_decl = global_var(dst, annotations, stack_arr_type, "stack", AsPrivate, false);
+        Node* stack_decl = global_variable_helper(dst, annotations, stack_arr_type, "stack", AsPrivate, false);
 
         // Pointers into those arrays
-        Node* stack_ptr_decl = global_var(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate, true);
+        Node* stack_ptr_decl = global_variable_helper(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate, true);
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
 
         ctx.stack = stack_decl;

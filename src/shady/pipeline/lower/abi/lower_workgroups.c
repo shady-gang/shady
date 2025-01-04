@@ -42,9 +42,9 @@ static const Node* process(Context* ctx, const Node* node) {
                     case BuiltinWorkgroupId:
                     case BuiltinGlobalInvocationId:
                     case BuiltinLocalInvocationId:
-                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate, payload.is_ref);
+                        return global_variable_helper(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate, payload.is_ref);
                     case BuiltinNumWorkgroups:
-                        return global_var(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal, payload.is_ref);
+                        return global_variable_helper(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal, payload.is_ref);
                     default:
                         break;
                 }

@@ -1155,7 +1155,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* cnst = constant(mod, annotations, type, id);
+    Node* cnst = constant_helper(mod, annotations, type, id);
     cnst->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(definition));
     return cnst;
 }
@@ -1234,7 +1234,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* gv = global_var(mod, annotations, type, id, as, logical);
+    Node* gv = global_variable_helper(mod, annotations, type, id, as, logical);
     gv->payload.global_variable.init = initial_value;
     return gv;
 }
