@@ -9,9 +9,6 @@
 
 typedef struct BodyBuilder_ BodyBuilder;
 
-// see primops.json
-#include "primops_generated.h"
-
 // see grammar.json
 #include "grammar_generated.h"
 
