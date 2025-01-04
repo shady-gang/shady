@@ -33,6 +33,16 @@ static void generate_node_has_payload_array(Growy* g, json_object* nodes) {
     shd_growy_append_formatted(g, "};\n\n");
 }
 
+static void generate_node_is_recursive_array(Growy* g, json_object* nodes) {
+    shd_growy_append_formatted(g, "const bool node_type_is_recursive[]  = {\n");
+    shd_growy_append_formatted(g, "\tfalse,\n");
+    for (size_t i = 0; i < json_object_array_length(nodes); i++) {
+        json_object* node = json_object_array_get_idx(nodes, i);
+        shd_growy_append_formatted(g, "\t%s,\n", json_object_get_boolean(json_object_object_get(node, "recursive")) ? "true" : "false");
+    }
+    shd_growy_append_formatted(g, "};\n\n");
+}
+
 static void generate_node_payload_hash_fn(Growy* g, json_object* src, json_object* nodes) {
     shd_growy_append_formatted(g, "KeyHash _shd_hash_node_payload(const Node* node) {\n");
     shd_growy_append_formatted(g, "\tKeyHash hash = 0;\n");
@@ -148,6 +158,7 @@ void generate(Growy* g, json_object* src) {
     generate_node_names_string_array(g, nodes);
     generate_node_is_nominal(g, nodes);
     generate_node_has_payload_array(g, nodes);
+    generate_node_is_recursive_array(g, nodes);
     generate_node_payload_hash_fn(g, src, nodes);
     generate_node_payload_cmp_fn(g, src, nodes);
     generate_bit_enum_classifier(g, "shd_get_node_class_from_tag", "NodeClass", "Nc", "NodeTag", "", "_TAG", nodes);

@@ -542,7 +542,7 @@
       "name": "Function",
       "snake_name": "fun",
       "class": ["abstraction", "declaration"],
-      "constructor": "custom",
+      "recursive": true,
       "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
@@ -556,7 +556,7 @@
     {
       "name": "Constant",
       "class": ["declaration", "value"],
-      "constructor": "custom",
+      "recursive": true,
       "description": "Constants are used to express possibly complicated compile-time expressions",
       "nominal": true,
       "ops": [
@@ -570,7 +570,7 @@
     {
       "name": "GlobalVariable",
       "class": ["declaration", "value"],
-      "constructor": "custom",
+      "recursive": true,
       "nominal": true,
       "ops": [
         { "name": "module", "type": "Module*", "ignore": true },
@@ -585,7 +585,7 @@
       "name": "NominalType",
       "snake_name": "nom_type",
       "class": ["declaration", "type"],
-      "constructor": "custom",
+      "recursive": true,
       "nominal": true,
       "type": false,
       "ops": [
@@ -632,7 +632,7 @@
     },
     {
       "name": "BasicBlock",
-      "constructor": "custom",
+      "recursive": true,
       "description": "A named abstraction that lives inside a function and can be jumped to",
       "class": ["abstraction", "basic_block"],
       "nominal": true,

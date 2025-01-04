@@ -21,7 +21,7 @@ String to_snake_case(String camel);
 String capitalize(String str);
 bool starts_with_vowel(String str);
 
-bool has_custom_ctor(json_object* node);
+bool is_recursive_node(json_object* node);
 
 json_object* lookup_node_class(json_object* src, String name);
 bool find_in_set(json_object* node, String class_name);

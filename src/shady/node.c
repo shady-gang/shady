@@ -10,6 +10,12 @@ const char* shd_get_node_tag_string(NodeTag tag) {
     return node_tags[tag];
 }
 
+const bool node_type_is_recursive[];
+
+bool shd_is_node_tag_recursive(NodeTag tag) {
+    return node_type_is_recursive[tag];
+}
+
 const bool node_type_has_payload[];
 
 KeyHash _shd_hash_node_payload(const Node* node);

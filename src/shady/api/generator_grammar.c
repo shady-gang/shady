@@ -156,7 +156,7 @@ void generate_node_ctor(Growy* g, json_object* src, json_object* nodes) {
         String name = json_object_get_string(json_object_object_get(node, "name"));
         assert(name);
 
-        if (has_custom_ctor(node))
+        if (is_recursive_node(node))
             continue;
 
         if (i > 0)

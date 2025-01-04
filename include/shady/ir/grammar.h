@@ -41,6 +41,7 @@ typedef struct BodyBuilder_ BodyBuilder;
 #include "grammar_generated.h"
 
 bool shd_is_node_nominal(const Node* node);
+bool shd_is_node_tag_recursive(NodeTag tag);
 const char* shd_get_node_tag_string(NodeTag tag);
 
 #endif

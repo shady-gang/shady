@@ -1,8 +1,7 @@
 #include "generator.h"
 
-bool has_custom_ctor(json_object* node) {
-    String constructor = json_object_get_string(json_object_object_get(node, "constructor"));
-    return (constructor && strcmp(constructor, "custom") == 0);
+bool is_recursive_node(json_object* node) {
+    return json_object_get_boolean(json_object_object_get(node, "recursive"));
 }
 
 json_object* lookup_node_class(json_object* src, String name) {

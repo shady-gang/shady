@@ -6,7 +6,7 @@ static void generate_can_be_default_rewritten_fn(Growy* g, json_object* nodes) {
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
-        if (has_custom_ctor(node))
+        if (is_recursive_node(node))
             continue;
         String name = json_object_get_string(json_object_object_get(node, "name"));
         shd_growy_append_formatted(g, "\t\tcase %s_TAG: return true;\n", name);
@@ -23,7 +23,7 @@ static void generate_rewriter_default_fns(Growy* g, json_object* nodes) {
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
         json_object* node = json_object_array_get_idx(nodes, i);
 
-        if (has_custom_ctor(node))
+        if (is_recursive_node(node))
             continue;
 
         String name = json_object_get_string(json_object_object_get(node, "name"));
