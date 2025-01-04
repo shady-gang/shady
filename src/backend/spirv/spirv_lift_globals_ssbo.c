@@ -98,7 +98,7 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
             .names = shd_strings(a, lifted_globals_count, member_names),
             .special = DecorateBlock
         });
-        ctx.lifted_globals_decl = global_variable_helper(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject, true);
+        ctx.lifted_globals_decl = global_variable_helper(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
     }
 
     shd_rewrite_module(&ctx.rewriter);

@@ -22,7 +22,7 @@ static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node*
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;
     assert(io->tag == GlobalVariable_TAG);
-    Node* phy = global_variable_helper(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", io->payload.global_variable.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup, false);
+    Node* phy = global_variable_helper(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", io->payload.global_variable.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup);
     const Type* pt = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = io->payload.global_variable.type });
     const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(phy));
     phy = constant_helper(m, shd_empty(a), pt, shd_fmt_string_irarena(a, "%s_generic", io->payload.global_variable.name));
@@ -61,8 +61,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* builtin_annotation = shd_lookup_annotation(node, "Builtin");
             if (io_annotation) {
                 AddressSpace as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
-                io = global_variable_helper(m, shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "IO"), shd_rewrite_node(r, payload.type), payload.name, as,
-                                !shd_ir_arena_get_config(a)->target.address_spaces[as].physical);
+                io = global_variable_helper(m, shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "IO"), shd_rewrite_node(r, payload.type), payload.name, as);
                 scope = shd_get_addr_space_scope(as);
             } else if (builtin_annotation) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));

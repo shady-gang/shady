@@ -1187,11 +1187,14 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, var_tok))
         return NULL;
 
-    AddressSpace as = NumAddressSpaces;
-    bool uniform = false, logical = false;
+    GlobalVariable payload = {
+        .address_space = NumAddressSpaces,
+        .annotations = annotations,
+    };
+    bool uniform = false;
     while (true) {
         if (accept_token(ctx, logical_tok)) {
-            logical = true;
+            payload.is_ref = true;
             continue;
         }
         if (accept_token(ctx, uniform_tok)) {
@@ -1200,41 +1203,41 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
         }
         AddressSpace nas = accept_address_space(ctx);
         if (nas != NumAddressSpaces) {
-            if (as != NumAddressSpaces && as != nas) {
-                syntax_error_fmt("Conflicting address spaces for definition: %s and %s", shd_get_address_space_name(as), shd_get_address_space_name(nas));
+            if (payload.address_space != NumAddressSpaces && payload.address_space != nas) {
+                syntax_error_fmt("Conflicting address spaces for definition: %s and %s", shd_get_address_space_name(payload.address_space), shd_get_address_space_name(nas));
             }
-            as = nas;
+            payload.address_space = nas;
             continue;
         }
         break;
     }
 
-    if (as == NumAddressSpaces) {
+    if (payload.address_space == NumAddressSpaces) {
         syntax_error("Address space required for global variable declaration.");
     }
 
     if (uniform) {
-        if (as == AsInput)
-            as = AsUInput;
+        if (payload.address_space == AsInput)
+            payload.address_space = AsUInput;
         else {
             syntax_error("'uniform' can only be used with 'input'");
         }
     }
 
-    const Type* type = accept_unqualified_type(ctx);
-    expect(type, "global variable type");
-    const char* id = accept_identifier(ctx);
-    expect(id, "global variable name");
+    payload.type = accept_unqualified_type(ctx);
+    expect(payload.type, "global variable type");
+    payload.name = accept_identifier(ctx);
+    expect(payload.name, "global variable name");
 
     const Node* initial_value = NULL;
     if (accept_token(ctx, equal_tok)) {
         initial_value = accept_value(ctx, NULL);
-        expect_fmt(initial_value, "value for global variable '%s'", id);
+        expect_fmt(initial_value, "value for global variable '%s'", payload.name);
     }
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* gv = global_variable_helper(mod, annotations, type, id, as, logical);
+    Node* gv = shd_global_var(mod, payload);
     gv->payload.global_variable.init = initial_value;
     return gv;
 }

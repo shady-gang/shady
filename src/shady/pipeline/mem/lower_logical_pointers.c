@@ -125,7 +125,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (shd_get_arena_config(a)->target.address_spaces[as].physical)
                 break;
             Nodes annotations = shd_rewrite_nodes(r, old->payload.global_variable.annotations);
-            Node* new = global_variable_helper(ctx->rewriter.dst_module, annotations, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as, true);
+            Node* new = global_variable_helper(ctx->rewriter.dst_module, annotations, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
             shd_recreate_node_body(r, old, new);
             return new;
         }

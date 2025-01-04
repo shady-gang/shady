@@ -42,8 +42,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     annotations,
                     type,
                     node->payload.global_variable.name,
-                    AsPushConstant,
-                    true
+                    AsPushConstant
                 );
 
                 shd_register_processed(&ctx->rewriter, node, new_var);

@@ -61,7 +61,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                     });
 
                     assert(payload.is_ref && "All subgroup variables should be logical by now!");
-                    Node* new = global_variable_helper(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotation", payload.annotations), atype, payload.name, AsShared, true);
+                    Node* new = global_variable_helper(r->dst_module, shd_rewrite_ops(r, NcAnnotation, "annotation", payload.annotations), atype, payload.name, AsShared);
                     shd_register_processed_mask(shd_get_top_rewriter(r), node, new, ~NcValue);
 
                     if (node->payload.global_variable.init) {
@@ -89,6 +89,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
 
 Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    aconfig.target.address_spaces[AsSubgroup].allowed = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {

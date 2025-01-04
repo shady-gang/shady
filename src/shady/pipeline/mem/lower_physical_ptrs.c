@@ -331,7 +331,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             break;
         }
         case GlobalVariable_TAG: {
-            const GlobalVariable payload = old->payload.global_variable;
+            GlobalVariable payload = old->payload.global_variable;
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
             if (!payload.is_ref && is_as_emulated(ctx, payload.address_space)) {
                 assert(false);
@@ -460,7 +460,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_variable_helper(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as, true);
+    Node* words_array = global_variable_helper(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
