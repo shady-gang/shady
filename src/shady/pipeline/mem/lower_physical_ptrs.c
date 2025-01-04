@@ -373,7 +373,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     Module* m = ctx->rewriter.dst_module;
 
     String as_name = shd_get_address_space_name(as);
-    Node* global_struct_t = nominal_type(m, shd_singleton(annotation(a, (Annotation) { .name = "Generated" })), shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    Node* global_struct_t = nominal_type_helper(m, shd_singleton(annotation(a, (Annotation) { .name = "Generated" })), shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
 
     LARRAY(String, member_names, collected.count);
     LARRAY(const Type*, member_tys, collected.count);

@@ -142,7 +142,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             if (shd_lookup_annotation(node, "Alias")) {
                 return infer(ctx, payload.body, NULL);
             }
-            Node* new = nominal_type(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), payload.name);
+            Node* new = nominal_type_helper(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), payload.name);
             shd_register_processed(&ctx->rewriter, node, new);
             new->payload.nom_type.body = infer(ctx, payload.body, NULL);
             return new;

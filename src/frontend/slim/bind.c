@@ -237,7 +237,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
             return bound;
         }
         case NominalType_TAG: {
-            Node* bound = nominal_type(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
+            Node* bound = nominal_type_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
             shd_register_processed(&ctx->rewriter, decl, bound);
             bound->payload.nom_type.body = shd_rewrite_node(&ctx->rewriter, decl->payload.nom_type.body);
             return bound;

@@ -626,7 +626,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Typ;
             String name = get_name(parser, result);
             name = name ? name : shd_make_unique_name(parser->arena, "struct_type");
-            Node* nominal_type_decl = nominal_type(parser->mod, shd_empty(parser->arena), name);
+            Node* nominal_type_decl = nominal_type_helper(parser->mod, shd_empty(parser->arena), name);
             parser->defs[result].node = nominal_type_decl;
             int members_count = size - 2;
             LARRAY(String, member_names, members_count);

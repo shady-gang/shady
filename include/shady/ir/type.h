@@ -12,7 +12,7 @@ static inline const Node* unit_type(IrArena* arena) {
 }
 
 Type* _shd_nominal_type(Module*, Nodes annotations, String name);
-static inline Type* nominal_type(Module* m, Nodes annotations, String name) { return _shd_nominal_type(m, annotations, name); }
+static inline Type* nominal_type_helper(Module* m, Nodes annotations, String name) { return _shd_nominal_type(m, annotations, name); }
 
 const Type* shd_get_actual_mask_type(IrArena* arena);
 const Node* shd_get_default_value(IrArena* a, const Type* t);

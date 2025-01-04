@@ -309,7 +309,7 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
         }
         case NominalType_TAG: {
             Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.nom_type.annotations);
-            new = nominal_type(r->dst_module, new_annotations, old->payload.nom_type.name);
+            new = nominal_type_helper(r->dst_module, new_annotations, old->payload.nom_type.name);
             break;
         }
         case NotADeclaration: shd_error("not a decl");

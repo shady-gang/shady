@@ -1248,7 +1248,7 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, equal_tok), "'='");
 
-    Node* nom = nominal_type(mod, annotations, id);
+    Node* nom = nominal_type_helper(mod, annotations, id);
     nom->payload.nom_type.body = accept_unqualified_type(ctx);
     expect(nom->payload.nom_type.body, "nominal type body");
 
