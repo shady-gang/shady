@@ -25,7 +25,6 @@ typedef struct {
     Rewriter rewriter;
     const UsesMap* uses;
 
-    const Node* current_function;
     NamedBindEntry* local_variables;
 } Context;
 
@@ -60,7 +59,6 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         const Node* old_decl = old_decls.nodes[i];
         if (strcmp(get_declaration_name(old_decl), name) == 0) {
             Context top_ctx = *ctx;
-            top_ctx.current_function = NULL;
             top_ctx.local_variables = NULL;
             const Node* decl = shd_rewrite_node(&top_ctx.rewriter, old_decl);
             return (Resolved) {
@@ -203,53 +201,6 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     return shd_bld_to_instr_yield_values(bb, shd_empty(a));
 }
 
-static const Node* rewrite_decl(Context* ctx, const Node* decl) {
-    assert(is_declaration(decl));
-    switch (decl->tag) {
-        case GlobalVariable_TAG: {
-            GlobalVariable payload = decl->payload.global_variable;
-            Node* bound = global_variable_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, payload.annotations), shd_rewrite_node(&ctx->rewriter, payload.type), payload.name, payload.address_space, payload.is_ref);
-            shd_register_processed(&ctx->rewriter, decl, bound);
-            bound->payload.global_variable.init = shd_rewrite_node(&ctx->rewriter, decl->payload.global_variable.init);
-            return bound;
-        }
-        case Constant_TAG: {
-            const Constant* cnst = &decl->payload.constant;
-            Node* bound = constant_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, cnst->annotations), shd_rewrite_node(&ctx->rewriter, decl->payload.constant.type_hint), cnst->name);
-            shd_register_processed(&ctx->rewriter, decl, bound);
-            bound->payload.constant.value = shd_rewrite_node(&ctx->rewriter, decl->payload.constant.value);
-            return bound;
-        }
-        case Function_TAG: {
-            Nodes new_fn_params = shd_recreate_params(&ctx->rewriter, decl->payload.fun.params);
-            Node* bound = function_helper(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
-            shd_register_processed(&ctx->rewriter, decl, bound);
-            Context fn_ctx = *ctx;
-            for (size_t i = 0; i < new_fn_params.count; i++) {
-                add_binding(&fn_ctx, false, decl->payload.fun.params.nodes[i]->payload.param.name, new_fn_params.nodes[i]);
-            }
-            shd_register_processed_list(&ctx->rewriter, decl->payload.fun.params, new_fn_params);
-
-            if (decl->payload.fun.body) {
-                fn_ctx.current_function = bound;
-                shd_set_abstraction_body(bound, shd_rewrite_node(&fn_ctx.rewriter, decl->payload.fun.body));
-            }
-            return bound;
-        }
-        case NominalType_TAG: {
-            Node* bound = nominal_type_helper(ctx->rewriter.dst_module, shd_rewrite_nodes(&ctx->rewriter, decl->payload.nom_type.annotations), decl->payload.nom_type.name);
-            shd_register_processed(&ctx->rewriter, decl, bound);
-            bound->payload.nom_type.body = shd_rewrite_node(&ctx->rewriter, decl->payload.nom_type.body);
-            return bound;
-        }
-        default: shd_error("unknown declaration kind");
-    }
-
-    shd_error("unreachable")
-    //register_processed(&ctx->rewriter, decl, bound);
-    //return bound;
-}
-
 static bool is_used_as_value(Context* ctx, const Node* node) {
     const Use* use = shd_get_first_use(ctx->uses, node);
     for (;use;use = use->next_use) {
@@ -280,12 +231,20 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     // }
 
     switch (node->tag) {
-        case Function_TAG:
-        case Constant_TAG:
-        case GlobalVariable_TAG:
-        case NominalType_TAG: {
-            assert(is_declaration(node));
-            return rewrite_decl(ctx, node);
+        case Function_TAG: {
+            Node* bound = shd_recreate_node_head(r, node);
+            shd_register_processed(r, node, bound);
+            Context fn_ctx = *ctx;
+            Nodes new_fn_params = get_abstraction_params(bound);
+            for (size_t i = 0; i < new_fn_params.count; i++) {
+                add_binding(&fn_ctx, false, node->payload.fun.params.nodes[i]->payload.param.name, new_fn_params.nodes[i]);
+            }
+            shd_register_processed_list(r, node->payload.fun.params, new_fn_params);
+
+            if (node->payload.fun.body) {
+                shd_set_abstraction_body(bound, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
+            }
+            return bound;
         }
         case Param_TAG: shd_error("the binders should be handled such that this node is never reached");
         case BasicBlock_TAG: {
@@ -378,7 +337,6 @@ Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Modul
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
         .local_variables = NULL,
-        .current_function = NULL,
         .uses = shd_new_uses_map_module(src, 0),
     };
 
