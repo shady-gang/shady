@@ -53,6 +53,12 @@ const Node* shd_recreate_node(Rewriter*, const Node* node);
 Node* shd_recreate_node_head(Rewriter*, const Node* old);
 void  shd_recreate_node_body(Rewriter*, const Node* old, Node* new);
 
+Function shd_rewrite_function_head_payload(Rewriter* r, Function old);
+GlobalVariable shd_rewrite_global_head_payload(Rewriter* r, GlobalVariable old);
+Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old);
+NominalType shd_rewrite_nominal_type_head_payload(Rewriter* r, NominalType old);
+BasicBlock shd_rewrite_basic_block_head_payload(Rewriter* r, BasicBlock old);
+
 /// Rewrites a variable under a new identity
 const Node* shd_recreate_param(Rewriter*, const Node* oparam);
 Nodes shd_recreate_params(Rewriter*, Nodes oparams);
