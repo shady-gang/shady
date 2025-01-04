@@ -21,7 +21,6 @@ Node* _shd_param(IrArena* arena, const Type* type, const char* name) {
 }
 
 Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    assert(!mod->sealed);
     IrArena* arena = mod->arena;
     Function payload = {
         .params = params,

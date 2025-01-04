@@ -31,6 +31,7 @@ Nodes shd_module_get_declarations(const Module* m) {
 }
 
 void _shd_module_add_decl(Module* m, Node* node) {
+    assert(!m->sealed);
     assert(is_declaration(node));
     assert(!shd_module_get_declaration(m, get_declaration_name(node)) && "duplicate declaration");
     shd_list_append(Node*, m->decls, node);
