@@ -86,7 +86,8 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
     if (shd_lookup_annotation(node, "SkipOnInfer"))
         return NULL;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (is_declaration(node)) {
         case Function_TAG: {
             Context body_context = *ctx;
@@ -101,7 +102,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
             Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), shd_string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
-            shd_register_processed(&ctx->rewriter, node, fun);
+            shd_register_processed(r, node, fun);
             body_context.current_fn = fun;
             shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
             return fun;
@@ -123,18 +124,17 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             assert(imported_hint);
 
             Node* nconstant = constant_helper(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
-            shd_register_processed(&ctx->rewriter, node, nconstant);
+            shd_register_processed(r, node, nconstant);
             nconstant->payload.constant.value = instruction;
 
             return nconstant;
         }
         case GlobalVariable_TAG: {
-             GlobalVariable payload = node->payload.global_variable;
-             const Type* imported_ty = infer(ctx, payload.type, NULL);
-             Node* ngvar = global_variable_helper(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), imported_ty, payload.name, payload.address_space, payload.is_ref);
-            shd_register_processed(&ctx->rewriter, node, ngvar);
+             GlobalVariable old_payload = node->payload.global_variable;
+             Node* ngvar = shd_recreate_node_head(r, node);
+             shd_register_processed(r, node, ngvar);
 
-             ngvar->payload.global_variable.init = infer(ctx, payload.init, shd_as_qualified_type(imported_ty, true));
+             ngvar->payload.global_variable.init = infer(ctx, old_payload.init, shd_as_qualified_type(ngvar->payload.global_variable.type, true));
              return ngvar;
         }
         case NominalType_TAG: {
@@ -143,7 +143,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 return infer(ctx, payload.body, NULL);
             }
             Node* new = nominal_type_helper(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), payload.name);
-            shd_register_processed(&ctx->rewriter, node, new);
+            shd_register_processed(r, node, new);
             new->payload.nom_type.body = infer(ctx, payload.body, NULL);
             return new;
         }
