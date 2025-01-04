@@ -3,6 +3,7 @@
 
 #include "shady/ir/base.h"
 #include "shady/ir/grammar.h"
+#include "shady/ir/builtin.h"
 
 Node* _shd_constant(Module*, Nodes annotations, const Type*, const char* name);
 Node* _shd_global_var(Module*, Nodes annotations, const Type*, String, AddressSpace, bool);

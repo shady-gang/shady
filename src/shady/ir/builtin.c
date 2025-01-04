@@ -4,6 +4,8 @@
 #include "shady/ir/mem.h"
 #include "shady/ir/arena.h"
 #include "shady/ir/decl.h"
+#include "shady/ir/int.h"
+#include "shady/ir/float.h"
 
 #include "log.h"
 #include "portability.h"

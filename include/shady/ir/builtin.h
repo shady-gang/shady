@@ -1,10 +1,8 @@
 #ifndef SHADY_IR_BUILTIN_H
 #define SHADY_IR_BUILTIN_H
 
-#include "shady/ir/grammar.h"
-#include "shady/ir/int.h"
-#include "shady/ir/float.h"
-#include "shady/ir/type.h"
+#include "shady/ir/base.h"
+#include "shady/ir/enum.h"
 
 #define shd_u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_uint32_type(arena) })
 #define shd_i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_int32_type(arena) })
@@ -63,6 +61,8 @@ bool shd_is_builtin_load_op(const Node* n, Builtin* out);
 
 const Node* shd_get_builtin(Module* m, Builtin b);
 const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n);
+
+typedef struct BodyBuilder_ BodyBuilder;
 const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b);
 
 #endif
