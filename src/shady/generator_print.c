@@ -22,11 +22,19 @@ void generate_node_print_fns(Growy* g, json_object* src) {
         json_object* ops = json_object_object_get(node, "ops");
         if (ops) {
             assert(json_object_get_type(ops) == json_type_array);
+            bool first = true;
             for (size_t j = 0; j < json_object_array_length(ops); j++) {
                 json_object* op = json_object_array_get_idx(ops, j);
                 bool ignore = json_object_get_boolean(json_object_object_get(op, "ignore"));
-                if (ignore)
+                bool tail = json_object_get_boolean(json_object_object_get(op, "tail"));
+                if (ignore || tail)
                     continue;
+
+                if (first) {
+                    first = false;
+                } else {
+                    shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \", \");\n");
+                }
 
                 String op_name = json_object_get_string(json_object_object_get(op, "name"));
                 String op_class = json_object_get_string(json_object_object_get(op, "class"));
@@ -64,9 +72,6 @@ void generate_node_print_fns(Growy* g, json_object* src) {
                     shd_growy_append_formatted(g, "\t\t_shd_print_node_operand_%s(ctx, node, \"%s\", node->payload.%s.%s);\n", s, op_name, snake_name, op_name);
                     free(s);
                 }
-
-                if (j + 1 < json_object_array_length(ops))
-                    shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \", \");\n");
             }
         }
         shd_growy_append_formatted(g, "\t\tshd_print(ctx->printer, \")\");\n");
@@ -82,6 +87,5 @@ void generate_node_print_fns(Growy* g, json_object* src) {
 
 void generate(Growy* g, json_object* src) {
     generate_header(g, src);
-    //growy_append_formatted(g, "#include \"print.h\"\n\n");
     generate_node_print_fns(g, src);
 }

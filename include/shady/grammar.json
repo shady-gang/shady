@@ -548,8 +548,8 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator", "nullable": true },
-        { "name": "return_types", "class": "type", "list": true }
+        { "name": "return_types", "class": "type", "list": true },
+        { "name": "body", "class": "terminator", "nullable": true, "tail": true }
       ]
     },
     {
@@ -562,7 +562,7 @@
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
-        { "name": "value", "class": "value", "nullable": true }
+        { "name": "value", "class": "value", "nullable": true, "tail": true }
       ]
     },
     {
@@ -576,7 +576,7 @@
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "is_ref", "type": "bool" },
-        { "name": "init", "class": "value", "nullable": true }
+        { "name": "init", "class": "value", "nullable": true, "tail": true }
       ]
     },
     {
@@ -589,7 +589,7 @@
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "annotations", "class": "annotation", "list": true },
-        { "name": "body", "class": "type", "nullable": true }
+        { "name": "body", "class": "type", "nullable": true, "tail": true }
       ]
     },
     {
@@ -626,8 +626,8 @@
       "nominal": true,
       "ops": [
         { "name": "params", "class": "param", "list": true },
-        { "name": "body", "class": "terminator", "nullable": true },
         { "name": "name", "class": "string" },
+        { "name": "body", "class": "terminator", "nullable": true, "tail": true },
         { "name": "insert", "type": "BodyBuilder*", "ignore": true }
       ]
     },

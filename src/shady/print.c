@@ -171,27 +171,6 @@ void _shd_print_node_generated(PrinterCtx* ctx, const Node* node);
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static void print_param_list(PrinterCtx* ctx, Nodes params, const Nodes* defaults) {
-    if (defaults != NULL)
-        assert(defaults->count == params.count);
-    printf("(");
-    for (size_t i = 0; i < params.count; i++) {
-        const Node* param = params.nodes[i];
-        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*) param);
-        print_node(param->payload.param.type);
-        printf(" ");
-        print_node(param);
-        printf(RESET);
-        if (defaults) {
-            printf(" = ");
-            print_node(defaults->nodes[i]);
-        }
-        if (i < params.count - 1)
-            printf(", ");
-    }
-    printf(")");
-}
-
 static void print_param_types(PrinterCtx* ctx, Nodes param_types) {
     printf("(");
     for (size_t i = 0; i < param_types.count; i++) {
@@ -213,17 +192,6 @@ static void print_args_list(PrinterCtx* ctx, Nodes args) {
     printf(")");
 }
 
-static void print_ty_args_list(PrinterCtx* ctx, Nodes args) {
-    printf("[");
-    for (size_t i = 0; i < args.count; i++) {
-        if (ctx->config.print_ptrs) printf("%zu::", (size_t)(void*)args.nodes[i]);
-        print_node(args.nodes[i]);
-        if (i < args.count - 1)
-            printf(", ");
-    }
-    printf("]");
-}
-
 static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     bool initial_space = false;
     for (size_t i = 0; i < types.count; i++) {
@@ -237,9 +205,7 @@ static void print_yield_types(PrinterCtx* ctx, Nodes types) {
     }
 }
 
-static void print_abs(PrinterCtx* ctx, const Node* abs) {
-    print_param_list(ctx, get_abstraction_params(abs), NULL);
-
+static void print_abstraction_body(PrinterCtx* ctx, const Node* abs) {
     if (!get_abstraction_body(abs)) {
         printf(";");
     } else {
@@ -267,8 +233,6 @@ static void print_abs(PrinterCtx* ctx, const Node* abs) {
                 PrinterCtx bbCtx = *ctx;
                 bbCtx.printer = p2;
                 emit_node(&bbCtx, dominated->node);
-                // if (i + 1 < count)
-                //     shd_newline(bbCtx.printer);
             }
 
             String bbs = shd_printer_growy_unwrap(p2);
@@ -289,21 +253,15 @@ static void print_abs(PrinterCtx* ctx, const Node* abs) {
 
 static void print_basic_block(PrinterCtx* ctx, const Node* bb) {
     printf(GREEN);
-    printf("BasicBlock");
-    // printf(BYELLOW);
-    // if (bb->payload.basic_block.name && strlen(bb->payload.basic_block.name) > 0)
-    //     printf(" %s", bb->payload.basic_block.name);
-    // else
-    //     printf(" %%%d", bb->id);
+    _shd_print_node_generated(ctx, bb);
     printf(RESET);
     if (ctx->config.print_ptrs) {
         printf(" %zu:: ", (size_t)(void*) bb);
     }
-
-    print_abs(ctx, bb);
+    print_abstraction_body(ctx, bb);
 }
 
-static void print_function(PrinterCtx* ctx, const Node* node) {
+static void print_function_body(PrinterCtx* ctx, const Node* node) {
     PrinterCtx sub_ctx = *ctx;
     sub_ctx.fn = node;
     if (node->arena->config.name_bound) {
@@ -320,7 +278,7 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
     ctx = &sub_ctx;
 
     print_yield_types(ctx, node->payload.fun.return_types);
-    print_abs(ctx, node);
+    print_abstraction_body(ctx, node);
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)
@@ -329,14 +287,6 @@ static void print_function(PrinterCtx* ctx, const Node* node) {
         free(sub_ctx.bb_growies);
         shd_destroy_cfg(sub_ctx.cfg);
         shd_destroy_scheduler(sub_ctx.scheduler);
-    }
-}
-
-static void print_nodes(PrinterCtx* ctx, Nodes nodes) {
-    for (size_t i = 0; i < nodes.count; i++) {
-        print_node(nodes.nodes[i]);
-        if (i + 1 < nodes.count)
-            printf(" ");
     }
 }
 
@@ -670,209 +620,15 @@ static void print_instruction(PrinterCtx* ctx, const Node* node) {
     //printf("\n");
 }
 
-static void print_jump(PrinterCtx* ctx, const Node* node) {
-    assert(node->tag == Jump_TAG);
-    print_node(node->payload.jump.target);
-    print_args_list(ctx, node->payload.jump.args);
-}
-
-static void print_structured_construct_results(PrinterCtx* ctx, const Node* tail_case) {
-    Nodes params = get_abstraction_params(tail_case);
-    if (params.count > 0) {
-        printf(GREEN);
-        printf("val");
-        printf(RESET);
-        for (size_t i = 0; i < params.count; i++) {
-            // TODO: fix let mut
-            if (tail_case->arena->config.check_types) {
-                printf(" ");
-                print_node(params.nodes[i]->type);
-            }
-            printf(" ");
-            print_node(params.nodes[i]);
-            printf(RESET);
-        }
-        printf(" = ");
-    }
-}
-
 static void print_terminator(PrinterCtx* ctx, const Node* node) {
+    emit_node(ctx, get_terminator_mem(node));
     TerminatorTag tag = is_terminator(node);
     switch (tag) {
         case NotATerminator: assert(false);
-        /*
-        case If_TAG: {
-            print_structured_construct_results(ctx, get_structured_construct_tail(node));
-            printf(GREEN);
-            printf("if");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.if_instr.yield_types);
-            printf("(");
-            print_node(node->payload.if_instr.condition);
-            printf(") ");
-            if (ctx->config.in_cfg)
-                break;
-            print_case_body(ctx, node->payload.if_instr.if_true);
-            if (node->payload.if_instr.if_false) {
-                printf(GREEN);
-                printf(" else ");
-                printf(RESET);
-                print_case_body(ctx, node->payload.if_instr.if_false);
-            }
-            printf("\n");
-            print_abs_body(ctx, get_structured_construct_tail(node));
-            break;
-        } case Match_TAG: {
-            print_structured_construct_results(ctx, get_structured_construct_tail(node));
-            printf(GREEN);
-            printf("match");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.match_instr.yield_types);
-            printf("(");
-            print_node(node->payload.match_instr.inspect);
-            printf(")");
-            if (ctx->config.in_cfg)
-                break;
-            printf(" {");
-            indent(ctx->printer);
-            for (size_t i = 0; i < node->payload.match_instr.literals.count; i++) {
-                printf("\n");
-                printf(GREEN);
-                printf("case");
-                printf(RESET);
-                printf(" ");
-                print_node(node->payload.match_instr.literals.nodes[i]);
-                printf(": ");
-                print_case_body(ctx, node->payload.match_instr.cases.nodes[i]);
-            }
-
-            printf("\n");
-            printf(GREEN);
-            printf("default");
-            printf(RESET);
-            printf(": ");
-            print_case_body(ctx, node->payload.match_instr.default_case);
-
-            deindent(ctx->printer);
-            printf("\n}");
-            printf("\n");
-            print_abs_body(ctx, get_structured_construct_tail(node));
-            break;
-        } case Loop_TAG: {
-            print_structured_construct_results(ctx, get_structured_construct_tail(node));
-            printf(GREEN);
-            printf("loop");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.loop_instr.yield_types);
-            if (ctx->config.in_cfg)
-                break;
-            const Node* body = node->payload.loop_instr.body;
-            print_param_list(ctx, get_abstraction_params(body), &node->payload.loop_instr.initial_args);
-            print_case_body(ctx, body);
-            printf("\n");
-            print_abs_body(ctx, get_structured_construct_tail(node));
-            break;
-        } case Control_TAG: {
-            print_structured_construct_results(ctx, get_structured_construct_tail(node));
-            printf(BGREEN);
-            if (ctx->uses) {
-                if (is_control_static(ctx->uses, node))
-                    printf("static ");
-            }
-            printf("control");
-            printf(RESET);
-            print_yield_types(ctx, node->payload.control.yield_types);
-            if (ctx->config.in_cfg)
-                break;
-            print_param_list(ctx, get_abstraction_params(node->payload.control.inside), NULL);
-            print_case_body(ctx, node->payload.control.inside);
-            printf("\n");
-            print_abs_body(ctx, get_structured_construct_tail(node));
-            break;
-        } case Return_TAG:
-            printf(BGREEN);
-            printf("return");
-            printf(RESET);
-            print_args_list(ctx, node->payload.fn_ret.args);
-            printf(";");
-            break;
-        case Terminator_TailCall_TAG:
-            printf(BGREEN);
-            printf("tail_call ");
-            printf(RESET);
-            print_node(node->payload.tail_call.target);
-            print_args_list(ctx, node->payload.tail_call.args);
-            printf(";");
-            break;
-        case Jump_TAG:
-            printf(BGREEN);
-            printf("jump");
-            printf(RESET);
-            printf(" ");
-            print_jump(ctx, node);
-            printf(";");
-            break;
-        case Branch_TAG:
-            printf(BGREEN);
-            printf("branch ");
-            printf(RESET);
-            printf("(");
-            print_node(node->payload.branch.condition);
-            printf(", ");
-            print_jump(ctx, node->payload.branch.true_jump);
-            printf(", ");
-            print_jump(ctx, node->payload.branch.false_jump);
-            printf(")");
-            printf(";");
-            break;
-        case Switch_TAG:
-            printf(BGREEN);
-            printf("br_switch ");
-            printf(RESET);
-            printf("(");
-            print_node(node->payload.br_switch.switch_value);
-            printf(", ");
-            for (size_t i = 0; i < node->payload.br_switch.case_values.count; i++) {
-                print_node(node->payload.br_switch.case_values.nodes[i]);
-                printf(", ");
-                print_jump(ctx, node->payload.br_switch.case_jumps.nodes[i]);
-                if (i + 1 < node->payload.br_switch.case_values.count)
-                    printf(", ");
-            }
-            printf(", ");
-            print_jump(ctx, node->payload.br_switch.default_jump);
-            printf(") ");
-            printf(";");
-            break;
-        case Join_TAG:
-            printf(BGREEN);
-            printf("join");
-            printf(RESET);
-            printf("(");
-            shd_print_node(node->payload.join.join_point);
-            printf(")");
-            print_args_list(ctx, node->payload.join.args);
-            printf(";");
-            break;
-        case Unreachable_TAG:
-            printf(BGREEN);
-            printf("unreachable");
-            printf(RESET);
-            printf(";");
-            break;
-        case MergeContinue_TAG:
-        case MergeBreak_TAG:
-        case Terminator_MergeSelection_TAG:
-            printf(BGREEN);
-            printf("%s", node_tags[node->tag]);
-            printf(RESET);
-            print_args_list(ctx, node->payload.merge_selection.args);
-            printf(";");
-            break;*/
-        default:_shd_print_node_generated(ctx, node);
+        default:
+            _shd_print_node_generated(ctx, node);
             return;
     }
-    emit_node(ctx, get_terminator_mem(node));
 }
 
 static void print_decl(PrinterCtx* ctx, const Node* node) {
@@ -883,84 +639,37 @@ static void print_decl(PrinterCtx* ctx, const Node* node) {
     sub_ctx.scheduler = NULL;
     ctx = &sub_ctx;
 
+    _shd_print_node_generated(ctx, node);
     switch (node->tag) {
-        /*case GlobalVariable_TAG: {
-            const GlobalVariable* gvar = &node->payload.global_variable;
-            print_nodes(ctx, gvar->annotations);
-            printf("\n");
-            printf(BLUE);
-            printf("var ");
-            printf(BLUE);
-            printf(shd_get_address_space_name(gvar->address_space));
-            printf(" ");
-            print_node(gvar->type);
-            printf(BYELLOW);
-            printf(" %s", gvar->name);
-            printf(RESET);
-            if (gvar->init) {
-                printf(" = ");
-                print_node(gvar->init);
+        case GlobalVariable_TAG: {
+            GlobalVariable payload = node->payload.global_variable;
+            if (payload.init) {
+                shd_print(ctx->printer, " = ");
+                print_node_impl(ctx, payload.init);
             }
-            printf(";\n");
             break;
         }
         case Constant_TAG: {
-            const Constant* cnst = &node->payload.constant;
-            print_nodes(ctx, cnst->annotations);
-            printf("\n");
-            printf(BLUE);
-            printf("const ");
-            printf(RESET);
-            print_node(node->type);
-            printf(BYELLOW);
-            printf(" %s", cnst->name);
-            printf(RESET);
-            if (cnst->value) {
-                printf(" = %s", emit_node(ctx, cnst->value));
+            Constant payload = node->payload.constant;
+            if (payload.value) {
+                shd_print(ctx->printer, " = ");
+                print_node_impl(ctx, payload.value);
             }
-            printf(";\n");
-            break;
-        }
-        case Function_TAG: {
-            const Function* fun = &node->payload.fun;
-            print_nodes(ctx, fun->annotations);
-            printf("\n");
-            printf(BLUE);
-            printf("fn");
-            printf(RESET);
-            printf(BYELLOW);
-            printf(" %s", fun->name);
-            printf(RESET);
-            print_function(ctx, node);
-            printf("\n\n");
             break;
         }
         case NominalType_TAG: {
-            const NominalType* nom = &node->payload.nom_type;
-            print_nodes(ctx, nom->annotations);
-            printf("\n");
-            printf(BLUE);
-            printf("type");
-            printf(RESET);
-            printf(BYELLOW);
-            printf(" %s", nom->name);
-            printf(RESET);
-            printf(" = ");
-            print_node(nom->body);
-            printf(";\n\n");
-            break;
-        }*/
-        case Function_TAG: {
-            Function payload = node->payload.fun;
-            printf(GREEN);
-            printf("Function");
-            printf(RESET);
-            print_function(ctx, node);
+            NominalType payload = node->payload.nom_type;
+            if (payload.body) {
+                shd_print(ctx->printer, " = ");
+                print_node_impl(ctx, payload.body);
+            }
             break;
         }
-        default:
-            _shd_print_node_generated(ctx, node);
+        case Function_TAG: {
+            print_function_body(ctx, node);
             break;
+        }
+        default: break;
     }
 }
 
@@ -1161,6 +870,10 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass nc, const Node* op) 
         shd_print(ctx->printer, "%s", emit_node(ctx, op));
     } else {
         shd_print(ctx->printer, "%s", emit_node(ctx, op));
+    }
+    if (nc == NcParam) {
+        shd_print(ctx->printer, ": ");
+        print_node_impl(ctx, op->payload.param.type);
     }
 }
 
