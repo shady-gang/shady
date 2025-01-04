@@ -180,7 +180,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 Nodes nparams = shd_recreate_params(r, get_abstraction_params(conts[i]));
-                bbs[i] = basic_block(a, nparams, shd_get_abstraction_name_unsafe(conts[i]));
+                bbs[i] = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(conts[i]));
                 shd_register_processed(r, conts[i], bbs[i]);
                 add_binding(ctx, false, name, bbs[i]);
                 shd_log_fmt(DEBUGV, "Bound continuation '%s'\n", name);
@@ -222,7 +222,7 @@ static const Node* rewrite_decl(Context* ctx, const Node* decl) {
         }
         case Function_TAG: {
             Nodes new_fn_params = shd_recreate_params(&ctx->rewriter, decl->payload.fun.params);
-            Node* bound = function(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
+            Node* bound = function_helper(ctx->rewriter.dst_module, new_fn_params, decl->payload.fun.name, shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.annotations), shd_rewrite_nodes(&ctx->rewriter, decl->payload.fun.return_types));
             shd_register_processed(&ctx->rewriter, decl, bound);
             Context fn_ctx = *ctx;
             for (size_t i = 0; i < new_fn_params.count; i++) {
@@ -292,7 +292,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             assert(is_basic_block(node));
             Nodes new_params = shd_recreate_params(&ctx->rewriter, node->payload.basic_block.params);
             String name = node->payload.basic_block.name;
-            Node* new_bb = basic_block(a, new_params, name);
+            Node* new_bb = basic_block_helper(a, new_params, name);
             Context bb_ctx = *ctx;
             ctx = &bb_ctx;
             if (name)

@@ -53,7 +53,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 ctx2.return_jp = jp_variable;
             }
 
-            Node* fun = function(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
+            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
             shd_register_processed(&ctx->rewriter, old, fun);
 
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));

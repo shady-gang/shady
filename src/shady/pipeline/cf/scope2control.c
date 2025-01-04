@@ -88,7 +88,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         assert(obb->tag == BasicBlock_TAG);
         Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
         shd_register_processed_list(r, get_abstraction_params(obb), nparams);
-        nbbs[i] = basic_block(a, nparams, shd_get_abstraction_name_unsafe(obb));
+        nbbs[i] = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(obb));
         shd_register_processed(r, obb, nbbs[i]);
     }
 
@@ -225,7 +225,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     });
                     const Node* join_token = param_helper(a, shd_as_qualified_type(jp_type, false), shd_get_abstraction_name_unsafe(dst));
 
-                    Node* wrapper = basic_block(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
+                    Node* wrapper = basic_block_helper(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,

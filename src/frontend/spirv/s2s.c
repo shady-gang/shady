@@ -820,7 +820,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 instruction_offset += s;
             }
 
-            Node* fun = function(parser->mod, shd_nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
+            Node* fun = function_helper(parser->mod, shd_nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
             parser->defs[result].node = fun;
             Node* old_fun = parser->fun;
             parser->fun = fun;
@@ -893,7 +893,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = BB;
             String bb_name = get_name(parser, result);
             bb_name = bb_name ? bb_name : shd_make_unique_name(parser->arena, "basic_block");
-            Node* block = basic_block(parser->arena, params, bb_name);
+            Node* block = basic_block_helper(parser->arena, params, bb_name);
             parser->defs[result].node = block;
 
             BodyBuilder* bb = shd_bld_begin(parser->arena, shd_get_abstraction_mem(block));

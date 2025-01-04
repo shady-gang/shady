@@ -1069,7 +1069,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL, bb);
-            Node* continuation = basic_block(arena, parameters, name);
+            Node* continuation = basic_block_helper(arena, parameters, name);
             shd_set_abstraction_body(continuation, expect_body(ctx, shd_get_abstraction_mem(continuation), NULL));
             ids = shd_nodes_append(arena, ids, string_lit_helper(arena, name));
             conts = shd_nodes_append(arena, conts, continuation);
@@ -1176,7 +1176,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL, NULL);
 
-    Node* fn = function(mod, parameters, name, annotations, types);
+    Node* fn = function_helper(mod, parameters, name, annotations, types);
     if (!accept_token(ctx, semi_tok))
         shd_set_abstraction_body(fn, expect_body(ctx, shd_get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 

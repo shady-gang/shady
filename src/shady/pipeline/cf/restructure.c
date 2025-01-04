@@ -161,7 +161,7 @@ static const Node* handle_bb_callsite(Context* ctx, Jump jump, const Node* mem, 
         }
 
         // We use a basic block for the exit ladder because we don't know what the ladder needs to do ahead of time
-        Node* inner_exit_ladder_bb = basic_block(a, shd_empty(a), shd_make_unique_name(a, "exit_ladder_inline_me"));
+        Node* inner_exit_ladder_bb = basic_block_helper(a, shd_empty(a), shd_make_unique_name(a, "exit_ladder_inline_me"));
 
         // Just jumps to the actual ladder
         Node* structured_target = case_(a, shd_nodes(a, oargs.count, nparams));

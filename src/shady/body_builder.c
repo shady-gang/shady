@@ -45,7 +45,7 @@ BodyBuilder* shd_bld_begin(IrArena* a, const Node* mem) {
 }
 
 BodyBuilder* shd_bld_begin_pseudo_instr(IrArena* a, const Node* mem) {
-    Node* block = basic_block(a, shd_empty(a), NULL);
+    Node* block = basic_block_helper(a, shd_empty(a), NULL);
     BodyBuilder* builder = shd_bld_begin(a, shd_get_abstraction_mem(block));
     builder->tail_block = block;
     builder->block_entry_block = block;
@@ -251,7 +251,7 @@ static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
 }
 
 static Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
-    Node* tail = basic_block(bb->arena, params, NULL);
+    Node* tail = basic_block_helper(bb->arena, params, NULL);
     StackEntry entry = {
         .structured = {
             .tag = tag,

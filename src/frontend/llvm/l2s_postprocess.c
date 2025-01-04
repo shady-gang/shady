@@ -80,7 +80,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             }
             shd_register_processed_list(r, node->payload.fun.params, new_params);
             Nodes new_annotations = shd_rewrite_nodes(r, old_annotations);
-            Node* decl = function(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* decl = function_helper(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             shd_register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 shd_set_abstraction_body(decl, fn_ret(a, (Return) {

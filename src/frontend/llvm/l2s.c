@@ -95,7 +95,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
         String name = LLVMGetBasicBlockName(bb);
         if (strlen(name) == 0)
             name = NULL;
-        Node* nbb = basic_block(a, params, name);
+        Node* nbb = basic_block_helper(a, params, name);
         shd_dict_insert(LLVMValueRef, const Node*, p->map, bb, nbb);
         shd_dict_insert(const Node*, struct List*, fn_ctx->phis, nbb, phis);
         *ctx = (BBParseCtx) {
@@ -174,7 +174,7 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
         default:
             break;
     }
-    Node* f = function(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
+    Node* f = function_helper(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
     FnParseCtx fn_parse_ctx = {
         .fn = f,
         .phis = shd_new_dict(const Node*, struct List*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

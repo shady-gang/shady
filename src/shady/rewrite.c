@@ -302,7 +302,7 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
             Nodes new_annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old->payload.fun.annotations);
             Nodes new_params = shd_recreate_params(r, old->payload.fun.params);
             Nodes nyield_types = rewrite_ops_helper(r, NcType, "return_types", old->payload.fun.return_types);
-            new = function(r->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
+            new = function_helper(r->dst_module, new_params, old->payload.fun.name, new_annotations, nyield_types);
             assert(new && new->tag == Function_TAG);
             shd_register_processed_list(r, old->payload.fun.params, new->payload.fun.params);
             break;
@@ -371,7 +371,7 @@ const Node* shd_recreate_node(Rewriter* rewriter, const Node* node) {
         case BasicBlock_TAG: {
             Nodes params = shd_recreate_params(rewriter, node->payload.basic_block.params);
             shd_register_processed_list(rewriter, node->payload.basic_block.params, params);
-            Node* bb = basic_block(arena, params, node->payload.basic_block.name);
+            Node* bb = basic_block_helper(arena, params, node->payload.basic_block.name);
             shd_register_processed_mask(rewriter, node, bb, NcBasic_block | NcAbstraction);
             const Node* nterminator = rewrite_op_helper(rewriter, NcTerminator, "body", node->payload.basic_block.body);
             shd_set_abstraction_body(bb, nterminator);

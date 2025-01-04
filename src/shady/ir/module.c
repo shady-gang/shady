@@ -49,7 +49,7 @@ Node* shd_module_get_declaration(const Module* m, String name) {
 static Node* make_init_fini_fn(Module* m, String name) {
     IrArena* a = shd_module_get_arena(m);
     Nodes annotations = mk_nodes(a, annotation_helper(a, "Generated"), annotation_helper(a, "Internal"), annotation_helper(a, "Leaf"));
-    Node* fn = function(m, shd_nodes(a, 0, NULL), name, annotations, shd_nodes(a, 0, NULL));
+    Node* fn = function_helper(m, shd_nodes(a, 0, NULL), name, annotations, shd_nodes(a, 0, NULL));
     shd_set_abstraction_body(fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(fn) }));
     return fn;
 }

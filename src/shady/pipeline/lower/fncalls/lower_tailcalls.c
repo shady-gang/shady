@@ -80,7 +80,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     IrArena* a = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
     Nodes rewritten_params = shd_recreate_params(&ctx2.rewriter, old->payload.fun.params);
-    Node* new_entry_pt = function(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), shd_nodes(a, 0, NULL));
+    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), shd_nodes(a, 0, NULL));
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
 
@@ -98,7 +98,7 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
 
     if (!*ctx->top_dispatcher_fn) {
-        *ctx->top_dispatcher_fn = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
+        *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
     }
 
     shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
@@ -144,7 +144,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
             String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
-            Node* fun = function(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
+            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
             shd_register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)

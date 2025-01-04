@@ -62,13 +62,13 @@ static const Node* process(Context* ctx, const Node* node) {
 
                 Nodes wannotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
                 Nodes wparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* wrapper = function(m, wparams, shd_get_abstraction_name(node), wannotations, shd_empty(a));
+                Node* wrapper = function_helper(m, wparams, shd_get_abstraction_name(node), wannotations, shd_empty(a));
                 shd_register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nannotations = shd_filter_out_annotation(a, wannotations, "EntryPoint");
                 Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* inner = function(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)), nannotations, shd_empty(a));
+                Node* inner = function_helper(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)), nannotations, shd_empty(a));
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));
                 shd_set_abstraction_body(inner, shd_recreate_node(&ctx->rewriter, node->payload.fun.body));

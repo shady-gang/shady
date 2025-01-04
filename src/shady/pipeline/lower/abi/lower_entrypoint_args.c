@@ -19,7 +19,7 @@ static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-    Node* fun = function(ctx->rewriter.dst_module, shd_empty(a), node->payload.fun.name, annotations, shd_empty(a));
+    Node* fun = function_helper(ctx->rewriter.dst_module, shd_empty(a), node->payload.fun.name, annotations, shd_empty(a));
 
     shd_register_processed(&ctx->rewriter, node, fun);
 

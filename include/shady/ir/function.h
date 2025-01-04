@@ -7,9 +7,9 @@
 Node* _shd_function(Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
 Node* _shd_basic_block(IrArena*, Nodes params, const char* name);
 
-static inline Node* function(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) { return _shd_function(m, params, name, annotations, return_types); }
-static inline Node* basic_block(IrArena* a, Nodes params, const char* name) { return _shd_basic_block(a, params, name); }
-static inline Node* case_(IrArena* a, Nodes params) { return basic_block(a, params, NULL); }
+static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) { return _shd_function(m, params, name, annotations, return_types); }
+static inline Node* basic_block_helper(IrArena* a, Nodes params, const char* name) { return _shd_basic_block(a, params, name); }
+static inline Node* case_(IrArena* a, Nodes params) { return basic_block_helper(a, params, NULL); }
 
 /// For typing instructions that return nothing (equivalent to C's void f())
 static inline const Type* empty_multiple_return_type(IrArena* arena) {

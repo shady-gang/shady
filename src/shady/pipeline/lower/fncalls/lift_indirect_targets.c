@@ -128,7 +128,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     // Keep annotations the same
     Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Exported" }));
     new_params = shd_nodes_prepend(a, new_params, payload);
-    Node* new_fn = function(ctx->rewriter.dst_module, new_params, name, annotations, shd_nodes(a, 0, NULL));
+    Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, name, annotations, shd_nodes(a, 0, NULL));
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body

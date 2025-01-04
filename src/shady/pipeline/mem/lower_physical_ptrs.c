@@ -267,7 +267,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
 
     String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", shd_get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
-    Node* fun = function(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
+    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
