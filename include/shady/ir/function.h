@@ -4,11 +4,25 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/type.h"
 
-Node* _shd_function(Module*, Nodes params, const char* name, Nodes annotations, Nodes return_types);
-Node* _shd_basic_block(IrArena*, Nodes params, const char* name);
+Node* shd_function(Module*, Function);
+Node* shd_basic_block(IrArena*, BasicBlock);
 
-static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) { return _shd_function(m, params, name, annotations, return_types); }
-static inline Node* basic_block_helper(IrArena* a, Nodes params, const char* name) { return _shd_basic_block(a, params, name); }
+static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+    return shd_function(m, (Function) {
+        .params = params,
+        .return_types = return_types,
+        .annotations = annotations,
+        .name = name,
+    });
+}
+
+static inline Node* basic_block_helper(IrArena* a, Nodes params, const char* name) {
+    return shd_basic_block(a, (BasicBlock) {
+        .params = params,
+        .name = name,
+    });
+}
+
 static inline Node* case_(IrArena* a, Nodes params) { return basic_block_helper(a, params, NULL); }
 
 /// For typing instructions that return nothing (equivalent to C's void f())

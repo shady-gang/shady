@@ -516,14 +516,8 @@ const Node* shd_get_fill_type_size(const Type* composite_t) {
     }
 }
 
-Type* _shd_nominal_type(Module* mod, Nodes annotations, String name) {
+Type* shd_nominal_type(Module* mod, NominalType payload) {
     IrArena* arena = shd_module_get_arena(mod);
-    NominalType payload = {
-        .name = shd_string(arena, name),
-        .annotations = annotations,
-        .body = NULL,
-    };
-
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {

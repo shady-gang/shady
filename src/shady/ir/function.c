@@ -20,16 +20,8 @@ Node* _shd_param(IrArena* arena, const Type* type, const char* name) {
     return _shd_create_node_helper(arena, node, NULL);
 }
 
-Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
+Node* shd_function(Module* mod, Function payload) {
     IrArena* arena = mod->arena;
-    Function payload = {
-        .params = params,
-        .body = NULL,
-        .name = name,
-        .annotations = annotations,
-        .return_types = return_types,
-    };
-
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
@@ -40,8 +32,8 @@ Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotatio
     Node* fn = _shd_create_node_helper(arena, node, NULL);
     _shd_module_add_decl(mod, fn);
 
-    for (size_t i = 0; i < params.count; i++) {
-        Node* param = (Node*) params.nodes[i];
+    for (size_t i = 0; i < payload.params.count; i++) {
+        Node* param = (Node*) payload.params.nodes[i];
         assert(param->tag == Param_TAG);
         assert(!param->payload.param.abs);
         param->payload.param.abs = fn;
@@ -51,13 +43,7 @@ Node* _shd_function(Module* mod, Nodes params, const char* name, Nodes annotatio
     return fn;
 }
 
-Node* _shd_basic_block(IrArena* arena, Nodes params, const char* name) {
-    BasicBlock payload = {
-        .params = params,
-        .body = NULL,
-        .name = name,
-    };
-
+Node* shd_basic_block(IrArena* arena, BasicBlock payload) {
     Node node;
     memset((void*) &node, 0, sizeof(Node));
     node = (Node) {
@@ -68,8 +54,8 @@ Node* _shd_basic_block(IrArena* arena, Nodes params, const char* name) {
 
     Node* bb = _shd_create_node_helper(arena, node, NULL);
 
-    for (size_t i = 0; i < params.count; i++) {
-        Node* param = (Node*) params.nodes[i];
+    for (size_t i = 0; i < payload.params.count; i++) {
+        Node* param = (Node*) payload.params.nodes[i];
         assert(param->tag == Param_TAG);
         assert(!param->payload.param.abs);
         param->payload.param.abs = bb;
