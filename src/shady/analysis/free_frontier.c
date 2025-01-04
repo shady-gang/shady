@@ -15,6 +15,8 @@ typedef struct {
 static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     if (shd_dict_find_key(const Node*, v->seen, node))
         return;
+    if (is_declaration(node) && node != v->start->node)
+        return;
     shd_set_insert_get_result(const Node*, v->seen, node);
     CFNode* where = shd_schedule_instruction(v->scheduler, node);
     if (where) {

@@ -33,6 +33,8 @@ static void schedule_after(CFNode** scheduled, CFNode* req) {
 }
 
 static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node* op, size_t i) {
+    if (is_declaration(op))
+        return;
     switch (nc) {
         // We only care about mem and value dependencies
         case NcMem:
@@ -68,12 +70,13 @@ CFNode* shd_schedule_instruction(Scheduler* s, const Node* n) {
     if (n->tag == Param_TAG) {
         schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n->payload.param.abs));
     } else if (n->tag == BasicBlock_TAG) {
+        // assert(false);
         schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n));
     } else if (n->tag == AbsMem_TAG) {
         schedule_after(&s2.result, shd_cfg_lookup(s->cfg, n->payload.abs_mem.abs));
     }
 
-    shd_visit_node_operands(&s2.v, 0, n);
+    shd_visit_node_operands(&s2.v, ~(NcValue | NcMem), n);
     shd_dict_insert(const Node*, CFNode*, s->scheduled, n, s2.result);
     return s2.result;
 }
