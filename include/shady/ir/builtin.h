@@ -50,8 +50,9 @@ ShdScope shd_get_builtin_scope(Builtin builtin);
 const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin);
 Builtin shd_get_builtin_by_name(String s);
 
-typedef enum SpvBuiltIn_ SpvBuiltIn;
+#ifdef spirv_H
 Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id);
+#endif
 
 bool shd_is_decl_builtin(const Node* decl);
 Builtin shd_get_decl_builtin(const Node* decl);

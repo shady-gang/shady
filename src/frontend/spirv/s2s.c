@@ -1,15 +1,4 @@
-#include "s2s.h"
-
-#include "shady/ir/builtin.h"
-#include "shady/ir/memory_layout.h"
-
-#include "../shady/ir_private.h"
-
-#include "log.h"
-#include "arena.h"
-#include "portability.h"
-#include "dict.h"
-#include "util.h"
+#include <stdbool.h>
 
 // this avoids polluting the namespace
 #define SpvHasResultAndType ShadySpvHasResultAndType
@@ -22,6 +11,19 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "spirv/unified1/spirv.h"
 #include "spirv/unified1/OpenCL.std.h"
 #include "spirv/unified1/GLSL.std.450.h"
+
+#include "s2s.h"
+
+#include "shady/ir/builtin.h"
+#include "shady/ir/memory_layout.h"
+
+#include "../shady/ir_private.h"
+
+#include "log.h"
+#include "arena.h"
+#include "portability.h"
+#include "dict.h"
+#include "util.h"
 
 #include <assert.h>
 #include <stdlib.h>
