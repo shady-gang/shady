@@ -109,16 +109,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
-            assert(ctx->stack);
-            GetStackBaseAddr payload = old->payload.get_stack_base_addr;
-            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            const Node* stack_pointer = ctx->stack_pointer;
-            const Node* stack_size = shd_bld_load(bb, stack_pointer);
-            const Node* stack_base_ptr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
-            if (ctx->config->printf_trace.stack_size) {
-                shd_bld_debug_printf(bb, "trace: stack_size=%d\n", shd_singleton(stack_size));
-            }
-            return shd_bld_to_instr_yield_values(bb, shd_singleton(stack_base_ptr));
+            return ctx->stack;
         }
         case PushStack_TAG:{
             assert(ctx->stack);
