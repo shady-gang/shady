@@ -57,8 +57,8 @@ CFNode* shd_cfg_lookup(CFG* cfg, const Node* abs) {
         assert(cfnode->node == abs);
         return cfnode;
     }
-    assert(false);
-    return NULL;
+    shd_error("Failed to find %s in CFG.", shd_get_abstraction_name_safe(abs));
+    shd_error_die();
 }
 
 static CFNode* new_cfnode(Arena* a) {
