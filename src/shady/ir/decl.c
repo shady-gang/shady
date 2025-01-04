@@ -28,16 +28,6 @@ Node* _shd_constant(Module* mod, Nodes annotations, const Type* hint, String nam
 }
 
 Node* _shd_global_var(Module* mod, Nodes annotations, const Type* type, const char* name, AddressSpace as, bool is_ref) {
-    const Node* existing = shd_module_get_declaration(mod, name);
-    if (existing) {
-        assert(existing->tag == GlobalVariable_TAG);
-        assert(existing->payload.global_variable.type == type);
-        assert(existing->payload.global_variable.address_space == as);
-        assert(existing->payload.global_variable.is_ref == is_ref);
-        assert(!mod->arena->config.check_types || shd_compare_nodes((Nodes*) &existing->payload.global_variable.annotations, &annotations));
-        return (Node*) existing;
-    }
-
     IrArena* arena = mod->arena;
     GlobalVariable gvar = {
         .annotations = annotations,
