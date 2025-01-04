@@ -622,15 +622,6 @@
       ]
     },
     {
-      "name": "AnnotationCompound",
-      "class": "annotation",
-      "type": false,
-      "ops": [
-        { "name": "name", "class": "string" },
-        { "name": "entries", "class": "annotation", "list": true }
-      ]
-    },
-    {
       "name": "BasicBlock",
       "recursive": true,
       "description": "A named abstraction that lives inside a function and can be jumped to",

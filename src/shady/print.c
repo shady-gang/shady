@@ -990,14 +990,6 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, annotation->values);
             break;
         }
-        case AnnotationCompound_TAG: {
-            const AnnotationValues* annotation = &node->payload.annotation_values;
-            printf(RED);
-            printf("@%s", annotation->name);
-            printf(RESET);
-            print_args_list(ctx, annotation->values);
-            break;
-        }
         case NotAnAnnotation: shd_error("");
     }
 }

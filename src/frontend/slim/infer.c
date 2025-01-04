@@ -56,7 +56,6 @@ static const Node* infer_annotation(Context* ctx, const Node* node) {
         case Annotation_TAG: return annotation(a, (Annotation) { .name = node->payload.annotation.name });
         case AnnotationValue_TAG: return annotation_value(a, (AnnotationValue) { .name = node->payload.annotation_value.name, .value = infer(ctx, node->payload.annotation_value.value, NULL) });
         case AnnotationValues_TAG: return annotation_values(a, (AnnotationValues) { .name = node->payload.annotation_values.name, .values = infer_nodes(ctx, node->payload.annotation_values.values) });
-        case AnnotationCompound_TAG: return annotation_compound(a, (AnnotationCompound) { .name = node->payload.annotation_compound.name, .entries = infer_nodes(ctx, node->payload.annotation_compound.entries) });
         default: shd_error("Not an annotation");
     }
 }
