@@ -37,19 +37,6 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             break;
         }
-        case GlobalVariable_TAG: {
-            const Node* ba = shd_lookup_annotation(node, "Builtin");
-            if (ba) {
-                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
-                switch (b) {
-                    case BuiltinWorkgroupSize:
-                        return NULL;
-                    default:
-                        break;
-                }
-            }
-            break;
-        }
         case Constant_TAG: {
             Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
             if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {

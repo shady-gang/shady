@@ -31,24 +31,18 @@ static const Node* process(Context* ctx, const Node* node) {
     Module* m = r->dst_module;
 
     switch (node->tag) {
-        case GlobalVariable_TAG: {
-            GlobalVariable payload = node->payload.global_variable;
-            const Node* ba = shd_lookup_annotation(node, "Builtin");
-            if (ba) {
-                Nodes filtered_as = shd_rewrite_nodes(&ctx->rewriter, shd_filter_out_annotation(a, node->payload.global_variable.annotations, "Builtin"));
-                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
-                switch (b) {
-                    case BuiltinSubgroupId:
-                    case BuiltinWorkgroupId:
-                    case BuiltinGlobalInvocationId:
-                    case BuiltinLocalInvocationId:
-                        return global_variable_helper(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsPrivate);
-                    case BuiltinNumWorkgroups:
-                        return global_variable_helper(m, filtered_as, shd_rewrite_node(&ctx->rewriter, node->payload.global_variable.type), node->payload.global_variable.name, AsExternal);
-                    default:
-                        break;
-                }
-                return shd_get_or_create_builtin(ctx->rewriter.dst_module, b, get_declaration_name(node));
+        case BuiltinRef_TAG: {
+            Builtin b = node->payload.builtin_ref.builtin;
+            switch (b) {
+                case BuiltinSubgroupId:
+                case BuiltinWorkgroupId:
+                case BuiltinGlobalInvocationId:
+                case BuiltinLocalInvocationId:
+                    return global_variable_helper(m, shd_empty(a), shd_get_builtin_type(a, b),shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsPrivate);
+                case BuiltinNumWorkgroups:
+                    return global_variable_helper(m, shd_empty(a), shd_get_builtin_type(a, b), shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsExternal);
+                default:
+                    break;
             }
             break;
         }
