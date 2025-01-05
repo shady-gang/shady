@@ -553,6 +553,24 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         case Value_Fill_TAG: shd_error("lower me")
         case Value_GlobalVariable_TAG:
         case Value_Constant_TAG: return spv_emit_decl(emitter, node);
+        case Value_BuiltinRef_TAG: {
+            BuiltinRef payload = node->payload.builtin_ref;
+            SpvId given_id = spvb_fresh_id(emitter->file_builder);
+            AddressSpace as = shd_get_builtin_address_space(payload.builtin);
+            SpvStorageClass storage_class = spv_emit_addr_space(emitter, as);
+            spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, node->type), storage_class, false, 0);
+
+            SpvBuiltIn d = shd_get_builtin_spv_id(payload.builtin);
+            uint32_t decoration_payload[] = { d };
+            spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
+            if (as == AsUInput || as == AsInput) {
+                const Type* element_type = shd_get_builtin_type(emitter->arena, payload.builtin);
+                if (element_type->tag == Int_TAG)
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationFlat, 0, NULL);
+            }
+            shd_spv_register_interface(emitter, node, given_id);
+            return given_id;
+        }
         default: {
             shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));
         }
@@ -568,6 +586,7 @@ static bool can_appear_at_top_level(const Node* node) {
         case IntLiteral_TAG:
         case True_TAG:
         case False_TAG:
+        case BuiltinRef_TAG:
             return true;
         case Composite_TAG: {
             bool ok = true;

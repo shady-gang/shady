@@ -925,27 +925,21 @@ const Type* _shd_check_type_basic_block(IrArena* arena, BasicBlock bb) {
 const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable global_variable) {
     assert(is_type(global_variable.type));
 
-    const Node* ba = shd_lookup_annotation_list(global_variable.annotations, "Builtin");
-    if (ba && arena->config.validate_builtin_types) {
-        Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(ba));
-        assert(b != BuiltinsCount);
-        const Type* t = shd_get_builtin_type(arena, b);
-        if (t != global_variable.type) {
-            shd_error_print("Creating a @Builtin global variable '%s' with the incorrect type: ", global_variable.name);
-            shd_log_node(ERROR, global_variable.type);
-            shd_error_print(" instead of the expected ");
-            shd_log_node(ERROR, t);
-            shd_error_print(".\n");
-            shd_error_die();
-        }
-    }
-
     assert(global_variable.address_space < NumAddressSpaces);
 
     return qualified_type_helper(arena, true, ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
         .is_reference = global_variable.is_ref,
+    }));
+}
+
+const Type* _shd_check_type_builtin_ref(IrArena* arena, BuiltinRef ref) {
+    ShdScope scope = shd_get_builtin_scope(ref.builtin);
+    return qualified_type_helper(arena, scope <= ShdScopeSubgroup, ptr_type(arena, (PtrType) {
+        .pointed_type = shd_get_builtin_type(arena, ref.builtin),
+        .address_space = shd_get_builtin_address_space(ref.builtin),
+        .is_reference = true,
     }));
 }
 

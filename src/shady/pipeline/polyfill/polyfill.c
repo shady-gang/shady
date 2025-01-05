@@ -8,7 +8,6 @@ static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, M
 
     RUN_PASS(shd_pass_lower_fill, config)
     RUN_PASS(shd_pass_lower_nullptr, config)
-    RUN_PASS(shd_pass_normalize_builtins, config)
     RUN_PASS(shd_pass_lower_subgroup_ops, config)
 }
 

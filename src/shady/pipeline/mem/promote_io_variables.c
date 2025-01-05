@@ -1,6 +1,7 @@
 #include "shady/ir/builtin.h"
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
+#include "shady/ir/debug.h"
 
 #include "shady/pass.h"
 
@@ -17,18 +18,16 @@ typedef struct {
     BodyBuilder* fini_bld;
 } Context;
 
-static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node* io) {
+static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node* io) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;
-    assert(io->tag == GlobalVariable_TAG);
-    Node* phy = global_variable_helper(m, shd_empty(a), io->payload.global_variable.type, shd_fmt_string_irarena(a, "%s_physical", io->payload.global_variable.name), scope >= ShdScopeInvocation ? AsPrivate : AsSubgroup);
-    const Type* pt = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = io->payload.global_variable.type });
-    const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(phy));
-    phy = constant_helper(m, shd_empty(a), pt, shd_fmt_string_irarena(a, "%s_generic", io->payload.global_variable.name));
-    phy->payload.constant.value = converted;
+    const Type* ptr_t = shd_get_unqualified_type(io->type);
+    assert(ptr_t->tag == PtrType_TAG);
+    PtrType ptr_payload = ptr_t->payload.ptr_type;
+    Node* phy = global_variable_helper(m, shd_empty(a), ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_value_name_safe(io)), as);
 
-    switch (io->payload.global_variable.address_space) {
+    switch (ptr_payload.address_space) {
         case AsPushConstant:
         case AsUniformConstant:
         case AsUInput:
@@ -45,7 +44,9 @@ static const Node* promote_to_physical(Context* ctx, ShdScope scope, const Node*
         }
         default: assert(false);
     }
-    return phy;
+
+    const Type* tgt_ptr_t = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = ptr_payload.pointed_type });
+    return prim_op_helper(a, convert_op, shd_singleton(tgt_ptr_t), shd_singleton(phy));
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -63,20 +64,24 @@ static const Node* process(Context* ctx, const Node* node) {
             if (io_annotation) {
                 payload.address_space = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
                 payload.annotations = shd_filter_out_annotation(a, payload.annotations, "IO");
-                io = shd_global_var(r->dst_module, payload);
                 scope = shd_get_addr_space_scope(payload.address_space);
-            } else if (builtin_annotation) {
+            }
+            if (builtin_annotation) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
                 io = shd_get_or_create_builtin(m, b, payload.name);
                 scope = shd_get_builtin_scope(b);
+            } else if (io_annotation) {
+                io = shd_global_var(r->dst_module, payload);
             } else break;
 
-            assert(io && io->tag == GlobalVariable_TAG);
-
+            assert(io);
             bool can_be_physical = shd_is_physical_data_type(payload.type);
 
-            if (can_be_physical)
-                io = promote_to_physical(ctx, scope, io);
+            if (can_be_physical) {
+                AddressSpace as = (scope <= ShdScopeSubgroup) ? AsSubgroup : AsPrivate;
+                if (shd_ir_arena_get_config(a)->target.address_spaces[as].allowed)
+                    io = promote_to_physical(ctx, as, io);
+            }
 
             shd_register_processed(r, node, io);
             return io;
@@ -88,8 +93,8 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 Module* shd_pass_promote_io_variables(SHADY_UNUSED const CompilerConfig* config, Module* src) {
-    if (!config->specialization.entry_point)
-        return src;
+    // if (!config->specialization.entry_point)
+    //     return src;
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

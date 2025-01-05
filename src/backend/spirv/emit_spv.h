@@ -35,6 +35,7 @@ typedef struct Emitter_ {
     struct Dict* bb_builders;
 
     size_t num_entry_pts;
+    struct List* interface_vars;
 
     struct Dict* extended_instruction_sets;
 } Emitter;
@@ -60,5 +61,6 @@ SpvStorageClass spv_emit_addr_space(Emitter*, AddressSpace address_space);
 SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types);
 const Type* spv_normalize_type(Emitter* emitter, const Type* type);
 void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id);
+void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id);
 
 #endif

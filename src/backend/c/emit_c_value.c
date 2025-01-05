@@ -216,6 +216,12 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_c_emit_decl(emitter, value);
             return *shd_c_lookup_existing_term(emitter, NULL, value);
         }
+        case BuiltinRef_TAG: {
+            Builtin b = value->payload.builtin_ref.builtin;
+            CTerm t = shd_c_emit_builtin(emitter, b);
+            shd_c_register_emitted(emitter, NULL, value, t);
+            return t;
+        }
     }
 
     assert(emitted);
@@ -1109,7 +1115,7 @@ static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
         return false;
     if (emitter->config.dialect == CDialect_ISPC) {
         if (node->tag == GlobalVariable_TAG)
-            if (!shd_is_addr_space_uniform(emitter->arena, node->payload.global_variable.address_space) && !shd_is_decl_builtin(node))
+            if (!shd_is_addr_space_uniform(emitter->arena, node->payload.global_variable.address_space))
                 //if (is_value(node) && !is_qualified_type_uniform(node->type))
                     return false;
     }

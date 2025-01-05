@@ -253,12 +253,6 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
                 init = NULL;
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
-            if (shd_is_decl_builtin(decl)) {
-                Builtin b = shd_get_decl_builtin(decl);
-                CTerm t = shd_c_emit_builtin(emitter, b);
-                shd_c_register_emitted(emitter, NULL, decl, t);
-                return;
-            }
 
             if (ass == AsOutput && emitter->compiler_config->target.execution_model == EmFragment) {
                 int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);

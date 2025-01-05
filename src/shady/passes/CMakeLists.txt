@@ -20,7 +20,6 @@ target_sources(shady PRIVATE
         ../pipeline/cf/lower_switch_btree.c
         ../pipeline/lower/stack/setup_stack_frames.c
     opt/eliminate_constants.c
-        ../pipeline/lower/abi/normalize_builtins.c
         ../pipeline/lower/subgroup/lower_subgroup_ops.c
         ../pipeline/lower/subgroup/lower_subgroup_vars.c
         ../pipeline/polyfill/lower_int64.c

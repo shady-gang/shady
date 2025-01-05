@@ -169,25 +169,11 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             SpvStorageClass storage_class = spv_emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, decl->type), storage_class, false, init);
 
-            Builtin b = BuiltinsCount;
             for (size_t i = 0; i < gvar->annotations.count; i++) {
                 const Node* a = gvar->annotations.nodes[i];
                 assert(is_annotation(a));
                 String name = get_annotation_name(a);
-                if (strcmp(name, "Builtin") == 0) {
-                    String builtin_name = shd_get_annotation_string_payload(a);
-                    assert(builtin_name);
-                    assert(b == BuiltinsCount && "Only one @Builtin annotation permitted.");
-                    b = shd_get_builtin_by_name(builtin_name);
-                    assert(b != BuiltinsCount);
-                    SpvBuiltIn d = shd_get_builtin_spv_id(b);
-                    uint32_t decoration_payload[] = { d };
-                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
-                    if (gvar->address_space == AsUInput || gvar->address_space == AsInput) {
-                        if (gvar->type->tag == Int_TAG)
-                            spvb_decorate(emitter->file_builder, given_id, SpvDecorationFlat, 0, NULL);
-                    }
-                } else if (strcmp(name, "Location") == 0) {
+                if (strcmp(name, "Location") == 0) {
                     size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationLocation, 1, (uint32_t[]) { loc });
@@ -216,6 +202,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 }
                 default: break;
             }
+
+            shd_spv_register_interface(emitter, decl, given_id);
 
             return given_id;
         } case Function_TAG: {
@@ -252,27 +240,26 @@ static SpvExecutionModel emit_exec_model(ExecutionModel model) {
     }
 }
 
-static void emit_entry_points(Emitter* emitter, Nodes declarations) {
-    // First, collect all the global variables, they're needed for the interface section of OpEntryPoint
-    // it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
-    // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
-    LARRAY(SpvId, interface_arr, declarations.count);
-    size_t interface_size = 0;
-    for (size_t i = 0; i < declarations.count; i++) {
-        const Node* node = declarations.nodes[i];
-        if (node->tag != GlobalVariable_TAG) continue;
-        // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
-        if (emitter->spirv_tgt.target_version.major == 1 &&
-            emitter->spirv_tgt.target_version.minor < 4) {
-            switch (node->payload.global_variable.address_space) {
-                case AsOutput:
-                case AsInput: break;
-                default: continue;
-            }
+// First, collect all the global variables, they're needed for the interface section of OpEntryPoint
+// it can be a superset of the ones actually used, so the easiest option is to just grab _all_ global variables and shove them in there
+// my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
+void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id) {
+    // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
+    if (emitter->spirv_tgt.target_version.major == 1 &&
+        emitter->spirv_tgt.target_version.minor < 4) {
+        const Type* ptr_t = shd_get_unqualified_type(n->type);
+        assert(ptr_t->tag == PtrType_TAG);
+        switch (ptr_t->payload.ptr_type.address_space) {
+            case AsOutput:
+            case AsInput: break;
+            default: return;
         }
-        interface_arr[interface_size++] = spv_find_emitted(emitter, NULL, node);
     }
 
+    shd_list_append(SpvId, emitter->interface_vars, id);
+}
+
+static void emit_entry_points(Emitter* emitter, Nodes declarations) {
     for (size_t i = 0; i < declarations.count; i++) {
         const Node* decl = declarations.nodes[i];
         if (decl->tag != Function_TAG) continue;
@@ -283,7 +270,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
             assert(execution_model != EmNone);
 
-            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, interface_size, interface_arr);
+            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
             const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
@@ -359,6 +346,7 @@ void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_confi
         .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .num_entry_pts = 0,
+        .interface_vars = shd_new_list(SpvId),
     };
 
     emitter.extended_instruction_sets = shd_new_dict(const char*, SpvId, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);
@@ -382,6 +370,7 @@ void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_confi
     shd_destroy_dict(emitter.global_node_ids);
     shd_destroy_dict(emitter.bb_builders);
     shd_destroy_dict(emitter.extended_instruction_sets);
+    shd_destroy_list(emitter.interface_vars);
 
     shd_destroy_ir_arena(arena);
 }

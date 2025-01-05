@@ -33,7 +33,6 @@ RewritePass shd_pass_add_init_fini;
 
 /// Extracts unstructured basic blocks into separate functions (including spilling)
 RewritePass shd_pass_lift_indirect_targets;
-RewritePass shd_pass_normalize_builtins;
 
 /// @}
 

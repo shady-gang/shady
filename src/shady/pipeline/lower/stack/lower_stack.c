@@ -109,7 +109,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
-            return ctx->stack;
+            return prim_op_helper(a, reinterpret_op, shd_singleton(shd_rewrite_node(r, shd_get_unqualified_type(old->type))), mk_nodes(a, ctx->stack));
         }
         case PushStack_TAG:{
             assert(ctx->stack);

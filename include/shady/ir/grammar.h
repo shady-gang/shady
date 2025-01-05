@@ -3,6 +3,7 @@
 
 #include "shady/ir/base.h"
 #include "shady/ir/enum.h"
+#include "shady/ir/builtin.h"
 
 // These enums and structs are used in the node payloads so they must live here
 // instead of in the relevant header

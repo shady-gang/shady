@@ -912,6 +912,13 @@ void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String
     shd_print(ctx->printer, RESET);
 }
 
+void _shd_print_node_operand_Builtin(PrinterCtx* ctx, const Node* n, String name, Builtin b) {
+    print_operand_name_helper(ctx, name);
+    shd_print(ctx->printer, BLUE);
+    shd_print(ctx->printer, "%s", shd_get_builtin_name(b));
+    shd_print(ctx->printer, RESET);
+}
+
 void _shd_print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, BLUE);

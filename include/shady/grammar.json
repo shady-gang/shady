@@ -360,6 +360,14 @@
       ]
     },
     {
+      "name": "BuiltinRef",
+      "class": "value",
+      "description": "Provides a reference to a given builtin",
+      "ops": [
+        { "name": "builtin", "type": "Builtin" }
+      ]
+    },
+    {
       "name": "Call",
       "class": ["instruction", "value", "mem"],
       "nominal": true,

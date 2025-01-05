@@ -109,50 +109,17 @@ bool shd_is_builtin_load_op(const Node* n, Builtin* out) {
     assert(is_instruction(n));
     if (n->tag == Load_TAG) {
         const Node* src = n->payload.load.ptr;
-        if (src->tag == GlobalVariable_TAG) {
-            const Node* a = shd_lookup_annotation(src, "Builtin");
-            if (a) {
-                String bn = shd_get_annotation_string_payload(a);
-                assert(bn);
-                Builtin b = shd_get_builtin_by_name(bn);
-                if (b != BuiltinsCount) {
-                    *out = b;
-                    return true;
-                }
-            }
+        if (src->tag == BuiltinRef_TAG) {
+            BuiltinRef payload = src->payload.builtin_ref;
+            *out = payload.builtin;
+            return true;
         }
     }
     return false;
 }
 
-const Node* shd_get_builtin(Module* m, Builtin b) {
-    Nodes decls = shd_module_get_declarations(m);
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG)
-            continue;
-        const Node* a = shd_lookup_annotation(decl, "Builtin");
-        if (!a)
-            continue;
-        String builtin_name = shd_get_annotation_string_payload(a);
-        assert(builtin_name);
-        if (strcmp(builtin_name, shd_get_builtin_name(b)) == 0)
-            return decl;
-    }
-
-    return NULL;
-}
-
 const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n) {
-    const Node* decl = shd_get_builtin(m, b);
-    if (decl)
-        return decl;
-
-    AddressSpace as = shd_get_builtin_address_space(b);
-    IrArena* a = shd_module_get_arena(m);
-    decl = global_variable_helper(m, shd_singleton(annotation_value_helper(a, "Builtin", string_lit_helper(a,shd_get_builtin_name(b)))),
-                      shd_get_builtin_type(a, b), n ? n : shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), as);
-    return decl;
+    return builtin_ref_helper(shd_module_get_arena(m), b);
 }
 
 const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
