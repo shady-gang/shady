@@ -176,37 +176,38 @@ static inline const Node* fold_simplify_math(const Node* node) {
     return NULL;
 }
 
-static inline const Node* resolve_ptr_source(const Node* ptr) {
+/**
+ * The high-level goal is to specialize away reinterpret/convert ops by generally pushing them "outwards" and deleting them where possible
+ * For "Lea" ops, we can move the conversion to generic after the OP itself but the pointee type must match for address calculations to remain identitical
+ * For "Access" (Load,Store,Copy,Fill) ops, we just need to ensure compatible pointers for well-defined results
+ * For "Convert" op we can move any reinterpret ops we encounter on the outer level
+ */
+static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
     const Node* original_ptr = ptr;
-    IrArena* a = ptr->arena;
-    const Type* t = ptr->type;
-    bool u = shd_deconstruct_qualified_type(&t);
-    assert(t->tag == PtrType_TAG);
-    const Type* desired_pointee_type = t->payload.ptr_type.pointed_type;
-    // const Node* last_known_good = node;
 
-    int distance = 0;
-    bool specialize_generic = false;
-    AddressSpace src_as = t->payload.ptr_type.address_space;
     while (true) {
-        const Node* def = ptr;
-        switch (def->tag) {
+        const Type* ptr_type = shd_get_unqualified_type(ptr->type);
+        assert(ptr_type->tag == PtrType_TAG);
+        PtrType ptr_type_payload = ptr_type->payload.ptr_type;
+        switch (ptr->tag) {
             case PrimOp_TAG: {
-                PrimOp instruction = def->payload.prim_op;
+                PrimOp instruction = ptr->payload.prim_op;
+                // casts starting from non-ptrs are not elligible
+                const Node* src = shd_first(instruction.operands);
+                if (shd_get_unqualified_type(src->type)->tag != PtrType_TAG)
+                    break;
                 switch (instruction.op) {
                     case reinterpret_op: {
-                        distance++;
+                        if (ensure_compatible_pointee)
+                            break;
                         ptr = shd_first(instruction.operands);
                         continue;
                     }
                     case convert_op: {
-                        // only conversions to generic pointers are acceptable
+                        // only ptr-to-generic pointers are acceptable
                         if (shd_first(instruction.type_arguments)->tag != PtrType_TAG)
                             break;
-                        assert(!specialize_generic && "something should not be converted to generic twice!");
-                        specialize_generic = true;
-                        ptr = shd_first(instruction.operands);
-                        src_as = shd_get_unqualified_type(ptr->type)->payload.ptr_type.address_space;
+                        ptr = src;
                         continue;
                     }
                     default: break;
@@ -214,9 +215,8 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
                 break;
             }
             case PtrCompositeElement_TAG: {
-                PtrCompositeElement payload = def->payload.ptr_composite_element;
-                if (is_zero(payload.index)) {
-                    distance++;
+                PtrCompositeElement payload = ptr->payload.ptr_composite_element;
+                if (is_zero(payload.index) && !ptr_type_payload.is_reference && !ensure_compatible_pointee) {
                     ptr = payload.ptr;
                     continue;
                 }
@@ -227,35 +227,52 @@ static inline const Node* resolve_ptr_source(const Node* ptr) {
         break;
     }
 
-    // if there was more than one of those pointless casts...
-    if (distance > 1 || specialize_generic) {
-        const Type* new_src_ptr_type = ptr->type;
-        shd_deconstruct_qualified_type(&new_src_ptr_type);
-        if (new_src_ptr_type->tag != PtrType_TAG || new_src_ptr_type->payload.ptr_type.pointed_type != desired_pointee_type) {
-            PtrType payload = t->payload.ptr_type;
-            payload.address_space = src_as;
-            ptr = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, payload)), shd_singleton(ptr));
-        }
+    if (ptr != original_ptr)
         return ptr;
-    }
     return NULL;
 }
 
-static inline const Node* simplify_ptr_operand(IrArena* a, const Node* old_op) {
-    const Type* ptr_t = old_op->type;
-    shd_deconstruct_qualified_type(&ptr_t);
-    if (ptr_t->payload.ptr_type.is_reference)
-        return NULL;
-    return resolve_ptr_source(old_op);
+static const Type* make_ptr_generic(const Type* old) {
+    PtrType payload = old->payload.ptr_type;
+    payload.address_space = AsGeneric;
+    return ptr_type(old->arena, payload);
+}
+
+static void maybe_convert_to_generic(const Node* old, const Node** new) {
+    IrArena* arena = old->arena;
+    const Type* old_t = shd_get_unqualified_type(old->type);
+    assert(old_t->tag == PtrType_TAG);
+    if (old_t->payload.ptr_type.address_space == AsGeneric)
+        *new = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type((*new)->type))),shd_singleton(*new));
 }
 
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
     const Node* r = NULL;
     switch (node->tag) {
+        case PrimOp_TAG: {
+            PrimOp payload = node->payload.prim_op;
+            switch (payload.op) {
+                case convert_op: {
+                    const Type* dst_t = payload.type_arguments.nodes[0];
+                    if (dst_t->tag != PtrType_TAG || dst_t->payload.ptr_type.address_space != AsGeneric)
+                        break;
+                    // only bother with Generic casts
+                    const Node* src = resolve_ptr_source(shd_first(payload.operands), false);
+                    const Node* nptr = src;
+                    if (nptr) {
+                        r = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(nptr->type))),shd_singleton(nptr));
+                        r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
+                    }
+                    break;
+                }
+                default: break;
+            }
+            break;
+        }
         case Load_TAG: {
             Load payload = node->payload.load;
-            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
+            const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = load(arena, payload);
@@ -263,7 +280,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case Store_TAG: {
             Store payload = node->payload.store;
-            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
+            const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = store(arena, payload);
@@ -271,23 +288,27 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement payload = node->payload.ptr_composite_element;
-            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
+            const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = ptr_composite_element(arena, payload);
+            maybe_convert_to_generic(node, &r);
             break;
         }
         case PtrArrayElementOffset_TAG: {
             PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
-            const Node* nptr = simplify_ptr_operand(arena, payload.ptr);
+            if (is_zero(payload.offset))
+                return payload.ptr;
+            const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = ptr_array_element_offset(arena, payload);
+            maybe_convert_to_generic(node, &r);
             break;
         }
         case Call_TAG: {
             Call payload = node->payload.call;
-            const Node* nptr = simplify_ptr_operand(arena, payload.callee);
+            const Node* nptr = resolve_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
             r = call(arena, payload);
@@ -295,7 +316,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case TailCall_TAG: {
             TailCall payload = node->payload.tail_call;
-            const Node* nptr = simplify_ptr_operand(arena, payload.callee);
+            const Node* nptr = resolve_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
             r = tail_call(arena, payload);
@@ -307,8 +328,8 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     if (!r)
         return node;
 
-    if (!shd_is_subtype(node->type, r->type))
-        r = prim_op_helper(arena, convert_op, shd_singleton(shd_get_unqualified_type(node->type)), shd_singleton(r));
+    // if (!shd_is_subtype(node->type, r->type))
+    //     r = prim_op_helper(arena, convert_op, shd_singleton(shd_get_unqualified_type(node->type)), shd_singleton(r));
     return r;
 }
 
@@ -330,6 +351,14 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
             // get rid of identity casts
             if (payload.type_arguments.nodes[0] == shd_get_unqualified_type(payload.operands.nodes[0]->type))
                 return quote_single(arena, payload.operands.nodes[0]);
+            // reinterpret[A](reinterpret[B](x)) => reinterpret[A](x)
+            if (payload.op == reinterpret_op) {
+                const Node* src = shd_first(payload.operands);
+                if (src->tag == PrimOp_TAG && src->payload.prim_op.op == reinterpret_op) {
+                    payload.operands = shd_singleton(shd_first(src->payload.prim_op.operands));
+                    return prim_op(arena, payload);
+                }
+            }
             break;
         }
         default: break;
