@@ -34,8 +34,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nparams = shd_recreate_params(&ctx->rewriter, oparams);
             shd_register_processed_list(&ctx->rewriter, oparams, nparams);
 
-            Nodes nannots = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
-
             Node* prelude = case_(a, shd_empty(a));
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(prelude));
 
@@ -44,7 +42,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 .yield_types = shd_strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.return_types))
             });
 
-            if (shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint")) {
+            if (shd_lookup_annotation(old, "EntryPoint")) {
                 ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
                                                          shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
@@ -53,7 +51,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 ctx2.return_jp = jp_variable;
             }
 
-            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), nannots, shd_empty(a));
+            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, shd_get_abstraction_name(old), shd_empty(a));
+            shd_rewrite_annotations(r, old, fun);
             shd_register_processed(&ctx->rewriter, old, fun);
 
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));

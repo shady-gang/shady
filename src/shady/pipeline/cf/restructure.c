@@ -383,11 +383,6 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_destroy_rewriter(&fn_ctx.rewriter);
         }
 
-        //if (is_leaf)
-        //    new->payload.fun.annotations = append_nodes(arena, new->payload.fun.annotations, annotation(arena, (Annotation) { .name = "Leaf" }));
-
-        new->payload.fun.annotations = shd_filter_out_annotation(a, new->payload.fun.annotations, "MaybeLeaf");
-
         return new;
     }
 

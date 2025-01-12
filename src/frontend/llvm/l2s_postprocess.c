@@ -54,7 +54,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case Function_TAG: {
             Nodes new_params = remake_params(ctx, node->payload.fun.params);
-            Nodes old_annotations = node->payload.fun.annotations;
+            Node* decl = function_helper(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            shd_register_processed_list(r, node->payload.fun.params, new_params);
+            shd_register_processed(&ctx->rewriter, node, decl);
+
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
             while (an) {
@@ -75,13 +78,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         new_params = shd_change_node_at_index(a, new_params, i, param_helper(a, shd_as_qualified_type(
                                 shd_get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
-                old_annotations = shd_nodes_append(a, old_annotations, an->payload);
+                shd_add_annotation(decl, shd_rewrite_node(r, an->payload));
                 an = an->next;
             }
-            shd_register_processed_list(r, node->payload.fun.params, new_params);
-            Nodes new_annotations = shd_rewrite_nodes(r, old_annotations);
-            Node* decl = function_helper(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), new_annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            shd_register_processed(&ctx->rewriter, node, decl);
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 shd_set_abstraction_body(decl, fn_ret(a, (Return) {
                     .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(decl))),
@@ -96,18 +95,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
             //     return NULL;
             AddressSpace as = node->payload.global_variable.address_space;
             const Node* old_init = node->payload.global_variable.init;
-            Nodes annotations = shd_rewrite_nodes(r, node->payload.global_variable.annotations);
             const Type* type = shd_rewrite_node(r, node->payload.global_variable.type);
+            Node* decl = global_variable_helper(ctx->rewriter.dst_module, type, get_declaration_name(node), as);
+
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             AddressSpace old_as = as;
             while (an) {
-                annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
+                shd_add_annotation(decl, shd_rewrite_node(r, an->payload));
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
                     as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
                 an = an->next;
             }
-            Node* decl = global_variable_helper(ctx->rewriter.dst_module, annotations, type, get_declaration_name(node), as);
-            Node* result = decl;
             if (old_as != as) {
                 const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
                 const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(decl));
@@ -115,10 +113,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 return NULL;
             }
 
-            shd_register_processed(r, node, result);
+            shd_register_processed(r, node, decl);
             if (old_init)
                 decl->payload.global_variable.init = shd_rewrite_node(r, old_init);
-            return result;
+            return decl;
         }
         default: break;
     }

@@ -793,6 +793,15 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         if (shd_growy_size(g) > 0)
             shd_print(p, "\n");
 
+        bool first = true;
+        for (size_t i = 0; i < node->annotations.count; i++) {
+            if (first) first = false;
+            else shd_print(p, " ");
+            shd_print(p, "%s", emit_node(ctx, node->annotations.nodes[i]));
+        }
+        if (!first)
+            shd_print(p, " ");
+
         if (is_value(node))
             shd_print(p, VALUE_COLOR);
         else if (is_mem(node))

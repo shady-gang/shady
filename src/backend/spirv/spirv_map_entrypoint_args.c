@@ -29,21 +29,22 @@ static const Node* rewrite_args_type(Rewriter* rewriter, const Node* old_type) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
+    Rewriter* r = &ctx->rewriter;
     switch (node->tag) {
         case GlobalVariable_TAG:
             if (shd_lookup_annotation(node, "EntryPointArgs")) {
                 if (node->payload.global_variable.address_space != AsExternal)
                     shd_error("EntryPointArgs address space must be extern");
 
-                Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.global_variable.annotations);
-                const Node* type = rewrite_args_type(&ctx->rewriter, node->payload.global_variable.type);
+                const Node* type = rewrite_args_type(r, node->payload.global_variable.type);
 
-                const Node* new_var = global_variable_helper(ctx->rewriter.dst_module,
-                    annotations,
+                Node* new_var = global_variable_helper(
+                    r->dst_module,
                     type,
                     node->payload.global_variable.name,
                     AsPushConstant
                 );
+                shd_rewrite_annotations(r, node, new_var);
 
                 shd_register_processed(&ctx->rewriter, node, new_var);
 

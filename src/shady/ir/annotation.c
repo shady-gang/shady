@@ -6,11 +6,10 @@
 #include <assert.h>
 #include <string.h>
 
-static const Node* search_annotations(const Node* decl, const char* name, size_t* i) {
-    assert(decl);
-    const Nodes annotations = get_declaration_annotations(decl);
-    while (*i < annotations.count) {
-        const Node* annotation = annotations.nodes[*i];
+static const Node* search_annotations(const Node* node, const char* name, size_t* i) {
+    assert(node);
+    while (*i < node->annotations.count) {
+        const Node* annotation = node->annotations.nodes[*i];
         (*i)++;
         if (strcmp(get_annotation_name(annotation), name) == 0) {
             return annotation;
@@ -20,18 +19,9 @@ static const Node* search_annotations(const Node* decl, const char* name, size_t
     return NULL;
 }
 
-const Node* shd_lookup_annotation(const Node* decl, const char* name) {
+const Node* shd_lookup_annotation(const Node* node, const char* name) {
     size_t i = 0;
-    return search_annotations(decl, name, &i);
-}
-
-const Node* shd_lookup_annotation_list(Nodes annotations, const char* name) {
-    for (size_t i = 0; i < annotations.count; i++) {
-        if (strcmp(get_annotation_name(annotations.nodes[i]), name) == 0) {
-            return annotations.nodes[i];
-        }
-    }
-    return NULL;
+    return search_annotations(node, name, &i);
 }
 
 const Node* shd_get_annotation_value(const Node* annotation) {
@@ -57,14 +47,28 @@ const char* shd_get_annotation_string_payload(const Node* annotation) {
     return payload->payload.string_lit.string;
 }
 
-bool shd_lookup_annotation_with_string_payload(const Node* decl, const char* annotation_name, const char* expected_payload) {
+bool shd_lookup_annotation_with_string_payload(const Node* node, const char* annotation_name, const char* expected_payload) {
     size_t i = 0;
     while (true) {
-        const Node* next = search_annotations(decl, annotation_name, &i);
+        const Node* next = search_annotations(node, annotation_name, &i);
         if (!next) return false;
         if (strcmp(shd_get_annotation_string_payload(next), expected_payload) == 0)
             return true;
     }
+}
+
+void shd_add_annotation(const Node* n, const Node* annotation) {
+    Node* node = (Node*) n;
+    node->annotations = shd_nodes_append(n->arena, node->annotations, annotation);
+}
+
+void shd_add_annotation_named(const Node* n, String name) {
+    shd_add_annotation(n, annotation_helper(n->arena, name));
+}
+
+void shd_remove_annotation_by_name(const Node* n, String name) {
+    Node* node = (Node*) n;
+    node->annotations = shd_filter_out_annotation(node->arena, node->annotations, name);
 }
 
 Nodes shd_filter_out_annotation(IrArena* arena, Nodes annotations, const char* name) {

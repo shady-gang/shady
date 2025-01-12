@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/annotation.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
@@ -72,13 +73,6 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
     LARRAY(const Type*, member_tys, old_decls.count);
     LARRAY(String, member_names, old_decls.count);
 
-    Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
-    annotations = shd_empty(a);
-
-    annotations = shd_nodes_append(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = shd_int32_literal(a, 0) }));
-    annotations = shd_nodes_append(a, annotations, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = shd_int32_literal(a, 0) }));
-    annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Constants" }));
-
     size_t lifted_globals_count = 0;
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* odecl = old_decls.nodes[i];
@@ -98,7 +92,11 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
             .names = shd_strings(a, lifted_globals_count, member_names),
             .special = DecorateBlock
         });
-        ctx.lifted_globals_decl = global_variable_helper(dst, annotations, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
+        ctx.lifted_globals_decl = global_variable_helper(dst, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
+
+        shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = shd_int32_literal(a, 0) }));
+        shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = shd_int32_literal(a, 0) }));
+        shd_add_annotation_named(ctx.lifted_globals_decl, "Constants");
     }
 
     shd_rewrite_module(&ctx.rewriter);
@@ -109,9 +107,9 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
-            ctx.lifted_globals_decl->payload.global_variable.annotations = shd_nodes_append(a, ctx.lifted_globals_decl->payload.global_variable.annotations, annotation_values(a, (AnnotationValues) {
-                .name = "InitialValue",
-                .values = mk_nodes(a, shd_int32_literal(a, lifted_globals_count), shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
+            shd_add_annotation(ctx.lifted_globals_decl, annotation_values(a, (AnnotationValues) {
+                    .name = "InitialValue",
+                    .values = mk_nodes(a, shd_int32_literal(a, lifted_globals_count), shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
             }));
 
         lifted_globals_count++;

@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/ir/annotation.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/ext.h"
@@ -155,9 +156,9 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
         fn = *found;
     else {
         const Node* src_param = param_helper(a, shd_as_qualified_type(src_t, false), "src");
-        fn = function_helper(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)),
-                      mk_nodes(a, annotation(a, (Annotation) { .name = "Generated"}), annotation(a, (Annotation) { .name = "Leaf" })), shd_singleton(
-                        shd_as_qualified_type(src_t, true)));
+        fn = function_helper(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)), shd_singleton(shd_as_qualified_type(src_t, true)));
+        shd_add_annotation_named(fn, "Leaf");
+        shd_add_annotation_named(fn, "Generated");
         shd_dict_insert(Key, Node*, ctx->cache, key, fn);
 
         BodyBuilder* fn_bb = shd_bld_begin(a, shd_get_abstraction_mem(fn));

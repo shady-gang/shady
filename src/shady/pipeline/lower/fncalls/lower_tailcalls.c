@@ -77,10 +77,12 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
 static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     assert(old->tag == Function_TAG && fun->tag == Function_TAG);
     Context ctx2 = *ctx;
+    Rewriter* r = &ctx2.rewriter;
     IrArena* a = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
     Nodes rewritten_params = shd_recreate_params(&ctx2.rewriter, old->payload.fun.params);
-    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_rewrite_nodes(&ctx2.rewriter, old->payload.fun.annotations), shd_nodes(a, 0, NULL));
+    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_nodes(a, 0, NULL));
+    shd_rewrite_annotations(r, old, new_entry_pt);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
 
@@ -98,7 +100,9 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
 
     if (!*ctx->top_dispatcher_fn) {
-        *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), shd_nodes(a, 0, NULL));
+        *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", shd_nodes(a, 0, NULL));
+        shd_add_annotation_named(*ctx->top_dispatcher_fn, "Generated");
+        shd_add_annotation_named(*ctx->top_dispatcher_fn, "Leaf");
     }
 
     shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
@@ -116,7 +120,7 @@ static const Node* process(Context* ctx, const Node* old) {
             ctx2.uses = shd_new_uses_map_fn(old, (NcDeclaration | NcType));
             ctx = &ctx2;
 
-            const Node* entry_point_annotation = shd_lookup_annotation_list(old->payload.fun.annotations, "EntryPoint");
+            const Node* entry_point_annotation = shd_lookup_annotation(old, "EntryPoint");
 
             // Leave leaf-calls alone :)
             ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf") || !old->payload.fun.body;
@@ -138,13 +142,15 @@ static const Node* process(Context* ctx, const Node* old) {
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
 
-            Nodes new_annotations = shd_rewrite_nodes(&ctx->rewriter, old->payload.fun.annotations);
-            new_annotations = shd_nodes_append(a, new_annotations, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
-            new_annotations = shd_nodes_append(a, new_annotations, annotation(a, (Annotation) { .name = "Leaf" }));
 
             String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
-            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_filter_out_annotation(a, new_annotations, "EntryPoint"), shd_nodes(a, 0, NULL));
+            shd_remove_annotation_by_name(old, "EntryPoint");
+            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_nodes(a, 0, NULL));
+            shd_rewrite_annotations(r, old, fun);
+            shd_add_annotation_named(fun, "Leaf");
+            shd_add_annotation(fun, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
+
             shd_register_processed(&ctx->rewriter, old, fun);
 
             if (entry_point_annotation)

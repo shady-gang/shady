@@ -134,7 +134,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 res_info->size += sizeof(void*);
 
                 // TODO initial value
-                Nodes annotations = get_declaration_annotations(decl);
+                Nodes annotations = decl->annotations;
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* a = annotations.nodes[k];
                     if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {

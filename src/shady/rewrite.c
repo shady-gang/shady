@@ -106,6 +106,8 @@ const Node** shd_search_processed_mask(const Rewriter* r, const Node* old, NodeC
     return search_processed_internal(r, old, mask, true);
 }
 
+static Nodes rewrite_ops_helper(Rewriter* r, NodeClass class, String op_name, Nodes old);
+
 const Node* shd_rewrite_node_with_fn(Rewriter* r, const Node* old, RewriteNodeFn fn) {
     assert(r->rewrite_fn);
     if (!old)
@@ -114,7 +116,7 @@ const Node* shd_rewrite_node_with_fn(Rewriter* r, const Node* old, RewriteNodeFn
     if (found)
         return *found;
 
-    const Node* rewritten = fn(r, old);
+    Node* rewritten = (Node*) fn(r, old);
     shd_register_processed(r, old, rewritten);
     return rewritten;
 }
@@ -278,7 +280,6 @@ Nodes shd_recreate_params(Rewriter* r, Nodes oparams) {
 Function shd_rewrite_function_head_payload(Rewriter* r, Function old) {
     Function new = old;
     new.body = NULL;
-    new.annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old.annotations);
     new.params = shd_recreate_params(r, old.params);
     new.return_types = rewrite_ops_helper(r, NcType, "return_types", old.return_types);
     return new;
@@ -287,7 +288,6 @@ Function shd_rewrite_function_head_payload(Rewriter* r, Function old) {
 GlobalVariable shd_rewrite_global_head_payload(Rewriter* r, GlobalVariable old) {
     GlobalVariable new = old;
     new.init = NULL;
-    new.annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old.annotations);
     new.type = rewrite_op_helper(r, NcType, "type", old.type);
     return new;
 }
@@ -295,7 +295,6 @@ GlobalVariable shd_rewrite_global_head_payload(Rewriter* r, GlobalVariable old) 
 Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old) {
     Constant new = old;
     new.value = NULL;
-    new.annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old.annotations);
     new.type_hint = rewrite_op_helper(r, NcType, "type_hint", old.type_hint);
     return new;
 }
@@ -303,7 +302,6 @@ Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old) {
 NominalType shd_rewrite_nominal_type_head_payload(Rewriter* r, NominalType old) {
     NominalType new = old;
     new.body = NULL;
-    new.annotations = rewrite_ops_helper(r, NcAnnotation, "annotations", old.annotations);
     return new;
 }
 
@@ -338,65 +336,78 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
     }
     assert(new);
     shd_register_processed_mask(shd_get_top_rewriter(r), old, new, shd_get_node_class_from_tag(new->tag));
+    shd_rewrite_annotations(r, old, new);
     return new;
 }
 
-void shd_recreate_node_body(Rewriter* rewriter, const Node* old, Node* new) {
+void shd_recreate_node_body(Rewriter* r, const Node* old, Node* new) {
     assert(is_declaration(new));
     switch (is_declaration(old)) {
         case GlobalVariable_TAG: {
-            new->payload.global_variable.init = rewrite_op_helper(rewriter, NcValue, "init", old->payload.global_variable.init);
+            new->payload.global_variable.init = rewrite_op_helper(r, NcValue, "init", old->payload.global_variable.init);
             break;
         }
         case Constant_TAG: {
-            new->payload.constant.value = rewrite_op_helper(rewriter, NcValue, "value", old->payload.constant.value);
+            new->payload.constant.value = rewrite_op_helper(r, NcValue, "value", old->payload.constant.value);
             // TODO check type now ?
             break;
         }
         case Function_TAG: {
             assert(new->payload.fun.body == NULL);
-            shd_set_abstraction_body(new, rewrite_op_helper(rewriter, NcTerminator, "body", old->payload.fun.body));
+            shd_set_abstraction_body(new, rewrite_op_helper(r, NcTerminator, "body", old->payload.fun.body));
             break;
         }
         case NominalType_TAG: {
-            new->payload.nom_type.body = rewrite_op_helper(rewriter, NcType, "body", old->payload.nom_type.body);
+            new->payload.nom_type.body = rewrite_op_helper(r, NcType, "body", old->payload.nom_type.body);
             break;
         }
         case NotADeclaration: shd_error("not a decl");
     }
 }
 
-const Node* shd_recreate_node(Rewriter* rewriter, const Node* node) {
-    if (node == NULL)
+void shd_rewrite_annotations(Rewriter* r, const Node* old, Node* new) {
+    if (old == new)
+        return;
+    if (old->annotations.count)
+        new->annotations = shd_concat_nodes(r->dst_arena, new->annotations, rewrite_ops_helper(r, NcAnnotation, "annotations", old->annotations));
+    assert(new->annotations.count < 4);
+}
+
+const Node* shd_recreate_node(Rewriter* r, const Node* old) {
+    if (old == NULL)
         return NULL;
 
-    assert(node->arena == rewriter->src_arena);
-    IrArena* arena = rewriter->dst_arena;
-    if (can_be_default_rewritten(node->tag))
-        return recreate_node_identity_generated(rewriter, node);
+    assert(old->arena == r->src_arena);
+    IrArena* arena = r->dst_arena;
+    if (can_be_default_rewritten(old->tag)) {
+        Node* new = (Node*) recreate_node_identity_generated(r, old);
+        shd_rewrite_annotations(r, old, new);
+        return new;
+    }
 
-    switch (node->tag) {
+    switch (old->tag) {
         default: assert(false);
         case Function_TAG:
         case Constant_TAG:
         case GlobalVariable_TAG:
         case NominalType_TAG: {
-            Node* new = shd_recreate_node_head(rewriter, node);
-            shd_recreate_node_body(rewriter, node, new);
+            Node* new = shd_recreate_node_head(r, old);
+            shd_recreate_node_body(r, old, new);
             return new;
         }
         case Param_TAG: {
             shd_log_fmt(ERROR, "Can't rewrite: ");
-            shd_log_node(ERROR, node);
+            shd_log_node(ERROR, old);
             shd_log_fmt(ERROR, ", params should be rewritten by the abstraction rewrite logic");
             shd_error_die();
         }
         case BasicBlock_TAG: {
-            BasicBlock payload = node->payload.basic_block;
-            Node* new = shd_basic_block(arena, shd_rewrite_basic_block_head_payload(rewriter, payload));
-            shd_register_processed_list(rewriter, payload.params, get_abstraction_params(new));
-            shd_register_processed_mask(rewriter, node, new, NcBasic_block | NcAbstraction);
-            shd_set_abstraction_body(new, rewrite_op_helper(rewriter, NcTerminator, "body", payload.body));
+            BasicBlock payload = old->payload.basic_block;
+            Node* new = shd_basic_block(arena, shd_rewrite_basic_block_head_payload(r, payload));
+            shd_rewrite_annotations(r, old, new);
+            shd_register_processed_list(r, payload.params, get_abstraction_params(new));
+            shd_register_processed_mask(r, old, new, NcBasic_block | NcAbstraction);
+            shd_set_abstraction_body(new, rewrite_op_helper(r, NcTerminator, "body", payload.body));
             return new;
         }
     }

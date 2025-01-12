@@ -7,13 +7,13 @@
 Node* shd_function(Module*, Function);
 Node* shd_basic_block(IrArena*, BasicBlock);
 
-static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes annotations, Nodes return_types) {
-    return shd_function(m, (Function) {
+static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes return_types) {
+    Node* f = shd_function(m, (Function) {
         .params = params,
         .return_types = return_types,
-        .annotations = annotations,
         .name = name,
     });
+    return f;
 }
 
 static inline Node* basic_block_helper(IrArena* a, Nodes params, const char* name) {

@@ -3,7 +3,7 @@
 #include "passes/passes.h"
 #include "portability.h"
 
-static void lower_memory(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
+static void lower_memory(TargetConfig* target, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_promote_io_variables, config)
     RUN_PASS(shd_pass_lower_logical_pointers, config)
 
@@ -27,5 +27,5 @@ static void lower_memory(SHADY_UNUSED void* unused, const CompilerConfig* config
 }
 
 void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, TargetConfig tgt) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, NULL, 0);
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, &tgt, sizeof(tgt));
 }

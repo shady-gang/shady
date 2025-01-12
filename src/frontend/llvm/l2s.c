@@ -164,17 +164,15 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     const Type* fn_type = l2s_convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
-    Nodes annotations = shd_empty(a);
+    Node* f = function_helper(p->dst, params, LLVMGetValueName(fn), fn_type->payload.fn_type.return_types);
     switch (LLVMGetLinkage(fn)) {
         case LLVMExternalLinkage:
-        case LLVMExternalWeakLinkage: {
-            annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) { .name = "Exported" }));
+        case LLVMExternalWeakLinkage:
+            shd_add_annotation_named(f, "Exported");
             break;
-        }
         default:
             break;
     }
-    Node* f = function_helper(p->dst, params, LLVMGetValueName(fn), annotations, fn_type->payload.fn_type.return_types);
     FnParseCtx fn_parse_ctx = {
         .fn = f,
         .phis = shd_new_dict(const Node*, struct List*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
@@ -259,7 +257,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         const Type* ptr_t = l2s_convert_type(p, LLVMTypeOf(global));
         assert(ptr_t->tag == PtrType_TAG);
         AddressSpace as = ptr_t->payload.ptr_type.address_space;
-        decl = global_variable_helper(p->dst, shd_empty(a), type, name, as);
+        decl = global_variable_helper(p->dst, type, name, as);
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
@@ -270,7 +268,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         }
     } else {
         const Type* type = l2s_convert_type(p, LLVMTypeOf(global));
-        decl = constant_helper(p->dst, shd_empty(a), type, name);
+        decl = constant_helper(p->dst, type, name);
         decl->payload.constant.value = l2s_convert_value(p, global);
     }
 

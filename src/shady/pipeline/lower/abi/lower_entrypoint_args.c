@@ -15,17 +15,6 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static Node* rewrite_entry_point_fun(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
-
-    Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-    Node* fun = function_helper(ctx->rewriter.dst_module, shd_empty(a), node->payload.fun.name, annotations, shd_empty(a));
-
-    shd_register_processed(&ctx->rewriter, node, fun);
-
-    return fun;
-}
-
 static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
     IrArena* a = rewriter->dst_arena;
 
@@ -51,10 +40,10 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
 static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
     IrArena* a = rewriter->dst_arena;
 
-    Nodes annotations = mk_nodes(a, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
     String name = shd_fmt_string_irarena(a, "__%s_args", old_entry_point->payload.fun.name);
-    Node* var = global_variable_helper(rewriter->dst_module, annotations, type, name, AsExternal);
+    Node* var = global_variable_helper(rewriter->dst_module, type, name, AsExternal);
+    shd_add_annotation(var, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
 
     return var;
 }
@@ -80,7 +69,12 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Function_TAG:
             if (shd_lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
-                Node* new_entry_point = rewrite_entry_point_fun(ctx, node);
+                Rewriter* r = &ctx->rewriter;
+                IrArena* a = r->dst_arena;
+                Node* fun = function_helper(r->dst_module, shd_empty(a), node->payload.fun.name, shd_empty(a));
+                shd_rewrite_annotations(r, node, fun);
+                shd_register_processed(r, node, fun);
+                Node* new_entry_point = fun;
                 const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
                 shd_set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));
                 return new_entry_point;

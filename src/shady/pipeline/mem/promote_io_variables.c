@@ -25,7 +25,7 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
     const Type* ptr_t = shd_get_unqualified_type(io->type);
     assert(ptr_t->tag == PtrType_TAG);
     PtrType ptr_payload = ptr_t->payload.ptr_type;
-    Node* phy = global_variable_helper(m, shd_empty(a), ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_value_name_safe(io)), as);
+    Node* phy = global_variable_helper(m, ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_value_name_safe(io)), as);
 
     switch (ptr_payload.address_space) {
         case AsPushConstant:
@@ -69,7 +69,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* builtin_annotation = shd_lookup_annotation(node, "Builtin");
             if (io_annotation) {
                 payload.address_space = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(io_annotation)), false);
-                payload.annotations = shd_filter_out_annotation(a, payload.annotations, "IO");
+                shd_remove_annotation_by_name(node, "IO");
                 scope = shd_get_addr_space_scope(payload.address_space);
             }
             if (builtin_annotation) {
@@ -79,6 +79,8 @@ static const Node* process(Context* ctx, const Node* node) {
             } else if (io_annotation) {
                 io = shd_global_var(r->dst_module, payload);
             } else break;
+
+            shd_rewrite_annotations(r, node, (Node*) io);
 
             assert(io);
             bool can_be_physical = shd_is_physical_data_type(payload.type);

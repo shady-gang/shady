@@ -1155,8 +1155,9 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* cnst = constant_helper(mod, annotations, type, id);
+    Node* cnst = constant_helper(mod, type, id);
     cnst->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(definition));
+    cnst->annotations = annotations;
     return cnst;
 }
 
@@ -1176,10 +1177,11 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL, NULL);
 
-    Node* fn = function_helper(mod, parameters, name, annotations, types);
+    Node* fn = function_helper(mod, parameters, name, types);
     if (!accept_token(ctx, semi_tok))
         shd_set_abstraction_body(fn, expect_body(ctx, shd_get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 
+    fn->annotations = annotations;
     return fn;
 }
 
@@ -1189,7 +1191,6 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     GlobalVariable payload = {
         .address_space = NumAddressSpaces,
-        .annotations = annotations,
     };
     bool uniform = false;
     while (true) {
@@ -1239,6 +1240,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     Node* gv = shd_global_var(mod, payload);
     gv->payload.global_variable.init = initial_value;
+    gv->annotations = annotations;
     return gv;
 }
 
@@ -1251,7 +1253,8 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, equal_tok), "'='");
 
-    Node* nom = nominal_type_helper(mod, annotations, id);
+    Node* nom = nominal_type_helper(mod, id);
+    nom->annotations = annotations;
     nom->payload.nom_type.body = accept_unqualified_type(ctx);
     expect(nom->payload.nom_type.body, "nominal type body");
 

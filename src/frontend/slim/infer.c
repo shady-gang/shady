@@ -101,10 +101,11 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             }
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
-            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), shd_string(a, node->payload.fun.name), infer_nodes(ctx, node->payload.fun.annotations), nret_types);
+            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), shd_string(a, node->payload.fun.name), nret_types);
             shd_register_processed(r, node, fun);
             body_context.current_fn = fun;
             shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
+            shd_rewrite_annotations(r, node, fun);
             return fun;
         }
         case Constant_TAG: {
@@ -123,9 +124,10 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 imported_hint = shd_get_unqualified_type(instruction->type);
             assert(imported_hint);
 
-            Node* nconstant = constant_helper(ctx->rewriter.dst_module, infer_nodes(ctx, oconstant->annotations), imported_hint, oconstant->name);
+            Node* nconstant = constant_helper(ctx->rewriter.dst_module, imported_hint, oconstant->name);
             shd_register_processed(r, node, nconstant);
             nconstant->payload.constant.value = instruction;
+            shd_rewrite_annotations(r, node, nconstant);
 
             return nconstant;
         }
@@ -142,9 +144,10 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             if (shd_lookup_annotation(node, "Alias")) {
                 return infer(ctx, payload.body, NULL);
             }
-            Node* new = nominal_type_helper(ctx->rewriter.dst_module, infer_nodes(ctx, payload.annotations), payload.name);
+            Node* new = nominal_type_helper(ctx->rewriter.dst_module, payload.name);
             shd_register_processed(r, node, new);
             new->payload.nom_type.body = infer(ctx, payload.body, NULL);
+            shd_rewrite_annotations(r, node, new);
             return new;
         }
         case NotADeclaration: shd_error("not a decl");

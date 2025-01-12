@@ -92,7 +92,8 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
     switch (node->tag) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
@@ -101,20 +102,19 @@ static const Node* process(Context* ctx, const Node* node) {
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
             ctx = &fn_ctx;
+            r = &ctx->rewriter;
 
-            Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.annotations);
-            annotations = shd_filter_out_annotation(a, annotations, "Leaf");
-            Node* new = function_helper(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, annotations, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function_helper(r->dst_module, shd_recreate_params(r, node->payload.fun.params), node->payload.fun.name, shd_rewrite_nodes(r, node->payload.fun.return_types));
+            shd_remove_annotation_by_name(node, "Leaf");
+            shd_rewrite_annotations(r, node, new);
             for (size_t i = 0; i < new->payload.fun.params.count; i++)
-                shd_register_processed(&ctx->rewriter, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
-            shd_register_processed(&ctx->rewriter, node, new);
-            shd_recreate_node_body(&ctx->rewriter, node, new);
+                shd_register_processed(r, node->payload.fun.params.nodes[i], new->payload.fun.params.nodes[i]);
+            shd_register_processed(r, node, new);
+            shd_recreate_node_body(r, node, new);
 
             if (fn_ctx.is_leaf) {
                 shd_debugv_print("Function %s is a leaf function!\n", shd_get_abstraction_name(node));
-                new->payload.fun.annotations = shd_nodes_append(a, annotations, annotation(a, (Annotation) {
-                    .name = "Leaf",
-                }));
+                shd_add_annotation_named(new, "Leaf");
             }
 
             shd_destroy_uses_map(fn_ctx.uses);
@@ -146,7 +146,7 @@ static const Node* process(Context* ctx, const Node* node) {
         default:
             break;
     }
-    return shd_recreate_node(&ctx->rewriter, node);
+    return shd_recreate_node(r, node);
 }
 
 KeyHash shd_hash_node(Node** pnode);

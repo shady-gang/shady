@@ -122,15 +122,15 @@ static const Node* process(Context* ctx, const Node* old) {
                 ptr = guess_pointer_casts(ctx, bb, ptr, shd_get_pointer_type_element(expected_type));
             return shd_bld_to_instr_with_last_instr(bb, store(a, (Store) { .ptr = ptr, .value = shd_rewrite_node(r, payload.value), .mem = shd_rewrite_node(r, payload.mem) }));
         }
-        case GlobalVariable_TAG: {
+        /*case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;
             if (ctx->target.address_spaces[as].physical)
                 break;
-            Nodes annotations = shd_rewrite_nodes(r, old->payload.global_variable.annotations);
-            Node* new = global_variable_helper(ctx->rewriter.dst_module, annotations, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
+            Node* new = global_variable_helper(ctx->rewriter.dst_module, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
+            shd_rewrite_annotations(r, old, new);
             shd_recreate_node_body(r, old, new);
             return new;
-        }
+        }*/
         default: break;
     }
 

@@ -40,7 +40,9 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Nodes params = push ? shd_singleton(value_param) : shd_empty(a);
     Nodes return_ts = push ? shd_empty(a) : shd_singleton(qualified_t);
     String name = shd_format_string_arena(a->arena, "generated_%s_%s", push ? "push" : "pop", shd_get_type_name(a, element_type));
-    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
+    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, return_ts);
+    shd_add_annotation_named(fun, "Generated");
+    shd_add_annotation_named(fun, "Leaf");
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
@@ -170,13 +172,19 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         });
         const Type* stack_counter_t = shd_uint32_type(a);
 
-        Nodes annotations = mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }));
-
         // Arrays for the stacks
-        Node* stack_decl = global_variable_helper(dst, annotations, stack_arr_type, "stack", AsPrivate);
+        Node* stack_decl = global_variable_helper(dst, stack_arr_type, "stack", AsPrivate);
+        shd_add_annotation_named(stack_decl, "Generated");
 
         // Pointers into those arrays
-        Node* stack_ptr_decl = global_variable_helper(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate);
+        // Node* stack_ptr_decl = global_variable_helper(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate);
+        Node* stack_ptr_decl = shd_global_var(dst, (GlobalVariable) {
+            .type = stack_counter_t,
+            .name = "stack_ptr",
+            .address_space = AsPrivate,
+            .is_ref = true
+        });
+        shd_add_annotation_named(stack_ptr_decl, "Generated");
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
 
         ctx.stack = stack_decl;

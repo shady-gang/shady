@@ -47,7 +47,7 @@ void shd_destroy_rewriter(Rewriter*);
 void shd_rewrite_module(Rewriter*);
 
 /// Rewrites a node using the rewriter to provide the node and type operands
-const Node* shd_recreate_node(Rewriter*, const Node* node);
+const Node* shd_recreate_node(Rewriter*, const Node* old);
 
 /// Rewrites a constant / function header
 Node* shd_recreate_node_head(Rewriter*, const Node* old);
@@ -62,6 +62,8 @@ BasicBlock shd_rewrite_basic_block_head_payload(Rewriter* r, BasicBlock old);
 /// Rewrites a variable under a new identity
 const Node* shd_recreate_param(Rewriter*, const Node* oparam);
 Nodes shd_recreate_params(Rewriter*, Nodes oparams);
+
+void shd_rewrite_annotations(Rewriter* r, const Node* old, Node* new_);
 
 /// Looks up if the node was already processed
 const Node** shd_search_processed(const Rewriter*, const Node* old);

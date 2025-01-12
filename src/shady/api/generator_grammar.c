@@ -45,6 +45,7 @@ static void generate_node_type(Growy* g, json_object* nodes) {
     }
 
     shd_growy_append_formatted(g, "\t} payload;\n");
+    shd_growy_append_formatted(g, "\tNodes annotations;\n");
     shd_growy_append_formatted(g, "};\n\n");
 }
 

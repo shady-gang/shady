@@ -107,7 +107,6 @@
     {
       "name": "declaration",
       "ops": [
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "name", "class": "string" }
       ]
     },
@@ -554,7 +553,6 @@
       "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "params", "class": "param", "list": true },
         { "name": "return_types", "class": "type", "list": true },
         { "name": "body", "class": "terminator", "nullable": true, "tail": true }
@@ -568,7 +566,6 @@
       "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type_hint", "class": "type" },
         { "name": "value", "class": "value", "nullable": true, "tail": true }
       ]
@@ -580,7 +577,6 @@
       "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "is_ref", "type": "bool" },
@@ -596,7 +592,6 @@
       "type": false,
       "ops": [
         { "name": "name", "class": "string" },
-        { "name": "annotations", "class": "annotation", "list": true },
         { "name": "body", "class": "type", "nullable": true, "tail": true }
       ]
     },

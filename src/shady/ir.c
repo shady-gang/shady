@@ -143,6 +143,10 @@ Nodes shd_nodes_prepend(IrArena* arena, Nodes old, const Node* new) {
 }
 
 Nodes shd_concat_nodes(IrArena* arena, Nodes a, Nodes b) {
+    if (a.count == 0)
+        return b;
+    if (b.count == 0)
+        return a;
     LARRAY(const Node*, tmp, a.count + b.count);
     size_t j = 0;
     for (size_t i = 0; i < a.count; i++)

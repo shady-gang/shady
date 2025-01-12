@@ -626,7 +626,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Typ;
             String name = get_name(parser, result);
             name = name ? name : shd_make_unique_name(parser->arena, "struct_type");
-            Node* nominal_type_decl = nominal_type_helper(parser->mod, shd_empty(parser->arena), name);
+            Node* nominal_type_decl = nominal_type_helper(parser->mod, name);
             parser->defs[result].node = nominal_type_decl;
             int members_count = size - 2;
             LARRAY(String, member_names, members_count);
@@ -745,7 +745,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 if (size == 5)
                     shd_bld_add_instruction_extract_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bld_mem(parser->current_block.builder) }), 1);
             } else {
-                Nodes annotations = shd_empty(parser->arena);
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
                 if (builtin) {
                     Builtin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
@@ -756,7 +755,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 }
 
                 parser->defs[result].type = Decl;
-                Node* global = global_variable_helper(parser->mod, annotations, contents_t, name, as);
+                Node* global = global_variable_helper(parser->mod, contents_t, name, as);
                 parser->defs[result].node = global;
 
                 if (size == 5)
@@ -820,7 +819,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 instruction_offset += s;
             }
 
-            Node* fun = function_helper(parser->mod, shd_nodes(parser->arena, params_count, params), name, annotations, t->payload.fn_type.return_types);
+            Node* fun = function_helper(parser->mod, shd_nodes(parser->arena, params_count, params), name, t->payload.fn_type.return_types);
+            fun->annotations = annotations;
             parser->defs[result].node = fun;
             Node* old_fun = parser->fun;
             parser->fun = fun;

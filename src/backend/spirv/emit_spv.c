@@ -169,8 +169,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             SpvStorageClass storage_class = spv_emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, decl->type), storage_class, false, init);
 
-            for (size_t i = 0; i < gvar->annotations.count; i++) {
-                const Node* a = gvar->annotations.nodes[i];
+            for (size_t i = 0; i < decl->annotations.count; i++) {
+                const Node* a = decl->annotations.nodes[i];
                 assert(is_annotation(a));
                 String name = get_annotation_name(a);
                 if (strcmp(name, "Location") == 0) {

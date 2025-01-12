@@ -267,7 +267,10 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
 
     String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", shd_get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
-    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, mk_nodes(a, annotation(a, (Annotation) { .name = "Generated" }), annotation(a, (Annotation) { .name = "Leaf" })), return_ts);
+    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, return_ts);
+    shd_add_annotation_named(fun, "Generated");
+    shd_add_annotation_named(fun, "Leaf");
+
     shd_dict_insert(const Node*, Node*, cache, element_type, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
@@ -369,11 +372,13 @@ static Nodes collect_globals(Context* ctx, AddressSpace as) {
 
 /// Collects all global variables in a specific AS, and creates a record type for them.
 static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collected) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    Module* m = r->dst_module;
 
     String as_name = shd_get_address_space_name(as);
-    Node* global_struct_t = nominal_type_helper(m, shd_singleton(annotation(a, (Annotation) { .name = "Generated" })), shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    Node* global_struct_t = nominal_type_helper(m, shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    shd_add_annotation_named(global_struct_t, "Generated");
 
     LARRAY(String, member_names, collected.count);
     LARRAY(const Type*, member_tys, collected.count);
@@ -382,13 +387,13 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         const Node* decl = collected.nodes[i];
         const Type* type = decl->payload.global_variable.type;
 
-        member_tys[i] = shd_rewrite_node(&ctx->rewriter, type);
+        member_tys[i] = shd_rewrite_node(r, type);
         member_names[i] = decl->payload.global_variable.name;
 
         // Turn the old global variable into a pointer (which are also now integers)
         const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
-        Nodes annotations = shd_rewrite_nodes(&ctx->rewriter, decl->payload.global_variable.annotations);
-        Node* new_address = constant_helper(ctx->rewriter.dst_module, annotations, emulated_ptr_type, decl->payload.global_variable.name);
+        Node* new_address = constant_helper(m, emulated_ptr_type, decl->payload.global_variable.name);
+        shd_rewrite_annotations(r, decl, new_address);
 
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
@@ -396,7 +401,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         const Node* offset = prim_op_helper(a, offset_of_op, shd_singleton(global_struct_t), shd_singleton(size_t_literal(a, i)));
         new_address->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(offset));
 
-        shd_register_processed(&ctx->rewriter, decl, new_address);
+        shd_register_processed(r, decl, new_address);
     }
 
     const Type* record_t = record_type(a, (RecordType) {
@@ -445,14 +450,13 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 
     const Node* global_struct_t = make_record_type(ctx, as, ctx->collected[as]);
 
-    Nodes annotations = shd_singleton(annotation(a, (Annotation) { .name = "Generated" }));
-
     // compute the size
     BodyBuilder* bb = shd_bld_begin_pure(a);
     const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(global_struct_t), shd_empty(a));
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
-    Node* constant_decl = constant_helper(m, annotations, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
+    Node* constant_decl = constant_helper(m, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
+    shd_add_annotation_named(constant_decl, "Generated");
     constant_decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
@@ -460,7 +464,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_variable_helper(m, annotations, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
+    Node* words_array = global_variable_helper(m, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
+    shd_add_annotation_named(words_array, "Generated");
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
