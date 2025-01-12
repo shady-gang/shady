@@ -580,14 +580,18 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                         }
                     } else if (dst_type->tag == Int_TAG) {
                         if (src_type->tag == Int_TAG) {
-                            return src_value;
-                        }
-                        assert(src_type->tag == Float_TAG);
-                        switch (src_type->payload.float_type.width) {
-                            case FloatTy16: break;
-                            case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
-                                break;
-                            case FloatTy64: break;
+                            if (!emitter->config.explicitly_sized_types)
+                                conv_fn = dst_type->payload.int_type.is_signed ? "int" : "uint";
+                            else
+                                conv_fn = shd_c_emit_type(emitter, dst_type, NULL);
+                        } else {
+                            assert(src_type->tag == Float_TAG);
+                            switch (src_type->payload.float_type.width) {
+                                case FloatTy16: break;
+                                case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
+                                    break;
+                                case FloatTy64: break;
+                            }
                         }
                     }
                     if (conv_fn) {
