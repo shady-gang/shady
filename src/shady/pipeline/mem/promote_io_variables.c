@@ -49,6 +49,12 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
     return prim_op_helper(a, convert_op, shd_singleton(tgt_ptr_t), shd_singleton(phy));
 }
 
+static const Type* make_ptr_generic(const Type* old) {
+    PtrType payload = old->payload.ptr_type;
+    payload.address_space = AsGeneric;
+    return ptr_type(old->arena, payload);
+}
+
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -77,10 +83,15 @@ static const Node* process(Context* ctx, const Node* node) {
             assert(io);
             bool can_be_physical = shd_is_physical_data_type(payload.type);
 
+            // don't perform physical conversion if there's no suitable scratch address space
+            // this happens in the case of uniform variables in non-compute stages
+            AddressSpace as = (scope <= ShdScopeSubgroup) ? AsSubgroup : AsPrivate;
+            can_be_physical &= (shd_ir_arena_get_config(a)->target.address_spaces[as].allowed);
+
             if (can_be_physical) {
-                AddressSpace as = (scope <= ShdScopeSubgroup) ? AsSubgroup : AsPrivate;
-                if (shd_ir_arena_get_config(a)->target.address_spaces[as].allowed)
-                    io = promote_to_physical(ctx, as, io);
+                io = promote_to_physical(ctx, as, io);
+            } else {
+                io = prim_op_helper(a, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(io->type))), shd_singleton(io));
             }
 
             shd_register_processed(r, node, io);
