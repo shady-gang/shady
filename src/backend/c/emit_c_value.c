@@ -389,7 +389,10 @@ static CTerm emit_using_entry(Emitter* emitter, FnEmitter* fn, Printer* p, const
                         shd_growy_append_string_literal(g, ", ");
                 }
                 shd_growy_append_string_literal(g, ")");
-                return term_from_cvalue(shd_growy_deconstruct(g));
+                String s = shd_growy_deconstruct(g);
+                CValue value = shd_fmt_string_irarena(emitter->arena, "%s", s);
+                free((void*) s);
+                return term_from_cvalue(value);
             }
             break;
         }
