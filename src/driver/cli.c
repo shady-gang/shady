@@ -162,6 +162,8 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             argv[i] = NULL;
             i++;
             config->target.memory.ptr_size = parse_int_size(argv[i]);
+        } else if (strcmp(argv[i], "--no-bda") == 0) {
+            config->target.address_spaces[AsGlobal].allowed = false;
         } else if (strcmp(argv[i], "--printf-trace") == 0) {
             argv[i++] = NULL;
             char* s = argv[i];
