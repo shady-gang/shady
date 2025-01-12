@@ -142,8 +142,7 @@ static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* confi
     shd_pipeline_add_shader_target_lowering(pipeline, config->config.target, config->config.specialization.execution_model, config->config.specialization.entry_point);
 
     switch (config->target) {
-        case TgtAuto:
-            break;
+        case TgtAuto: assert(false);
         case TgtSPV:
             shd_pipeline_add_spirv_target_passes(pipeline, &config->spirv_target_config);
             break;
@@ -170,11 +169,6 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
 
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, &args->config, mod);
-
-    if (args->output_filename) {
-        if (args->target == TgtAuto)
-            args->target = shd_guess_target(args->output_filename);
-    }
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     create_pipeline_for_config(pipeline, args, mod);

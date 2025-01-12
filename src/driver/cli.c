@@ -316,6 +316,11 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
         argv[i] = NULL;
     }
 
+    if (args->output_filename) {
+        if (args->target == TgtAuto)
+            args->target = shd_guess_target(args->output_filename);
+    }
+
     if (help) {
         // shd_error_print("Usage: slim source.slim\n");
         // shd_error_print("Available arguments: \n");
