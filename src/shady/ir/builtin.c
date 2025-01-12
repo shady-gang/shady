@@ -86,19 +86,6 @@ Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id) {
     return b;
 }
 
-Builtin shd_get_decl_builtin(const Node* decl) {
-    const Node* a = shd_lookup_annotation(decl, "Builtin");
-    if (!a)
-        return BuiltinsCount;
-    String payload = shd_get_annotation_string_payload(a);
-    return shd_get_builtin_by_name(payload);
-}
-
-
-bool shd_is_decl_builtin(const Node* decl) {
-    return shd_get_decl_builtin(decl) != BuiltinsCount;
-}
-
 int32_t shd_get_builtin_spv_id(Builtin builtin) {
     if (builtin >= BuiltinsCount)
         return 0;
