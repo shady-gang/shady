@@ -610,8 +610,11 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             Nodes ops = convert_operands(p, num_ops, instr);
             unsigned num_indices = LLVMGetNumMaskElements(instr);
             LARRAY(const Node*, cindices, num_indices);
-            for (size_t i = 0; i < num_indices; i++)
+            for (size_t i = 0; i < num_indices; i++) {
                 cindices[i] = shd_uint32_literal(a, LLVMGetMaskValue(instr, i));
+                if (LLVMGetMaskValue(instr, i) < 0)
+                    cindices[i] = shd_uint32_literal(a, 0);
+            }
             ops = shd_concat_nodes(a, ops, shd_nodes(a, num_indices, cindices));
             return prim_op_helper(a, shuffle_op, shd_empty(a), ops);
         }
