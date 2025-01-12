@@ -8,6 +8,8 @@ String shd_get_value_name_unsafe(const Node* v) {
     assert(v && is_value(v));
     if (v->tag == Param_TAG)
         return v->payload.param.name;
+    if (is_declaration(v))
+        return get_declaration_name(v);
     return NULL;
 }
 
