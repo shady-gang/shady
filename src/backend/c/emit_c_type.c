@@ -249,12 +249,12 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             return shd_c_emit_fn_head(emitter, type, center, NULL);
         }
         case Type_ArrType_TAG: {
-            emitted = shd_make_unique_name(emitter->arena, "Array");
+            const Node* size = type->payload.arr_type.size;
+            emitted = shd_make_unique_name(emitter->arena, size ? "Array" : "UnsizedArray");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             Growy* g = shd_new_growy();
             Printer* p = shd_new_printer_from_growy(g);
 
-            const Node* size = type->payload.arr_type.size;
             if (!size && emitter->config.decay_unsized_arrays)
                 return shd_c_emit_type(emitter, type->payload.arr_type.element_type, center);
 
@@ -264,7 +264,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             if (size)
                 inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[%zu]", shd_get_int_literal_value(*shd_resolve_to_int_literal(size), false));
             else
-                inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[0]");
+                inner_decl_rhs = shd_format_string_arena(emitter->arena->arena, "arr[1]");
             shd_print(p, "\n%s;", shd_c_emit_type(emitter, type->payload.arr_type.element_type, inner_decl_rhs));
             shd_printer_deindent(p);
             shd_print(p, "\n};\n");

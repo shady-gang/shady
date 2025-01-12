@@ -182,7 +182,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
  * For "Access" (Load,Store,Copy,Fill) ops, we just need to ensure compatible pointers for well-defined results
  * For "Convert" op we can move any reinterpret ops we encounter on the outer level
  */
-static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
+static inline const Node* resolve_ptr_source0(const Node* ptr, bool ensure_compatible_pointee) {
     const Node* original_ptr = ptr;
 
     while (true) {
@@ -232,10 +232,43 @@ static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compat
     return NULL;
 }
 
+static bool is_generic(const Node* ptr) {
+    const Type* t = shd_get_unqualified_type(ptr->type);
+    assert(t->tag == PtrType_TAG);
+    return t->payload.ptr_type.address_space == AsGeneric;
+}
+
 static const Type* make_ptr_generic(const Type* old) {
     PtrType payload = old->payload.ptr_type;
     payload.address_space = AsGeneric;
     return ptr_type(old->arena, payload);
+}
+
+static const Type* change_pointee(const Type* old, const Type* pointee) {
+    PtrType payload = old->payload.ptr_type;
+    payload.pointed_type = pointee;
+    return ptr_type(old->arena, payload);
+}
+
+static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
+    IrArena* arena = ptr->arena;
+    if (!ensure_compatible_pointee)
+        return resolve_ptr_source0(ptr, false);
+    const Node* ptr_non_compatible = resolve_ptr_source0(ptr, false);
+    const Node* ptr_compatible = resolve_ptr_source0(ptr, true);
+    // if going for an incompatible pointer doesn't simplify anything
+    if (!ptr_non_compatible || ptr_non_compatible == ptr_compatible)
+        return ptr_compatible;
+
+    if (is_generic(ptr) && !is_generic(ptr_non_compatible)) {
+        const Node* r = ptr_non_compatible;
+        // r = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(r->type))),shd_singleton(r));
+        const Node* dst_t = change_pointee(shd_get_unqualified_type(r->type), shd_get_unqualified_type(ptr->type)->payload.ptr_type.pointed_type);
+        r = prim_op_helper(arena, reinterpret_op, shd_singleton(dst_t),shd_singleton(r));
+        return r;
+    }
+
+    return NULL;
 }
 
 static void maybe_convert_to_generic(const Node* old, const Node** new) {
