@@ -279,6 +279,11 @@ static void maybe_convert_to_generic(const Node* old, const Node** new) {
         *new = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type((*new)->type))),shd_singleton(*new));
 }
 
+static const Node* to_ptr_size(const Node* n) {
+    IrArena* a = n->arena;
+    return prim_op_helper(a, convert_op, shd_singleton(shd_uint64_type(a)), shd_singleton(n));
+}
+
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
     const Node* r = NULL;
@@ -291,11 +296,11 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
                     if (dst_t->tag != PtrType_TAG || dst_t->payload.ptr_type.address_space != AsGeneric)
                         break;
                     // only bother with Generic casts
-                    const Node* src = resolve_ptr_source(shd_first(payload.operands), false);
+                    const Node* src = resolve_ptr_source(shd_first(payload.operands), true);
                     const Node* nptr = src;
                     if (nptr) {
                         r = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(nptr->type))),shd_singleton(nptr));
-                        r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
+                        //r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
                     }
                     break;
                 }
@@ -335,6 +340,14 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
+            if (nptr->tag == PtrCompositeElement_TAG) {
+                PtrCompositeElement other_offset = nptr->payload.ptr_composite_element;
+                payload.ptr = other_offset.ptr;
+                other_offset.index = prim_op_helper(arena, add_op, shd_empty(arena), mk_nodes(arena, to_ptr_size(other_offset.index), to_ptr_size(payload.offset)));
+                r = ptr_composite_element(arena, other_offset);
+                maybe_convert_to_generic(node, &r);
+                break;
+            }
             r = ptr_array_element_offset(arena, payload);
             maybe_convert_to_generic(node, &r);
             break;
@@ -390,6 +403,26 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
                 if (src->tag == PrimOp_TAG && src->payload.prim_op.op == reinterpret_op) {
                     payload.operands = shd_singleton(shd_first(src->payload.prim_op.operands));
                     return prim_op(arena, payload);
+                }
+                // over-fit hack for LLVM output:
+                if (shd_first(payload.type_arguments)->tag == PtrType_TAG && shd_get_unqualified_type(src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
+                    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(src->type));
+                    if (src_type->tag == NominalType_TAG)
+                        src_type = src_type->payload.nom_type.body;
+                    const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
+                    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
+                        if (src_type->payload.record_type.members.nodes[0] == dst_type) {
+                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
+                        }
+                    } else if (src_type->tag == PackType_TAG) {
+                        if (src_type->payload.pack_type.element_type == dst_type) {
+                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
+                        }
+                    } else if (src_type->tag == ArrType_TAG) {
+                        if (src_type->payload.arr_type.element_type == dst_type) {
+                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
+                        }
+                    }
                 }
             }
             break;

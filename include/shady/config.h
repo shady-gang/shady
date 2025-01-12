@@ -70,6 +70,7 @@ struct ArenaConfig_ {
         bool fold_static_control_flow;
         bool delete_unreachable_structured_cases;
         bool weaken_non_leaking_allocas;
+        bool weaken_bitcast_to_lea;
     } optimisations;
 };
 

@@ -29,9 +29,6 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
     const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
-    const Node* ptr = base;
-
-    assert(pointer_type->tag == PtrType_TAG);
     const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
     switch (pointed_type->tag) {
         case PackType_TAG:
@@ -43,13 +40,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             const Node* new_index = shd_bld_convert_int_extend_according_to_src_t(bb, emulated_ptr_t, index);
             const Node* physical_offset = prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, new_index, element_t_size));
 
-            ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ptr, physical_offset));
-
-            pointer_type = ptr_type(a, (PtrType) {
-                .pointed_type = element_type,
-                .address_space = pointer_type->payload.ptr_type.address_space
-            });
-            break;
+            return prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, base, physical_offset));
         }
         case NominalType_TAG: {
             pointed_type = pointed_type->payload.nom_type.body;
@@ -64,18 +55,10 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             assert(n < member_types.count);
 
             const Node* offset_of = prim_op_helper(a, offset_of_op, shd_singleton(pointed_type), shd_singleton(shd_uint64_literal(a, n)));
-            ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ptr, offset_of));
-
-            pointer_type = ptr_type(a, (PtrType) {
-                .pointed_type = member_types.nodes[n],
-                .address_space = pointer_type->payload.ptr_type.address_space
-            });
-            break;
+            return prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, base, offset_of));
         }
         default: shd_error("cannot index into this")
     }
-
-    return ptr;
 }
 
 static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset) {
@@ -164,6 +147,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
 Module* shd_pass_lower_lea(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    aconfig.optimisations.weaken_bitcast_to_lea = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {

@@ -68,6 +68,7 @@ ArenaConfig shd_default_arena_config(const TargetConfig* target) {
             .inline_single_use_bbs = true,
             .fold_static_control_flow = true,
             .delete_unreachable_structured_cases = true,
+            .weaken_bitcast_to_lea = true,
         },
 
         .target = *target
