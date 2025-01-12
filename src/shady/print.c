@@ -734,8 +734,6 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
             continue;
         if (!ctx->config.print_internal && shd_lookup_annotation(decl, "Internal"))
             continue;
-        if (!ctx->config.print_builtin && shd_lookup_annotation(decl, "Builtin"))
-            continue;
         emit_node(ctx, decl);
     }
 }

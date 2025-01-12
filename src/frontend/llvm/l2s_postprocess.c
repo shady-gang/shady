@@ -102,8 +102,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             AddressSpace old_as = as;
             while (an) {
                 annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
-                if (strcmp(get_annotation_name(an->payload), "Builtin") == 0)
-                    old_init = NULL;
                 if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
                     as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
                 an = an->next;

@@ -355,17 +355,13 @@ static const Node* process(Context* ctx, const Node* node) {
         Context fn_ctx = *ctx;
         fn_ctx.dfs_stack = NULL;
         fn_ctx.control_stack = NULL;
-        bool is_builtin = shd_lookup_annotation(node, "Builtin");
-        bool is_leaf = false;
         fn_ctx.bail.stack_size = shd_list_count(ctx->cleanup_stack);
-        if (is_builtin || !node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(fn_ctx.bail.buf)) {
+        if (!node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(fn_ctx.bail.buf)) {
             fn_ctx.lower = false;
             // make sure to reset this
             fn_ctx.rewriter = ctx->rewriter;
             if (node->payload.fun.body)
                 shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
-            // builtin functions are always considered leaf functions
-            is_leaf = is_builtin || !node->payload.fun.body;
         } else {
             fn_ctx.lower = true;
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
@@ -381,7 +377,6 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
             shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             shd_set_abstraction_body(new, shd_bld_finish(bb, structure(&fn_ctx, get_abstraction_body(node), make_unreachable_case(a))));
-            is_leaf = true;
             // We made it! Pop off the pending cleanup stuff and do it ourselves.
             shd_list_pop_impl(ctx->cleanup_stack);
             shd_list_pop_impl(ctx->cleanup_stack);

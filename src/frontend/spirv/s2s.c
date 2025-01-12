@@ -750,9 +750,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 if (builtin) {
                     Builtin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
                     assert(b != BuiltinsCount && "Unsupported builtin");
-                    annotations = shd_nodes_append(parser->arena, annotations, annotation_value_helper(parser->arena, "Builtin", string_lit_helper(parser->arena,
-                                                                                                                                                   shd_get_builtin_name(
-                                                                                                                                                           b))));
+                    parser->defs[result].type = Value;
+                    parser->defs[result].node = builtin_ref_helper(a, b);
+                    break;
                 }
 
                 parser->defs[result].type = Decl;
