@@ -12,6 +12,7 @@
 typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
+    TargetConfig target;
 } Context;
 
 static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node* ptr, const Type* expected_type) {
@@ -47,7 +48,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case PtrType_TAG: {
             PtrType payload = old->payload.ptr_type;
-            if (!shd_get_arena_config(a)->target.address_spaces[payload.address_space].physical)
+            if (!ctx->target.address_spaces[payload.address_space].physical)
                 payload.is_reference = true;
             payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
@@ -82,12 +83,13 @@ static const Node* process(Context* ctx, const Node* old) {
         case PrimOp_TAG: {
             PrimOp payload = old->payload.prim_op;
             switch (payload.op) {
+                case convert_op:
                 case reinterpret_op: {
-                    const Node* osrc = shd_first(payload.operands);
-                    const Type* osrc_t = osrc->type;
-                    shd_deconstruct_qualified_type(&osrc_t);
-                    if (osrc_t->tag == PtrType_TAG && !shd_get_arena_config(a)->target.address_spaces[osrc_t->payload.ptr_type.address_space].physical)
-                        return shd_rewrite_node(r, osrc);
+                    const Node* src = shd_rewrite_node(r, shd_first(payload.operands));
+                    const Type* src_t = src->type;
+                    shd_deconstruct_qualified_type(&src_t);
+                    if (src_t->tag == PtrType_TAG && !ctx->target.address_spaces[src_t->payload.ptr_type.address_space].physical)
+                        return src;
                     break;
                 }
                 default: break;
@@ -122,7 +124,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case GlobalVariable_TAG: {
             AddressSpace as = old->payload.global_variable.address_space;
-            if (shd_get_arena_config(a)->target.address_spaces[as].physical)
+            if (ctx->target.address_spaces[as].physical)
                 break;
             Nodes annotations = shd_rewrite_nodes(r, old->payload.global_variable.annotations);
             Node* new = global_variable_helper(ctx->rewriter.dst_module, annotations, shd_rewrite_node(r, old->payload.global_variable.type), old->payload.global_variable.name, as);
@@ -137,14 +139,18 @@ static const Node* process(Context* ctx, const Node* old) {
 
 Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.address_spaces[AsInput].physical = false;
-    aconfig.target.address_spaces[AsOutput].physical = false;
-    aconfig.target.address_spaces[AsUniformConstant].physical = false;
+    TargetConfig target = aconfig.target;
+    target.address_spaces[AsInput].physical = false;
+    target.address_spaces[AsOutput].physical = false;
+    target.address_spaces[AsUniformConstant].physical = false;
+    aconfig.target = target;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
+
+        .target = target,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
