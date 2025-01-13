@@ -33,6 +33,7 @@ static Rewriter shd_create_rewriter_base(Module* src, Module* dst, bool use_mask
         .dst_module = dst,
         .parent = NULL,
         .arena = shd_new_arena(),
+        .select_rewriter_fn = shd_default_rewriter_selector,
     };
     init_dicts(&r, use_masks);
     return r;
@@ -110,9 +111,19 @@ const Node** shd_search_processed_mask(const Rewriter* r, const Node* old, NodeC
 
 static bool should_rewrite_at_top_level(const Node* n) {
     switch (n->tag) {
+        case Function_TAG:
+        case NominalType_TAG:
+        case GlobalVariable_TAG:
+        case Constant_TAG:
         case BuiltinRef_TAG: return true;
         default: return false;
     }
+}
+
+Rewriter* shd_default_rewriter_selector(Rewriter* r, const Node* n) {
+    if (should_rewrite_at_top_level(n))
+        return shd_get_top_rewriter(r);
+    return r;
 }
 
 static Nodes rewrite_ops_helper(Rewriter* r, NodeClass class, String op_name, Nodes old);
@@ -120,8 +131,7 @@ static Nodes rewrite_ops_helper(Rewriter* r, NodeClass class, String op_name, No
 const Node* shd_rewrite_node_with_fn(Rewriter* r, const Node* old, RewriteNodeFn fn) {
     if (!old)
         return NULL;
-    if (should_rewrite_at_top_level(old))
-        r = shd_get_top_rewriter(r);
+    r = r->select_rewriter_fn(r, old);
     assert(r->rewrite_fn);
     const Node** found = shd_search_processed(r, old);
     if (found)
@@ -152,8 +162,7 @@ Nodes shd_rewrite_nodes(Rewriter* r, Nodes old) {
 const Node* shd_rewrite_op_with_fn(Rewriter* r, NodeClass class, String op_name, const Node* old, RewriteOpFn fn) {
     if (!old)
         return NULL;
-    if (should_rewrite_at_top_level(old))
-        r = shd_get_top_rewriter(r);
+    r = r->select_rewriter_fn(r, old);
 
     assert(r->rewrite_op_fn);
     const Node** found = shd_search_processed_mask(r, old, class);

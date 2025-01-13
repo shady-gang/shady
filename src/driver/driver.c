@@ -142,7 +142,7 @@ static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* confi
     shd_pipeline_add_shader_target_lowering(pipeline, config->config.target, config->config.specialization.execution_model, config->config.specialization.entry_point);
 
     switch (config->target) {
-        case TgtAuto: assert(false);
+        case TgtAuto: break;
         case TgtSPV:
             shd_pipeline_add_spirv_target_passes(pipeline, &config->spirv_target_config);
             break;

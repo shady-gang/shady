@@ -24,6 +24,8 @@ Nodes shd_rewrite_ops_with_fn(Rewriter*, NodeClass class, String op_name, Nodes 
 
 typedef struct Arena_ Arena;
 
+typedef Rewriter* (SelectRewriterFn)(Rewriter*, const Node*);
+
 struct Rewriter_ {
     IrArena* src_arena;
     IrArena* dst_arena;
@@ -31,11 +33,14 @@ struct Rewriter_ {
     Module* dst_module;
     RewriteNodeFn rewrite_fn;
     RewriteOpFn rewrite_op_fn;
+    SelectRewriterFn* select_rewriter_fn;
 
     Arena* arena;
     Rewriter* parent;
     struct Dict* map;
 };
+
+SelectRewriterFn shd_default_rewriter_selector;
 
 Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn);
 Rewriter shd_create_op_rewriter(Module* src, Module* dst, RewriteOpFn fn);

@@ -87,6 +87,12 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
     return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
 }
 
+static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
+    if (n->tag == GlobalVariable_TAG)
+        return r;
+    return shd_default_rewriter_selector(r, n);
+}
+
 Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.address_spaces[AsSubgroup].allowed = false;
@@ -95,6 +101,7 @@ Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) 
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
     };
+    ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;

@@ -40,7 +40,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
             if (node->payload.global_variable.address_space != AsGlobal)
                 break;
             if (use == NcValue) {
-                assert(ctx->bb && "this RefDecl node isn't appearing in an abstraction - we cannot replace it with a load!");
+                assert(ctx->bb && "this Global isn't appearing in an abstraction - we cannot replace it with a load!");
                 const Node* ptr_addr = lea_helper(a, ctx->lifted_globals_decl, shd_int32_literal(a, 0), shd_singleton(shd_rewrite_op(&ctx->rewriter, NcDeclaration, "decl", node)));
                 const Node* ptr = shd_bld_load(ctx->bb, ptr_addr);
                 return (OpRewriteResult) { ptr, NcValue };
@@ -59,6 +59,12 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
     return (OpRewriteResult) { shd_recreate_node(&ctx->rewriter, node), 0 };
 }
 
+static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
+    if (n->tag == GlobalVariable_TAG)
+        return r;
+    return shd_default_rewriter_selector(r, n);
+}
+
 Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -68,6 +74,7 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
         .config = config
     };
+    ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
 
     Nodes old_decls = shd_module_get_declarations(src);
     LARRAY(const Type*, member_tys, old_decls.count);
