@@ -335,8 +335,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
 }
 
 static const Node* process(Context* ctx, const Node* node) {
-    Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
+    IrArena* a = ctx->rewriter.dst_arena;
     assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
 
@@ -349,41 +348,44 @@ static const Node* process(Context* ctx, const Node* node) {
         }
     }
 
-    if (node->tag == Function_TAG) {
-        Node* new = shd_recreate_node_head(&ctx->rewriter, node);
+    switch (node->tag) {
+        case Function_TAG: {
+            Node* new = shd_recreate_node_head(&ctx->rewriter, node);
 
-        Context fn_ctx = *ctx;
-        fn_ctx.dfs_stack = NULL;
-        fn_ctx.control_stack = NULL;
-        fn_ctx.bail.stack_size = shd_list_count(ctx->cleanup_stack);
-        if (!node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(fn_ctx.bail.buf)) {
-            fn_ctx.lower = false;
-            // make sure to reset this
-            fn_ctx.rewriter = ctx->rewriter;
-            if (node->payload.fun.body)
-                shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
-        } else {
-            fn_ctx.lower = true;
-            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
-            TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
-            shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
-            const Node* ptr = shd_bld_local_alloc(bb, shd_int32_type(a));
-            shd_set_value_name(ptr, "cf_depth");
-            shd_bld_store(bb, ptr, shd_int32_literal(a, 0));
-            fn_ctx.level_ptr = ptr;
-            fn_ctx.fn = new;
-            fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
-            TmpAllocCleanupClosure cj2 = create_delete_rewriter_closure(&fn_ctx.rewriter);
-            shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
-            shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
-            shd_set_abstraction_body(new, shd_bld_finish(bb, structure(&fn_ctx, get_abstraction_body(node), make_unreachable_case(a))));
-            // We made it! Pop off the pending cleanup stuff and do it ourselves.
-            shd_list_pop_impl(ctx->cleanup_stack);
-            shd_list_pop_impl(ctx->cleanup_stack);
-            shd_destroy_rewriter(&fn_ctx.rewriter);
+            Context fn_ctx = *ctx;
+            fn_ctx.dfs_stack = NULL;
+            fn_ctx.control_stack = NULL;
+            fn_ctx.bail.stack_size = shd_list_count(ctx->cleanup_stack);
+            if (!node->payload.fun.body || shd_lookup_annotation(node, "Structured") || setjmp(fn_ctx.bail.buf)) {
+                fn_ctx.lower = false;
+                // make sure to reset this
+                fn_ctx.rewriter = ctx->rewriter;
+                if (node->payload.fun.body)
+                    shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
+            } else {
+                fn_ctx.lower = true;
+                BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
+                TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
+                shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
+                const Node* ptr = shd_bld_local_alloc(bb, shd_int32_type(a));
+                shd_set_value_name(ptr, "cf_depth");
+                shd_bld_store(bb, ptr, shd_int32_literal(a, 0));
+                fn_ctx.level_ptr = ptr;
+                fn_ctx.fn = new;
+                fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+                TmpAllocCleanupClosure cj2 = create_delete_rewriter_closure(&fn_ctx.rewriter);
+                shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj2);
+                shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
+                shd_set_abstraction_body(new, shd_bld_finish(bb, structure(&fn_ctx, get_abstraction_body(node), make_unreachable_case(a))));
+                // We made it! Pop off the pending cleanup stuff and do it ourselves.
+                shd_list_pop_impl(ctx->cleanup_stack);
+                shd_list_pop_impl(ctx->cleanup_stack);
+                shd_destroy_rewriter(&fn_ctx.rewriter);
+            }
+
+            return new;
         }
-
-        return new;
+        default: break;
     }
 
     if (!ctx->lower)

@@ -29,6 +29,7 @@ static const Node* process(Context* ctx, const Node* old) {
 
                 shd_add_annotation_named(new, "Leaf");
                 shd_rewrite_annotations(r, old, new);
+                shd_remove_annotation_by_name(new, "EntryPoint");
 
                 shd_recreate_node_body(r, old, new);
 

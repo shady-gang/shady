@@ -9,8 +9,8 @@
 #include <assert.h>
 #include <string.h>
 
-KeyHash shd_hash_node(Node** pnode);
-bool shd_compare_node(Node** pa, Node** pb);
+KeyHash shd_hash_node(const Node** pnode);
+bool shd_compare_node(const Node** pa, const Node** pb);
 
 typedef struct MaskedEntry_ {
     NodeClass mask;
@@ -18,22 +18,24 @@ typedef struct MaskedEntry_ {
     struct MaskedEntry_* next;
 } MaskedEntry;
 
-static struct Dict* create_dict(bool use_masks) {
+static void init_dicts(Rewriter* r, bool use_masks) {
     if (use_masks)
-        return shd_new_dict(const Node*, MaskedEntry*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-    return shd_new_dict(const Node*, const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+        r->map = shd_new_dict(const Node*, MaskedEntry*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+    else
+        r->map = shd_new_dict(const Node*, const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
 }
 
 static Rewriter shd_create_rewriter_base(Module* src, Module* dst, bool use_masks) {
-    return (Rewriter) {
+    Rewriter r = {
         .src_arena = src->arena,
         .dst_arena = dst->arena,
         .src_module = src,
         .dst_module = dst,
-        .map = create_dict(use_masks),
         .parent = NULL,
         .arena = shd_new_arena(),
     };
+    init_dicts(&r, use_masks);
+    return r;
 }
 
 Rewriter shd_create_node_rewriter(Module* src, Module* dst, RewriteNodeFn fn) {
@@ -61,7 +63,7 @@ Rewriter shd_create_importer(Module* src, Module* dst) {
 
 Rewriter shd_create_children_rewriter(Rewriter* parent) {
     Rewriter r = *parent;
-    r.map = create_dict(r.rewrite_op_fn);
+    init_dicts(&r, r.rewrite_op_fn);
     r.arena = shd_new_arena();
     r.parent = parent;
     return r;
@@ -106,12 +108,21 @@ const Node** shd_search_processed_mask(const Rewriter* r, const Node* old, NodeC
     return search_processed_internal(r, old, mask, true);
 }
 
+static bool should_rewrite_at_top_level(const Node* n) {
+    switch (n->tag) {
+        case BuiltinRef_TAG: return true;
+        default: return false;
+    }
+}
+
 static Nodes rewrite_ops_helper(Rewriter* r, NodeClass class, String op_name, Nodes old);
 
 const Node* shd_rewrite_node_with_fn(Rewriter* r, const Node* old, RewriteNodeFn fn) {
-    assert(r->rewrite_fn);
     if (!old)
         return NULL;
+    if (should_rewrite_at_top_level(old))
+        r = shd_get_top_rewriter(r);
+    assert(r->rewrite_fn);
     const Node** found = shd_search_processed(r, old);
     if (found)
         return *found;
@@ -139,9 +150,12 @@ Nodes shd_rewrite_nodes(Rewriter* r, Nodes old) {
 }
 
 const Node* shd_rewrite_op_with_fn(Rewriter* r, NodeClass class, String op_name, const Node* old, RewriteOpFn fn) {
-    assert(r->rewrite_op_fn);
     if (!old)
         return NULL;
+    if (should_rewrite_at_top_level(old))
+        r = shd_get_top_rewriter(r);
+
+    assert(r->rewrite_op_fn);
     const Node** found = shd_search_processed_mask(r, old, class);
     if (found)
         return *found;
@@ -246,9 +260,6 @@ void shd_register_processed_list(Rewriter* r, Nodes old, Nodes new) {
     for (size_t i = 0; i < old.count; i++)
         shd_register_processed(r, old.nodes[i], new.nodes[i]);
 }
-
-KeyHash shd_hash_node(Node** pnode);
-bool shd_compare_node(Node** pa, Node** pb);
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -370,7 +381,7 @@ void shd_rewrite_annotations(Rewriter* r, const Node* old, Node* new) {
         return;
     if (old->annotations.count)
         new->annotations = shd_concat_nodes(r->dst_arena, new->annotations, rewrite_ops_helper(r, NcAnnotation, "annotations", old->annotations));
-    assert(new->annotations.count < 4);
+    assert(new->annotations.count < 256);
 }
 
 const Node* shd_recreate_node(Rewriter* r, const Node* old) {
