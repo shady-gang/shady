@@ -93,7 +93,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_destroy_scheduler(scheduler);
 
     Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = shd_create_children_rewriter(shd_get_top_rewriter(&ctx->rewriter));
+    lifting_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
@@ -196,7 +196,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 const Node* otail = get_structured_construct_tail(node);
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, node->payload.control.mem));
-                LiftedCont* lifted_tail = lambda_lift(ctx, ctx->cfg, otail);
+                LiftedCont* lifted_tail = lambda_lift((Context*) shd_get_top_rewriter(&ctx->rewriter), ctx->cfg, otail);
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 

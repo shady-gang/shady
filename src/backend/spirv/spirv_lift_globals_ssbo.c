@@ -24,7 +24,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
             Node* newfun = shd_recreate_node_head(r, node);
             if (get_abstraction_body(node)) {
                 Context fn_ctx = *ctx;
-                fn_ctx.rewriter = shd_create_children_rewriter(shd_get_top_rewriter(r));
+                fn_ctx.rewriter = shd_create_children_rewriter(r);
                 shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
                 fn_ctx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
                 Node* post_prelude = basic_block_helper(a, shd_empty(a), "post-prelude");

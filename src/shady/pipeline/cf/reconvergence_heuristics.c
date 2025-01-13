@@ -282,12 +282,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             shd_destroy_loop_tree(ctx->current_looptree);
             return new;
         }
-        case Constant_TAG: {
-            ctx = (Context*) shd_get_top_rewriter(r);
-            ctx->current_fn = NULL;
-            r = &ctx->rewriter;
-            break;
-        }
         case BasicBlock_TAG:
             if (!ctx->current_fn || !(shd_lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
                 break;
