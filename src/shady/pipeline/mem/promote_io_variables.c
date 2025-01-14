@@ -78,9 +78,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 scope = shd_get_builtin_scope(b);
             } else if (io_annotation) {
                 io = shd_global_var(r->dst_module, payload);
+                shd_rewrite_annotations(r, node, (Node*) io);
             } else break;
-
-            shd_rewrite_annotations(r, node, (Node*) io);
 
             assert(io);
             bool can_be_physical = shd_is_physical_data_type(payload.type);
