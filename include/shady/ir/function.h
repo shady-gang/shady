@@ -33,8 +33,6 @@ static inline const Type* empty_multiple_return_type(IrArena* arena) {
     });
 }
 
-inline static bool is_function(const Node* node) { return node->tag == Function_TAG; }
-
 const Node* shd_get_abstraction_mem(const Node* abs);
 String shd_get_abstraction_name(const Node* abs);
 String shd_get_abstraction_name_unsafe(const Node* abs);

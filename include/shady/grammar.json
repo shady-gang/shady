@@ -114,6 +114,9 @@
       "name": "basic_block"
     },
     {
+      "name": "function"
+    },
+    {
       "name": "annotation",
       "ops": [
         { "name": "name", "class": "string" }
@@ -355,7 +358,7 @@
       "class": "value",
       "description": "Obtains a function pointer from a function declaration",
       "ops": [
-        { "name": "fn", "class": "declaration" }
+        { "name": "fn", "class": "function" }
       ]
     },
     {
@@ -548,7 +551,7 @@
     {
       "name": "Function",
       "snake_name": "fun",
-      "class": ["abstraction", "declaration"],
+      "class": ["abstraction", "declaration", "function"],
       "recursive": true,
       "nominal": true,
       "ops": [
