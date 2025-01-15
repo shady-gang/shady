@@ -10,21 +10,23 @@ typedef struct Context_ {
     Rewriter rewriter;
 } Context;
 
-static OpRewriteResult process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED String op_name, const Node* node) {
+static OpRewriteResult* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSED String op_name, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    switch (node->tag) {
+    switch (old->tag) {
         case Function_TAG: {
-            if (op_class == NcValue)
-                return (OpRewriteResult) { fn_addr_helper(a, shd_rewrite_op(r, NcDeclaration, "decl", node)), NcValue };
-            break;
+            Node* new = shd_recreate_node_head_(r, old);
+            OpRewriteResult* result = shd_new_rewrite_result(r, new);
+            shd_rewrite_result_add_mask_rule(result, NcValue, fn_addr_helper(a, new));
+            shd_register_processed_result(r, old, result);
+            shd_recreate_node_body(r, old, new);
+            return result;
         }
-        default:
-            break;
+        default: break;
     }
 
-    return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
+    return shd_new_rewrite_result(r, shd_recreate_node(r, old));
 }
 
 Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {

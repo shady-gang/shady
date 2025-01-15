@@ -13,7 +13,7 @@ typedef struct {
     BodyBuilder* bb;
 } Context;
 
-static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, const Node* node) {
+static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
@@ -31,15 +31,14 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                 shd_set_abstraction_body(newfun, shd_bld_finish(fn_ctx.bb, jump_helper(a, shd_bld_mem(fn_ctx.bb), post_prelude, shd_empty(a))));
                 shd_destroy_rewriter(&fn_ctx.rewriter);
             }
-            return (OpRewriteResult) { newfun, 0 };
+            return shd_new_rewrite_result(r, newfun);
         }
         case PtrType_TAG: {
             AddressSpace as = node->payload.ptr_type.address_space;
             if (as == AsSubgroup) {
-                return (OpRewriteResult) { ptr_type(a, (PtrType) {
+                return shd_new_rewrite_result(r, ptr_type(a, (PtrType) {
                         .pointed_type = shd_rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type),
-                        .address_space = AsShared, .is_reference = node->payload.ptr_type.is_reference }),
-                    0 };
+                        .address_space = AsShared, .is_reference = node->payload.ptr_type.is_reference }));
             }
             break;
         }
@@ -47,13 +46,8 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
             GlobalVariable payload = node->payload.global_variable;
             AddressSpace as = node->payload.global_variable.address_space;
             if (as == AsSubgroup) {
-                if (use_class == NcValue) {
-                    const Node* ndecl = shd_rewrite_op(&ctx->rewriter, NcDeclaration, "", node);
-                    assert(ctx->bb);
-                    const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
-                    const Node* slice = lea_helper(a, ndecl, shd_int32_literal(a, 0), mk_nodes(a, index));
-                    return (OpRewriteResult)  { slice, NcValue };
-                } else {
+                if (r == shd_get_top_rewriter(r)) {
+                    OpRewriteResult* result = shd_new_rewrite_result_none(r);
                     assert(payload.is_ref && "All subgroup variables should be logical by now!");
                     payload = shd_rewrite_global_head_payload(r, payload);
                     payload.address_space = AsShared;
@@ -62,7 +56,7 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                         .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
                     });;
                     Node* new = shd_global_var(r->dst_module, payload);
-                    shd_register_processed_mask(shd_get_top_rewriter(r), node, new, ~NcValue);
+                    shd_rewrite_result_add_mask_rule(result, ~NcValue, new);
 
                     if (node->payload.global_variable.init) {
                         new->payload.global_variable.init = fill(a, (Fill) {
@@ -70,21 +64,23 @@ static OpRewriteResult process(Context* ctx, NodeClass use_class, String name, c
                             .value = shd_rewrite_op(&ctx->rewriter, NcValue, "init", node->payload.global_variable.init)
                         });
                     }
-                    return (OpRewriteResult) { new, ~NcValue };
+                    return result;
                 }
+
+                OpRewriteResult* result = shd_new_rewrite_result_none(r);
+                const Node* ndecl = shd_rewrite_op(shd_get_top_rewriter(r), NcDeclaration, "", node);
+                assert(ctx->bb);
+                const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
+                const Node* slice = lea_helper(a, ndecl, shd_int32_literal(a, 0), mk_nodes(a, index));
+                shd_rewrite_result_add_mask_rule(result, NcValue, slice);
+                return result;
             }
             break;
         }
         default: break;
     }
 
-    if (is_declaration(node)) {
-        Context declctx = *ctx;
-        declctx.bb = NULL;
-        return (OpRewriteResult) { shd_recreate_node(&declctx.rewriter, node), 0};
-    }
-
-    return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
+    return shd_new_rewrite_result(r, shd_recreate_node(r, node));
 }
 
 static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {

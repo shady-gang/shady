@@ -15,7 +15,7 @@ typedef struct {
     Node* lifted_globals_decl;
 } Context;
 
-static OpRewriteResult process(Context* ctx, NodeClass use, String name, const Node* node) {
+static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
@@ -34,29 +34,23 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
                                                                                        shd_empty(a))));
                 shd_destroy_rewriter(&fn_ctx.rewriter);
             }
-            return (OpRewriteResult) { newfun, 0 };
+            return shd_new_rewrite_result(r, newfun);
         }
-        case GlobalVariable_TAG:
+        case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space != AsGlobal)
                 break;
-            if (use == NcValue) {
-                assert(ctx->bb && "this Global isn't appearing in an abstraction - we cannot replace it with a load!");
-                const Node* ptr_addr = lea_helper(a, ctx->lifted_globals_decl, shd_int32_literal(a, 0), shd_singleton(shd_rewrite_op(&ctx->rewriter, NcDeclaration, "decl", node)));
-                const Node* ptr = shd_bld_load(ctx->bb, ptr_addr);
-                return (OpRewriteResult) { ptr, NcValue };
-            } else {
-                assert(false);
-            }
+            assert(ctx->bb && "this Global isn't appearing in an abstraction - we cannot replace it with a load!");
+            const Node* index = shd_rewrite_op(shd_get_top_rewriter(&ctx->rewriter), NcDeclaration, "decl", node);
+            const Node* ptr_addr = lea_helper(a, ctx->lifted_globals_decl, shd_int32_literal(a, 0), shd_singleton(index));
+            const Node* ptr = shd_bld_load(ctx->bb, ptr_addr);
+            OpRewriteResult* result = shd_new_rewrite_result_none(r);
+            shd_rewrite_result_add_mask_rule(result, NcValue, ptr);
+            return result;
+        }
         default: break;
     }
 
-    if (is_declaration(node)) {
-        Context declctx = *ctx;
-        declctx.bb = NULL;
-        return (OpRewriteResult) { shd_recreate_node(&declctx.rewriter, node), 0 };
-    }
-
-    return (OpRewriteResult) { shd_recreate_node(&ctx->rewriter, node), 0 };
+    return shd_new_rewrite_result(r, shd_recreate_node(r, node));
 }
 
 static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
@@ -89,7 +83,9 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         member_tys[lifted_globals_count] = shd_get_unqualified_type(shd_rewrite_op(&ctx.rewriter, NcType, "type", odecl->type));
         member_names[lifted_globals_count] = get_declaration_name(odecl);
 
-        shd_register_processed_mask(&ctx.rewriter, odecl, shd_int32_literal(a, lifted_globals_count), NcDeclaration);
+        OpRewriteResult* result = shd_new_rewrite_result_none(&ctx.rewriter);
+        shd_rewrite_result_add_mask_rule(result, NcDeclaration, shd_int32_literal(a, lifted_globals_count));
+        shd_register_processed_result(&ctx.rewriter, odecl, result);
         lifted_globals_count++;
     }
 

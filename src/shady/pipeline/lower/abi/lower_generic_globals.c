@@ -9,34 +9,29 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-static OpRewriteResult process(Context* ctx, NodeClass use, String name, const Node* node) {
+static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
                 const Type* t = shd_rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
-                if (use == NcValue) {
-                    const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
-                    const Node* new_global = shd_rewrite_op(r, NcDeclaration, "decl", node);
-                    const Node* converted = prim_op_helper(a, convert_op, shd_singleton(dst_t), shd_singleton(new_global));
-                    return (OpRewriteResult) { converted, NcValue };
-                } else {
-                    GlobalVariable payload = node->payload.global_variable;
-                    payload = shd_rewrite_global_head_payload(r, payload);
-                    payload.address_space = AsGlobal;
-                    Node* new_global = shd_global_var(r->dst_module, payload);
-                    shd_register_processed_mask(r, node, new_global, ~NcValue);
-                    shd_recreate_node_body(r, node, new_global);
-                    return (OpRewriteResult) { new_global, ~NcValue };
-                }
+                GlobalVariable payload = node->payload.global_variable;
+                payload = shd_rewrite_global_head_payload(r, payload);
+                payload.address_space = AsGlobal;
+                Node* new_global = shd_global_var(r->dst_module, payload);
+                const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
+                const Node* converted = prim_op_helper(a, convert_op, shd_singleton(dst_t), shd_singleton(new_global));
+                shd_register_processed(r, node, converted);
+                shd_recreate_node_body(r, node, new_global);
+                return shd_new_rewrite_result(r, converted);
             }
             break;
         }
         default: break;
     }
 
-    return (OpRewriteResult) { shd_recreate_node(&ctx->rewriter, node), 0 };
+    return shd_new_rewrite_result(r, shd_recreate_node(r, node));
 }
 
 Module* shd_pass_lower_generic_globals(SHADY_UNUSED const CompilerConfig* config, Module* src) {

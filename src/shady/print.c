@@ -95,7 +95,7 @@ void shd_print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
 void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
-    shd_print_module(p, (NodePrintConfig) {.reparseable = true,}, mod);
+    shd_print_module(p, (NodePrintConfig) { .reparseable = true }, mod);
     shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
@@ -105,13 +105,13 @@ void shd_dump_node(const Node* node) {
     Printer* p = shd_new_printer_from_file(stdout);
     if (node)
         shd_print(p, "%%%d ", node->id);
-    shd_print_node(p, (NodePrintConfig) {.color = true}, node);
+    shd_print_node(p, (NodePrintConfig) { .color = true }, node);
     printf("\n");
 }
 
 void shd_dump_module(Module* mod) {
     Printer* p = shd_new_printer_from_file(stdout);
-    shd_print_module(p, (NodePrintConfig) {.color = true}, mod);
+    shd_print_module(p, (NodePrintConfig) { .color = true, .print_internal = true }, mod);
     shd_destroy_printer(p);
     printf("\n");
 }

@@ -6,8 +6,13 @@
 typedef struct Rewriter_ Rewriter;
 
 typedef const Node* (*RewriteNodeFn)(Rewriter*, const Node*);
-typedef struct { const Node* result; NodeClass mask; } OpRewriteResult;
-typedef OpRewriteResult (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
+
+typedef struct OpRewriteResult_ OpRewriteResult;
+typedef OpRewriteResult* (*RewriteOpFn)(Rewriter*, NodeClass, String, const Node*);
+
+OpRewriteResult* shd_new_rewrite_result(Rewriter*, const Node* defaultResult);
+OpRewriteResult* shd_new_rewrite_result_none(Rewriter*);
+void shd_rewrite_result_add_mask_rule(OpRewriteResult*, NodeClass mask, const Node* defaultResult);
 
 const Node* shd_rewrite_node(Rewriter*, const Node* old);
 const Node* shd_rewrite_node_with_fn(Rewriter*, const Node* old, RewriteNodeFn fn);
@@ -55,6 +60,7 @@ void shd_rewrite_module(Rewriter*);
 const Node* shd_recreate_node(Rewriter*, const Node* old);
 
 /// Rewrites a constant / function header
+Node* shd_recreate_node_head_(Rewriter*, const Node* old);
 Node* shd_recreate_node_head(Rewriter*, const Node* old);
 void  shd_recreate_node_body(Rewriter*, const Node* old, Node* new);
 
@@ -71,11 +77,11 @@ Nodes shd_recreate_params(Rewriter*, Nodes oparams);
 void shd_rewrite_annotations(Rewriter* r, const Node* old, Node* new_);
 
 /// Looks up if the node was already processed
-const Node** shd_search_processed(const Rewriter*, const Node* old);
-const Node** shd_search_processed_mask(const Rewriter*, const Node* old, NodeClass mask);
+const Node* shd_search_processed(const Rewriter*, const Node* old);
+const Node* shd_search_processed_by_use_class(const Rewriter*, const Node* old, NodeClass use);
 
 void shd_register_processed(Rewriter*, const Node* old, const Node* new);
-void shd_register_processed_mask(Rewriter*, const Node* old, const Node* new, NodeClass mask);
+void shd_register_processed_result(Rewriter*, const Node* old, const OpRewriteResult*);
 void shd_register_processed_list(Rewriter*, Nodes old, Nodes new);
 
 Rewriter* shd_get_top_rewriter(Rewriter*);

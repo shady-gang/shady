@@ -10,7 +10,7 @@ typedef struct {
     bool all;
 } Context;
 
-static OpRewriteResult process(Context* ctx, NodeClass use, String name, const Node* node) {
+static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
 
     switch (node->tag) {
@@ -21,15 +21,14 @@ static OpRewriteResult process(Context* ctx, NodeClass use, String name, const N
             if (!ctx->all)
                 break;
             // rewrite the constant as the old value if it's used as such
-            if (use == NcValue)
-                return (OpRewriteResult) { shd_rewrite_op(r, NcValue, "value", payload.value), NcValue };
-            // and null otherwise
-            return (OpRewriteResult) { NULL, ~NcValue };
+            OpRewriteResult* result = shd_new_rewrite_result(r, NULL);
+            shd_rewrite_result_add_mask_rule(result, NcValue, shd_rewrite_op(r, NcValue, "value", payload.value));
+            return result;
         }
         default: break;
     }
 
-    return (OpRewriteResult) { shd_recreate_node(r, node), 0 };
+    return shd_new_rewrite_result(r, shd_recreate_node(r, node));
 }
 
 static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, Module* src, bool all) {
