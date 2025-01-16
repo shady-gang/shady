@@ -143,7 +143,7 @@ static void emit_loop(Emitter* emitter, FnEmitter* fn, Printer* p, Loop loop) {
     Nodes variables = params;
     LARRAY(String, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
-        arr[i] = shd_get_value_name_unsafe(variables.nodes[i]);
+        arr[i] = shd_get_node_name_unsafe(variables.nodes[i]);
         if (!arr[i])
             arr[i] = shd_make_unique_name(emitter->arena, "phi");
     }

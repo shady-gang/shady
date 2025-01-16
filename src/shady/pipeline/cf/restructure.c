@@ -339,15 +339,6 @@ static const Node* process(Context* ctx, const Node* node) {
     assert(a != node->arena);
     assert(node->arena == ctx->rewriter.src_arena);
 
-    if (is_declaration(node)) {
-        String name = get_declaration_name(node);
-        Nodes decls = shd_module_get_declarations(ctx->rewriter.dst_module);
-        for (size_t i = 0; i < decls.count; i++) {
-            if (strcmp(get_declaration_name(decls.nodes[i]), name) == 0)
-                return decls.nodes[i];
-        }
-    }
-
     switch (node->tag) {
         case Function_TAG: {
             Node* new = shd_recreate_node_head(&ctx->rewriter, node);
@@ -368,7 +359,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 TmpAllocCleanupClosure cj1 = create_cancel_body_closure(bb);
                 shd_list_append(TmpAllocCleanupClosure, ctx->cleanup_stack, cj1);
                 const Node* ptr = shd_bld_local_alloc(bb, shd_int32_type(a));
-                shd_set_value_name(ptr, "cf_depth");
+                shd_set_debug_name(ptr, "cf_depth");
                 shd_bld_store(bb, ptr, shd_int32_literal(a, 0));
                 fn_ctx.level_ptr = ptr;
                 fn_ctx.fn = new;

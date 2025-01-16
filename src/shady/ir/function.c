@@ -30,7 +30,6 @@ Node* shd_function(Module* mod, Function payload) {
         .payload.fun = payload
     };
     Node* fn = _shd_create_node_helper(arena, node, NULL);
-    _shd_module_add_decl(mod, fn);
 
     for (size_t i = 0; i < payload.params.count; i++) {
         Node* param = (Node*) payload.params.nodes[i];

@@ -135,14 +135,14 @@ const char* shd_get_string_literal(IrArena* arena, const Node* node) {
             return shd_get_string_literal(arena, value);
     }
     switch (node->tag) {
-        case Declaration_GlobalVariable_TAG: {
+        case GlobalVariable_TAG: {
             const Node* init = node->payload.global_variable.init;
             if (init) {
                 return shd_get_string_literal(arena, init);
             }
             break;
         }
-        case Declaration_Constant_TAG: {
+        case Constant_TAG: {
             return shd_get_string_literal(arena, node->payload.constant.value);
         }
         /*case Lea_TAG: {

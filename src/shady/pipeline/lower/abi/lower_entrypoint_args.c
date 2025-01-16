@@ -28,7 +28,7 @@ static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
             shd_error("EntryPoint parameters must be uniform");
 
         types[i] = type;
-        names[i] = shd_get_value_name_safe(params.nodes[i]);
+        names[i] = shd_get_node_name_safe(params.nodes[i]);
     }
 
     return record_type(a, (RecordType) {

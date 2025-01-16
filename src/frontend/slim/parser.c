@@ -1146,8 +1146,8 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
         return NULL;
 
     const Type* type = accept_unqualified_type(ctx);
-    const char* id = accept_identifier(ctx);
-    expect(id, "constant name");
+    const char* name = accept_identifier(ctx);
+    expect(name, "constant name");
     expect(accept_token(ctx, equal_tok), "'='");
     BodyBuilder* bb = shd_bld_begin_pure(arena);
     const Node* definition = accept_expr(ctx, bb, max_precedence());
@@ -1155,9 +1155,10 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* cnst = constant_helper(mod, type, id);
+    Node* cnst = constant_helper(mod, type, name);
     cnst->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(definition));
     cnst->annotations = annotations;
+    shd_set_debug_name(cnst, name);
     return cnst;
 }
 
@@ -1178,10 +1179,11 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     expect_parameters(ctx, &parameters, NULL, NULL);
 
     Node* fn = function_helper(mod, parameters, name, types);
+    fn->annotations = annotations;
+    shd_set_debug_name(fn, name);
     if (!accept_token(ctx, semi_tok))
         shd_set_abstraction_body(fn, expect_body(ctx, shd_get_abstraction_mem(fn), types.count == 0 ? make_return_void : NULL));
 
-    fn->annotations = annotations;
     return fn;
 }
 
@@ -1241,6 +1243,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     Node* gv = shd_global_var(mod, payload);
     gv->payload.global_variable.init = initial_value;
     gv->annotations = annotations;
+    shd_set_debug_name(gv, payload.name);
     return gv;
 }
 
@@ -1248,13 +1251,14 @@ static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
     if (!accept_token(ctx, type_tok))
         return NULL;
 
-    const char* id = accept_identifier(ctx);
-    expect(id, "nominal type name");
+    const char* name = accept_identifier(ctx);
+    expect(name, "nominal type name");
 
     expect(accept_token(ctx, equal_tok), "'='");
 
-    Node* nom = nominal_type_helper(mod, id);
+    Node* nom = nominal_type_helper(mod, name);
     nom->annotations = annotations;
+    shd_set_debug_name(nom, name);
     nom->payload.nom_type.body = accept_unqualified_type(ctx);
     expect(nom->payload.nom_type.body, "nominal type body");
 
@@ -1266,20 +1270,44 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
     IrArena* arena = shd_module_get_arena(mod);
     Tokenizer* tokenizer = shd_new_tokenizer(contents);
 
+    Node* file_top_level = shd_module_get_declaration(mod, "_top_level_bindings");
+    if (!file_top_level) {
+        file_top_level = global_variable_helper(mod, shd_uint16_type(arena), "_top_level_bindings", AsGlobal);
+        shd_module_add_export(mod, "_top_level_bindings", file_top_level);
+    }
+
     while (true) {
         Token token = shd_curr_token(tokenizer);
         if (token.tag == EOF_tok)
             break;
 
         Nodes annotations = accept_annotations(ctx);
+        // annotations = shd_nodes_append(arena, annotations, annotation_value_helper(arena, "SlimTopLevelBindings", file_top_level));
 
         const Node* decl = accept_const(ctx, annotations);
         if (!decl)  decl = accept_fn_decl(ctx, annotations);
         if (!decl)  decl = accept_global_var_decl(ctx, annotations);
         if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
 
+        const Node* oea = shd_lookup_annotation(decl, "Exported");
+        String exported_name = NULL;
+        if (oea) {
+            if (oea->tag != AnnotationValue_TAG) {
+                shd_remove_annotation_by_name(decl, "Exported");
+                exported_name = shd_get_node_name_unsafe(decl);
+                assert(exported_name);
+            } else {
+                exported_name = shd_get_exported_name(decl);
+            }
+        }
+
+        shd_add_annotation(file_top_level, annotation_id_helper(arena, shd_get_node_name_unsafe(decl), decl));
+
+        if (exported_name)
+            shd_module_add_export(mod, exported_name, decl);
+
         if (decl) {
-            shd_log_fmt(DEBUGVV, "decl parsed : ");
+            shd_log_fmt(DEBUGVV, "decl parsed: ");
             shd_log_node(DEBUGVV, decl);
             shd_log_fmt(DEBUGVV, "\n");
             continue;

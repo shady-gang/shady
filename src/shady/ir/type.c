@@ -527,7 +527,6 @@ Type* shd_nominal_type(Module* mod, NominalType payload) {
         .payload.nom_type = payload
     };
     Node* decl = _shd_create_node_helper(arena, node, NULL);
-    _shd_module_add_decl(mod, decl);
     return decl;
 }
 

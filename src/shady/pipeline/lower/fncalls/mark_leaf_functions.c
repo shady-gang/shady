@@ -100,7 +100,7 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
+            fn_ctx.uses = shd_new_uses_map_fn(node, (NcFunction | NcType));
             ctx = &fn_ctx;
             r = &ctx->rewriter;
 

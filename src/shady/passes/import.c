@@ -20,12 +20,16 @@ static void replace_or_compare(bool weak, const Node** dst, const Node* with) {
 }
 
 static const Node* import_node(Rewriter* r, const Node* node) {
-    if (is_declaration(node)) {
-        Node* existing = shd_module_get_declaration(r->dst_module, get_declaration_name(node));
+    const Node* ea = shd_lookup_annotation(node, "Export");
+    if (ea) {
+        assert(ea->tag == AnnotationValue_TAG);
+        AnnotationValue payload = ea->payload.annotation_value;
+        String name = shd_get_string_literal(ea->arena, payload.value);
+        Node* existing = shd_module_get_declaration(r->dst_module, name);
         if (existing) {
             const Node* imported_t = shd_rewrite_node(r, node->type);
             if (imported_t != existing->type) {
-                shd_error_print("Incompatible types for to-be-merged declaration: %s ", get_declaration_name(node));
+                shd_error_print("Incompatible types for to-be-merged declaration: %s ", name);
                 shd_log_node(ERROR, existing->type);
                 shd_error_print(" vs ");
                 shd_log_node(ERROR, imported_t);
@@ -33,7 +37,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
                 shd_error_die();
             }
             if (node->tag != existing->tag) {
-                shd_error_print("Incompatible node types for to-be-merged declaration: %s ", get_declaration_name(node));
+                shd_error_print("Incompatible node tags for to-be-merged declaration: %s ", name);
                 shd_error_print("%s", shd_get_node_tag_string(existing->tag));
                 shd_error_print(" vs ");
                 shd_error_print("%s", shd_get_node_tag_string(node->tag));
@@ -41,18 +45,18 @@ static const Node* import_node(Rewriter* r, const Node* node) {
                 shd_error_die();
             }
             bool weak = shd_lookup_annotation(existing, "Weak");
-            switch (is_declaration(node)) {
-                case NotADeclaration: assert(false);
-                case Declaration_Function_TAG:
+            switch (node->tag) {
+                default: shd_error("TODO");
+                case Function_TAG:
                     replace_or_compare(weak, &existing->payload.fun.body, shd_rewrite_node(r, node->payload.fun.body));
                     break;
-                case Declaration_Constant_TAG:
+                case Constant_TAG:
                     replace_or_compare(weak, &existing->payload.constant.value, shd_rewrite_node(r, node->payload.constant.value));
                     break;
-                case Declaration_GlobalVariable_TAG:
+                case GlobalVariable_TAG:
                     replace_or_compare(weak, &existing->payload.global_variable.init, shd_rewrite_node(r, node->payload.global_variable.init));
                     break;
-                case Declaration_NominalType_TAG:
+                case NominalType_TAG:
                     replace_or_compare(weak, &existing->payload.nom_type.body, shd_rewrite_node(r, node->payload.nom_type.body));
                     break;
             }

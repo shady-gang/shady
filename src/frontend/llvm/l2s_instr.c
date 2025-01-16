@@ -461,7 +461,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     const Node* name_node = meta->payload.composite.contents.nodes[2];
                     String name = shd_get_string_literal(target->arena, name_node);
                     assert(name);
-                    shd_set_value_name((Node*) target, name);
+                    shd_set_debug_name((Node*) target, name);
                     return NULL;
                 }
                 if (strcmp(intrinsic, "llvm.dbg.label") == 0) {

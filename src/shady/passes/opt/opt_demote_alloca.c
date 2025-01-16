@@ -169,7 +169,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
-            fun_ctx.uses = shd_new_uses_map_fn(old, (NcDeclaration | NcType));
+            fun_ctx.uses = shd_new_uses_map_fn(old, (NcFunction | NcType));
             fun_ctx.disable_lowering = shd_lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 shd_set_abstraction_body(fun, shd_rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));

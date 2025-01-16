@@ -28,7 +28,7 @@ bool find_in_set(json_object* node, String class_name);
 String class_to_type(json_object* src, String class, bool list);
 String get_type_for_operand(json_object* src, json_object* op);
 
-void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases);
+void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases, bool include_none);
 void generate_bit_enum_classifier(Growy* g, String fn_name, String enum_type_name, String enum_case_prefix, String src_type_name, String src_case_prefix, String src_case_suffix, json_object* cases);
 
 void json_apply_object(json_object* target, json_object* src);

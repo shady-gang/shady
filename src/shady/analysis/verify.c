@@ -133,7 +133,7 @@ static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
             shd_error_die();
         }
     }
-    shd_visit_node_operands(&ctx->visitor, NcTerminator | NcDeclaration, node);
+    shd_visit_node_operands(&ctx->visitor, NcTerminator | NcFunction, node);
 }
 
 static void verify_bodies(const CompilerConfig* config, Module* mod) {

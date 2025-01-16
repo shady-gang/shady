@@ -91,7 +91,7 @@ void generate(Growy* g, json_object* src) {
 
     generate_primops(g, json_object_object_get(src, "prim-ops"));
     json_object* op_classes = json_object_object_get(src, "prim-ops-classes");
-    generate_bit_enum(g, "OpClass", "Oc", op_classes);
+    generate_bit_enum(g, "OpClass", "Oc", op_classes, false);
 
     generate_address_spaces(g, json_object_object_get(src, "address-spaces"));
     json_object* nodes = json_object_object_get(src, "nodes");

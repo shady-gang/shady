@@ -1,4 +1,5 @@
 #include "pipeline/pipeline_private.h"
+#include "shady/ir/debug.h"
 
 #include "portability.h"
 
@@ -19,7 +20,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Constant_TAG: {
             Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
-            if (strcmp(get_declaration_name(ncnst), "SUBGROUP_SIZE") == 0) {
+            if (strcmp(shd_get_node_name_safe(ncnst), "SUBGROUP_SIZE") == 0) {
                 ncnst->payload.constant.value = shd_uint32_literal(a, ctx->config->target.subgroup_size);
             }
             return ncnst;

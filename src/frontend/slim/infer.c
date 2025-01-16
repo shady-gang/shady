@@ -82,13 +82,12 @@ static const Node* infer_type(Context* ctx, const Type* type) {
 }
 
 static const Node* infer_decl(Context* ctx, const Node* node) {
-    assert(is_declaration(node));
     if (shd_lookup_annotation(node, "SkipOnInfer"))
         return NULL;
 
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    switch (is_declaration(node)) {
+    switch (node->tag) {
         case Function_TAG: {
             Context body_context = *ctx;
 
@@ -150,7 +149,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             shd_rewrite_annotations(r, node, new);
             return new;
         }
-        case NotADeclaration: shd_error("not a decl");
+        default: shd_error("not a decl");
     }
 }
 

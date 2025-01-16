@@ -238,7 +238,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
     CType* found2 = shd_c_lookup_existing_type(emitter, decl);
     if (found2) return;
 
-    const char* name = shd_c_legalize_identifier(emitter, get_declaration_name(decl));
+    const char* name = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(decl));
     const Type* decl_type = decl->type;
     const char* decl_center = name;
     CTerm emit_as;
@@ -298,7 +298,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
                 for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
                     String param_name;
-                    String variable_name = shd_get_value_name_unsafe(decl->payload.fun.params.nodes[i]);
+                    String variable_name = shd_get_node_name_unsafe(decl->payload.fun.params.nodes[i]);
                     param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", shd_c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
                     shd_c_register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
                 }

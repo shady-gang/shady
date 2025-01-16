@@ -52,7 +52,7 @@ static const Node* process(Context* ctx, const Node* old) {
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
-            shd_set_value_name(index, "memcpy_i");
+            shd_set_debug_name(index, "memcpy_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
             const Node* loaded_word = shd_bld_load(loop_bb, lea_helper(a, src_addr, index, shd_empty(a)));
@@ -99,7 +99,7 @@ static const Node* process(Context* ctx, const Node* old) {
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
 
             const Node* index = shd_first(l.params);
-            shd_set_value_name(index, "memset_i");
+            shd_set_debug_name(index, "memset_i");
             Node* loop_case = l.loop_body;
             BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_case));
             shd_bld_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), src_value);

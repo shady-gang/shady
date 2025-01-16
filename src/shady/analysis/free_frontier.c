@@ -22,7 +22,7 @@ static void visit_free_frontier(FreeFrontierVisitor* v, const Node* node) {
     if (where) {
         FreeFrontierVisitor vv = *v;
         if (shd_cfg_is_dominated(where, v->start)) {
-            shd_visit_node_operands(&vv.v, NcAbstraction | NcDeclaration | NcType, node);
+            shd_visit_node_operands(&vv.v, NcAbstraction | NcFunction | NcType, node);
         } else {
             if (is_abstraction(node)) {
                 struct Dict* other_ff = shd_free_frontier(v->scheduler, v->cfg, node);

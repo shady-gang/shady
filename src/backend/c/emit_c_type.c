@@ -64,7 +64,7 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
         }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
-            String variable_name = shd_get_value_name_unsafe(fn->payload.fun.params.nodes[i]);
+            String variable_name = shd_get_node_name_unsafe(fn->payload.fun.params.nodes[i]);
             param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", shd_c_legalize_identifier(emitter, variable_name), fn->payload.fun.params.nodes[i]->id);
             shd_print(paramp, shd_c_emit_type(emitter, params.nodes[i]->type, param_name));
             if (i + 1 < dom.count) {

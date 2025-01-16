@@ -93,7 +93,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
             ctx2.base_stack_addr_on_entry = shd_bld_get_stack_base_addr(bb);
             ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
-            shd_set_value_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
+            shd_set_debug_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
             Node* nom_t = nominal_type_helper(m, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_abstraction_name(node)));
             VContext vctx = {

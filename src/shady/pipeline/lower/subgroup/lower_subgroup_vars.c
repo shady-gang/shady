@@ -68,7 +68,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
                 }
 
                 OpRewriteResult* result = shd_new_rewrite_result_none(r);
-                const Node* ndecl = shd_rewrite_op(shd_get_top_rewriter(r), NcDeclaration, "", node);
+                const Node* ndecl = shd_rewrite_op(shd_get_top_rewriter(r), 0, "", node);
                 assert(ctx->bb);
                 const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
                 const Node* slice = lea_helper(a, ndecl, shd_int32_literal(a, 0), mk_nodes(a, index));

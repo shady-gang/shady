@@ -25,7 +25,7 @@ String class_to_type(json_object* src, String class, bool list) {
             return "String";
     }
     // check the class is valid
-    if (!lookup_node_class(src, class)) {
+    if ((strcmp(class, "none") != 0) &&  !lookup_node_class(src, class)) {
         shd_error_print("invalid node class '%s'\n", class);
         shd_error_die();
     }
@@ -73,9 +73,11 @@ void preprocess(json_object* src) {
     }
 }
 
-void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases) {
+void generate_bit_enum(Growy* g, String enum_type_name, String enum_case_prefix, json_object* cases, bool include_none) {
     assert(json_object_get_type(cases) == json_type_array);
     shd_growy_append_formatted(g, "typedef enum {\n");
+    if (include_none)
+        shd_growy_append_formatted(g, "\t%sNone = 0,\n", enum_case_prefix);
     for (size_t i = 0; i < json_object_array_length(cases); i++) {
         json_object* node_class = json_object_array_get_idx(cases, i);
         String name = json_object_get_string(json_object_object_get(node_class, "name"));

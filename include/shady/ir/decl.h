@@ -28,6 +28,15 @@ static inline Node* global_variable_helper(Module* m, const Type* t, String name
     return g;
 }
 
+/// temporary to ease refactoring
+static inline NodeTag is_declaration(const Node* n) { switch (n->tag) {
+    case Function_TAG:
+    case GlobalVariable_TAG:
+    case NominalType_TAG:
+    case Constant_TAG: return n->tag;
+    default: return InvalidNode_TAG;
+}}
+
 typedef struct Rewriter_ Rewriter;
 const Node* shd_find_or_process_decl(Rewriter* rewriter, const char* name);
 

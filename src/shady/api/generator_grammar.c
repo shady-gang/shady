@@ -190,7 +190,7 @@ void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
     json_object* node_classes = json_object_object_get(src, "node-classes");
-    generate_bit_enum(g, "NodeClass", "Nc", node_classes);
+    generate_bit_enum(g, "NodeClass", "Nc", node_classes, true);
 
     json_object* nodes = json_object_object_get(src, "nodes");
     shd_growy_append_formatted(g, "NodeClass shd_get_node_class_from_tag(NodeTag tag);\n\n");

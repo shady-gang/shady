@@ -96,7 +96,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             AddressSpace as = node->payload.global_variable.address_space;
             const Node* old_init = node->payload.global_variable.init;
             const Type* type = shd_rewrite_node(r, node->payload.global_variable.type);
-            Node* decl = global_variable_helper(ctx->rewriter.dst_module, type, get_declaration_name(node), as);
+            Node* decl = global_variable_helper(ctx->rewriter.dst_module, type, shd_get_node_name_safe(node), as);
 
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             AddressSpace old_as = as;

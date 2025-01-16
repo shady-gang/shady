@@ -1,31 +1,45 @@
 #include "shady/ir/debug.h"
 #include "shady/ir/grammar.h"
+#include "shady/ir/module.h"
+#include "shady/ir/annotation.h"
+#include "shady/analysis/literal.h"
 
 #include <string.h>
 #include <assert.h>
 
-String shd_get_value_name_unsafe(const Node* v) {
-    assert(v && is_value(v));
-    if (v->tag == Param_TAG)
-        return v->payload.param.name;
-    if (is_declaration(v))
-        return get_declaration_name(v);
+String shd_get_debug_name(const Node* node) {
+    IrArena* a = node->arena;
+    const Node* ea = shd_lookup_annotation(node, "Name");
+    if (ea) {
+        assert(ea->tag == AnnotationValue_TAG);
+        AnnotationValue payload = ea->payload.annotation_value;
+        return shd_get_string_literal(a, payload.value);
+    }
     return NULL;
 }
 
-String shd_get_value_name_safe(const Node* v) {
-    String name = shd_get_value_name_unsafe(v);
-    if (name && strlen(name) > 0)
-        return name;
-    //if (v->tag == Variable_TAG)
-    return shd_fmt_string_irarena(v->arena, "%%%d", v->id);
-    //return node_tags[v->tag];
+String shd_get_node_name_unsafe(const Node* node) {
+    assert(node);
+    String exported_name = shd_get_exported_name(node);
+    if (exported_name) return exported_name;
+    String debug_name = shd_get_debug_name(node);
+    if (debug_name) return debug_name;
+    if (node->tag == Param_TAG)
+        return node->payload.param.name;
+    return NULL;
 }
 
-void shd_set_value_name(const Node* var, String name) {
-    // TODO: annotations
-    // if (var->tag == Variablez_TAG)
-    //     var->payload.varz.name = shd_string(var->arena, name);
+String shd_get_node_name_safe(const Node* v) {
+    String name = shd_get_node_name_unsafe(v);
+    if (name && strlen(name) > 0)
+        return name;
+    return shd_fmt_string_irarena(v->arena, "%%%d", v->id);
+}
+
+void shd_set_debug_name(const Node* var, String name) {
+    if (shd_get_debug_name(var))
+        shd_remove_annotation_by_name(var, "Name");
+    shd_add_annotation(var, annotation_value_helper(var->arena, "Name", string_lit_helper(var->arena, name)));
 }
 
 void shd_bld_comment(BodyBuilder* bb, String str) {

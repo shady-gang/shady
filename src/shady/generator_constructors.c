@@ -31,6 +31,7 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     else
                         shd_growy_append_formatted(g, "\t\tnode->payload.%s.%s = _shd_import_strings(arena, node->payload.%s.%s);\n", snake_name, op_name, snake_name, op_name);
                 } else {
+                    bool classless = strcmp(class, "none") == 0;
                     String cap = capitalize(class);
                     shd_growy_append_formatted(g, "\t\t{\n");
                     String extra = "";
@@ -45,7 +46,10 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                     if (!list)
                         shd_growy_append_formatted(g, "\t\t\tconst Node** pop = &node->payload.%s.%s;\n", snake_name, op_name);
 
-                    shd_growy_append_formatted(g, "\t\t\t*pop = _shd_fold_node_operand(%s_TAG, Nc%s, \"%s\", *pop);\n", name, cap, op_name);
+                    if (classless)
+                        shd_growy_append_formatted(g, "\t\t\t*pop = _shd_fold_node_operand(%s_TAG, 0, \"%s\", *pop);\n", name, op_name);
+                    else
+                        shd_growy_append_formatted(g, "\t\t\t*pop = _shd_fold_node_operand(%s_TAG, Nc%s, \"%s\", *pop);\n", name, cap, op_name);
 
                     if (!(json_object_get_boolean(json_object_object_get(op, "nullable")) || json_object_get_boolean(json_object_object_get(op, "ignore")))) {
                         shd_growy_append_formatted(g, "%s\t\t\tif (!*pop) {\n", extra);
@@ -53,10 +57,12 @@ static void generate_pre_construction_validation(Growy* g, json_object* src) {
                         shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
                     }
 
-                    shd_growy_append_formatted(g, "%s\t\t\tif (arena->config.check_op_classes && *pop != NULL && !is_%s(*pop)) {\n", extra, class);
-                    shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
-                    shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_die();\n", extra);
-                    shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
+                    if (!classless) {
+                        shd_growy_append_formatted(g, "%s\t\t\tif (arena->config.check_op_classes && *pop != NULL && !is_%s(*pop)) {\n", extra, class);
+                        shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_print(\"Invalid '%s' operand for node '%s', expected a %s\");\n", extra, op_name, name, class);
+                        shd_growy_append_formatted(g, "%s\t\t\t\tshd_error_die();\n", extra);
+                        shd_growy_append_formatted(g, "%s\t\t\t}\n", extra);
+                    }
                     if (list) {
                         shd_growy_append_formatted(g, "\t\t\t}\n");
                         shd_growy_append_formatted(g, "\t\t\tnode->payload.%s.%s = shd_nodes(arena, ops_count, ops);\n", snake_name, op_name);

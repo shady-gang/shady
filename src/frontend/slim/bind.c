@@ -2,6 +2,7 @@
 
 #include "shady/pass.h"
 #include "shady/fe/slim.h"
+#include "shady/ir/debug.h"
 
 #include "../shady/ir_private.h"
 #include "../shady/analysis/uses.h"
@@ -43,30 +44,39 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    Nodes new_decls = shd_module_get_declarations(ctx->rewriter.dst_module);
-    for (size_t i = 0; i < new_decls.count; i++) {
-        const Node* decl = new_decls.nodes[i];
-        if (strcmp(get_declaration_name(decl), name) == 0) {
+    const Node* top_level_bindings = shd_module_get_declaration(ctx->rewriter.src_module, "_top_level_bindings");
+    assert(top_level_bindings);
+    for (size_t i = 0; i < top_level_bindings->annotations.count; i++) {
+        if (top_level_bindings->annotations.nodes[i]->tag != AnnotationId_TAG) continue;
+        AnnotationId payload = top_level_bindings->annotations.nodes[i]->payload.annotation_id;
+        if (strcmp(payload.name, name) == 0) {
+            Context* root_ctx = (Context*) shd_get_top_rewriter(&ctx->rewriter);
+            const Node* odecl = payload.id;
+            const Node* decl = shd_rewrite_node(&root_ctx->rewriter, odecl);
             return (Resolved) {
-                .is_var = decl->tag == GlobalVariable_TAG,
+                .is_var = odecl->tag == GlobalVariable_TAG,
                 .node = decl
             };
         }
     }
 
-    Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* old_decl = old_decls.nodes[i];
-        if (strcmp(get_declaration_name(old_decl), name) == 0) {
-            Context top_ctx = *ctx;
-            top_ctx.local_variables = NULL;
-            const Node* decl = shd_rewrite_node(&top_ctx.rewriter, old_decl);
-            return (Resolved) {
-                .is_var = decl->tag == GlobalVariable_TAG,
-                .node = decl
-            };
-        }
-    }
+    /*const Node* ndecl = shd_module_get_declaration(ctx->rewriter.dst_module, name);
+    if (ndecl)
+        return (Resolved) {
+            .is_var = ndecl->tag == GlobalVariable_TAG,
+            .node = ndecl
+        };
+
+    const Node* odecl = shd_module_get_declaration(ctx->rewriter.src_module, name);
+    if (odecl) {
+        Context top_ctx = *ctx;
+        top_ctx.local_variables = NULL;
+        const Node* decl = shd_rewrite_node(&top_ctx.rewriter, odecl);
+        return (Resolved) {
+            .is_var = decl->tag == GlobalVariable_TAG,
+            .node = decl
+        };
+    }*/
 
     shd_error("could not resolve node %s", name)
 }
@@ -162,7 +172,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 assert(type_annotation);
                 const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bld_mem(bb) });
                 const Node* ptr = shd_bld_add_instruction(bb, alloca);
-                shd_set_value_name(ptr, name);
+                shd_set_debug_name(ptr, name);
                 shd_bld_add_instruction(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bld_mem(bb) }));
 
                 add_binding(ctx, true, name, ptr);
@@ -229,6 +239,9 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     // if (lhs) {
     //     return load(a, (Load) { lhs, .mem = rewrite_node() });
     // }
+
+    if (shd_get_node_name_unsafe(node) && strcmp(shd_get_node_name_unsafe(node), "_top_level_bindings") == 0)
+        return NULL;
 
     switch (node->tag) {
         case Function_TAG: {

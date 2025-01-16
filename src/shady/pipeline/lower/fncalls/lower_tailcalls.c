@@ -117,7 +117,7 @@ static const Node* process(Context* ctx, const Node* old) {
         case Function_TAG: {
             Context ctx2 = *ctx;
             ctx2.cfg = build_fn_cfg(old);
-            ctx2.uses = shd_new_uses_map_fn(old, (NcDeclaration | NcType));
+            ctx2.uses = shd_new_uses_map_fn(old, (NcFunction | NcType));
             ctx = &ctx2;
 
             const Node* entry_point_annotation = shd_lookup_annotation(old, "EntryPoint");
@@ -166,7 +166,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 if (shd_is_qualified_type_uniform(old_param->type))
                     popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
                 if (old_param->payload.param.name)
-                    shd_set_value_name((Node*) popped, old_param->payload.param.name);
+                    shd_set_debug_name((Node*) popped, old_param->payload.param.name);
                 shd_register_processed(&ctx->rewriter, old_param, popped);
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));

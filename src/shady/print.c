@@ -276,7 +276,7 @@ static void print_function_body(PrinterCtx* ctx, const Node* node) {
         sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);
         sub_ctx.bb_printers = calloc(sizeof(size_t), cfg->size);
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
-            sub_ctx.uses = shd_new_uses_map_fn(node, (NcDeclaration | NcType));
+            sub_ctx.uses = shd_new_uses_map_fn(node, (NcFunction | NcType));
         }
     }
     ctx = &sub_ctx;
@@ -427,10 +427,6 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
-        case NominalType_TAG: {
-            printf("%s", get_declaration_name(node));
-            break;
-        }
         default:_shd_print_node_generated(ctx, node);
             break;
     }
@@ -470,7 +466,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
         }
         case Value_Param_TAG:
             printf(VALUE_COLOR);
-            String name = shd_get_value_name_unsafe(node);
+            String name = shd_get_node_name_unsafe(node);
             if (name && strlen(name) > 0)
                 printf("%s_", name);
             printf("%%%d", node->id);
@@ -663,6 +659,16 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
             printf(RESET);
             break;
         }
+        case Annotation_AnnotationId_TAG: {
+            const AnnotationId* annotation = &node->payload.annotation_id;
+            printf(ANNOTATION_COLOR);
+            printf("@%s", annotation->name);
+            printf(RESET);
+            printf("(");
+            print_node(annotation->id);
+            printf(")");
+            break;
+        }
         case AnnotationValue_TAG: {
             const AnnotationValue* annotation = &node->payload.annotation_value;
             printf(ANNOTATION_COLOR);
@@ -686,19 +692,11 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_node_head(PrinterCtx* ctx, const Node* node) {
-    if (is_declaration(node)) {
-        //printf(DECL_COLOR);
-        printf("%s", get_declaration_name(node));
-        //printf(RESET);
-    } else if (is_basic_block(node)) {
-        //printf(BASIC_BLOCK_COLOR);
-        if (node->payload.basic_block.name && strlen(node->payload.basic_block.name) > 0)
-            printf("%s", node->payload.basic_block.name);
-        else
-            printf("%%%d", node->id);
-        //printf(RESET);
-    } else
-        shd_error_die();
+    String name = shd_get_node_name_safe(node);
+    if (name && strlen(name) > 0)
+        printf("%s", name);
+    else
+        printf("%%%d", node->id);
 }
 
 static bool print_node_impl(PrinterCtx* ctx, const Node* node) {

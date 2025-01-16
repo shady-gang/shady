@@ -25,7 +25,7 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
     const Type* ptr_t = shd_get_unqualified_type(io->type);
     assert(ptr_t->tag == PtrType_TAG);
     PtrType ptr_payload = ptr_t->payload.ptr_type;
-    Node* phy = global_variable_helper(m, ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_value_name_safe(io)), as);
+    Node* phy = global_variable_helper(m, ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_node_name_safe(io)), as);
 
     switch (ptr_payload.address_space) {
         case AsPushConstant:

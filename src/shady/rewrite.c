@@ -332,8 +332,11 @@ void shd_rewrite_module(Rewriter* r) {
     assert(r->dst_module != r->src_module);
     Nodes old_decls = shd_module_get_declarations(r->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
-        if (!shd_lookup_annotation(old_decls.nodes[i], "Exported") && !shd_lookup_annotation(old_decls.nodes[i], "EntryPoint") && !shd_lookup_annotation(old_decls.nodes[i], "Internal")) continue;
-        rewrite_op_helper(r, NcDeclaration, "decl", old_decls.nodes[i]);
+        // if (!shd_lookup_annotation(old_decls.nodes[i], "Exported") && !shd_lookup_annotation(old_decls.nodes[i], "EntryPoint") && !shd_lookup_annotation(old_decls.nodes[i], "Internal")) continue;
+        const Node* ndecl = rewrite_op_helper(r, 0, "decl", old_decls.nodes[i]);
+        if (!ndecl) continue;
+        String exported_name = shd_get_exported_name(ndecl);
+        if (exported_name) shd_module_add_export(r->dst_module, exported_name, ndecl);
     }
 }
 
@@ -406,7 +409,7 @@ Node* shd_recreate_node_head_(Rewriter* r, const Node* old) {
             new = shd_nominal_type(r->dst_module, shd_rewrite_nominal_type_head_payload(r, old->payload.nom_type));
             break;
         }
-        case NotADeclaration: shd_error("not a decl");
+        default: shd_error("not a decl");
     }
     assert(new);
     shd_rewrite_annotations(r, old, new);
@@ -440,7 +443,7 @@ void shd_recreate_node_body(Rewriter* r, const Node* old, Node* new) {
             new->payload.nom_type.body = rewrite_op_helper(r, NcType, "body", old->payload.nom_type.body);
             break;
         }
-        case NotADeclaration: shd_error("not a decl");
+        default: shd_error("not a decl");
     }
 }
 

@@ -39,7 +39,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Constant_TAG: {
             Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
-            if (strcmp(get_declaration_name(ncnst), "SUBGROUPS_PER_WG") == 0) {
+            if (strcmp(shd_get_node_name_safe(ncnst), "SUBGROUPS_PER_WG") == 0) {
                 // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
                 // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
                 uint32_t wg_size[3];

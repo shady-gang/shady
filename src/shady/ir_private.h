@@ -27,12 +27,9 @@ struct IrArena_ {
 struct Module_ {
     IrArena* arena;
     String name;
-    struct List* decls;
+    struct Dict* decls;
     bool sealed;
 };
-
-void _shd_module_add_decl(Module* m, Node* node);
-void shd_destroy_module(Module* m);
 
 NodeId _shd_allocate_node_id(IrArena* arena, const Node* n);
 

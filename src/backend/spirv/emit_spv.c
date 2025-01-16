@@ -37,7 +37,7 @@ bool shd_compare_string(const char** a, const char** b);
 
 void spv_register_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* node, SpvId id) {
     if (is_value(node)) {
-        String name = shd_get_value_name_unsafe(node);
+        String name = shd_get_node_name_unsafe(node);
         if (name)
             spvb_name(emitter->file_builder, id, name);
     }
@@ -226,7 +226,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             spv_emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
-        case NotADeclaration: shd_error("");
+        default: shd_error("");
     }
     shd_error("unreachable");
 }

@@ -29,7 +29,7 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
         default: break;
     }
 
-    shd_visit_node_operands(v, ~(NcMem | NcDeclaration | NcTerminator), n);
+    shd_visit_node_operands(v, ~(NcMem | NcFunction | NcTerminator), n);
 }
 
 static void check_module(Module* mod) {

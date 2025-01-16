@@ -105,12 +105,6 @@
       ]
     },
     {
-      "name": "declaration",
-      "ops": [
-        { "name": "name", "class": "string" }
-      ]
-    },
-    {
       "name": "basic_block"
     },
     {
@@ -356,7 +350,7 @@
     {
       "name": "FnAddr",
       "class": "value",
-      "description": "Obtains a function pointer from a function declaration",
+      "description": "Obtains a function pointer from a function",
       "ops": [
         { "name": "fn", "class": "function" }
       ]
@@ -551,7 +545,7 @@
     {
       "name": "Function",
       "snake_name": "fun",
-      "class": ["abstraction", "declaration", "function"],
+      "class": ["abstraction", "function"],
       "recursive": true,
       "nominal": true,
       "ops": [
@@ -563,7 +557,7 @@
     },
     {
       "name": "Constant",
-      "class": ["declaration", "value"],
+      "class": ["value"],
       "recursive": true,
       "description": "Constants are used to express possibly complicated compile-time expressions",
       "nominal": true,
@@ -575,7 +569,7 @@
     },
     {
       "name": "GlobalVariable",
-      "class": ["declaration", "value"],
+      "class": ["value"],
       "recursive": true,
       "nominal": true,
       "ops": [
@@ -589,7 +583,7 @@
     {
       "name": "NominalType",
       "snake_name": "nom_type",
-      "class": ["declaration", "type"],
+      "class": ["type"],
       "recursive": true,
       "nominal": true,
       "type": false,
@@ -604,6 +598,15 @@
       "type": false,
       "ops": [
         { "name": "name", "class": "string" }
+      ]
+    },
+    {
+      "name": "AnnotationId",
+      "class": "annotation",
+      "type": false,
+      "ops": [
+        { "name": "name", "class": "string" },
+        { "name": "id", "class": "none" }
       ]
     },
     {
