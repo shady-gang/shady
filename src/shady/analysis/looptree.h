@@ -44,6 +44,5 @@ LTNode* shd_loop_tree_lookup(LoopTree* lt, const Node* block);
 void shd_destroy_loop_tree(LoopTree* lt);
 
 LoopTree* shd_new_loop_tree(CFG* s);
-void shd_dump_loop_trees(FILE* output, Module* mod);
 
 #endif // SHADY_LOOPTREE_H

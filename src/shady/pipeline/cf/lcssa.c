@@ -1,18 +1,18 @@
+#include "ir_private.h"
+
 #include "shady/ir.h"
 #include "shady/pass.h"
-
 #include "shady/rewrite.h"
-#include "ir_private.h"
+
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
 #include "analysis/looptree.h"
-#include "analysis/uses.h"
-#include "analysis/leak.h"
 #include "analysis/free_frontier.h"
 
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
+#include "list.h"
 
 typedef struct Context_ {
     Rewriter rewriter;

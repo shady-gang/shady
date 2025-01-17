@@ -1,8 +1,8 @@
 #include "shady/pass.h"
+#include "shady/analysis/uses.h"
 
 #include "analysis/callgraph.h"
 #include "analysis/cfg.h"
-#include "analysis/uses.h"
 #include "analysis/leak.h"
 
 #include "dict.h"

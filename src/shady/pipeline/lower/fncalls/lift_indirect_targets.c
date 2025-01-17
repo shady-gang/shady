@@ -4,11 +4,11 @@
 #include "shady/visit.h"
 #include "shady/ir/stack.h"
 #include "shady/ir/ext.h"
+#include "shady/analysis/uses.h"
 
 #include "ir_private.h"
 
 #include "analysis/cfg.h"
-#include "analysis/uses.h"
 #include "analysis/leak.h"
 #include "analysis/verify.h"
 #include "analysis/scheduler.h"

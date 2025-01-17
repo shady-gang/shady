@@ -1,6 +1,6 @@
 #include "shady/pass.h"
+#include "shady/analysis/uses.h"
 
-#include "analysis/uses.h"
 #include "analysis/leak.h"
 #include "ir_private.h"
 

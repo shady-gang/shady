@@ -3,9 +3,9 @@
 #include "shady/pass.h"
 #include "shady/fe/slim.h"
 #include "shady/ir/debug.h"
+#include "shady/analysis/uses.h"
 
 #include "../shady/ir_private.h"
-#include "../shady/analysis/uses.h"
 
 #include "list.h"
 #include "log.h"

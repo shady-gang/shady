@@ -1,11 +1,11 @@
-#include "shady/print.h"
+#include "ir_private.h"
 
+#include "shady/print.h"
+#include "shady/analysis/uses.h"
 #include "shady/visit.h"
 
-#include "ir_private.h"
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
-#include "analysis/uses.h"
 #include "analysis/leak.h"
 
 #include "log.h"

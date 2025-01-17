@@ -1,13 +1,13 @@
 #include "join_point_ops.h"
+#include "ir_private.h"
 
 #include "shady/pass.h"
 #include "shady/ir/stack.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/builtin.h"
+#include "shady/analysis/uses.h"
 
-#include "ir_private.h"
 #include "analysis/cfg.h"
-#include "analysis/uses.h"
 #include "analysis/leak.h"
 
 #include "log.h"

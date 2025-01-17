@@ -1,10 +1,11 @@
 #ifndef SHADY_LEAK_H
 #define SHADY_LEAK_H
 
-#include <stdbool.h>
-
-#include "uses.h"
 #include "cfg.h"
+
+#include "shady/analysis/uses.h"
+
+#include <stdbool.h>
 
 typedef void (VisitEnclosingAbsCallback)(void*, const Use*);
 void shd_visit_enclosing_abstractions(UsesMap* map, const Node* n, void* uptr, VisitEnclosingAbsCallback fn);

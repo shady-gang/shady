@@ -1,12 +1,12 @@
 #include "callgraph.h"
-#include "uses.h"
+
+#include "shady/analysis/uses.h"
+#include "shady/visit.h"
 
 #include "list.h"
 #include "dict.h"
 #include "portability.h"
 #include "log.h"
-
-#include "shady/visit.h"
 
 #include <stdlib.h>
 #include <string.h>

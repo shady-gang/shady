@@ -1,10 +1,9 @@
+#include "ir_private.h"
+
 #include "shady/pass.h"
 #include "shady/visit.h"
 #include "shady/ir/cast.h"
-
-#include "ir_private.h"
-#include "check.h"
-#include "analysis/uses.h"
+#include "shady/analysis/uses.h"
 
 #include "log.h"
 #include "portability.h"

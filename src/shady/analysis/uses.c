@@ -1,5 +1,9 @@
-#include "uses.h"
+#include "shady/analysis/uses.h"
 
+#include "shady/visit.h"
+
+#include "arena.h"
+#include "dict.h"
 #include "log.h"
 
 #include "shady/visit.h"
