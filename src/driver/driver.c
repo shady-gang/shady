@@ -170,6 +170,11 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, &args->config, mod);
 
+    if (args->output_filename) {
+        if (args->target == TgtAuto)
+            args->target = shd_guess_target(args->output_filename);
+    }
+
     ShdPipeline pipeline = shd_create_empty_pipeline();
     create_pipeline_for_config(pipeline, args, mod);
     CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
