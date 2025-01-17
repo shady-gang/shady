@@ -88,7 +88,7 @@ F(config->lower.emulate_generic_ptrs, emulate-generic-pointers) \
 F(config->dynamic_scheduling, dynamic-scheduling) \
 F(config->hacks.force_join_point_lifting, lift-join-points) \
 F(config->logging.print_internal, print-internal) \
-F(config->logging.print_generated, print-builtin) \
+F(config->logging.print_builtin, print-builtin) \
 F(config->logging.print_generated, print-generated) \
 F(config->optimisations.inline_everything, inline-everything) \
 F(config->input_cf.restructure_with_heuristics, restructure-everything) \
