@@ -412,13 +412,13 @@ Node* shd_recreate_node_head_(Rewriter* r, const Node* old) {
         default: shd_error("not a decl");
     }
     assert(new);
-    shd_rewrite_annotations(r, old, new);
     return new;
 }
 
 Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
     Node* new = shd_recreate_node_head_(r, old);
-    shd_register_processed(shd_get_top_rewriter(r), old, new);
+    shd_register_processed(r, old, new);
+    shd_rewrite_annotations(r, old, new);
     return new;
 }
 

@@ -21,6 +21,7 @@ static OpRewriteResult* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSE
             shd_rewrite_result_add_mask_rule(result, NcValue, fn_addr_helper(a, new));
             shd_register_processed_result(r, old, result);
             shd_recreate_node_body(r, old, new);
+            shd_rewrite_annotations(r, old, new);
             return result;
         }
         default: break;

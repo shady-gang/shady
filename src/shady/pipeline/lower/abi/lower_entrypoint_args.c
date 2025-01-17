@@ -43,6 +43,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
     String name = shd_fmt_string_irarena(a, "__%s_args", old_entry_point->payload.fun.name);
     Node* var = global_variable_helper(rewriter->dst_module, type, name, AsExternal);
+    shd_module_add_export(rewriter->dst_module, name, var);
     shd_add_annotation(var, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
 
     return var;
