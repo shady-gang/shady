@@ -57,9 +57,19 @@ void shd_visit_function_bodies_rpo(Visitor* visitor, const Node* function) {
 
 #pragma GCC diagnostic error "-Wswitch"
 
-#include "visit_generated.c"
-
 void shd_visit_module(Visitor* visitor, Module* mod) {
     Nodes decls = shd_module_get_declarations(mod);
     shd_visit_nodes(visitor, decls);
 }
+
+void shd_visit_node_operands_generated(Visitor* visitor, NodeClass exclude, const Node* node);
+
+void shd_visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* node) {
+    shd_visit_node_operands_generated(visitor, exclude, node);
+    for (size_t i = 0; i < node->annotations.count; i++) {
+        if ((exclude & NcAnnotation) == 0)
+            shd_visit_op(visitor, NcAnnotation, "annotation", node->annotations.nodes[i], i);
+    }
+}
+
+#include "visit_generated.c"

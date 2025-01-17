@@ -4,7 +4,7 @@ void generate(Growy* g, json_object* src) {
     generate_header(g, src);
 
     json_object* nodes = json_object_object_get(src, "nodes");
-    shd_growy_append_formatted(g, "void shd_visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* node) {\n");
+    shd_growy_append_formatted(g, "void shd_visit_node_operands_generated(Visitor* visitor, NodeClass exclude, const Node* node) {\n");
     shd_growy_append_formatted(g, "\tswitch (node->tag) { \n");
     assert(json_object_get_type(nodes) == json_type_array);
     for (size_t i = 0; i < json_object_array_length(nodes); i++) {
