@@ -53,9 +53,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Function_TAG: {
-            Node* nfun = shd_recreate_node_head(r, node);
-            Nodes new_params = get_abstraction_params(nfun);
+            Function payload = node->payload.fun;
+            payload = shd_rewrite_function_head_payload(r, payload);
 
+            Nodes annotations = shd_empty(a);
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
             while (an) {
@@ -72,20 +73,28 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     assert(i != PRIMOPS_COUNT);
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
-                    for (size_t i = 0; i < new_params.count; i++)
-                        new_params = shd_change_node_at_index(a, new_params, i, param_helper(a, shd_as_qualified_type(
-                                shd_get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
+                    for (size_t i = 0; i < payload.params.count; i++)
+                        payload.params = shd_change_node_at_index(a, payload.params, i, param_helper(a, shd_as_qualified_type(
+                                shd_get_unqualified_type(payload.params.nodes[i]->payload.param.type), true), payload.params.nodes[i]->payload.param.name));
                 }
-                shd_add_annotation(nfun, shd_rewrite_node(r, an->payload));
+                annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
                 an = an->next;
             }
+
+            Node* nfun = shd_function(r->dst_module, payload);
+            shd_register_processed_list(r, get_abstraction_params(node), payload.params);
+            shd_register_processed(r, node, nfun);
+            nfun->annotations = annotations;
+            shd_rewrite_annotations(r, node, nfun);
+
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 shd_set_abstraction_body(nfun, fn_ret(a, (Return) {
                     .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(nfun))),
                     .mem = shd_get_abstraction_mem(nfun),
                 }));
-            } else if (get_abstraction_body(node))
+            } else if (get_abstraction_body(node)) {
                 shd_set_abstraction_body(nfun, shd_rewrite_node(r, get_abstraction_body(node)));
+            }
             return nfun;
         }
         case GlobalVariable_TAG: {
