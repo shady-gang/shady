@@ -4,7 +4,7 @@ type TreeNode = struct {
     u32 depth;
 };
 
-@Internal
+@Exported @Internal
 type JoinPoint = struct {
     TreeNode node;
     fn_ptr_t destination;
@@ -24,8 +24,8 @@ type JoinPoint = struct {
 @Internal var logical subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
 @Internal var logical subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
 
-@Internal var logical subgroup fn_ptr_t next_fn;
-@Internal var logical subgroup TreeNode active_branch;
+@Exported @Internal var logical subgroup fn_ptr_t next_fn;
+@Exported @Internal var logical subgroup TreeNode active_branch;
 
 @Internal @Builtin("SubgroupLocalInvocationId")
 var input u32 subgroup_local_id;
