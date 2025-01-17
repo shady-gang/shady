@@ -86,7 +86,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
 }
 
 static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
-    if (n->tag == GlobalVariable_TAG)
+    if (n->tag == GlobalVariable_TAG && n->payload.global_variable.address_space == AsSubgroup)
         return r;
     return shd_default_rewriter_selector(r, n);
 }
