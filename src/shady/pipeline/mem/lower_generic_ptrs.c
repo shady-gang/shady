@@ -211,7 +211,7 @@ static const Node* process(Context* ctx, const Node* old) {
             bool u = shd_deconstruct_qualified_type(&old_ptr_t);
             u &= shd_is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                return call(a, (Call) {
+                return indirect_call(a, (IndirectCall) {
                     .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, LoadFn, u, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
                     .args = shd_singleton(shd_rewrite_node(&ctx->rewriter, payload.ptr)),
                     .mem = shd_rewrite_node(r, payload.mem)
@@ -224,7 +224,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* old_ptr_t = payload.ptr->type;
             shd_deconstruct_qualified_type(&old_ptr_t);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
-                return call(a, (Call) {
+                return indirect_call(a, (IndirectCall) {
                     .callee = fn_addr_helper(a, get_or_make_access_fn(ctx, StoreFn, false, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type))),
                     .args = mk_nodes(a, shd_rewrite_node(r, payload.ptr), shd_rewrite_node(r, payload.value)),
                     .mem = shd_rewrite_node(r, payload.mem),

@@ -364,7 +364,7 @@
       ]
     },
     {
-      "name": "Call",
+      "name": "IndirectCall",
       "class": ["instruction", "value", "mem"],
       "nominal": true,
       "ops": [

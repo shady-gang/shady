@@ -103,8 +103,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
         }
         // we convert calls to tail-calls within a control - only if the
         // call_indirect(...) to control(jp => save(jp); tailcall(...))
-        case Call_TAG: {
-            Call payload = old->payload.call;
+        case IndirectCall_TAG: {
+            IndirectCall payload = old->payload.indirect_call;
             const Node* ocallee = payload.callee;
             // if we know the callee and it's a leaf - then we don't change the call
             if (ocallee->tag == FnAddr_TAG && shd_lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))

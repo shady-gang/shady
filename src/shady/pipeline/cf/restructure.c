@@ -386,8 +386,8 @@ static const Node* process(Context* ctx, const Node* node) {
     // assert(!is_terminator(node) && !is_instruction(node));
 
     switch (node->tag) {
-        case Instruction_Call_TAG: {
-            const Node* callee = node->payload.call.callee;
+        case IndirectCall_TAG: {
+            const Node* callee = node->payload.indirect_call.callee;
             if (callee->tag == FnAddr_TAG) {
                 const Node* fn = shd_rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
                 // leave leaf calls alone

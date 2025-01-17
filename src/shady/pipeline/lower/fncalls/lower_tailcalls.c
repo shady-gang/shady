@@ -176,15 +176,15 @@ static const Node* process(Context* ctx, const Node* old) {
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
-        case Call_TAG: {
-            Call payload = old->payload.call;
+        case IndirectCall_TAG: {
+            IndirectCall payload = old->payload.indirect_call;
             assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
             FnAddr callee = payload.callee->payload.fn_addr;
             const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn);
             if (!ctx->disable_lowering) {
                 return shd_rewrite_node(r, payload.mem);
             }
-            return call(a, (Call) {
+            return indirect_call(a, (IndirectCall) {
                 .callee = fn_addr_helper(a, ncallee),
                 .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
                 .mem = shd_rewrite_node(r, payload.mem)
@@ -205,7 +205,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         args = shd_change_node_at_index(a, args, 0, prim_op_helper(a, convert_op, shd_singleton(shd_uint32_type(a)), shd_singleton(args.nodes[0])));
                         break;
                 }
-                return call(a, (Call) {
+                return indirect_call(a, (IndirectCall) {
                     .mem = shd_rewrite_node(r, payload.mem),
                     .callee = get_fn(r, callee_name),
                     .args = args,

@@ -600,7 +600,7 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     return fn_type->return_types;
 }
 
-const Type* _shd_check_type_call(IrArena* arena, Call call) {
+const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
     Nodes args = call.args;
     for (size_t i = 0; i < args.count; i++) {
         const Node* argument = args.nodes[i];

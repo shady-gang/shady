@@ -872,15 +872,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
     }
 }
 
-static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* call) {
-    Call payload = call->payload.call;
-    shd_c_emit_mem(emitter, fn, payload.mem);
-    Nodes args;
-    if (call->tag == Call_TAG)
-        args = call->payload.call.args;
-    else
-        assert(false);
-
+static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* callee, Nodes args, const Type* result_type) {
     Growy* g = shd_new_growy();
     Printer* paramsp = shd_new_printer_from_growy(g);
     if (emitter->use_private_globals) {
@@ -895,7 +887,6 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     }
 
     CValue e_callee;
-    const Node* callee = call->payload.call.callee;
     if (callee->tag == FnAddr_TAG)
         e_callee = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(callee->payload.fn_addr.fn));
     else
@@ -904,7 +895,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     String params = shd_printer_growy_unwrap(paramsp);
 
     CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "\n%s(%s)", e_callee, params));
-    called = shd_c_bind_intermediary_result(emitter, p, call->type, called);
+    called = shd_c_bind_intermediary_result(emitter, p, result_type, called);
 
     free_tmp_str(params);
     return called;
@@ -1033,8 +1024,11 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return shd_c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
-        case Instruction_Call_TAG: return emit_call(emitter, fn, p, instruction);
-        case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
+        case Instruction_IndirectCall_TAG: {
+            IndirectCall payload = instruction->payload.indirect_call;
+            shd_c_emit_mem(emitter, fn, instruction->payload.indirect_call.mem);
+            return emit_call(emitter, fn, p, payload.callee, payload.args, instruction->type);
+        } case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
         case Instruction_StackAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_LocalAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);

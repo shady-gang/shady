@@ -1146,7 +1146,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     break;
                 }
             }
-            Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, call(parser->arena, (Call) {
+            Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, indirect_call(parser->arena, (IndirectCall) {
                 .callee = fn_addr_helper(parser->arena, callee),
                 .args = shd_nodes(parser->arena, num_args, args)
             }), rslts_count);

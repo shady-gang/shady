@@ -681,7 +681,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
         switch (shd_curr_token(tokenizer).tag) {
             case lpar_tok: {
                 Nodes ops = expect_operands(ctx, bb);
-                expr = shd_bld_add_instruction(bb, call(arena, (Call) {
+                expr = shd_bld_add_instruction(bb, indirect_call(arena, (IndirectCall) {
                     .callee = expr,
                     .args = ops,
                     .mem = shd_bld_mem(bb),
@@ -804,7 +804,7 @@ static const Node* accept_instruction(ctxparams, BodyBuilder* bb) {
             const Node* callee = accept_operand(ctx, bb);
             expect(accept_token(ctx, rpar_tok), "')'");
             Nodes args = expect_operands(ctx, bb);
-            return call(arena, (Call) {
+            return indirect_call(arena, (IndirectCall) {
                     .callee = callee,
                     .args = args,
                     .mem = shd_bld_mem(bb)

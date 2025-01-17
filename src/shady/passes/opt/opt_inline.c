@@ -157,10 +157,10 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_destroy_rewriter(&fn_ctx.rewriter);
             return new;
         }
-        case Call_TAG: {
+        case IndirectCall_TAG: {
             if (!ctx->graph)
                 break;
-            Call payload = node->payload.call;
+            IndirectCall payload = node->payload.indirect_call;
             const Node* ocallee = payload.callee;
 
             ocallee = ignore_immediate_fn_addr(ocallee);

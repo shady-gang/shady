@@ -60,9 +60,9 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
     if (is_abstraction(node))
         search_for_callsites(visitor, get_abstraction_body(node));
     switch (node->tag) {
-        case Call_TAG: {
+        case IndirectCall_TAG: {
             assert(visitor->root && "calls can only occur in functions");
-            const Node* callee = node->payload.call.callee;
+            const Node* callee = node->payload.indirect_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);
@@ -210,7 +210,7 @@ CallGraph* shd_new_callgraph(Module* mod) {
 
             const Use* use = shd_get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
             for (;use;use = use->next_use) {
-                if (use->user->tag == Call_TAG && strcmp(use->operand_name, "callee") == 0)
+                if (use->user->tag == IndirectCall_TAG && strcmp(use->operand_name, "callee") == 0)
                     continue;
                 if (use->user->tag == TailCall_TAG && strcmp(use->operand_name, "callee") == 0)
                     continue;
