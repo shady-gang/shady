@@ -245,18 +245,21 @@ static const Node* bind_node(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
-            Node* bound = shd_recreate_node_head(r, node);
-            shd_register_processed(r, node, bound);
             Context fn_ctx = *ctx;
+            fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+            Node* bound = shd_recreate_node_head(&fn_ctx.rewriter, node);
+            assert(!ctx->local_variables);
+            shd_register_processed(r, node, bound);
             Nodes new_fn_params = get_abstraction_params(bound);
             for (size_t i = 0; i < new_fn_params.count; i++) {
                 add_binding(&fn_ctx, false, node->payload.fun.params.nodes[i]->payload.param.name, new_fn_params.nodes[i]);
             }
-            shd_register_processed_list(r, node->payload.fun.params, new_fn_params);
+            shd_register_processed_list(&fn_ctx.rewriter, node->payload.fun.params, new_fn_params);
 
             if (node->payload.fun.body) {
                 shd_set_abstraction_body(bound, shd_rewrite_node(&fn_ctx.rewriter, node->payload.fun.body));
             }
+            shd_destroy_rewriter(&fn_ctx.rewriter);
             return bound;
         }
         case Param_TAG: shd_error("the binders should be handled such that this node is never reached");
