@@ -584,14 +584,7 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
 }
 
 /// Shared logic between indirect calls and tailcalls
-static Nodes check_value_call(const Node* callee, Nodes argument_types) {
-    assert(is_value(callee));
-
-    const Type* callee_type = callee->type;
-    SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
-    AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
-    assert(as == AsGeneric);
-
+static Nodes check_value_call(const Type* callee_type, Nodes argument_types) {
     assert(callee_type->tag == FnType_TAG);
 
     const FnType* fn_type = &callee_type->payload.fn_type;
@@ -600,14 +593,46 @@ static Nodes check_value_call(const Node* callee, Nodes argument_types) {
     return fn_type->return_types;
 }
 
-const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
+const Type* _shd_check_type_call(IrArena* arena, Call call) {
     Nodes args = call.args;
     for (size_t i = 0; i < args.count; i++) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
     Nodes argument_types = shd_get_values_types(arena, args);
-    return shd_maybe_multiple_return(arena, check_value_call(call.callee, argument_types));
+    return shd_maybe_multiple_return(arena, check_value_call(call.callee->type, argument_types));
+}
+
+const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
+    assert(is_value(call.callee));
+    const Type* callee_type = call.callee->type;
+    SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
+    AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
+    assert(as == AsGeneric);
+
+    Nodes args = call.args;
+    for (size_t i = 0; i < args.count; i++) {
+        const Node* argument = args.nodes[i];
+        assert(is_value(argument));
+    }
+    Nodes argument_types = shd_get_values_types(arena, args);
+    return shd_maybe_multiple_return(arena, check_value_call(callee_type, argument_types));
+}
+
+const Type* _shd_check_type_tail_call(IrArena* arena, TailCall tail_call) {
+    assert(is_value(tail_call.callee));
+    const Type* callee_type = tail_call.callee->type;
+    SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
+    AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
+    assert(as == AsGeneric);
+
+    Nodes args = tail_call.args;
+    for (size_t i = 0; i < args.count; i++) {
+        const Node* argument = args.nodes[i];
+        assert(is_value(argument));
+    }
+    assert(check_value_call(callee_type, shd_get_values_types(arena, tail_call.args)).count == 0);
+    return noret_type(arena);
 }
 
 static void ensure_types_are_data_types(const Nodes* yield_types) {
@@ -824,16 +849,6 @@ const Type* _shd_check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStac
 
 const Type* _shd_check_type_debug_printf(IrArena* a, DebugPrintf payload) {
     return empty_multiple_return_type(a);
-}
-
-const Type* _shd_check_type_tail_call(IrArena* arena, TailCall tail_call) {
-    Nodes args = tail_call.args;
-    for (size_t i = 0; i < args.count; i++) {
-        const Node* argument = args.nodes[i];
-        assert(is_value(argument));
-    }
-    assert(check_value_call(tail_call.callee, shd_get_values_types(arena, tail_call.args)).count == 0);
-    return noret_type(arena);
 }
 
 static void check_basic_block_call(const Node* block, Nodes argument_types) {

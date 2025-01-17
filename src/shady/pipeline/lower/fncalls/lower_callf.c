@@ -19,6 +19,34 @@ typedef struct Context_ {
     const Node* return_jp;
 } Context;
 
+// we convert calls to tail-calls within a control
+// later lift_indirect_targets will take the code after the control
+// and turn it into a top-level function for us
+// f(...) to control(jp => f(..., jp))
+static const Node* transform_call(Context* ctx, Nodes return_types, const Node* mem, const Node* fn_ptr, Nodes nargs) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    // Create the body of the control that receives the appropriately typed join point
+    const Type* jp_type = qualified_type(a, (QualifiedType) {
+        .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, return_types) }),
+        .is_uniform = false
+    });
+    const Node* jp = param_helper(a, jp_type, "fn_return_point");
+
+    // Add that join point as the last argument to the newly made function
+    nargs = shd_nodes_append(a, nargs, jp);
+
+    // the body of the control is just an immediate tail-call
+    Node* control_case = case_(a, shd_singleton(jp));
+    const Node* control_body = tail_call(a, (TailCall) {
+        .callee = fn_ptr,
+        .args = nargs,
+        .mem = shd_get_abstraction_mem(control_case),
+    });
+    shd_set_abstraction_body(control_case, control_body);
+    BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, mem);
+    return shd_bld_to_instr_yield_values(bb, shd_bld_control(bb, shd_strip_qualifiers(a, return_types), control_case));
+}
+
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     Module* m = ctx->rewriter.dst_module;
@@ -101,45 +129,33 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 assert(false);
             }
         }
-        // we convert calls to tail-calls within a control - only if the
-        // call_indirect(...) to control(jp => save(jp); tailcall(...))
+        case Call_TAG: {
+            Call payload = old->payload.call;
+            // if the callee is a leaf then we don't change the call
+            if (shd_lookup_annotation(payload.callee, "Leaf"))
+                break;
+            const Type* ocallee_type = payload.callee->type;
+            assert(ocallee_type->tag == FnType_TAG);
+
+            const Node* ncallee = shd_rewrite_node(r, payload.callee);
+            assert(ncallee->tag == Function_TAG);
+
+            Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
+            return transform_call(ctx, shd_rewrite_nodes(r, ocallee_type->payload.fn_type.return_types), shd_rewrite_node(r, payload.mem), fn_addr_helper(a, ncallee), nargs);
+        }
         case IndirectCall_TAG: {
             IndirectCall payload = old->payload.indirect_call;
-            const Node* ocallee = payload.callee;
-            // if we know the callee and it's a leaf - then we don't change the call
-            if (ocallee->tag == FnAddr_TAG && shd_lookup_annotation(ocallee->payload.fn_addr.fn, "Leaf"))
-                break;
 
-            const Type* ocallee_type = ocallee->type;
-            bool callee_uniform = shd_deconstruct_qualified_type(&ocallee_type);
+            const Type* ocallee_type = payload.callee->type;
+            shd_deconstruct_qualified_type(&ocallee_type);
             ocallee_type = shd_get_pointee_type(a, ocallee_type);
             assert(ocallee_type->tag == FnType_TAG);
-            Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, ocallee_type->payload.fn_type.return_types);
 
             // Rewrite the callee and its arguments
-            const Node* ncallee = shd_rewrite_node(&ctx->rewriter, ocallee);
+            const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee);
             Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
 
-            // Create the body of the control that receives the appropriately typed join point
-            const Type* jp_type = qualified_type(a, (QualifiedType) {
-                    .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
-                    .is_uniform = false
-            });
-            const Node* jp = param_helper(a, jp_type, "fn_return_point");
-
-            // Add that join point as the last argument to the newly made function
-            nargs = shd_nodes_append(a, nargs, jp);
-
-            // the body of the control is just an immediate tail-call
-            Node* control_case = case_(a, shd_singleton(jp));
-            const Node* control_body = tail_call(a, (TailCall) {
-                .callee = ncallee,
-                .args = nargs,
-                .mem = shd_get_abstraction_mem(control_case),
-            });
-            shd_set_abstraction_body(control_case, control_body);
-            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
-            return shd_bld_to_instr_yield_values(bb, shd_bld_control(bb, shd_strip_qualifiers(a, returned_types), control_case));
+            return transform_call(ctx, shd_rewrite_nodes(r, ocallee_type->payload.fn_type.return_types), shd_rewrite_node(r, payload.mem), ncallee, nargs);
         }
         default: break;
     }

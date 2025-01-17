@@ -1024,9 +1024,13 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
         case Instruction_PrimOp_TAG: return shd_c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
-        case Instruction_IndirectCall_TAG: {
+        case Instruction_Call_TAG: {
+            Call payload = instruction->payload.call;
+            shd_c_emit_mem(emitter, fn, payload.mem);
+            return emit_call(emitter, fn, p, payload.callee, payload.args, instruction->type);
+        } case Instruction_IndirectCall_TAG: {
             IndirectCall payload = instruction->payload.indirect_call;
-            shd_c_emit_mem(emitter, fn, instruction->payload.indirect_call.mem);
+            shd_c_emit_mem(emitter, fn, payload.mem);
             return emit_call(emitter, fn, p, payload.callee, payload.args, instruction->type);
         } case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
         case Instruction_StackAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);

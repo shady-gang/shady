@@ -157,13 +157,12 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_destroy_rewriter(&fn_ctx.rewriter);
             return new;
         }
-        case IndirectCall_TAG: {
+        case Call_TAG: {
             if (!ctx->graph)
                 break;
-            IndirectCall payload = node->payload.indirect_call;
+            Call payload = node->payload.call;
             const Node* ocallee = payload.callee;
 
-            ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {

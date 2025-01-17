@@ -374,6 +374,16 @@
       ]
     },
     {
+      "name": "Call",
+      "class": ["instruction", "value", "mem"],
+      "nominal": true,
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "callee", "class": "function" },
+        { "name": "args", "class": "value", "list": true }
+      ]
+    },
+    {
       "name": "MemAndValue",
       "class": ["value", "mem"],
       "description": "Associate a value with a mem object, this allows adding side effects to a value",

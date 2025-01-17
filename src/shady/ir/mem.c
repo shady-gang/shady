@@ -11,6 +11,9 @@ const Node* shd_get_parent_mem(const Node* mem) {
         case NotAMem: return NULL;
         case Mem_AbsMem_TAG:
             return NULL;
+        case Mem_Call_TAG:
+            mem = mem->payload.call.mem;
+            return mem;
         case Mem_IndirectCall_TAG:
             mem = mem->payload.indirect_call.mem;
             return mem;

@@ -337,23 +337,16 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
     return spvb_ext_instruction(bb_builder, spv_emit_type(emitter, instr.result_t), set_id, instr.opcode, instr.operands.count, ops);
 }
 
-static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* callee, Nodes args) {
-    const Type* callee_type = callee->type;
-    shd_deconstruct_qualified_type(&callee_type);
-    shd_deconstruct_pointer_type(&callee_type);
-    assert(callee_type->tag == FnType_TAG);
-    Nodes return_types = callee_type->payload.fn_type.return_types;
-    SpvId return_type = spv_types_to_codom(emitter, return_types);
-
+static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* callee, Nodes args, const Type* return_type) {
     LARRAY(SpvId, eargs, args.count);
     for (size_t i = 0; i < args.count; i++)
         eargs[i] = spv_emit_value(emitter, fn_builder, args.nodes[i]);
 
     if (callee->tag == Function_TAG) {
-        return spvb_call(bb_builder, return_type, spv_emit_decl(emitter, callee), args.count, eargs);
+        return spvb_call(bb_builder, spv_emit_type(emitter, return_type), spv_emit_decl(emitter, callee), args.count, eargs);
     } else {
         spvb_capability(emitter->file_builder, SpvCapabilityFunctionPointersINTEL);
-        return spvb_op(bb_builder, SpvOpFunctionPointerCallINTEL, return_type, args.count, eargs);
+        return spvb_op(bb_builder, SpvOpFunctionPointerCallINTEL, spv_emit_type(emitter, return_type), args.count, eargs);
     }
 }
 
@@ -371,10 +364,14 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_FillBytes_TAG:
         case Instruction_StackAlloc_TAG: shd_error("Should be lowered elsewhere")
         case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
-        case Instruction_IndirectCall_TAG: {
+        case Instruction_Call_TAG: {
+            Call payload = instruction->payload.call;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
+            return emit_fn_call(emitter, fn_builder, bb_builder, payload.callee, payload.args, instruction->type);
+        } case Instruction_IndirectCall_TAG: {
             IndirectCall payload = instruction->payload.indirect_call;
             spv_emit_mem(emitter, fn_builder, payload.mem);
-            return emit_fn_call(emitter, fn_builder, bb_builder, payload.callee, payload.args);
+            return emit_fn_call(emitter, fn_builder, bb_builder, payload.callee, payload.args, instruction->type);
         } case PrimOp_TAG: return emit_primop(emitter, fn_builder, bb_builder, instruction);
         case Comment_TAG: {
             spv_emit_mem(emitter, fn_builder, instruction->payload.comment.mem);

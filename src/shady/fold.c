@@ -354,6 +354,8 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case IndirectCall_TAG: {
             IndirectCall payload = node->payload.indirect_call;
+            if (payload.callee->tag == FnAddr_TAG)
+                return call_helper(arena, payload.mem, payload.callee->payload.fn_addr.fn, payload.args);
             const Node* nptr = resolve_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
