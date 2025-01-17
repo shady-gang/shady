@@ -94,14 +94,19 @@ static Module* specialize_entry_point_pass(PassConfig* cfg, Module* src) {
         .config = cfg->config,
     };
 
-    const Node* old_entry_point_decl = shd_module_get_exported(src, cfg->entry_pt);
-    shd_rewrite_node(&ctx.rewriter, old_entry_point_decl);
+    const Node* entry_pt = shd_module_get_exported(src, cfg->entry_pt);
+    assert(entry_pt);
+    shd_module_add_export(dst, shd_get_exported_name(entry_pt), shd_rewrite_node(&ctx.rewriter, entry_pt));
 
     Nodes old_decls = shd_module_get_all_exported(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
-        if (shd_lookup_annotation(old_decl, "Internal"))
-            shd_rewrite_node(&ctx.rewriter, old_decl);
+        if (shd_lookup_annotation(old_decl, "Internal")) {
+            const Node* new = shd_rewrite_node(&ctx.rewriter, old_decl);
+            String export_name = shd_get_exported_name(new);
+            if (export_name)
+                shd_module_add_export(dst, export_name, new);
+        }
     }
 
     shd_destroy_rewriter(&ctx.rewriter);
