@@ -168,7 +168,7 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     switch (LLVMGetLinkage(fn)) {
         case LLVMExternalLinkage:
         case LLVMExternalWeakLinkage:
-            shd_add_annotation_named(f, "Exported");
+            shd_module_add_export(p->dst, LLVMGetValueName(fn), f);
             break;
         default:
             break;

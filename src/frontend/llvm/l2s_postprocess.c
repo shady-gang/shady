@@ -53,10 +53,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Function_TAG: {
-            Nodes new_params = remake_params(ctx, node->payload.fun.params);
-            Node* decl = function_helper(ctx->rewriter.dst_module, new_params, shd_get_abstraction_name(node), shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
-            shd_register_processed_list(r, node->payload.fun.params, new_params);
-            shd_register_processed(&ctx->rewriter, node, decl);
+            Node* nfun = shd_recreate_node_head(r, node);
+            Nodes new_params = get_abstraction_params(nfun);
 
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
             Op primop_intrinsic = PRIMOPS_COUNT;
@@ -78,17 +76,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
                         new_params = shd_change_node_at_index(a, new_params, i, param_helper(a, shd_as_qualified_type(
                                 shd_get_unqualified_type(new_params.nodes[i]->payload.param.type), true), new_params.nodes[i]->payload.param.name));
                 }
-                shd_add_annotation(decl, shd_rewrite_node(r, an->payload));
+                shd_add_annotation(nfun, shd_rewrite_node(r, an->payload));
                 an = an->next;
             }
             if (primop_intrinsic != PRIMOPS_COUNT) {
-                shd_set_abstraction_body(decl, fn_ret(a, (Return) {
-                    .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(decl))),
-                    .mem = shd_get_abstraction_mem(decl),
+                shd_set_abstraction_body(nfun, fn_ret(a, (Return) {
+                    .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(nfun))),
+                    .mem = shd_get_abstraction_mem(nfun),
                 }));
             } else if (get_abstraction_body(node))
-                shd_set_abstraction_body(decl, shd_rewrite_node(r, get_abstraction_body(node)));
-            return decl;
+                shd_set_abstraction_body(nfun, shd_rewrite_node(r, get_abstraction_body(node)));
+            return nfun;
         }
         case GlobalVariable_TAG: {
             // if (lookup_annotation(node, "LLVMMetaData"))
