@@ -28,17 +28,21 @@ static const Node* process(Context* ctx, const Node* old) {
                 shd_register_processed_list(r, get_abstraction_params(old), get_abstraction_params(new));
 
                 shd_add_annotation_named(new, "Leaf");
+                String exported_name = shd_get_exported_name(old);
+                shd_remove_annotation_by_name(old, "Exported");
                 shd_rewrite_annotations(r, old, new);
                 shd_remove_annotation_by_name(new, "EntryPoint");
 
                 shd_recreate_node_body(r, old, new);
 
-                const Node* init_fn = shd_module_get_init_fn(ctx->rewriter.dst_module);
-                const Node* fini_fn = shd_module_get_fini_fn(ctx->rewriter.dst_module);
+                const Node* init_fn = shd_rewrite_node(r, shd_module_get_init_fn(r->src_module));
+                const Node* fini_fn = shd_rewrite_node(r, shd_module_get_fini_fn(r->src_module));
 
                 Nodes wrapper_params = shd_recreate_params(r, get_abstraction_params(old));
                 Node* wrapper = function_helper(m, wrapper_params, payload.name, shd_rewrite_nodes(r, payload.return_types));
                 shd_rewrite_annotations(r, old, wrapper);
+                shd_module_add_export(m, exported_name, wrapper);
+
                 BodyBuilder* bld = shd_bld_begin(a, shd_get_abstraction_mem(wrapper));
                 shd_bld_call(bld, fn_addr_helper(a, init_fn), shd_empty(a));
                 Nodes results = shd_bld_call(bld, fn_addr_helper(a, new), wrapper_params);
