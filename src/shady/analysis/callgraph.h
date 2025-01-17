@@ -22,8 +22,6 @@ struct CGNode_ {
     } tarjan;
 
     bool is_recursive;
-    /// set to true if the address of this is captured by a FnAddr node that is not immediately consumed by a call
-    bool is_address_captured;
     bool calls_indirect;
 };
 

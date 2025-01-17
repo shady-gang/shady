@@ -45,18 +45,12 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     info = shd_dict_find_value(const Node*, FnInfo, ctx->fns, fn_node->fn);
     assert(info);
 
-    if (fn_node->is_address_captured || fn_node->is_recursive || fn_node->calls_indirect) {
+    if (fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
         shd_debugv_print("Function %s can't be a leaf function because", shd_get_abstraction_name(fn_node->fn));
         bool and = false;
-        if (fn_node->is_address_captured) {
-            shd_debugv_print("its address is captured");
-            and = true;
-        }
         if (fn_node->is_recursive) {
-            if (and)
-                shd_debugv_print(" and ");
             shd_debugv_print("it is recursive");
             and = true;
         }
@@ -100,7 +94,6 @@ static const Node* process(Context* ctx, const Node* node) {
             CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
             fn_ctx.is_leaf = is_leaf_fn(ctx, fn_node);
             fn_ctx.cfg = build_fn_cfg(node);
-            fn_ctx.uses = shd_new_uses_map_fn(node, (NcFunction | NcType));
             ctx = &fn_ctx;
             r = &ctx->rewriter;
 
@@ -117,7 +110,6 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_add_annotation_named(new, "Leaf");
             }
 
-            shd_destroy_uses_map(fn_ctx.uses);
             shd_destroy_cfg(fn_ctx.cfg);
             return new;
         }
@@ -159,11 +151,13 @@ Module* shd_pass_mark_leaf_functions(SHADY_UNUSED const CompilerConfig* config, 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .fns = shd_new_dict(const Node*, FnInfo, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
-        .graph = shd_new_callgraph(src)
+        .graph = shd_new_callgraph(src),
+        .uses = shd_new_uses_map_module(src, 0),
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_dict(ctx.fns);
     shd_destroy_callgraph(ctx.graph);
+    shd_destroy_uses_map(ctx.uses);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

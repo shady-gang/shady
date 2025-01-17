@@ -201,44 +201,11 @@ CallGraph* shd_new_callgraph(Module* mod) {
         .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };
 
-    const UsesMap* uses = shd_new_uses_map_module(mod, NcType);
-
-    Nodes decls = shd_module_get_all_exported(mod);
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag == Function_TAG) {
-            CGNode* node = analyze_fn(graph, decl);
-
-            const Use* use = shd_get_first_use(uses, fn_addr_helper(shd_module_get_arena(mod), decl));
-            for (;use;use = use->next_use) {
-                if (use->user->tag == IndirectCall_TAG && strcmp(use->operand_name, "callee") == 0)
-                    continue;
-                if (use->user->tag == TailCall_TAG && strcmp(use->operand_name, "callee") == 0)
-                    continue;
-                node->is_address_captured = true;
-            }
-        } else if (decl->tag == GlobalVariable_TAG && decl->payload.global_variable.init) {
-            CGVisitor v = {
-                .visitor = {
-                    .visit_node_fn = (VisitNodeFn) search_for_callsites
-                },
-                .graph = graph,
-                .root = NULL,
-            };
-            search_for_callsites(&v, decl->payload.global_variable.init);
-        } else if (decl->tag == Constant_TAG && decl->payload.constant.value) {
-            CGVisitor v = {
-                .visitor = {
-                    .visit_node_fn = (VisitNodeFn) search_for_callsites
-                },
-                .graph = graph,
-                .root = NULL,
-            };
-            search_for_callsites(&v, decl->payload.constant.value);
-        }
+    Nodes fns = shd_module_collect_reachable_functions(mod);
+    for (size_t i = 0; i < fns.count; i++) {
+        const Node* fn = fns.nodes[i];
+        analyze_fn(graph, fn);
     }
-
-    shd_destroy_uses_map(uses);
 
     shd_debugv_print("CallGraph: done with CFG build, contains %d nodes\n", shd_dict_count(graph->fn2cgn));
 

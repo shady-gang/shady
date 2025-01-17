@@ -39,21 +39,10 @@ static bool is_call_potentially_inlineable(const Node* src_fn, const Node* dst_f
     return true;
 }
 
-static bool is_call_safely_removable(const Node* fn) {
-    if (shd_lookup_annotation(fn, "Internal"))
-        return false;
-    if (shd_lookup_annotation(fn, "EntryPoint"))
-        return false;
-    if (shd_lookup_annotation(fn, "Exported"))
-        return false;
-    return true;
-}
-
 typedef struct {
     size_t num_calls;
     size_t num_inlineable_calls;
     bool can_be_inlined;
-    bool can_be_eliminated;
 } FnInliningCriteria;
 
 static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, CGNode* fn_node) {
@@ -72,29 +61,16 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
         crit.can_be_inlined = true;
 
     // avoid inlining recursive things for now
-    if (fn_node->is_address_captured || fn_node->is_recursive)
+    if (fn_node->is_recursive)
         crit.can_be_inlined = false;
 
-    // it can be eliminated if it can be inlined, and all the calls are inlineable calls ...
-    if (crit.num_calls == crit.num_inlineable_calls && crit.can_be_inlined)
-        crit.can_be_eliminated = true;
 
-    // unless the address is captured, in which case it must remain available for the indirect calls.
-    if (fn_node->is_address_captured)
-        crit.can_be_eliminated = false;
-
-    if (!is_call_safely_removable(fn_node->fn))
-        crit.can_be_eliminated = false;
-
-    shd_debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d safely_removable=%d address_leaks=%d recursive=%d inlineable=%d can_be_eliminated=%d\n",
+    shd_debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d recursive=%d inlineable=%d\n",
                      shd_get_abstraction_name(fn_node->fn),
                      crit.num_calls,
                      crit.num_inlineable_calls,
-                     is_call_safely_removable(fn_node->fn),
-                     fn_node->is_address_captured,
                      fn_node->is_recursive,
-                     crit.can_be_inlined,
-                     crit.can_be_eliminated);
+                     crit.can_be_inlined);
 
     return crit;
 }
@@ -134,14 +110,6 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
-            if (ctx->graph) {
-                CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, node);
-                if (get_inlining_heuristic(ctx->config, fn_node).can_be_eliminated) {
-                    shd_debugv_print("Eliminating %s because it has exactly one caller\n", shd_get_abstraction_name(fn_node->fn));
-                    return NULL;
-                }
-            }
-
             Node* new = function_helper(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             shd_rewrite_annotations(r, node, new);
             shd_register_processed(r, node, new);
