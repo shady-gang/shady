@@ -68,3 +68,14 @@ const char* shd_get_executable_location(void) {
     assert(final_len <= len);
     return buf;
 }
+
+#ifdef __USE_POSIX
+#include "signal.h"
+void shd_breakpoint(const char* s) {
+    raise(SIGTRAP);
+}
+#else
+void shd_breakpoint(const char* s) {
+    1 / 0;
+}
+#endif

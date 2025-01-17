@@ -51,6 +51,8 @@ static inline void shd_free_aligned(void* ptr) {
 uint64_t shd_get_time_nano(void);
 const char* shd_get_executable_location(void);
 
+void shd_breakpoint(const char*);
+
 void shd_platform_specific_terminal_init_extras(void);
 
 #endif
