@@ -41,7 +41,7 @@ static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / config->target.subgroup_size;
     if (subgroups_per_wg == 0)
         subgroups_per_wg = 1; // uh-oh
-    shd_print(p, "@Internal const u32 SUBGROUPS_PER_WG = %d;\n", subgroups_per_wg);
+    shd_print(p, "@Exported @Internal const u32 SUBGROUPS_PER_WG = %d;\n", subgroups_per_wg);
     shd_print(p, "%s", shady_scheduler_src);
     String s = shd_printer_growy_unwrap(p);
     Module* builtin_scheduler_mod = shd_parse_slim_module(config, &pconfig, s, "builtin_scheduler");
