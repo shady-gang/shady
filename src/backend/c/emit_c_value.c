@@ -887,8 +887,8 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
     }
 
     CValue e_callee;
-    if (callee->tag == FnAddr_TAG)
-        e_callee = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(callee->payload.fn_addr.fn));
+    if (callee->tag == Function_TAG)
+        e_callee = shd_c_to_ssa(emitter, shd_c_emit_function(emitter, callee));
     else
         e_callee = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, callee));
 

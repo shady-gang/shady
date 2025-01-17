@@ -72,6 +72,7 @@ void shd_c_emit_unpack_code(Printer* p, String src, Strings dst);
 CTerm shd_c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t, CTerm term);
 void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, const Type* t, String variable_name, bool mut, const CTerm* initializer);
 
+CTerm shd_c_emit_function(Emitter* emitter, const Node* fn);
 void shd_c_emit_decl(Emitter* emitter, const Node* decl);
 void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init);
 CTerm shd_c_emit_builtin(Emitter* emitter, Builtin b);

@@ -229,6 +229,63 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
     //shd_print(emitter->fn_decls, "\n%s;", declaration);
 }
 
+CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
+    CTerm* found = shd_c_lookup_existing_term(emitter, NULL, decl);
+    if (found) return *found;
+
+    const char* name = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(decl));
+    CTerm emit_as = term_from_cvalue(name);
+    shd_c_register_emitted(emitter, NULL, decl, emit_as);
+    String head = shd_c_emit_fn_head(emitter, decl->type, name, decl);
+    const Node* body = decl->payload.fun.body;
+    if (body) {
+        FnEmitter fn = {
+            .cfg = build_fn_cfg(decl),
+            .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        };
+        fn.scheduler = shd_new_scheduler(fn.cfg);
+        fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
+        // for (size_t i = 0; i < fn.cfg->size; i++)
+        //     fn.instruction_printers[i] = open_growy_as_printer(new_growy());
+
+        for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
+            String param_name;
+            String variable_name = shd_get_node_name_unsafe(decl->payload.fun.params.nodes[i]);
+            param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", shd_c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
+            shd_c_register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
+        }
+
+        String fn_body = shd_c_emit_body(emitter, &fn, decl);
+        if (emitter->config.dialect == CDialect_ISPC) {
+            // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
+            // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
+            fn_body = shd_format_string_arena(emitter->arena->arena, "\nassert(lanemask() != 0);\nif ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
+            // I hate everything about this too.
+        } else if (emitter->config.dialect == CDialect_CUDA) {
+            if (shd_lookup_annotation(decl, "EntryPoint")) {
+                // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
+                if (emitter->use_private_globals) {
+                    fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
+                }
+                fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
+            }
+        }
+        shd_print(emitter->fn_defs, "\n%s { ", head);
+        shd_printer_indent(emitter->fn_defs);
+        shd_print(emitter->fn_defs, " %s", fn_body);
+        shd_printer_deindent(emitter->fn_defs);
+        shd_print(emitter->fn_defs, "\n}");
+
+        shd_destroy_scheduler(fn.scheduler);
+        shd_destroy_cfg(fn.cfg);
+        shd_destroy_dict(fn.emitted_terms);
+        free(fn.instruction_printers);
+    }
+
+    shd_print(emitter->fn_decls, "\n%s;", head);
+    return emit_as;
+}
+
 void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
     assert(is_declaration(decl));
 
@@ -239,8 +296,6 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
     if (found2) return;
 
     const char* name = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(decl));
-    const Type* decl_type = decl->type;
-    const char* decl_center = name;
     CTerm emit_as;
 
     switch (decl->tag) {
@@ -261,7 +316,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
                 return;
             }
 
-            decl_type = decl->payload.global_variable.type;
+            const Type* decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
             if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
@@ -278,59 +333,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             shd_c_register_emitted(emitter, NULL, decl, emit_as);
 
             AddressSpace as = decl->payload.global_variable.address_space;
-            shd_c_emit_global_variable_definition(emitter, as, decl_center, decl_type, false, init);
-            return;
-        }
-        case Function_TAG: {
-            emit_as = term_from_cvalue(name);
-            shd_c_register_emitted(emitter, NULL, decl, emit_as);
-            String head = shd_c_emit_fn_head(emitter, decl->type, name, decl);
-            const Node* body = decl->payload.fun.body;
-            if (body) {
-                FnEmitter fn = {
-                    .cfg = build_fn_cfg(decl),
-                    .emitted_terms = shd_new_dict(Node*, CTerm, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
-                };
-                fn.scheduler = shd_new_scheduler(fn.cfg);
-                fn.instruction_printers = calloc(sizeof(Printer*), fn.cfg->size);
-                // for (size_t i = 0; i < fn.cfg->size; i++)
-                //     fn.instruction_printers[i] = open_growy_as_printer(new_growy());
-
-                for (size_t i = 0; i < decl->payload.fun.params.count; i++) {
-                    String param_name;
-                    String variable_name = shd_get_node_name_unsafe(decl->payload.fun.params.nodes[i]);
-                    param_name = shd_fmt_string_irarena(emitter->arena, "%s_%d", shd_c_legalize_identifier(emitter, variable_name), decl->payload.fun.params.nodes[i]->id);
-                    shd_c_register_emitted(emitter, &fn, decl->payload.fun.params.nodes[i], term_from_cvalue(param_name));
-                }
-
-                String fn_body = shd_c_emit_body(emitter, &fn, decl);
-                if (emitter->config.dialect == CDialect_ISPC) {
-                    // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
-                    // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
-                    fn_body = shd_format_string_arena(emitter->arena->arena, "\nassert(lanemask() != 0);\nif ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
-                    // I hate everything about this too.
-                } else if (emitter->config.dialect == CDialect_CUDA) {
-                    if (shd_lookup_annotation(decl, "EntryPoint")) {
-                        // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
-                        if (emitter->use_private_globals) {
-                            fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
-                        }
-                        fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
-                    }
-                }
-                shd_print(emitter->fn_defs, "\n%s { ", head);
-                shd_printer_indent(emitter->fn_defs);
-                shd_print(emitter->fn_defs, " %s", fn_body);
-                shd_printer_deindent(emitter->fn_defs);
-                shd_print(emitter->fn_defs, "\n}");
-
-                shd_destroy_scheduler(fn.scheduler);
-                shd_destroy_cfg(fn.cfg);
-                shd_destroy_dict(fn.emitted_terms);
-                free(fn.instruction_printers);
-            }
-
-            shd_print(emitter->fn_decls, "\n%s;", head);
+            shd_c_emit_global_variable_definition(emitter, as, name, decl_type, false, init);
             return;
         }
         case Constant_TAG: {
@@ -338,9 +341,10 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             shd_c_register_emitted(emitter, NULL, decl, emit_as);
 
             String init = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, NULL, decl->payload.constant.value));
-            shd_c_emit_global_variable_definition(emitter, AsGlobal, decl_center, decl->type, true, init);
+            shd_c_emit_global_variable_definition(emitter, AsGlobal, name, decl->type, true, init);
             return;
         }
+        case Function_TAG: shd_c_emit_function(emitter, decl); break;
         case NominalType_TAG: {
             CType emitted = name;
             shd_c_register_emitted_type(emitter, decl, emitted);
