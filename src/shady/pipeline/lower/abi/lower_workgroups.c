@@ -37,11 +37,15 @@ static const Node* process(Context* ctx, const Node* node) {
                 case BuiltinSubgroupId:
                 case BuiltinWorkgroupId:
                 case BuiltinGlobalInvocationId:
-                case BuiltinLocalInvocationId:
-                    return global_variable_helper(m, shd_get_builtin_type(a, b),shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsPrivate);
-                case BuiltinNumWorkgroups:
-                    return global_variable_helper(m, shd_get_builtin_type(a, b), shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsExternal);
-                default:
+                case BuiltinLocalInvocationId: {
+                    Node* global = global_variable_helper(m, shd_get_builtin_type(a, b),shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsPrivate);
+                    shd_module_add_export(m, shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), global);
+                    return global;
+                } case BuiltinNumWorkgroups: {
+                    Node* global = global_variable_helper(m, shd_get_builtin_type(a, b), shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), AsExternal);
+                    shd_module_add_export(m, shd_fmt_string_irarena(a, "builtin_%s", shd_get_builtin_name(b)), global);
+                    return global;
+                } default:
                     break;
             }
             break;
