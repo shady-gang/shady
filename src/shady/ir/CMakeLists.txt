@@ -15,5 +15,4 @@ target_sources(shady PRIVATE
     stack.c
     cast.c
     ext.c
-    dict.c
 )

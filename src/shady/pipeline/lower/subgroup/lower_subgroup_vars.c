@@ -4,6 +4,7 @@
 #include "shady/ir/builtin.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/decl.h"
+#include "shady/dict.h"
 
 #include "log.h"
 
@@ -11,6 +12,7 @@ typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
     BodyBuilder* bb;
+    Node2Node shared_backing;
 } Context;
 
 static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, const Node* node) {
@@ -46,8 +48,8 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
             GlobalVariable payload = node->payload.global_variable;
             AddressSpace as = node->payload.global_variable.address_space;
             if (as == AsSubgroup) {
-                if (r == shd_get_top_rewriter(r)) {
-                    OpRewriteResult* result = shd_new_rewrite_result_none(r);
+                const Node* backing_shared_alloc = shd_node2node_find(ctx->shared_backing, node);
+                if (!backing_shared_alloc) {
                     assert(payload.is_ref && "All subgroup variables should be logical by now!");
                     payload = shd_rewrite_global_head_payload(r, payload);
                     payload.address_space = AsShared;
@@ -56,7 +58,6 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
                         .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_exported(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
                     });
                     Node* new = shd_global_var(r->dst_module, payload);
-                    shd_rewrite_result_add_mask_rule(result, ~NcValue, new);
 
                     if (node->payload.global_variable.init) {
                         new->payload.global_variable.init = fill(a, (Fill) {
@@ -64,15 +65,16 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
                             .value = shd_rewrite_op(&ctx->rewriter, NcValue, "init", node->payload.global_variable.init)
                         });
                     }
-                    return result;
+                    shd_node2node_insert(ctx->shared_backing, node, new);
+                    backing_shared_alloc = new;
                 }
 
                 OpRewriteResult* result = shd_new_rewrite_result_none(r);
-                const Node* ndecl = shd_rewrite_op(shd_get_top_rewriter(r), ~NcValue /* HACK */, "", node);
-                assert(ctx->bb);
-                const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
-                const Node* slice = lea_helper(a, ndecl, shd_int32_literal(a, 0), mk_nodes(a, index));
-                shd_rewrite_result_add_mask_rule(result, NcValue, slice);
+                if (ctx->bb) {
+                    const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
+                    const Node* slice = lea_helper(a, backing_shared_alloc, shd_int32_literal(a, 0), mk_nodes(a, index));
+                    shd_rewrite_result_add_mask_rule(result, NcValue, slice);
+                }
                 return result;
             }
             break;
@@ -96,9 +98,11 @@ Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) 
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
+        .shared_backing = shd_new_node2node(),
     };
     ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
     shd_rewrite_module(&ctx.rewriter);
+    shd_destroy_node2node(ctx.shared_backing);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

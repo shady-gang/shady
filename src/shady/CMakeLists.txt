@@ -35,6 +35,7 @@ target_sources(shady PRIVATE
     body_builder.c
     compile.c
     config.c
+    dict.c
 )
 
 add_subdirectory(analysis)

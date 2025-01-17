@@ -1,4 +1,4 @@
-#include "shady/ir/dict.h"
+#include "shady/dict.h"
 
 #include "dict.h"
 
@@ -11,6 +11,6 @@ bool shd_node_set_insert(NodeSet set, const Node* key) { return shd_set_insert_g
 void shd_destroy_node_set(NodeSet set) { return shd_destroy_dict(set); }
 
 Node2Node shd_new_node2node(void) { return shd_new_dict(const Node*, const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node); }
-const Node* shd_node2node_find(Node2Node set, const Node* key) { const Node** found = shd_dict_find_key(const Node*, set, key); return found ? *found : NULL; }
+const Node* shd_node2node_find(Node2Node set, const Node* key) { const Node** found = shd_dict_find_value(const Node*, const Node*, set, key); return found ? *found : NULL; }
 bool shd_node2node_insert(Node2Node set, const Node* key, const Node* value) { return shd_dict_insert(const Node*, const Node*, set, key, value); }
 void shd_destroy_node2node(Node2Node set) { return shd_destroy_dict(set); }

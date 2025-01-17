@@ -1,7 +1,6 @@
 #ifndef SHADY_IR_DICT_H
 #define SHADY_IR_DICT_H
 
-#include <stdint.h>
 #include "shady/ir/base.h"
 
 typedef struct Dict* NodeSet;
