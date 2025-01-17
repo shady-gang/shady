@@ -74,7 +74,7 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
 }
 
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
-static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
+static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     assert(old->tag == Function_TAG && fun->tag == Function_TAG);
     Context ctx2 = *ctx;
     Rewriter* r = &ctx2.rewriter;
@@ -101,13 +101,14 @@ static void lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
 
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", shd_nodes(a, 0, NULL));
-        shd_add_annotation_named(*ctx->top_dispatcher_fn, "Generated");
+        // shd_add_annotation_named(*ctx->top_dispatcher_fn, "Generated");
         shd_add_annotation_named(*ctx->top_dispatcher_fn, "Leaf");
     }
 
     shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
 
     shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
+    return new_entry_pt;
 }
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -121,6 +122,7 @@ static const Node* process(Context* ctx, const Node* old) {
             ctx = &ctx2;
 
             const Node* entry_point_annotation = shd_lookup_annotation(old, "EntryPoint");
+            String exported_name = shd_get_exported_name(old);
 
             // Leave leaf-calls alone :)
             ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf") || !old->payload.fun.body;
@@ -141,21 +143,23 @@ static const Node* process(Context* ctx, const Node* old) {
             }
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
-
-
             String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
 
-            shd_remove_annotation_by_name(old, "EntryPoint");
             Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_nodes(a, 0, NULL));
+            shd_remove_annotation_by_name(old, "EntryPoint");
+            shd_remove_annotation_by_name(old, "Exported");
             shd_rewrite_annotations(r, old, fun);
             shd_add_annotation_named(fun, "Leaf");
             shd_add_annotation(fun, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
 
             shd_register_processed(&ctx->rewriter, old, fun);
 
-            if (entry_point_annotation)
-                lift_entry_point(ctx, old, fun);
-
+            if (entry_point_annotation) {
+                assert(exported_name);
+                const Node* new_entry_pt = lift_entry_point(ctx, old, fun);
+                shd_add_annotation(new_entry_pt, shd_rewrite_node(r, entry_point_annotation));
+                shd_module_add_export(ctx->rewriter.dst_module, exported_name, new_entry_pt);
+            }
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
