@@ -20,7 +20,7 @@ static void replace_or_compare(bool weak, const Node** dst, const Node* with) {
 }
 
 static const Node* import_node(Rewriter* r, const Node* node) {
-    const Node* ea = shd_lookup_annotation(node, "Export");
+    const Node* ea = shd_lookup_annotation(node, "Exported");
     if (ea) {
         assert(ea->tag == AnnotationValue_TAG);
         AnnotationValue payload = ea->payload.annotation_value;

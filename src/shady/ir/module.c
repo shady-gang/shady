@@ -45,7 +45,7 @@ Nodes shd_module_get_declarations(const Module* m) {
 
 String shd_get_exported_name(const Node* node) {
     IrArena* a = node->arena;
-    const Node* ea = shd_lookup_annotation(node, "Export");
+    const Node* ea = shd_lookup_annotation(node, "Exported");
     if (ea) {
         assert(ea->tag == AnnotationValue_TAG);
         AnnotationValue payload = ea->payload.annotation_value;
