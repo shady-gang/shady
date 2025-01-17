@@ -86,7 +86,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
     Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
     Growy* resources = shd_new_growy();
 
-    Nodes decls = shd_module_get_declarations(program->specialized_module);
+    Nodes decls = shd_module_get_all_exported(program->specialized_module);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
@@ -268,7 +268,7 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
 }
 
 static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) {
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
 
     const Node* args_struct_annotation;
     const Node* args_struct_type = NULL;

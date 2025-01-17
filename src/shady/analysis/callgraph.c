@@ -202,7 +202,7 @@ CallGraph* shd_new_callgraph(Module* mod) {
 
     const UsesMap* uses = shd_new_uses_map_module(mod, NcType);
 
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag == Function_TAG) {

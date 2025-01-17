@@ -25,7 +25,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
         assert(ea->tag == AnnotationValue_TAG);
         AnnotationValue payload = ea->payload.annotation_value;
         String name = shd_get_string_literal(ea->arena, payload.value);
-        Node* existing = shd_module_get_declaration(r->dst_module, name);
+        Node* existing = shd_module_get_exported(r->dst_module, name);
         if (existing) {
             const Node* imported_t = shd_rewrite_node(r, node->type);
             if (imported_t != existing->type) {

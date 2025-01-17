@@ -1,5 +1,7 @@
 #include "../ir_private.h"
 
+#include "shady/visit.h"
+
 #include "dict.h"
 #include "list.h"
 #include "portability.h"
@@ -28,19 +30,69 @@ String shd_module_get_name(const Module* m) {
     return m->name;
 }
 
-Nodes shd_module_get_declarations(const Module* m) {
-    size_t count = shd_dict_count(m->decls);
+static Nodes dict2nodes(IrArena* a, struct Dict* d, bool values) {
+    size_t count = shd_dict_count(d);
     const Node** alloc = malloc(sizeof(const Node*) * count);
 
     const Node* def;
     size_t i = 0, j = 0;
-    while (shd_dict_iter(m->decls, &i, NULL, &def)) {
+    while (values ? shd_dict_iter(d, &i, NULL, &def) : shd_dict_iter(d, &i, &def, NULL)) {
         alloc[j++] = def;
     }
 
-    Nodes n = shd_nodes(m->arena, count, alloc);
+    Nodes n = shd_nodes(a, count, alloc);
     free(alloc);
     return n;
+}
+
+Nodes shd_module_get_all_exported(const Module* m) {
+    return dict2nodes(m->arena, m->decls, true);
+}
+
+KeyHash shd_hash_node(const Node**);
+bool shd_compare_node(const Node**, const Node**);
+
+typedef struct {
+    Visitor v;
+    NodeTag tag;
+    struct Dict* set;
+    struct Dict* seen;
+} VisitorCtx;
+
+static void visit_node(VisitorCtx* ctx, const Node* n) {
+    if (shd_dict_find_key(const Node*, ctx->seen, n))
+        return;
+    shd_set_insert_get_result(const Node*, ctx->seen, n);
+    if (n->tag == ctx->tag)
+        shd_set_insert_get_result(const Node*, ctx->set, n);
+    shd_visit_node_operands(&ctx->v, 0, n);
+}
+
+static Nodes collect_nodes_by_tag(const Module* m, NodeTag tag) {
+    VisitorCtx ctx = {
+        .v = {
+            .visit_node_fn = (VisitNodeFn) visit_node
+        },
+        .tag = tag,
+    };
+    ctx.set = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+    ctx.seen = shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
+
+    shd_visit_module(&ctx.v, m);
+
+    Nodes n = dict2nodes(m->arena, ctx.set, false);
+
+    shd_destroy_dict(ctx.set);
+    shd_destroy_dict(ctx.seen);
+    return n;
+}
+
+Nodes shd_module_collect_reachable_globals(const Module* m) {
+    return collect_nodes_by_tag(m, GlobalVariable_TAG);
+}
+
+Nodes shd_module_collect_reachable_functions(const Module* m) {
+    return collect_nodes_by_tag(m, Function_TAG);
 }
 
 String shd_get_exported_name(const Node* node) {
@@ -58,7 +110,7 @@ void shd_module_add_export(Module* m, String name, const Node* node) {
     assert(!m->sealed);
     assert(name);
     assert(is_declaration(node));
-    const Node* conflict = shd_module_get_declaration(m, name);
+    const Node* conflict = shd_module_get_exported(m, name);
     assert((!conflict || conflict == node) && "duplicate export");
 
     IrArena* a = m->arena;
@@ -73,7 +125,7 @@ void shd_module_add_export(Module* m, String name, const Node* node) {
     assert(def_inserted_ok);
 }
 
-const Node* shd_module_get_declaration(const Module* m, String name) {
+const Node* shd_module_get_exported(const Module* m, String name) {
     const Node** found = shd_dict_find_value(String, const Node*, m->decls, name);
     if (found) return *found;
     return NULL;
@@ -90,14 +142,14 @@ static Node* make_init_fini_fn(Module* m, String name) {
 }
 
 Node* shd_module_get_init_fn(Module* m) {
-    const Node* found = shd_module_get_declaration(m, "generated_init");
+    const Node* found = shd_module_get_exported(m, "generated_init");
     if (found)
         return (Node*) found;
     return make_init_fini_fn(m, "generated_init");
 }
 
 Node* shd_module_get_fini_fn(Module* m) {
-    const Node* found = shd_module_get_declaration(m, "generated_fini");
+    const Node* found = shd_module_get_exported(m, "generated_fini");
     if (found)
         return (Node*) found;
     return make_init_fini_fn(m, "generated_fini");

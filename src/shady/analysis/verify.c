@@ -152,7 +152,7 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
     }
     shd_destroy_list(cfgs);
 
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         verify_nominal_node(NULL, decl);

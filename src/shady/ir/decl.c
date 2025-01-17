@@ -34,7 +34,7 @@ Node* shd_global_var(Module* mod, GlobalVariable payload) {
 }
 
 const Node* shd_find_or_process_decl(Rewriter* rewriter, const char* name) {
-    const Node* odecl = shd_module_get_declaration(rewriter->src_module, name);
+    const Node* odecl = shd_module_get_exported(rewriter->src_module, name);
     assert(odecl);
     return shd_rewrite_node(rewriter, odecl);
 }

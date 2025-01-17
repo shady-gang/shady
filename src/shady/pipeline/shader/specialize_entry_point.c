@@ -59,7 +59,7 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 static void specialize_arena_config(String entry_point, const CompilerConfig* config, Module* src, ArenaConfig* target) {
-    const Node* old_entry_point_decl = shd_module_get_declaration(src, entry_point);
+    const Node* old_entry_point_decl = shd_module_get_exported(src, entry_point);
     if (!old_entry_point_decl)
         shd_error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
@@ -94,10 +94,10 @@ static Module* specialize_entry_point_pass(PassConfig* cfg, Module* src) {
         .config = cfg->config,
     };
 
-    const Node* old_entry_point_decl = shd_module_get_declaration(src, cfg->entry_pt);
+    const Node* old_entry_point_decl = shd_module_get_exported(src, cfg->entry_pt);
     shd_rewrite_node(&ctx.rewriter, old_entry_point_decl);
 
-    Nodes old_decls = shd_module_get_declarations(src);
+    Nodes old_decls = shd_module_get_all_exported(src);
     for (size_t i = 0; i < old_decls.count; i++) {
         const Node* old_decl = old_decls.nodes[i];
         if (shd_lookup_annotation(old_decl, "Internal"))

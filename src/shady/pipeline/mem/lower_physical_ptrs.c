@@ -352,18 +352,16 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 static Nodes collect_globals(Context* ctx, AddressSpace as) {
     IrArena* a = ctx->rewriter.dst_arena;
-    Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
-    LARRAY(const Type*, collected, old_decls.count);
+    Nodes oglobals = shd_module_collect_reachable_globals(ctx->rewriter.src_module);
+    LARRAY(const Type*, collected, oglobals.count);
     size_t members_count = 0;
 
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* decl = old_decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG)
-            continue;
-        GlobalVariable payload = decl->payload.global_variable;
+    for (size_t i = 0; i < oglobals.count; i++) {
+        const Node* oglobal = oglobals.nodes[i];
+        GlobalVariable payload = oglobal->payload.global_variable;
         if (payload.is_ref || payload.address_space != as)
             continue;
-        collected[members_count] = decl;
+        collected[members_count] = oglobal;
         members_count++;
     }
 

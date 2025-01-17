@@ -330,7 +330,7 @@ void shd_register_processed_list(Rewriter* r, Nodes old, Nodes new) {
 
 void shd_rewrite_module(Rewriter* r) {
     assert(r->dst_module != r->src_module);
-    Nodes old_decls = shd_module_get_declarations(r->src_module);
+    Nodes old_decls = shd_module_get_all_exported(r->src_module);
     for (size_t i = 0; i < old_decls.count; i++) {
         // if (!shd_lookup_annotation(old_decls.nodes[i], "Exported") && !shd_lookup_annotation(old_decls.nodes[i], "EntryPoint") && !shd_lookup_annotation(old_decls.nodes[i], "Internal")) continue;
         const Node* ndecl = rewrite_op_helper(r, 0, "decl", old_decls.nodes[i]);

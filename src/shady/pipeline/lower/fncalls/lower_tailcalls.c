@@ -383,42 +383,40 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* zero_jump = jump_helper(a, shd_bld_mem(loop_body_builder), zero_case_lam, shd_empty(a));
     shd_list_append(const Node*, jumps, zero_jump);
 
-    Nodes old_decls = shd_module_get_declarations(ctx->rewriter.src_module);
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* decl = old_decls.nodes[i];
-        if (decl->tag == Function_TAG) {
-            if (shd_lookup_annotation(decl, "Leaf"))
-                continue;
+    Nodes ofunctions = shd_module_collect_reachable_functions(ctx->rewriter.src_module);
+    for (size_t i = 0; i < ofunctions.count; i++) {
+        const Node* ofunction = ofunctions.nodes[i];
+        if (shd_lookup_annotation(ofunction, "Leaf"))
+            continue;
 
-            const Node* fn_lit = shd_uint32_literal(a, get_fn_ptr(ctx, decl));
+        const Node* fn_lit = shd_uint32_literal(a, get_fn_ptr(ctx, ofunction));
 
-            Node* if_true_case = case_(a, shd_empty(a));
-            BodyBuilder* if_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
-            if (ctx->config->printf_trace.top_function) {
-                shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
-            }
-            shd_bld_call(if_builder, fn_addr_helper(a, shd_rewrite_node(r, decl)), shd_empty(a));
-            shd_set_abstraction_body(if_true_case, shd_bld_join(if_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
-
-            Node* if_false = case_(a, shd_empty(a));
-            shd_set_abstraction_body(if_false, join(a, (Join) {
-                .mem = shd_get_abstraction_mem(if_false),
-                .join_point = l.continue_jp,
-                .args = count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)
-            }));
-
-            Node* fn_case = case_(a, shd_nodes(a, 0, NULL));
-            shd_set_abstraction_body(fn_case, branch(a, (Branch) {
-                .mem = shd_get_abstraction_mem(fn_case),
-                .condition = should_run,
-                .true_jump = jump_helper(a, shd_get_abstraction_mem(fn_case), if_true_case, shd_empty(a)),
-                .false_jump = jump_helper(a, shd_get_abstraction_mem(fn_case), if_false, shd_empty(a)),
-            }));
-
-            shd_list_append(const Node*, literals, fn_lit);
-            const Node* j = jump_helper(a, shd_bld_mem(loop_body_builder), fn_case, shd_empty(a));
-            shd_list_append(const Node*, jumps, j);
+        Node* if_true_case = case_(a, shd_empty(a));
+        BodyBuilder* if_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
+        if (ctx->config->printf_trace.top_function) {
+            shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
         }
+        shd_bld_call(if_builder, fn_addr_helper(a, shd_rewrite_node(r, ofunction)), shd_empty(a));
+        shd_set_abstraction_body(if_true_case, shd_bld_join(if_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
+
+        Node* if_false = case_(a, shd_empty(a));
+        shd_set_abstraction_body(if_false, join(a, (Join) {
+            .mem = shd_get_abstraction_mem(if_false),
+            .join_point = l.continue_jp,
+            .args = count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)
+        }));
+
+        Node* fn_case = case_(a, shd_nodes(a, 0, NULL));
+        shd_set_abstraction_body(fn_case, branch(a, (Branch) {
+            .mem = shd_get_abstraction_mem(fn_case),
+            .condition = should_run,
+            .true_jump = jump_helper(a, shd_get_abstraction_mem(fn_case), if_true_case, shd_empty(a)),
+            .false_jump = jump_helper(a, shd_get_abstraction_mem(fn_case), if_false, shd_empty(a)),
+        }));
+
+        shd_list_append(const Node*, literals, fn_lit);
+        const Node* j = jump_helper(a, shd_bld_mem(loop_body_builder), fn_case, shd_empty(a));
+        shd_list_append(const Node*, jumps, j);
     }
 
     Node* default_case = case_(a, shd_nodes(a, 0, NULL));

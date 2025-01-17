@@ -44,13 +44,14 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
         }
     }
 
-    const Node* top_level_bindings = shd_module_get_declaration(ctx->rewriter.src_module, "_top_level_bindings");
+    const Node* top_level_bindings = shd_module_get_exported(ctx->rewriter.src_module, "_top_level_bindings");
     assert(top_level_bindings);
     for (size_t i = 0; i < top_level_bindings->annotations.count; i++) {
         if (top_level_bindings->annotations.nodes[i]->tag != AnnotationId_TAG) continue;
         AnnotationId payload = top_level_bindings->annotations.nodes[i]->payload.annotation_id;
         if (strcmp(payload.name, name) == 0) {
             Context* root_ctx = (Context*) shd_get_top_rewriter(&ctx->rewriter);
+            assert(!root_ctx->local_variables);
             const Node* odecl = payload.id;
             const Node* decl = shd_rewrite_node(&root_ctx->rewriter, odecl);
             return (Resolved) {

@@ -725,7 +725,7 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
 }
 
 static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         emit_node(ctx, decl);

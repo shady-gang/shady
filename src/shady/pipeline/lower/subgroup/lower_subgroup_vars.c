@@ -53,7 +53,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
                     payload.address_space = AsShared;
                     payload.type = arr_type(a, (ArrType) {
                         .element_type = payload.type,
-                        .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_declaration(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
+                        .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_exported(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
                     });;
                     Node* new = shd_global_var(r->dst_module, payload);
                     shd_rewrite_result_add_mask_rule(result, ~NcValue, new);

@@ -77,14 +77,14 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
     };
     ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
 
-    Nodes old_decls = shd_module_get_declarations(src);
-    LARRAY(const Type*, member_tys, old_decls.count);
-    LARRAY(String, member_names, old_decls.count);
+    Nodes oglobals = shd_module_collect_reachable_globals(src);
+    LARRAY(const Type*, member_tys, oglobals.count);
+    LARRAY(String, member_names, oglobals.count);
 
     size_t lifted_globals_count = 0;
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
+    for (size_t i = 0; i < oglobals.count; i++) {
+        const Node* odecl = oglobals.nodes[i];
+        if (odecl->payload.global_variable.address_space != AsGlobal)
             continue;
 
         member_tys[lifted_globals_count] = shd_get_unqualified_type(shd_rewrite_op(&ctx.rewriter, NcType, "type", odecl->type));
@@ -113,9 +113,9 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
     shd_destroy_dict(ctx.global2id);
 
     lifted_globals_count = 0;
-    for (size_t i = 0; i < old_decls.count; i++) {
-        const Node* odecl = old_decls.nodes[i];
-        if (odecl->tag != GlobalVariable_TAG || odecl->payload.global_variable.address_space != AsGlobal)
+    for (size_t i = 0; i < oglobals.count; i++) {
+        const Node* odecl = oglobals.nodes[i];
+        if (odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init)
             shd_add_annotation(ctx.lifted_globals_decl, annotation_values(a, (AnnotationValues) {

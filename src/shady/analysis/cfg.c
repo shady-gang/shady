@@ -17,10 +17,9 @@
 struct List* shd_build_cfgs(Module* mod, CFGBuildConfig config) {
     struct List* cfgs = shd_new_list(CFG*);
 
-    Nodes decls = shd_module_get_declarations(mod);
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag != Function_TAG) continue;
+    Nodes functions = shd_module_collect_reachable_functions(mod);
+    for (size_t i = 0; i < functions.count; i++) {
+        const Node* decl = functions.nodes[i];
         CFG* cfg = shd_new_cfg(decl, decl, config);
         shd_list_append(CFG*, cfgs, cfg);
     }

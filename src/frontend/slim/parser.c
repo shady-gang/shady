@@ -1270,7 +1270,7 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
     IrArena* arena = shd_module_get_arena(mod);
     Tokenizer* tokenizer = shd_new_tokenizer(contents);
 
-    Node* file_top_level = shd_module_get_declaration(mod, "_top_level_bindings");
+    Node* file_top_level = shd_module_get_exported(mod, "_top_level_bindings");
     if (!file_top_level) {
         file_top_level = global_variable_helper(mod, shd_uint16_type(arena), "_top_level_bindings", AsGlobal);
         shd_module_add_export(mod, "_top_level_bindings", file_top_level);

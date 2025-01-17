@@ -380,7 +380,7 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     Printer* p = shd_new_printer_from_growy(g);
 
     shd_print(p, "typedef struct __shady_PrivateGlobals {\n");
-    Nodes decls = shd_module_get_declarations(m);
+    Nodes decls = shd_module_get_all_exported(m);
     size_t count = 0;
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
@@ -483,7 +483,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_conf
         default: break;
     }
 
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
     for (size_t i = 0; i < decls.count; i++)
         shd_c_emit_decl(&emitter, decls.nodes[i]);
 

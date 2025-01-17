@@ -355,7 +355,7 @@ void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_confi
 
     spvb_extension(file_builder, "SPV_KHR_non_semantic_info");
 
-    Nodes decls = shd_module_get_declarations(mod);
+    Nodes decls = shd_module_get_all_exported(mod);
     emit_decls(&emitter, decls);
     emit_entry_points(&emitter, decls);
 

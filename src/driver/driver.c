@@ -122,7 +122,7 @@ void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
 
 static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
-    const Node* old_entry_point_decl = shd_module_get_declaration(mod, entry_point);
+    const Node* old_entry_point_decl = shd_module_get_exported(mod, entry_point);
     if (!old_entry_point_decl)
         shd_error("Cannot specialize: No function named '%s'", entry_point)
     if (old_entry_point_decl->tag != Function_TAG)
