@@ -22,7 +22,7 @@ type JoinPoint = struct {
 
 @Internal var logical subgroup u32 scheduler_cursor = 0;
 @Internal var logical subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-@Internal var logical subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
+@Exported @Internal var logical subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
 
 @Exported @Internal var logical subgroup fn_ptr_t next_fn;
 @Exported @Internal var logical subgroup TreeNode active_branch;

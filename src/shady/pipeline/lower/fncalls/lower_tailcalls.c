@@ -395,7 +395,8 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         if (shd_lookup_annotation(ofunction, "Leaf"))
             continue;
 
-        const Node* fn_lit = shd_uint32_literal(a, get_fn_ptr(ctx, ofunction));
+        FnPtr fn_ptr = get_fn_ptr(ctx, ofunction);
+        const Node* fn_lit = shd_uint32_literal(a, fn_ptr);
 
         Node* if_true_case = basic_block_helper(a, shd_empty(a));
         BodyBuilder* if_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
@@ -403,6 +404,16 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
             shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
         }
         shd_bld_call(if_builder, fn_addr_helper(a, shd_rewrite_node(r, ofunction)), shd_empty(a));
+        if (ctx->config->printf_trace.top_function) {
+            const Node* resume_at = shd_bld_load(if_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0),mk_nodes(a, local_id)));
+            String ptrn = NULL;
+            if (shd_get_node_name_unsafe(ofunction))
+                ptrn = shd_fmt_string_irarena(a, "trace: ran %d(%s)%s\n", fn_ptr, shd_get_node_name_unsafe(ofunction), ", thread:%d:%d next_fn=%d next_mask=%lx resume_at=%d");
+            else
+                ptrn = shd_fmt_string_irarena(a, "trace: ran %d%s\n", fn_ptr, ", thread:%d:%d next_fn=%d next_mask=%lx resume_at=%d");
+            const Node* next_function2 = shd_bld_load(if_builder, shd_find_or_process_decl(r, "next_fn"));
+            shd_bld_debug_printf(if_builder, ptrn, mk_nodes(a, sid, local_id, next_function2, next_mask, resume_at));
+        }
         shd_set_abstraction_body(if_true_case, shd_bld_join(if_builder, l.continue_jp, count_iterations ? shd_singleton(iteration_count_plus_one) : shd_empty(a)));
 
         Node* if_false = basic_block_helper(a, shd_empty(a));
