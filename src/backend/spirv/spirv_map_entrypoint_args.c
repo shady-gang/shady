@@ -41,7 +41,6 @@ static const Node* process(Context* ctx, const Node* node) {
                 Node* new_var = global_variable_helper(
                     r->dst_module,
                     type,
-                    node->payload.global_variable.name,
                     AsPushConstant
                 );
                 shd_register_processed(&ctx->rewriter, node, new_var);

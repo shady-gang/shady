@@ -392,11 +392,12 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         const Type* type = decl->payload.global_variable.type;
 
         member_tys[i] = shd_rewrite_node(r, type);
-        member_names[i] = decl->payload.global_variable.name;
+        member_names[i] = shd_get_node_name_safe(decl);
 
         // Turn the old global variable into a pointer (which are also now integers)
         const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
-        Node* new_address = constant_helper(m, emulated_ptr_type, decl->payload.global_variable.name);
+        Node* new_address = constant_helper(m, emulated_ptr_type);
+        shd_set_debug_name(new_address, shd_get_node_name_safe(decl));
         shd_rewrite_annotations(r, decl, new_address);
 
         // we need to compute the actual pointer by getting the offset and dividing it
@@ -459,7 +460,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(global_struct_t), shd_empty(a));
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
-    Node* constant_decl = constant_helper(m, ptr_size_type, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
+    Node* constant_decl = constant_helper(m, ptr_size_type);
+    shd_set_debug_name(constant_decl, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
     shd_add_annotation_named(constant_decl, "Generated");
     constant_decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
 
@@ -468,7 +470,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_variable_helper(m, words_array_type, shd_format_string_arena(a->arena, "memory_%s", as_name), as);
+    Node* words_array = global_variable_helper(m, words_array_type, as);
+    shd_set_debug_name(words_array, shd_format_string_arena(a->arena, "memory_%s", as_name));
     shd_add_annotation_named(words_array, "Generated");
 
     *get_emulated_as_word_array(ctx, as) = words_array;

@@ -132,7 +132,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
                 imported_hint = shd_get_unqualified_type(instruction->type);
             assert(imported_hint);
 
-            Node* nconstant = constant_helper(ctx->rewriter.dst_module, imported_hint, oconstant->name);
+            Node* nconstant = constant_helper(ctx->rewriter.dst_module, imported_hint);
             shd_register_processed(r, node, nconstant);
             nconstant->payload.constant.value = instruction;
             shd_rewrite_annotations(r, node, nconstant);

@@ -164,7 +164,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, decl, given_id);
-            spvb_name(emitter->file_builder, given_id, gvar->name);
+            shd_spv_emit_debuginfo(emitter, decl, given_id);
             SpvId init = 0;
             if (gvar->init)
                 init = spv_emit_value(emitter, NULL, gvar->init);

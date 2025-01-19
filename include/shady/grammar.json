@@ -570,7 +570,6 @@
       "description": "Constants are used to express possibly complicated compile-time expressions",
       "nominal": true,
       "ops": [
-        { "name": "name", "class": "string" },
         { "name": "type_hint", "class": "type" },
         { "name": "value", "class": "value", "nullable": true, "tail": true }
       ]
@@ -581,7 +580,6 @@
       "recursive": true,
       "nominal": true,
       "ops": [
-        { "name": "name", "class": "string" },
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "is_ref", "type": "bool" },

@@ -25,7 +25,8 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
     const Type* ptr_t = shd_get_unqualified_type(io->type);
     assert(ptr_t->tag == PtrType_TAG);
     PtrType ptr_payload = ptr_t->payload.ptr_type;
-    Node* phy = global_variable_helper(m, ptr_payload.pointed_type, shd_fmt_string_irarena(a, "%s_physical", shd_get_node_name_safe(io)), as);
+    Node* phy = global_variable_helper(m, ptr_payload.pointed_type, as);
+    shd_set_debug_name(phy, shd_fmt_string_irarena(a, "%s_physical", shd_get_node_name_safe(io)));
 
     switch (ptr_payload.address_space) {
         case AsPushConstant:
@@ -74,7 +75,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             if (builtin_annotation) {
                 Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
-                io = shd_get_or_create_builtin(m, b, payload.name);
+                io = shd_get_or_create_builtin(m, b);
                 scope = shd_get_builtin_scope(b);
             } else if (io_annotation) {
                 io = shd_global_var(r->dst_module, payload);

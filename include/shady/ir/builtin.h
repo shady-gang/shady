@@ -56,7 +56,7 @@ int32_t shd_get_builtin_spv_id(Builtin builtin);
 
 bool shd_is_builtin_load_op(const Node* n, Builtin* out);
 
-const Node* shd_get_or_create_builtin(Module* m, Builtin b, String n);
+const Node* shd_get_or_create_builtin(Module* m, Builtin b);
 
 typedef struct BodyBuilder_ BodyBuilder;
 const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b);

@@ -10,17 +10,15 @@
 Node* shd_constant(Module*, Constant payload);
 Node* shd_global_var(Module*, GlobalVariable payload);
 
-static inline Node* constant_helper(Module* m, const Type* t, const char* name) {
+static inline Node* constant_helper(Module* m, const Type* t) {
     Node* c = shd_constant(m, (Constant) {
-        .name = name,
         .type_hint = t,
     });
     return c;
 }
 
-static inline Node* global_variable_helper(Module* m, const Type* t, String name, AddressSpace as) {
+static inline Node* global_variable_helper(Module* m, const Type* t, AddressSpace as) {
     Node* g = shd_global_var(m, (GlobalVariable) {
-        .name = name,
         .type = t,
         .address_space = as,
         .is_ref = !shd_ir_arena_get_config(shd_module_get_arena(m))->target.address_spaces[as].physical,

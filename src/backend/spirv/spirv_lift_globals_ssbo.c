@@ -103,7 +103,8 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
             .names = shd_strings(a, lifted_globals_count, member_names),
             .special = DecorateBlock
         });
-        ctx.lifted_globals_decl = global_variable_helper(dst, lifted_globals_struct_t, "lifted_globals", AsShaderStorageBufferObject);
+        ctx.lifted_globals_decl = global_variable_helper(dst, lifted_globals_struct_t, AsShaderStorageBufferObject);
+        shd_set_debug_name(ctx.lifted_globals_decl, "lifted_globals");
 
         shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = shd_int32_literal(a, 0) }));
         shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = shd_int32_literal(a, 0) }));

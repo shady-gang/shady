@@ -177,17 +177,18 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         const Type* stack_counter_t = shd_uint32_type(a);
 
         // Arrays for the stacks
-        Node* stack_decl = global_variable_helper(dst, stack_arr_type, "stack", AsPrivate);
+        Node* stack_decl = global_variable_helper(dst, stack_arr_type, AsPrivate);
+        shd_set_debug_name(stack_decl, "stack");
         shd_add_annotation_named(stack_decl, "Generated");
 
         // Pointers into those arrays
         // Node* stack_ptr_decl = global_variable_helper(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate);
         Node* stack_ptr_decl = shd_global_var(dst, (GlobalVariable) {
             .type = stack_counter_t,
-            .name = "stack_ptr",
             .address_space = AsPrivate,
             .is_ref = true
         });
+        shd_set_debug_name(stack_ptr_decl, "stack_ptr");
         shd_add_annotation_named(stack_ptr_decl, "Generated");
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
 

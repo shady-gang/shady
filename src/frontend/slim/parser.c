@@ -1157,7 +1157,7 @@ static const Node* accept_const(ctxparams, Nodes annotations) {
 
     expect(accept_token(ctx, semi_tok), "';'");
 
-    Node* cnst = constant_helper(mod, type, name);
+    Node* cnst = constant_helper(mod, type);
     cnst->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(definition));
     cnst->annotations = annotations;
     shd_set_debug_name(cnst, name);
@@ -1231,13 +1231,13 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
 
     payload.type = accept_unqualified_type(ctx);
     expect(payload.type, "global variable type");
-    payload.name = accept_identifier(ctx);
-    expect(payload.name, "global variable name");
+    String name = accept_identifier(ctx);
+    expect(name, "global variable name");
 
     const Node* initial_value = NULL;
     if (accept_token(ctx, equal_tok)) {
         initial_value = accept_value(ctx, NULL);
-        expect_fmt(initial_value, "value for global variable '%s'", payload.name);
+        expect_fmt(initial_value, "value for global variable '%s'", name);
     }
 
     expect(accept_token(ctx, semi_tok), "';'");
@@ -1245,7 +1245,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     Node* gv = shd_global_var(mod, payload);
     gv->payload.global_variable.init = initial_value;
     gv->annotations = annotations;
-    shd_set_debug_name(gv, payload.name);
+    shd_set_debug_name(gv, name);
     return gv;
 }
 
@@ -1274,7 +1274,7 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
 
     Node* file_top_level = shd_module_get_exported(mod, "_top_level_bindings");
     if (!file_top_level) {
-        file_top_level = global_variable_helper(mod, shd_uint16_type(arena), "_top_level_bindings", AsGlobal);
+        file_top_level = global_variable_helper(mod, shd_uint16_type(arena), AsGlobal);
         shd_module_add_export(mod, "_top_level_bindings", file_top_level);
     }
 

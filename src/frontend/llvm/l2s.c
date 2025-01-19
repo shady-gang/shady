@@ -249,10 +249,10 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         if (strcmp(intrinsic, "llvm.global.annotations") == 0) {
             return NULL;
         }
-        shd_warn_print("Skipping unknown LLVM intrinsic function: %s\n", name);
+        shd_debugvv_print("Skipping unknown LLVM intrinsic function: %s\n", name);
         return NULL;
     }
-    shd_debug_print("Converting global: %s\n", name);
+    //shd_debugvv_print("Converting global: %s\n", name);
 
     Node* decl = NULL;
 
@@ -263,14 +263,15 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         const Type* ptr_t = l2s_convert_type(p, LLVMTypeOf(global));
         assert(ptr_t->tag == PtrType_TAG);
         AddressSpace as = ptr_t->payload.ptr_type.address_space;
-        decl = global_variable_helper(p->dst, type, name, as);
+        decl = global_variable_helper(p->dst, type, as);
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
         switch (LLVMGetLinkage(global)) {
             case LLVMExternalLinkage:
             case LLVMExternalWeakLinkage:
-                shd_module_add_export(p->dst, LLVMGetValueName(global), decl);
+                assert(name);
+                shd_module_add_export(p->dst, name, decl);
                 break;
             default:
                 break;
@@ -283,8 +284,10 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         }
     } else {
         const Type* type = l2s_convert_type(p, LLVMTypeOf(global));
-        decl = constant_helper(p->dst, type, name);
+        decl = constant_helper(p->dst, type);
         decl->payload.constant.value = l2s_convert_value(p, global);
+        if (name && strlen(name) > 0)
+            shd_set_debug_name(decl, name);
     }
 
     assert(decl && is_declaration(decl));
