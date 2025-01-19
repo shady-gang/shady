@@ -36,7 +36,11 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* qualified_t = qualified_type(a, (QualifiedType) { .is_uniform = false, .type = element_type });
 
-    const Node* value_param = push ? param_helper(a, qualified_t, "value") : NULL;
+    const Node* value_param = NULL;
+    if (push) {
+        value_param = param_helper(a, qualified_t);
+        shd_set_debug_name(value_param, "value");
+    }
     Nodes params = push ? shd_singleton(value_param) : shd_empty(a);
     Nodes return_ts = push ? shd_empty(a) : shd_singleton(qualified_t);
     String name = shd_format_string_arena(a->arena, "generated_%s_%s", push ? "push" : "pop", shd_get_type_name(a, element_type));

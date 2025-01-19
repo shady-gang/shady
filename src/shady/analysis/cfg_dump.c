@@ -74,7 +74,7 @@ static void dump_cf_node(FILE* output, const CFNode* n) {
     shd_print(p, "(");
     for (size_t i = 0; i < params.count; i++) {
         const Node* param = params.nodes[i];
-        shd_print(p, "%%%d %s: %s", param->id, param->payload.param.name, shd_get_type_name(bb->arena, param->type));
+        shd_print(p, "%s: %s", shd_get_node_name_safe(param), shd_get_type_name(bb->arena, param->type));
     }
     shd_print(p, "): \n");
 

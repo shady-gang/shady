@@ -31,7 +31,8 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             else
                 t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
         }
-        nvars[i] = param_helper(a, t, node->payload.param.name);
+        nvars[i] = param_helper(a, t);
+        shd_rewrite_annotations(r, node, nvars[i]);
         assert(nvars[i]->tag == Param_TAG);
     }
     return shd_nodes(a, old.count, nvars);
@@ -73,9 +74,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     assert(i != PRIMOPS_COUNT);
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
-                    for (size_t i = 0; i < payload.params.count; i++)
-                        payload.params = shd_change_node_at_index(a, payload.params, i, param_helper(a, shd_as_qualified_type(
-                                shd_get_unqualified_type(payload.params.nodes[i]->payload.param.type), true), payload.params.nodes[i]->payload.param.name));
+                    for (size_t i = 0; i < payload.params.count; i++) {
+                        const Node* oparam = payload.params.nodes[i];
+                        const Node* nparam = param_helper(a, shd_as_qualified_type(shd_get_unqualified_type(oparam->payload.param.type), true));
+                        payload.params = shd_change_node_at_index(a, payload.params, i, nparam);
+                        shd_rewrite_annotations(r, oparam, nparam);
+                    }
                 }
                 annotations = shd_nodes_append(a, annotations, shd_rewrite_node(r, an->payload));
                 an = an->next;

@@ -200,7 +200,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 for (size_t j = 0; j < bb_params.count; j++) {
                     const Node* bb_param = bb_params.nodes[j];
                     assert(bb_param->tag == Param_TAG);
-                    String param_name = bb_param->payload.param.name;
+                    String param_name = shd_get_node_name_unsafe(bb_param);
                     if (param_name)
                         add_binding(&cont_ctx, false, param_name, bb_param);
                 }
@@ -253,7 +253,9 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             shd_register_processed(r, node, bound);
             Nodes new_fn_params = get_abstraction_params(bound);
             for (size_t i = 0; i < new_fn_params.count; i++) {
-                add_binding(&fn_ctx, false, node->payload.fun.params.nodes[i]->payload.param.name, new_fn_params.nodes[i]);
+                String param_name = shd_get_node_name_unsafe(node->payload.fun.params.nodes[i]);
+                if (param_name)
+                    add_binding(&fn_ctx, false, param_name, new_fn_params.nodes[i]);
             }
             shd_register_processed_list(&fn_ctx.rewriter, node->payload.fun.params, new_fn_params);
 
@@ -274,7 +276,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
             if (name)
                 add_binding(ctx, false, name, new_bb);
             for (size_t i = 0; i < new_params.count; i++) {
-                String param_name = new_params.nodes[i]->payload.param.name;
+                String param_name = shd_get_node_name_unsafe(new_params.nodes[i]);
                 if (param_name)
                     add_binding(ctx, false, param_name, new_params.nodes[i]);
             }

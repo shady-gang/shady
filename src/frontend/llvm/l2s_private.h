@@ -64,6 +64,8 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn);
 const Node* l2s_convert_basic_block_header(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 const Node* l2s_convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasicBlockRef bb);
 
+void l2s_apply_debug_info(Parser* p, LLVMValueRef, const Node*);
+
 typedef struct {
     struct List* list;
 } BBPhis;

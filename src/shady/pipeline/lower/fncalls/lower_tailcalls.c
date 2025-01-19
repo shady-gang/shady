@@ -169,8 +169,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 // TODO use the uniform stack instead ? or no ?
                 if (shd_is_qualified_type_uniform(old_param->type))
                     popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
-                if (old_param->payload.param.name)
-                    shd_set_debug_name((Node*) popped, old_param->payload.param.name);
+                String debug_name = shd_get_node_name_unsafe(old_param);
+                if (debug_name)
+                    shd_set_debug_name((Node*) popped, debug_name);
                 shd_register_processed(&ctx->rewriter, old_param, popped);
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
@@ -270,7 +271,8 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* new_jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = shd_rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
                 });
-                const Node* new_jp = param_helper(a, shd_as_qualified_type(new_jp_type, true), old_jp->payload.param.name);
+                const Node* new_jp = param_helper(a, shd_as_qualified_type(new_jp_type, true));
+                shd_rewrite_annotations(r, old_jp, new_jp);
                 shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = case_(a, shd_singleton(new_jp));
                 shd_register_processed(r, payload.inside, new_control_case);

@@ -131,12 +131,14 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             const Node* join_token_exit = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = shd_empty(a)
-            }), true), "jp_exit");
+            }), true));
+            shd_set_debug_name(join_token_exit, "jp_exit");
 
             const Node* join_token_continue = param_helper(a,
                                                     shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                                                             .yield_types = inner_yield_types
-                                                    }), true), "jp_continue");
+                                                    }), true));
+            shd_set_debug_name(join_token_continue, "jp_continue");
 
             for (size_t i = 0; i < exiting_nodes_count; i++) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
@@ -368,7 +370,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     //if (contains_qualified_type(types[j]))
                     types[j] = shd_get_unqualified_type(qualified_type);
                     uniform_param[j] = shd_is_qualified_type_uniform(qualified_type);
-                    inner_args[j] = param_helper(a, qualified_type, old_params.nodes[j]->payload.param.name);
+                    inner_args[j] = param_helper(a, qualified_type);
+                    shd_rewrite_annotations(r, old_params.nodes[j], inner_args[j]);
                 }
 
                 yield_types = shd_nodes(a, old_params.count, types);
@@ -377,7 +380,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* join_token = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
-            }), true), "jp_postdom");
+            }), true));
+            shd_set_debug_name(join_token, "jp_postdom");
 
             Node* pre_join = basic_block_helper(a, exit_args, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_abstraction_name_safe(ctx->current_abstraction), shd_get_abstraction_name_safe(post_dominator)));
             shd_set_abstraction_body(pre_join, join(a, (Join) {

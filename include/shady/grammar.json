@@ -254,7 +254,6 @@
       "nominal": true,
       "ops": [
         { "name": "type", "class": "type" },
-        { "name": "name", "class": "string" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
       ]

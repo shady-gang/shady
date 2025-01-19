@@ -50,7 +50,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
                 .is_uniform = false,
             });
-            const Node* jp = param_helper(a, jp_type, "if_join");
+            const Node* jp = param_helper(a, jp_type);
+            shd_set_debug_name(jp, "if_join");
             Nodes jps = shd_singleton(jp);
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
@@ -95,8 +96,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .type = join_point_type(a, (JoinPointType) { .yield_types = param_types }),
                 .is_uniform = false,
             });
-            const Node* break_point = param_helper(a, break_jp_type, "loop_break_point");
-            const Node* continue_point = param_helper(a, continue_jp_type, "loop_continue_point");
+            const Node* break_point = param_helper(a, break_jp_type);
+            shd_set_debug_name(break_point, "loop_break_point");
+            const Node* continue_point = param_helper(a, continue_jp_type);
+            shd_set_debug_name(continue_jp_type, "loop_continue_point");
             Nodes jps = mk_nodes(a, break_point, continue_point);
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 

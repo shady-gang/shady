@@ -26,11 +26,11 @@ static void test_body_builder_fun_body(IrArena* a) {
     const Node* p1 = param_helper(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
-    }), false), NULL);
+    }), false));
     const Node* p2 = param_helper(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
-    }), false), NULL);
+    }), false));
     // const Node* p3 = param(a, shd_as_qualified_type(bool_type(a), false), NULL);
     // const Node* p4 = param(a, shd_as_qualified_type(uint32_type(a), false), NULL);
     Node* fun = function_helper(m, mk_nodes(a, p1, p2), "fun", shd_empty(a));
@@ -88,7 +88,7 @@ static void test_body_builder_impure_block(IrArena* a) {
     const Node* p1 = param_helper(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
-    }), false), NULL);
+    }), false));
     Node* fun = function_helper(m, mk_nodes(a, p1), "fun", shd_empty(a));
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
@@ -127,7 +127,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     const Node* p1 = param_helper(a, shd_as_qualified_type(ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
-    }), false), NULL);
+    }), false));
     Node* fun = function_helper(m, mk_nodes(a, p1), "fun", shd_empty(a));
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 

@@ -69,7 +69,12 @@ static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* npar
             shd_log_fmt(DEBUGV, "lcssa: ");
             // shd_log_node(DEBUGV, fv);
             shd_log_fmt(DEBUGV, " (%%%d) is used outside of the loop that defines it %s (use in %s)\n", fv->id, loop_name(defining_loop), loop_name(bb_loop));
-            const Node* nparam = param_helper(a, shd_rewrite_node(r, fv->type), "lcssa_phi");
+            const Node* nparam = param_helper(a, shd_rewrite_node(r, fv->type));
+            String name = "lcssa_phi";
+            String oname = shd_get_node_name_unsafe(fv);
+            if (oname)
+                name = shd_fmt_string_irarena(a, "lcssa_phi_%s", oname);
+            shd_set_debug_name(nparam, name);
             *nparams = shd_nodes_append(a, *nparams, nparam);
             *lparams = shd_nodes_append(a, *lparams, fv);
         }

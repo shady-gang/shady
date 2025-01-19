@@ -80,7 +80,8 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = param_helper(a, shd_as_qualified_type(l2s_convert_type(p, LLVMTypeOf(instr)), false), "phi");
+                const Node* nparam = param_helper(a, shd_as_qualified_type(l2s_convert_type(p, LLVMTypeOf(instr)), false));
+                l2s_apply_debug_info(p, instr, nparam);
                 shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, nparam);
                 shd_list_append(LLVMValueRef, phis, instr);
                 params = shd_nodes_append(a, params, nparam);
@@ -155,7 +156,8 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = l2s_convert_type(p, ot);
-        const Node* nparam = param_helper(a, shd_as_qualified_type(t, false), LLVMGetValueName(oparam));
+        const Node* nparam = param_helper(a, shd_as_qualified_type(t, false));
+        l2s_apply_debug_info(p, oparam, nparam);
         shd_dict_insert(LLVMValueRef, const Node*, p->map, oparam, nparam);
         params = shd_nodes_append(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))

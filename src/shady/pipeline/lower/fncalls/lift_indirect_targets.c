@@ -110,23 +110,18 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     }
     shd_debugv_print("\n");
 
-    // Create and register new parameters for the lifted continuation
-    LARRAY(const Node*, new_params_arr, ovariables.count);
-    for (size_t i = 0; i < ovariables.count; i++)
-        new_params_arr[i] = param_helper(a, shd_rewrite_node(&ctx->rewriter, ovariables.nodes[i]->type), shd_get_node_name_unsafe(ovariables.nodes[i]));
-    Nodes new_params = shd_nodes(a, ovariables.count, new_params_arr);
-
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
     lifted_cont->save_values = frontier;
     shd_dict_insert(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
 
+    Nodes new_params = shd_recreate_params(r, ovariables);
     shd_register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param_helper(a, shd_as_qualified_type(shd_uint32_type(a), false), "sp");
-
-    // Keep annotations the same
+    const Node* payload = param_helper(a, shd_as_qualified_type(shd_uint32_type(a), false));
+    shd_set_debug_name(payload, "sp");
     new_params = shd_nodes_prepend(a, new_params, payload);
+
     Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, name, shd_nodes(a, 0, NULL));
     // TODO: when we split this pass into two this export should no longer be necessary
     shd_add_annotation(new_fn, annotation_value_helper(a, "Exported", string_lit_helper(a, name)));

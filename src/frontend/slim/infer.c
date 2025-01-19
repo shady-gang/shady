@@ -81,6 +81,21 @@ static const Node* infer_type(Context* ctx, const Type* type) {
     }
 }
 
+static Nodes infer_params(Context* ctx, Nodes params) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+
+    LARRAY(const Node*, nparams, params.count);
+    for (size_t i = 0; i < params.count; i++) {
+        const Param* old_param = &params.nodes[i]->payload.param;
+        const Type* imported_param_type = infer(ctx, old_param->type, NULL);
+        nparams[i] = param_helper(a, imported_param_type);
+        shd_register_processed(r, params.nodes[i], nparams[i]);
+        shd_rewrite_annotations(r, params.nodes[i], nparams[i]);
+    }
+    return shd_nodes(a, params.count, nparams);
+}
+
 static const Node* infer_decl(Context* ctx, const Node* node) {
     if (shd_lookup_annotation(node, "SkipOnInfer"))
         return NULL;
@@ -91,16 +106,10 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
         case Function_TAG: {
             Context body_context = *ctx;
 
-            LARRAY(const Node*, nparams, node->payload.fun.params.count);
-            for (size_t i = 0; i < node->payload.fun.params.count; i++) {
-                const Param* old_param = &node->payload.fun.params.nodes[i]->payload.param;
-                const Type* imported_param_type = infer(ctx, old_param->type, NULL);
-                nparams[i] = param_helper(a, imported_param_type, old_param->name);
-                shd_register_processed(&body_context.rewriter, node->payload.fun.params.nodes[i], nparams[i]);
-            }
+            Nodes nparams = infer_params(&body_context, get_abstraction_params(node));
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
-            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, node->payload.fun.params.count, nparams), shd_string(a, node->payload.fun.name), nret_types);
+            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, shd_string(a, node->payload.fun.name), nret_types);
             shd_register_processed(r, node, fun);
             body_context.current_fn = fun;
             shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));
@@ -292,26 +301,9 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
     assert(inferred_arg_type.count == node->payload.basic_block.params.count || node->payload.basic_block.params.count == 0);
 
     Context body_context = *ctx;
-    LARRAY(const Node*, nparams, inferred_arg_type.count);
-    for (size_t i = 0; i < inferred_arg_type.count; i++) {
-        if (node->payload.basic_block.params.count == 0) {
-            // syntax sugar: make up a parameter if there was none
-            nparams[i] = param_helper(a, inferred_arg_type.nodes[i], shd_make_unique_name(a, "_"));
-        } else {
-            const Param* old_param = &node->payload.basic_block.params.nodes[i]->payload.param;
-            // for the param type: use the inferred one if none is already provided
-            // if one is provided, check the inferred argument type is a subtype of the param type
-            const Type* param_type = old_param->type ? infer_type(ctx, old_param->type) : NULL;
-            // and do not use the provided param type if it is an untyped ptr
-            if (!param_type || param_type->tag != PtrType_TAG || param_type->payload.ptr_type.pointed_type)
-                param_type = inferred_arg_type.nodes[i];
-            assert(shd_is_subtype(param_type, inferred_arg_type.nodes[i]));
-            nparams[i] = param_helper(a, param_type, old_param->name);
-            shd_register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
-        }
-    }
+    Nodes nparams = infer_params(ctx, get_abstraction_params(node));
 
-    Node* new_case = basic_block_helper(a, shd_nodes(a, inferred_arg_type.count, nparams), shd_get_abstraction_name_unsafe(node));
+    Node* new_case = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(node));
     shd_register_processed(r, node, new_case);
     shd_set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
     return new_case;
@@ -322,18 +314,9 @@ static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     Context body_context = *ctx;
-    LARRAY(const Node*, nparams, node->payload.basic_block.params.count);
-    for (size_t i = 0; i < node->payload.basic_block.params.count; i++) {
-        const Param* old_param = &node->payload.basic_block.params.nodes[i]->payload.param;
-        // for the param type: use the inferred one if none is already provided
-        // if one is provided, check the inferred argument type is a subtype of the param type
-        const Type* param_type = infer(ctx, old_param->type, NULL);
-        assert(param_type);
-        nparams[i] = param_helper(a, param_type, old_param->name);
-        shd_register_processed(&body_context.rewriter, node->payload.basic_block.params.nodes[i], nparams[i]);
-    }
+    Nodes nparams = infer_params(ctx, get_abstraction_params(node));
 
-    Node* bb = basic_block_helper(a, shd_nodes(a, node->payload.basic_block.params.count, nparams), node->payload.basic_block.name);
+    Node* bb = basic_block_helper(a, nparams, node->payload.basic_block.name);
     assert(bb);
     shd_register_processed(&ctx->rewriter, node, bb);
 
@@ -502,7 +485,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
         .yield_types = yield_types
     });
     jpt = qualified_type(a, (QualifiedType) { .is_uniform = true, .type = jpt });
-    const Node* jp = param_helper(a, jpt, ojp->payload.param.name);
+    const Node* jp = param_helper(a, jpt);
     shd_register_processed(&joinable_ctx.rewriter, ojp, jp);
 
     Node* new_case = basic_block_helper(a, shd_singleton(jp), NULL);

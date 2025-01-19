@@ -544,7 +544,8 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
             const char* id = accept_identifier(ctx);
             expect(id, "parameter name");
 
-            const Node* node = param_helper(arena, qtype, id);
+            const Node* node = param_helper(arena, qtype);
+            shd_set_debug_name(node, id);
             shd_list_append(Node*, params, node);
 
             if (default_values) {
@@ -783,7 +784,8 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect(str, "control parameter name");
             const Node* jp = param_helper(arena, join_point_type(arena, (JoinPointType) {
                 .yield_types = yield_types,
-            }), str);
+            }));
+            shd_set_debug_name(jp, str);
             expect(accept_token(ctx, rpar_tok), "')'");
             Node* control_case = case_(arena, shd_singleton(jp));
             shd_set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));

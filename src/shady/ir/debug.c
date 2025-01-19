@@ -24,8 +24,6 @@ String shd_get_node_name_unsafe(const Node* node) {
     if (exported_name) return exported_name;
     String debug_name = shd_get_debug_name(node);
     if (debug_name) return debug_name;
-    if (node->tag == Param_TAG)
-        return node->payload.param.name;
     return NULL;
 }
 

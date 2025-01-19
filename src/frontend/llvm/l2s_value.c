@@ -73,21 +73,23 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
         case LLVMBlockAddressValueKind:
             break;
         case LLVMConstantExprValueKind: {
-            String name = LLVMGetValueName(v);
             BodyBuilder* bb = shd_bld_begin_pure(a);
-            return shd_bld_to_instr_yield_value(bb, l2s_convert_instruction(p, NULL, NULL, bb, v));
+            r = shd_bld_to_instr_yield_value(bb, l2s_convert_instruction(p, NULL, NULL, bb, v));
+            break;
         }
         case LLVMConstantDataArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
             assert(arr_size >= 0 && arr_size < INT32_MAX && "sanity check");
-            return data_composite(t, arr_size, v);
+            r = data_composite(t, arr_size, v);
+            break;
         }
         case LLVMConstantDataVectorValueKind: {
             assert(t->tag == PackType_TAG);
             size_t width = t->payload.pack_type.width;
             assert(width >= 0 && width < INT32_MAX && "sanity check");
-            return data_composite(t, width, v);
+            r = data_composite(t, width, v);
+            break;
         }
         case LLVMConstantStructValueKind: {
             const Node* actual_t = shd_get_maybe_nominal_type_body(t);
@@ -99,7 +101,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = l2s_convert_value(p, value);
             }
-            return composite_helper(a, t, shd_nodes(a, size, elements));
+            r = composite_helper(a, t, shd_nodes(a, size, elements));
+            break;
         }
         case LLVMConstantVectorValueKind: {
             assert(t->tag == PackType_TAG);
@@ -110,12 +113,15 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = l2s_convert_value(p, value);
             }
-            return composite_helper(a, t, shd_nodes(a, size, elements));
+            r = composite_helper(a, t, shd_nodes(a, size, elements));
+            break;
         }
         case LLVMUndefValueValueKind:
-            return undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
+            r = undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
+            break;
         case LLVMConstantAggregateZeroValueKind:
-            return shd_get_default_value(a, l2s_convert_type(p, LLVMTypeOf(v)));
+            r = shd_get_default_value(a, l2s_convert_type(p, LLVMTypeOf(v)));
+            break;
         case LLVMConstantArrayValueKind: {
             assert(t->tag == ArrType_TAG);
             size_t arr_size = shd_get_int_literal_value(*shd_resolve_to_int_literal(t->payload.arr_type.size), false);
@@ -126,7 +132,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
                 assert(value);
                 elements[i] = l2s_convert_value(p, value);
             }
-            return composite_helper(a, t, shd_nodes(a, arr_size, elements));
+            r = composite_helper(a, t, shd_nodes(a, arr_size, elements));
+            break;
         }
         case LLVMConstantIntValueKind: {
             if (t->tag == Bool_TAG) {
@@ -136,11 +143,12 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             assert(t->tag == Int_TAG);
             unsigned long long value = LLVMConstIntGetZExtValue(v);
             switch (t->payload.int_type.width) {
-                case IntTy8: return shd_uint8_literal(a, value);
-                case IntTy16: return shd_uint16_literal(a, value);
-                case IntTy32: return shd_uint32_literal(a, value);
-                case IntTy64: return shd_uint64_literal(a, value);
+                case IntTy8:  r = shd_uint8_literal(a, value);  break;
+                case IntTy16: r = shd_uint16_literal(a, value); break;
+                case IntTy32: r = shd_uint32_literal(a, value); break;
+                case IntTy64: r = shd_uint64_literal(a, value); break;
             }
+            break;
         }
         case LLVMConstantFPValueKind: {
             assert(t->tag == Float_TAG);
@@ -154,13 +162,16 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
                     float f = (float) d;
                     static_assert(sizeof(f) == sizeof(uint32_t), "");
                     memcpy(&u, &f, sizeof(f));
-                    return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                    r = float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                    break;
                 }
                 case FloatTy64: {
                     memcpy(&u, &d, sizeof(double));
-                    return float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                    r = float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
+                    break;
                 }
             }
+            break;
         }
         case LLVMConstantPointerNullValueKind:
             r = null_ptr(a, (NullPtr) { .ptr_type = t });
@@ -170,14 +181,18 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
         case LLVMMetadataAsValueValueKind: {
             LLVMMetadataRef meta = LLVMValueAsMetadata(v);
             r = l2s_convert_metadata(p, meta);
+            break;
         }
         case LLVMInlineAsmValueKind:
             break;
         case LLVMInstructionValueKind:
             break;
         case LLVMPoisonValueValueKind:
-            return undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
+            r = undef(a, (Undef) { .type = l2s_convert_type(p, LLVMTypeOf(v)) });
+            break;
     }
+
+    l2s_apply_debug_info(p, v, r);
 
     if (r) {
         shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);

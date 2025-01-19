@@ -342,7 +342,9 @@ void shd_rewrite_module(Rewriter* r) {
 
 const Node* shd_recreate_param(Rewriter* r, const Node* oparam) {
     assert(oparam->tag == Param_TAG);
-    return param_helper(r->dst_arena, rewrite_op_helper(r, NcType, "type", oparam->payload.param.type), oparam->payload.param.name);
+    const Node* nparam = param_helper(r->dst_arena, rewrite_op_helper(r, NcType, "type", oparam->payload.param.type));
+    shd_rewrite_annotations(r, oparam, nparam);
+    return nparam;
 }
 
 Nodes shd_recreate_params(Rewriter* r, Nodes oparams) {

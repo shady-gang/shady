@@ -4,6 +4,7 @@
 #include "shady/ir/ext.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/function.h"
+#include "shady/ir/debug.h"
 
 #include "log.h"
 #include "portability.h"
@@ -30,7 +31,8 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
         .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, return_types) }),
         .is_uniform = false
     });
-    const Node* jp = param_helper(a, jp_type, "fn_return_point");
+    const Node* jp = param_helper(a, jp_type);
+    shd_set_debug_name(jp, "fn_return_point");
 
     // Add that join point as the last argument to the newly made function
     nargs = shd_nodes_append(a, nargs, jp);
@@ -74,7 +76,8 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
                 ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
                                                          shd_as_qualified_type(jp_type, true), shd_empty(a));
             } else {
-                const Node* jp_variable = param_helper(a, shd_as_qualified_type(jp_type, false), "return_jp");
+                const Node* jp_variable = param_helper(a, shd_as_qualified_type(jp_type, false));
+                shd_set_debug_name(jp_variable, "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
             }

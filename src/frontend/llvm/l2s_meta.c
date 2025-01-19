@@ -162,3 +162,10 @@ LLVM_DI_METADATA_NODES(N)
             shd_error_die();
     }
 }
+
+void l2s_apply_debug_info(Parser* p, LLVMValueRef instr, const Node* n) {
+    assert(instr && n);
+    String name = LLVMGetValueName(instr);
+    if (name && strlen(name) > 0)
+        shd_set_debug_name(n, name);
+}

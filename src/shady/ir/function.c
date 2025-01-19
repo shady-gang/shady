@@ -4,10 +4,9 @@
 
 #include <assert.h>
 
-Node* _shd_param(IrArena* arena, const Type* type, const char* name) {
+Node* _shd_param(IrArena* arena, const Type* type) {
     Param param = {
         .type = type,
-        .name = shd_string(arena, name),
     };
 
     Node node;
