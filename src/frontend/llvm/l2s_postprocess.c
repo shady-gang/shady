@@ -98,29 +98,17 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return nfun;
         }
         case GlobalVariable_TAG: {
-            // if (lookup_annotation(node, "LLVMMetaData"))
-            //     return NULL;
-            AddressSpace as = node->payload.global_variable.address_space;
-            const Node* old_init = node->payload.global_variable.init;
-            const Type* type = shd_rewrite_node(r, node->payload.global_variable.type);
-            Node* decl = global_variable_helper(ctx->rewriter.dst_module, type, shd_get_node_name_safe(node), as);
+            Node* decl = shd_recreate_node_head(r, node);
 
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
-            AddressSpace old_as = as;
             while (an) {
                 shd_add_annotation(decl, shd_rewrite_node(r, an->payload));
-                if (strcmp(get_annotation_name(an->payload), "AddressSpace") == 0)
-                    as = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(an->payload)), false);
+                // NOTE: @IO is handled later by promote_io_variables
                 an = an->next;
-            }
-            if (old_as != as) {
-                const Type* pt = ptr_type(a, (PtrType) { .address_space = old_as, .pointed_type = type });
-                const Node* converted = prim_op_helper(a, convert_op, shd_singleton(pt), shd_singleton(decl));
-                shd_register_processed(r, node, converted);
-                return NULL;
             }
 
             shd_register_processed(r, node, decl);
+            const Node* old_init = node->payload.global_variable.init;
             if (old_init)
                 decl->payload.global_variable.init = shd_rewrite_node(r, old_init);
             return decl;
