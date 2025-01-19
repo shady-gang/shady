@@ -271,8 +271,9 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && shd_is_addr_space_uniform(a, as)), .type = element_type });
     Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
 
+    Node* fun = function_helper(ctx->rewriter.dst_module, params, return_ts);
     String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", shd_get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
-    Node* fun = function_helper(ctx->rewriter.dst_module, params, name, return_ts);
+    shd_set_debug_name(fun, name);
     shd_add_annotation_named(fun, "Generated");
     shd_add_annotation_named(fun, "Leaf");
 

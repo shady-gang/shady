@@ -97,7 +97,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx = &fn_ctx;
             r = &ctx->rewriter;
 
-            Node* new = function_helper(r->dst_module, shd_recreate_params(r, node->payload.fun.params), node->payload.fun.name, shd_rewrite_nodes(r, node->payload.fun.return_types));
+            Node* new = function_helper(r->dst_module, shd_recreate_params(r, node->payload.fun.params), shd_rewrite_nodes(r, node->payload.fun.return_types));
             shd_remove_annotation_by_name(node, "Leaf");
             shd_rewrite_annotations(r, node, new);
             for (size_t i = 0; i < new->payload.fun.params.count; i++)

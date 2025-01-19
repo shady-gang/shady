@@ -158,7 +158,8 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     else {
         const Node* src_param = param_helper(a, shd_as_qualified_type(src_t, false));
         shd_set_debug_name(src_param, "src");
-        fn = function_helper(m, shd_singleton(src_param), shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)), shd_singleton(shd_as_qualified_type(src_t, true)));
+        fn = function_helper(m, shd_singleton(src_param), shd_singleton(shd_as_qualified_type(src_t, true)));
+        shd_set_debug_name(fn, shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)));
         shd_add_annotation_named(fn, "Leaf");
         shd_add_annotation_named(fn, "Generated");
         shd_dict_insert(Key, Node*, ctx->cache, key, fn);

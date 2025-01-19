@@ -166,15 +166,19 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     const Type* fn_type = l2s_convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);
     assert(fn_type->payload.fn_type.param_types.count == params.count);
-    Node* f = function_helper(p->dst, params, LLVMGetValueName(fn), fn_type->payload.fn_type.return_types);
+    Node* f = function_helper(p->dst, params, fn_type->payload.fn_type.return_types);
+    String name = LLVMGetValueName(fn);
     switch (LLVMGetLinkage(fn)) {
         case LLVMExternalLinkage:
         case LLVMExternalWeakLinkage:
-            shd_module_add_export(p->dst, LLVMGetValueName(fn), f);
+            assert(name && "Exported LLVM functions must be named.");
+            shd_module_add_export(p->dst, name, f);
             break;
         default:
             break;
     }
+    if (name)
+        shd_set_debug_name(f, name);
     FnParseCtx fn_parse_ctx = {
         .fn = f,
         .phis = shd_new_dict(const Node*, struct List*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

@@ -81,7 +81,7 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
     IrArena* a = ctx->rewriter.dst_arena;
     // For the lifted entry point, we keep _all_ annotations
     Nodes rewritten_params = shd_recreate_params(&ctx2.rewriter, old->payload.fun.params);
-    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, old->payload.fun.name, shd_nodes(a, 0, NULL));
+    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, shd_nodes(a, 0, NULL));
     shd_rewrite_annotations(r, old, new_entry_pt);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
@@ -100,7 +100,8 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
     shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
 
     if (!*ctx->top_dispatcher_fn) {
-        *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), "top_dispatcher", shd_nodes(a, 0, NULL));
+        *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
+        shd_set_debug_name(*ctx->top_dispatcher_fn, "top_dispatcher");
         // shd_add_annotation_named(*ctx->top_dispatcher_fn, "Generated");
         shd_add_annotation_named(*ctx->top_dispatcher_fn, "Leaf");
     }
@@ -143,9 +144,8 @@ static const Node* process(Context* ctx, const Node* old) {
             }
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
-            String new_name = shd_format_string_arena(a->arena, "%s_indirect", old->payload.fun.name);
-
-            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), new_name, shd_nodes(a, 0, NULL));
+            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
+            shd_set_debug_name(fun, shd_format_string_arena(a->arena, "%s_indirect", shd_get_node_name_safe(old)));
             shd_remove_annotation_by_name(old, "EntryPoint");
             shd_remove_annotation_by_name(old, "Exported");
             shd_rewrite_annotations(r, old, fun);

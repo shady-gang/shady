@@ -1,6 +1,7 @@
 #include "callgraph.h"
 
 #include "shady/analysis/uses.h"
+#include "shady/ir/debug.h"
 #include "shady/visit.h"
 
 #include "list.h"
@@ -128,7 +129,7 @@ static int min(int a, int b) { return a < b ? a : b; }
 
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 static void strongconnect(CGNode* v, int* index, struct List* stack) {
-    shd_debugv_print("strongconnect(%s) \n", v->fn->payload.fun.name);
+    shd_debugv_print("strongconnect(%s) \n", shd_get_node_name_safe(v->fn));
 
     v->tarjan.index = *index;
     v->tarjan.lowlink = *index;
@@ -142,7 +143,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         CGEdge e;
         shd_debugv_print(" has %d successors\n", shd_dict_count(v->callees));
         while (shd_dict_iter(v->callees, &iter, &e, NULL)) {
-            shd_debugv_print("  %s\n", e.dst_fn->fn->payload.fun.name);
+            shd_debugv_print("  %s\n", shd_get_node_name_safe(e.dst_fn->fn));
             if (e.dst_fn->tarjan.index == -1) {
                 // Successor w has not yet been visited; recurse on it
                 strongconnect(e.dst_fn, index, stack);
@@ -174,7 +175,7 @@ static void strongconnect(CGNode* v, int* index, struct List* stack) {
         if (scc_size > 1) {
             for (size_t i = 0; i < scc_size; i++) {
                 CGNode* w = scc[i];
-                shd_debugv_print("Function %s is part of a recursive call chain \n", w->fn->payload.fun.name);
+                shd_debugv_print("Function %s is part of a recursive call chain \n", shd_get_node_name_safe(w->fn));
                 w->is_recursive = true;
             }
         }
@@ -218,7 +219,7 @@ void shd_destroy_callgraph(CallGraph* graph) {
     size_t i = 0;
     CGNode* node;
     while (shd_dict_iter(graph->fn2cgn, &i, NULL, &node)) {
-        shd_debugv_print("Freeing CG node: %s\n", node->fn->payload.fun.name);
+        shd_debugv_print("Freeing CG node: %s\n", shd_get_node_name_safe(node->fn));
         shd_destroy_dict(node->callers);
         shd_destroy_dict(node->callees);
         free(node);

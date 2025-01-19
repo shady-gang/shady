@@ -109,7 +109,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             Nodes nparams = infer_params(&body_context, get_abstraction_params(node));
 
             Nodes nret_types = annotate_all_types(a, infer_nodes(ctx, node->payload.fun.return_types), false);
-            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, shd_string(a, node->payload.fun.name), nret_types);
+            Node* fun = function_helper(ctx->rewriter.dst_module, nparams, nret_types);
             shd_register_processed(r, node, fun);
             body_context.current_fn = fun;
             shd_set_abstraction_body(fun, infer(&body_context, node->payload.fun.body, NULL));

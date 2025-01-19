@@ -819,7 +819,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 instruction_offset += s;
             }
 
-            Node* fun = function_helper(parser->mod, shd_nodes(parser->arena, params_count, params), name, t->payload.fn_type.return_types);
+            Node* fun = function_helper(parser->mod, shd_nodes(parser->arena, params_count, params), t->payload.fn_type.return_types);
             fun->annotations = annotations;
             parser->defs[result].node = fun;
             Node* old_fun = parser->fun;

@@ -110,7 +110,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Function_TAG: {
-            Node* new = function_helper(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), node->payload.fun.name, shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
+            Node* new = function_helper(ctx->rewriter.dst_module, shd_recreate_params(&ctx->rewriter, node->payload.fun.params), shd_rewrite_nodes(&ctx->rewriter, node->payload.fun.return_types));
             shd_rewrite_annotations(r, node, new);
             shd_register_processed(r, node, new);
 

@@ -103,9 +103,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool unifo
             params = shd_nodes_append(a, params, value_param);
             break;
     }
-    Node* new_fn = function_helper(ctx->rewriter.dst_module, params, name, return_ts);
+    Node* new_fn = function_helper(ctx->rewriter.dst_module, params, return_ts);
     shd_add_annotation_named(new_fn, "Generated");
     shd_add_annotation_named(new_fn, "Leaf");
+    shd_set_debug_name(new_fn, name);
     shd_dict_insert(String, const Node*, ctx->fns, name, new_fn);
 
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);

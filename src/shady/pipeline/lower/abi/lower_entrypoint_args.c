@@ -41,7 +41,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     IrArena* a = rewriter->dst_arena;
 
     const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
-    String name = shd_fmt_string_irarena(a, "__%s_args", old_entry_point->payload.fun.name);
+    String name = shd_fmt_string_irarena(a, "__%s_args", shd_get_node_name_safe(old_entry_point));
     Node* var = global_variable_helper(rewriter->dst_module, type, name, AsExternal);
     shd_module_add_export(rewriter->dst_module, name, var);
     shd_add_annotation(var, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
@@ -72,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (shd_lookup_annotation(node, "EntryPoint") && node->payload.fun.params.count > 0) {
                 Rewriter* r = &ctx->rewriter;
                 IrArena* a = r->dst_arena;
-                Node* fun = function_helper(r->dst_module, shd_empty(a), node->payload.fun.name, shd_empty(a));
+                Node* fun = function_helper(r->dst_module, shd_empty(a), shd_empty(a));
                 shd_rewrite_annotations(r, node, fun);
                 shd_register_processed(r, node, fun);
                 Node* new_entry_point = fun;

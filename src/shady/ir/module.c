@@ -133,7 +133,8 @@ const Node* shd_module_get_exported(const Module* m, String name) {
 
 static Node* make_init_fini_fn(Module* m, String name) {
     IrArena* a = shd_module_get_arena(m);
-    Node* fn = function_helper(m, shd_nodes(a, 0, NULL), name, shd_nodes(a, 0, NULL));
+    Node* fn = function_helper(m, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
+    shd_set_debug_name(fn, name);
     shd_add_annotation_named(fn, "Generated");
     shd_add_annotation_named(fn, "Internal");
     shd_add_annotation_named(fn, "Leaf");

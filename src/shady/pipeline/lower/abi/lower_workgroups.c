@@ -59,13 +59,14 @@ static const Node* process(Context* ctx, const Node* node) {
                 assert(node->payload.fun.return_types.count == 0 && "entry points do not return at this stage");
 
                 Nodes wparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* wrapper = function_helper(m, wparams, shd_get_abstraction_name(node), shd_empty(a));
+                Node* wrapper = function_helper(m, wparams, shd_empty(a));
                 shd_rewrite_annotations(r, node, wrapper);
                 shd_register_processed(&ctx->rewriter, node, wrapper);
 
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
-                Node* inner = function_helper(m, nparams, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)), shd_empty(a));
+                Node* inner = function_helper(m, nparams, shd_empty(a));
+                shd_set_debug_name(inner, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)));
                 shd_add_annotation_named(inner, "Leaf");
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));

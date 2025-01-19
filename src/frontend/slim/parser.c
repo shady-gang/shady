@@ -1180,7 +1180,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     Nodes parameters;
     expect_parameters(ctx, &parameters, NULL, NULL);
 
-    Node* fn = function_helper(mod, parameters, name, types);
+    Node* fn = function_helper(mod, parameters, types);
     fn->annotations = annotations;
     shd_set_debug_name(fn, name);
     if (!accept_token(ctx, semi_tok))

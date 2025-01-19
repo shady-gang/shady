@@ -7,11 +7,10 @@
 Node* shd_function(Module*, Function);
 Node* shd_basic_block(IrArena*, BasicBlock);
 
-static inline Node* function_helper(Module* m, Nodes params, const char* name, Nodes return_types) {
+static inline Node* function_helper(Module* m, Nodes params, Nodes return_types) {
     Node* f = shd_function(m, (Function) {
         .params = params,
         .return_types = return_types,
-        .name = name,
     });
     return f;
 }

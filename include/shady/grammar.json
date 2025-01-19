@@ -558,7 +558,6 @@
       "recursive": true,
       "nominal": true,
       "ops": [
-        { "name": "name", "class": "string" },
         { "name": "params", "class": "param", "list": true },
         { "name": "return_types", "class": "type", "list": true },
         { "name": "body", "class": "terminator", "nullable": true, "tail": true }

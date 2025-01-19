@@ -23,7 +23,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* entry_pt = shd_lookup_annotation(old, "EntryPoint");
             if (entry_pt) {
                 // Nodes annotations = shd_filter_out_annotation(a, shd_rewrite_nodes(r, payload.annotations), "EntryPoint");
-                Node* new = function_helper(m, shd_recreate_params(r, get_abstraction_params(old)), shd_fmt_string_irarena(a, "%s_", payload.name), shd_rewrite_nodes(r, payload.return_types));
+                Node* new = function_helper(m, shd_recreate_params(r, get_abstraction_params(old)), shd_rewrite_nodes(r, payload.return_types));
                 shd_register_processed(r, old, new);
                 shd_register_processed_list(r, get_abstraction_params(old), get_abstraction_params(new));
 
@@ -39,7 +39,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 const Node* fini_fn = shd_rewrite_node(r, shd_module_get_fini_fn(r->src_module));
 
                 Nodes wrapper_params = shd_recreate_params(r, get_abstraction_params(old));
-                Node* wrapper = function_helper(m, wrapper_params, payload.name, shd_rewrite_nodes(r, payload.return_types));
+                Node* wrapper = function_helper(m, wrapper_params, shd_rewrite_nodes(r, payload.return_types));
                 shd_rewrite_annotations(r, old, wrapper);
                 shd_module_add_export(m, exported_name, wrapper);
 

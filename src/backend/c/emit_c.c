@@ -233,7 +233,15 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
     CTerm* found = shd_c_lookup_existing_term(emitter, NULL, decl);
     if (found) return *found;
 
-    const char* name = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(decl));
+    const char* name = shd_get_node_name_unsafe(decl);
+    if (!name)
+        name = "function";
+    if (shd_get_exported_name(decl))
+        name = shd_get_exported_name(decl);
+    else
+        name = shd_fmt_string_irarena(emitter->arena, "%s_%d", name, decl->id);
+    name = shd_c_legalize_identifier(emitter, name);
+
     CTerm emit_as = term_from_cvalue(name);
     shd_c_register_emitted(emitter, NULL, decl, emit_as);
     String head = shd_c_emit_fn_head(emitter, decl->type, name, decl);

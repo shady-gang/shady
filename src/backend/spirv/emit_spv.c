@@ -209,7 +209,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
         } case Function_TAG: {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, decl, given_id);
-            spvb_name(emitter->file_builder, given_id, decl->payload.fun.name);
+            shd_spv_emit_debuginfo(emitter, decl, given_id);
             emit_function(emitter, decl);
             return given_id;
         } case Constant_TAG: {
@@ -229,6 +229,12 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
         default: shd_error("");
     }
     shd_error("unreachable");
+}
+
+void shd_spv_emit_debuginfo(Emitter* emitter, const Node* n, SpvId id) {
+    String name = shd_get_node_name_unsafe(n);
+    if (name)
+        spvb_name(emitter->file_builder, id, name);
 }
 
 static SpvExecutionModel emit_exec_model(ExecutionModel model) {
@@ -270,7 +276,9 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
             assert(execution_model != EmNone);
 
-            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, decl->payload.fun.name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
+            String exported_name = shd_get_exported_name(decl);
+            assert(exported_name);
+            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
             const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");

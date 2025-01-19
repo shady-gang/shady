@@ -122,7 +122,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_set_debug_name(payload, "sp");
     new_params = shd_nodes_prepend(a, new_params, payload);
 
-    Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, name, shd_nodes(a, 0, NULL));
+    Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, shd_nodes(a, 0, NULL));
     // TODO: when we split this pass into two this export should no longer be necessary
     shd_add_annotation(new_fn, annotation_value_helper(a, "Exported", string_lit_helper(a, name)));
     lifted_cont->lifted_fn = new_fn;
