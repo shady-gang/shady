@@ -261,6 +261,15 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
+        switch (LLVMGetLinkage(global)) {
+            case LLVMExternalLinkage:
+            case LLVMExternalWeakLinkage:
+                shd_module_add_export(p->dst, LLVMGetValueName(global), decl);
+                break;
+            default:
+                break;
+        }
+
         if (UNTYPED_POINTERS) {
             const Node* r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(decl));
             shd_dict_insert(LLVMValueRef, const Node*, p->map, global, r);
