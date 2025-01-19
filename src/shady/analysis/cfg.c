@@ -56,7 +56,7 @@ CFNode* shd_cfg_lookup(CFG* cfg, const Node* abs) {
         assert(cfnode->node == abs);
         return cfnode;
     }
-    shd_error("Failed to find %s in CFG.", shd_get_abstraction_name_safe(abs));
+    shd_error("Failed to find %s in CFG.", shd_get_node_name_safe(abs));
     shd_error_die();
 }
 
@@ -343,15 +343,15 @@ static void validate_cfg(CFG* cfg) {
         if (node != cfg->entry /* this exception exists since we might build CFGs rooted in cases */) {
             if (structured_body_uses > 0) {
                 if (structured_body_uses > 1) {
-                    shd_error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", shd_get_abstraction_name_safe(node->node), structured_body_uses);
+                    shd_error_print("Basic block %s is used as a structural target more than once (structured_body_uses: %zu)", shd_get_node_name_safe(node->node), structured_body_uses);
                     shd_error_die();
                 }
                 if (num_jumps > 0) {
-                    shd_error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", shd_get_abstraction_name_safe(node->node), num_jumps);
+                    shd_error_print("Basic block %s is used as structural target, but is also jumped into (num_jumps: %zu)", shd_get_node_name_safe(node->node), num_jumps);
                     shd_error_die();
                 }
                 if (!is_tail && num_exits > 0) {
-                    shd_error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", shd_get_abstraction_name_safe(node->node), num_exits);
+                    shd_error_print("Basic block %s is not a merge target yet is used as once (num_exits: %zu)", shd_get_node_name_safe(node->node), num_exits);
                     shd_error_die();
                 }
             }

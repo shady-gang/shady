@@ -31,7 +31,7 @@ static const Node* process(Context* ctx, const Node* node) {
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {
                 ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
-                shd_set_debug_name((Node*) ctx2.stack_size_on_entry, shd_fmt_string_irarena(a, "saved_stack_ptr_entering_%s", shd_get_abstraction_name(fun)));
+                shd_set_debug_name((Node*) ctx2.stack_size_on_entry, shd_fmt_string_irarena(a, "saved_stack_ptr_entering_%s", shd_get_node_name_safe(fun)));
             }
             shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
             if (node->payload.fun.body)

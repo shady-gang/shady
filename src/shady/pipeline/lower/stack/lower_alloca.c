@@ -95,7 +95,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
             shd_set_debug_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
-            Node* nom_t = nominal_type_helper(m, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_abstraction_name(node)));
+            Node* nom_t = nominal_type_helper(m, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_node_name_safe(node)));
             VContext vctx = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,

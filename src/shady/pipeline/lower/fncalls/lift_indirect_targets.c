@@ -81,7 +81,6 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* obody = get_abstraction_body(liftee);
-    String name = shd_get_abstraction_name_safe(liftee);
 
     Scheduler* scheduler = shd_new_scheduler(cfg);
     struct Dict* frontier_set = shd_free_frontier(scheduler, cfg, liftee);
@@ -97,7 +96,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
-    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", shd_get_abstraction_name_safe(liftee), recover_context_size);
+    shd_debugv_print("lambda_lift: free (to-be-spilled) variables at '%s' (count=%d): ", shd_get_node_name_safe(liftee), recover_context_size);
     for (size_t i = 0; i < recover_context_size; i++) {
         const Node* item = frontier.nodes[i];
         if (!is_value(item)) {
@@ -124,7 +123,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, shd_nodes(a, 0, NULL));
     // TODO: when we split this pass into two this export should no longer be necessary
-    shd_add_annotation(new_fn, annotation_value_helper(a, "Exported", string_lit_helper(a, name)));
+    shd_add_annotation(new_fn, annotation_value_helper(a, "Exported", string_lit_helper(a, shd_get_node_name_safe(liftee))));
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body

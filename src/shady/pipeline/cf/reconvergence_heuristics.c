@@ -99,7 +99,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
         gather_exiting_nodes(ctx->current_looptree, current_node, current_node, exiting_nodes);
 
         for (size_t i = 0; i < shd_list_count(exiting_nodes); i++) {
-            shd_debugv_print("Node %s exits the loop headed at %s\n", shd_get_abstraction_name_safe(shd_read_list(CFNode * , exiting_nodes)[i]->node), shd_get_abstraction_name_safe(node));
+            shd_debugv_print("Node %s exits the loop headed at %s\n", shd_get_node_name_safe(shd_read_list(CFNode * , exiting_nodes)[i]->node), shd_get_node_name_safe(node));
         }
 
         size_t exiting_nodes_count = shd_list_count(exiting_nodes);
@@ -222,7 +222,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 CFNode* exiting_node = shd_read_list(CFNode*, exiting_nodes)[i];
 
                 Node* exit_bb = basic_block_helper(a, shd_empty(a));
-                shd_set_debug_name(exit_bb, shd_format_string_arena(a->arena, "exit_recover_values_%s", shd_get_abstraction_name_safe(exiting_node->node)));
+                shd_set_debug_name(exit_bb, shd_format_string_arena(a->arena, "exit_recover_values_%s", shd_get_node_name_safe(exiting_node->node)));
                 BodyBuilder* exit_recover_bb = shd_bld_begin(a, shd_get_abstraction_mem(exit_bb));
 
                 const Node* recreated_exit = shd_rewrite_node(r, exiting_node->node);
@@ -389,7 +389,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             shd_set_debug_name(join_token, "jp_postdom");
 
             Node* pre_join = basic_block_helper(a, exit_args);
-            shd_set_debug_name(pre_join, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_abstraction_name_safe(ctx->current_abstraction), shd_get_abstraction_name_safe(post_dominator)));
+            shd_set_debug_name(pre_join, shd_format_string_arena(a->arena, "merge_%s_%s", shd_get_node_name_safe(ctx->current_abstraction), shd_get_node_name_safe(post_dominator)));
             shd_set_abstraction_body(pre_join, join(a, (Join) {
                 .join_point = join_token,
                 .args = exit_args,

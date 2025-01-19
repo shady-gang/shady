@@ -48,7 +48,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     if (fn_node->is_recursive || fn_node->calls_indirect) {
         info->is_leaf = false;
         info->done = true;
-        shd_debugv_print("Function %s can't be a leaf function because", shd_get_abstraction_name(fn_node->fn));
+        shd_debugv_print("Function %s can't be a leaf function because", shd_get_node_name_safe(fn_node->fn));
         bool and = false;
         if (fn_node->is_recursive) {
             shd_debugv_print("it is recursive");
@@ -68,7 +68,7 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
     CGEdge e;
     while (shd_dict_iter(fn_node->callees, &iter, &e, NULL)) {
         if (!is_leaf_fn(ctx, e.dst_fn)) {
-            shd_debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", shd_get_abstraction_name(fn_node->fn), shd_get_abstraction_name(e.dst_fn->fn));
+            shd_debugv_print("Function %s can't be a leaf function because its callee %s is not a leaf function.\n", shd_get_node_name_safe(fn_node->fn), shd_get_node_name_safe(e.dst_fn->fn));
             info->is_leaf = false;
             info->done = true;
         }
@@ -106,7 +106,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_recreate_node_body(r, node, new);
 
             if (fn_ctx.is_leaf) {
-                shd_debugv_print("Function %s is a leaf function!\n", shd_get_abstraction_name(node));
+                shd_debugv_print("Function %s is a leaf function!\n", shd_get_node_name_safe(node));
                 shd_add_annotation_named(new, "Leaf");
             }
 
@@ -115,7 +115,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Control_TAG: {
             if (!shd_is_control_static(ctx->uses, node)) {
-                shd_debugv_print("Function %s can't be a leaf function because the join point ", shd_get_abstraction_name(ctx->cfg->entry->node));
+                shd_debugv_print("Function %s can't be a leaf function because the join point ", shd_get_node_name_safe(ctx->cfg->entry->node));
                 shd_log_node(DEBUGV, shd_first(get_abstraction_params(node->payload.control.inside)));
                 shd_debugv_print("escapes its control block, preventing restructuring.\n");
                 ctx->is_leaf = false;
@@ -129,7 +129,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (control && shd_is_control_static(ctx->uses, control))
                     break;
             }
-            shd_debugv_print("Function %s can't be a leaf function because it joins with ", shd_get_abstraction_name(ctx->cfg->entry->node));
+            shd_debugv_print("Function %s can't be a leaf function because it joins with ", shd_get_node_name_safe(ctx->cfg->entry->node));
             shd_log_node(DEBUGV, old_jp);
             shd_debugv_print("which is not bound by a control node within that function.\n");
             ctx->is_leaf = false;

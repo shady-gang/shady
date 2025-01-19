@@ -43,7 +43,7 @@ static const LTNode* get_loop(const LTNode* n) {
 
 static String loop_name(const LTNode* n) {
     if (n && n->type == LF_HEAD && shd_list_count(n->cf_nodes) > 0) {
-        return shd_get_abstraction_name_safe(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
+        return shd_get_node_name_safe(shd_read_list(CFNode*, n->cf_nodes)[0]->node);
     }
     return "fn entry";
 }
@@ -89,7 +89,7 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
     Rewriter* r = &ctx->rewriter;
 
     if (!ctx->cfg) {
-        shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", shd_get_abstraction_name(old));
+        shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", shd_get_node_name_safe(old));
         shd_log_module(ERROR, ctx->config, ctx->rewriter.src_module);
         shd_error_die();
     }
@@ -108,7 +108,7 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
     LARRAY(Nodes, lifted, children_count);
     LARRAY(Nodes, new_params, children_count);
     for (size_t i = 0; i < children_count; i++) {
-        shd_debugv_print("doing %s\n", shd_get_abstraction_name_safe(old_children[i]));
+        shd_debugv_print("doing %s\n", shd_get_node_name_safe(old_children[i]));
         find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted[i]);
         Nodes nparams = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
         new_children[i] = basic_block_helper(a, shd_concat_nodes(a, nparams, new_params[i]));

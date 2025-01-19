@@ -70,7 +70,7 @@ static void emit_basic_block(Emitter* emitter, FnBuilder* fn_builder, const CFNo
     SpvId bb_id = spvb_get_block_builder_id(bb_builder);
     spvb_add_bb(fn_builder->base, bb_builder);
 
-    String name = shd_get_abstraction_name_safe(bb_node);
+    String name = shd_get_node_name_unsafe(bb_node);
     if (name)
         spvb_name(emitter->file_builder, bb_id, name);
 
@@ -139,7 +139,9 @@ static void emit_function(Emitter* emitter, const Node* node) {
         spvb_define_function(emitter->file_builder, fn_builder.base);
     } else {
         Growy* g = shd_new_growy();
-        spvb_literal_name(g, shd_get_abstraction_name(node));
+        String exported_name = shd_get_exported_name(node);
+        assert(exported_name && "imported functions need an ABI name");
+        spvb_literal_name(g, exported_name);
         shd_growy_append_bytes(g, 4, (char*) &(uint32_t) { SpvLinkageTypeImport });
         spvb_decorate(emitter->file_builder, fn_id, SpvDecorationLinkageAttributes, shd_growy_size(g) / 4, (uint32_t*) shd_growy_data(g));
         shd_destroy_growy(g);

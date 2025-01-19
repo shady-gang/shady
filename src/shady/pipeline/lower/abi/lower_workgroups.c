@@ -66,7 +66,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function_helper(m, nparams, shd_empty(a));
-                shd_set_debug_name(inner, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_abstraction_name(node)));
+                shd_set_debug_name(inner, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_node_name_safe(node)));
                 shd_add_annotation_named(inner, "Leaf");
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));

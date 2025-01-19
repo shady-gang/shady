@@ -66,7 +66,7 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
 
 
     shd_debugv_print("inlining heuristic for '%s': num_calls=%d num_inlineable_calls=%d recursive=%d inlineable=%d\n",
-                     shd_get_abstraction_name(fn_node->fn),
+                     shd_get_node_name_safe(fn_node->fn),
                      crit.num_calls,
                      crit.num_inlineable_calls,
                      fn_node->is_recursive,
@@ -79,7 +79,7 @@ static FnInliningCriteria get_inlining_heuristic(const CompilerConfig* config, C
 static const Node* inline_call(Context* ctx, const Node* ocallee, const Node* nmem, Nodes nargs, const Node* return_to) {
     assert(is_abstraction(ocallee));
 
-    shd_log_fmt(DEBUG, "Inlining '%s' inside '%s'\n", shd_get_abstraction_name(ocallee), shd_get_abstraction_name(ctx->fun));
+    shd_log_fmt(DEBUG, "Inlining '%s' inside '%s'\n", shd_get_node_name_safe(ocallee), shd_get_node_name_safe(ctx->fun));
     Context inline_context = *ctx;
     inline_context.rewriter = shd_create_children_rewriter(&ctx->rewriter);
 
@@ -134,14 +134,14 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined && is_call_potentially_inlineable(ctx->old_fun, ocallee)) {
-                    shd_debugv_print("Inlining call to %s\n", shd_get_abstraction_name(ocallee));
+                    shd_debugv_print("Inlining call to %s\n", shd_get_node_name_safe(ocallee));
                     Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, payload.args);
 
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = shd_strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
                     const Node* join_point = param_helper(a, shd_as_qualified_type(jp_type, true));
-                    shd_set_debug_name(join_point, shd_format_string_arena(a->arena, "inlined_return_%s", shd_get_abstraction_name(ocallee)));
+                    shd_set_debug_name(join_point, shd_format_string_arena(a->arena, "inlined_return_%s", shd_get_node_name_safe(ocallee)));
 
                     Node* control_case = basic_block_helper(a, shd_singleton(join_point));
                     const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
@@ -175,7 +175,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
-                    shd_debugv_print("Inlining tail call to %s\n", shd_get_abstraction_name(ocallee));
+                    shd_debugv_print("Inlining tail call to %s\n", shd_get_node_name_safe(ocallee));
                     Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
                     return inline_call(ctx, ocallee, shd_rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
                 }

@@ -184,7 +184,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
         shd_log_node(WARN, dst);
         shd_warn_print(" in lexical_scopes map. Is debug information enabled ?\n");
     } else if (lexical_scope_is_nested(*src_lexical_scope, *dst_lexical_scope)) {
-        shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", shd_get_abstraction_name_safe(src), shd_get_abstraction_name_safe(dst));
+        shd_debug_print("Jump from %s to %s exits one or more nested lexical scopes, it might reconverge.\n", shd_get_node_name_safe(src), shd_get_node_name_safe(dst));
 
         CFNode* src_cfnode = shd_cfg_lookup(cfg, src);
         assert(src_cfnode->node);
@@ -196,21 +196,21 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
 
         CFNode* dom = src_cfnode->idom;
         while (dom) {
-            shd_debug_print("Considering %s as a location for control\n", shd_get_abstraction_name_safe(dom->node));
+            shd_debug_print("Considering %s as a location for control\n", shd_get_node_name_safe(dom->node));
             Nodes* dom_lexical_scope = find_scope_info(dom->node);
             if (!dom_lexical_scope) {
-                shd_warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", shd_get_abstraction_name_safe(dom->node));
+                shd_warn_print("Basic block %s did not have an entry in the lexical_scopes map. Is debug information enabled ?\n", shd_get_node_name_safe(dom->node));
                 dom = dom->idom;
                 continue;
             } else if (lexical_scope_is_nested(*dst_lexical_scope, *dom_lexical_scope)) {
-                shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", shd_get_abstraction_name_safe(dom->node));
+                shd_error_print("We went up too far: %s is a parent of the jump destination scope.\n", shd_get_node_name_safe(dom->node));
             } else if (shd_compare_nodes(dom_lexical_scope, dst_lexical_scope)) {
                 // if (cfg_is_dominated(target_cfnode, dom)) {
                 if (!shd_cfg_is_dominated(dom, dst_cfnode) && dst_cfnode != dom) {
                     // assert(false);
                 }
 
-                shd_debug_print("We need to introduce a control block at %s, pointing at %s\n.", shd_get_abstraction_name_safe(dom->node), shd_get_abstraction_name_safe(dst));
+                shd_debug_print("We need to introduce a control block at %s, pointing at %s\n.", shd_get_node_name_safe(dom->node), shd_get_node_name_safe(dst));
 
                 Controls* controls = get_or_create_controls(ctx, dom->node);
                 AddControl* found = shd_dict_find_value(const Node, AddControl, controls->control_destinations, dst);
@@ -228,7 +228,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Node* join_token = param_helper(a, shd_as_qualified_type(jp_type, false));
 
                     Node* wrapper = basic_block_helper(a, wrapper_params);
-                    shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
+                    shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_node_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,

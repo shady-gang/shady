@@ -67,23 +67,6 @@ const Node* shd_get_abstraction_mem(const Node* abs) {
     return abs_mem(abs->arena, (AbsMem) { .abs = abs });
 }
 
-String shd_get_abstraction_name(const Node* abs) {
-    assert(is_abstraction(abs));
-    return shd_get_node_name_unsafe(abs);
-}
-
-String shd_get_abstraction_name_unsafe(const Node* abs) {
-    assert(is_abstraction(abs));
-    return shd_get_node_name_unsafe(abs);
-}
-
-String shd_get_abstraction_name_safe(const Node* abs) {
-    String name = shd_get_abstraction_name_unsafe(abs);
-    if (name)
-        return name;
-    return shd_fmt_string_irarena(abs->arena, "%%%d", abs->id);
-}
-
 void shd_set_abstraction_body(Node* abs, const Node* body) {
     assert(is_abstraction(abs));
     assert(!body || is_terminator(body));

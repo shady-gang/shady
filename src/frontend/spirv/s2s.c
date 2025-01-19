@@ -1109,7 +1109,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
 
             if (callee->tag == Function_TAG) {
                 const Node* fn = callee; //callee->payload.fn_addr.fn;
-                String fn_name = shd_get_abstraction_name(fn);
+                String fn_name = shd_get_node_name_safe(fn);
                 if (shd_string_starts_with(fn_name, "__shady")) {
                     char* copy = malloc(strlen(fn_name) + 1);
                     memcpy(copy, fn_name, strlen(fn_name) + 1);
