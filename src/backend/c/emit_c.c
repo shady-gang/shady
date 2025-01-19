@@ -392,16 +392,16 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     Printer* p = shd_new_printer_from_growy(g);
 
     shd_print(p, "typedef struct __shady_PrivateGlobals {\n");
-    Nodes decls = shd_module_get_all_exported(m);
+    Nodes decls = shd_module_collect_reachable_globals(m);
     size_t count = 0;
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG)
-            continue;
         AddressSpace as = decl->payload.global_variable.address_space;
         if (as != AsPrivate)
             continue;
-        shd_print(p, "%s;\n", shd_c_emit_type(emitter, decl->payload.global_variable.type, decl->payload.global_variable.name));
+        CTerm eglobal = shd_c_emit_value(emitter, NULL, decl);
+        assert(eglobal.var);
+        shd_print(p, "%s;\n", shd_c_emit_type(emitter, decl->payload.global_variable.type, eglobal.var));
         count++;
     }
     shd_print(p, "} __shady_PrivateGlobals;\n");
