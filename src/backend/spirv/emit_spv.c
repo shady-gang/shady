@@ -224,7 +224,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
         } case NominalType_TAG: {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, decl, given_id);
-            spvb_name(emitter->file_builder, given_id, decl->payload.nom_type.name);
+            shd_spv_emit_debuginfo(emitter, decl, given_id);
             spv_emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }

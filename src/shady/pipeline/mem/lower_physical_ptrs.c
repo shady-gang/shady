@@ -381,7 +381,8 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     Module* m = r->dst_module;
 
     String as_name = shd_get_address_space_name(as);
-    Node* global_struct_t = nominal_type_helper(m, shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    Node* global_struct_t = nominal_type_helper(m);
+    shd_set_debug_name(global_struct_t, shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
     shd_add_annotation_named(global_struct_t, "Generated");
 
     LARRAY(String, member_names, collected.count);

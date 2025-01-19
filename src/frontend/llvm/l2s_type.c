@@ -50,11 +50,12 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
             String name = LLVMGetStructName(t);
             Node* decl = NULL;
             const Node* result = NULL;
-            if (name) {
-                decl = nominal_type_helper(p->dst, name);
-                result = decl;
-                shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
-            }
+
+            decl = nominal_type_helper(p->dst);
+            if (name && strlen(name) > 0)
+                shd_set_debug_name(decl, name);
+            result = decl;
+            shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
 
             unsigned size = LLVMCountStructElementTypes(t);
             LARRAY(LLVMTypeRef, elements, size);

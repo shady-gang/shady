@@ -295,7 +295,7 @@ String shd_get_type_name(IrArena* arena, const Type* t) {
         }
         case Type_Float_TAG: return shd_fmt_string_irarena(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        case NominalType_TAG: return t->payload.nom_type.name;
+        case NominalType_TAG: return shd_get_node_name_safe(t);
         default: break;
     }
     return shd_make_unique_name(arena, shd_get_node_tag_string(t->tag));

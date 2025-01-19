@@ -594,7 +594,6 @@
       "nominal": true,
       "type": false,
       "ops": [
-        { "name": "name", "class": "string" },
         { "name": "body", "class": "type", "nullable": true, "tail": true }
       ]
     },

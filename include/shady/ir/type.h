@@ -12,9 +12,9 @@ static inline const Node* unit_type(IrArena* arena) {
 }
 
 Type* shd_nominal_type(Module*, NominalType);
-static inline Node* nominal_type_helper(Module* m, String name) {
+static inline Node* nominal_type_helper(Module* m) {
     Node* n = shd_nominal_type(m, (NominalType) {
-        .name = name,
+        0
     });
     return n;
 }
