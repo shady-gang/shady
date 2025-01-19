@@ -3,6 +3,7 @@
 #include "shady/ir/function.h"
 #include "shady/ir/builtin.h"
 #include "shady/ir/annotation.h"
+#include "shady/ir/debug.h"
 #include "shady/ir/decl.h"
 #include "shady/dict.h"
 
@@ -27,7 +28,8 @@ static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, 
                 fn_ctx.rewriter = shd_create_children_rewriter(r);
                 shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), get_abstraction_params(newfun));
                 fn_ctx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
-                Node* post_prelude = basic_block_helper(a, shd_empty(a), "post-prelude");
+                Node* post_prelude = basic_block_helper(a, shd_empty(a));
+                shd_set_debug_name(post_prelude, "post-prelude");
                 shd_register_processed(&fn_ctx.rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(post_prelude));
                 shd_set_abstraction_body(post_prelude, shd_rewrite_op(&fn_ctx.rewriter, NcTerminator, "body", get_abstraction_body(node)));
                 shd_set_abstraction_body(newfun, shd_bld_finish(fn_ctx.bb, jump_helper(a, shd_bld_mem(fn_ctx.bb), post_prelude, shd_empty(a))));

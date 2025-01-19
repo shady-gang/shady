@@ -888,9 +888,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             done_with_params:
 
             parser->defs[result].type = BB;
-            String bb_name = get_name(parser, result);
-            bb_name = bb_name ? bb_name : shd_make_unique_name(parser->arena, "basic_block");
-            Node* block = basic_block_helper(parser->arena, params, bb_name);
+            Node* block = basic_block_helper(parser->arena, params);
             parser->defs[result].node = block;
 
             BodyBuilder* bb = shd_bld_begin(parser->arena, shd_get_abstraction_mem(block));

@@ -143,7 +143,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* join_point = param_helper(a, shd_as_qualified_type(jp_type, true));
                     shd_set_debug_name(join_point, shd_format_string_arena(a->arena, "inlined_return_%s", shd_get_abstraction_name(ocallee)));
 
-                    Node* control_case = case_(a, shd_singleton(join_point));
+                    Node* control_case = basic_block_helper(a, shd_singleton(join_point));
                     const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
                     shd_set_abstraction_body(control_case, nbody);
 

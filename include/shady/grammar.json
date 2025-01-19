@@ -644,7 +644,6 @@
       "nominal": true,
       "ops": [
         { "name": "params", "class": "param", "list": true },
-        { "name": "name", "class": "string" },
         { "name": "body", "class": "terminator", "nullable": true, "tail": true },
         { "name": "insert", "type": "BodyBuilder*", "ignore": true }
       ]

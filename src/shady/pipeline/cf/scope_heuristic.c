@@ -183,7 +183,8 @@ static const Node* process(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             Nodes nparams = shd_recreate_params(r, get_abstraction_params(node));
             shd_register_processed_list(r, get_abstraction_params(node), nparams);
-            Node* new_bb = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(node));
+            Node* new_bb = basic_block_helper(a, nparams);
+            shd_rewrite_annotations(r, node, new_bb);
             shd_register_processed(r, node, new_bb);
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_bb));
             CFNode* n = shd_cfg_lookup(ctx->cfg, node);

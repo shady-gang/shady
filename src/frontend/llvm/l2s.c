@@ -93,10 +93,10 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
     }
     after_phis:
     {
+        Node* nbb = basic_block_helper(a, params);
         String name = LLVMGetBasicBlockName(bb);
-        if (strlen(name) == 0)
-            name = NULL;
-        Node* nbb = basic_block_helper(a, params, name);
+        if (name && strlen(name) > 0)
+            shd_set_debug_name(nbb, name);
         shd_dict_insert(LLVMValueRef, const Node*, p->map, bb, nbb);
         shd_dict_insert(const Node*, struct List*, fn_ctx->phis, nbb, phis);
         *ctx = (BBParseCtx) {

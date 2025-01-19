@@ -45,7 +45,7 @@ BodyBuilder* shd_bld_begin(IrArena* a, const Node* mem) {
 }
 
 BodyBuilder* shd_bld_begin_pseudo_instr(IrArena* a, const Node* mem) {
-    Node* block = basic_block_helper(a, shd_empty(a), NULL);
+    Node* block = basic_block_helper(a, shd_empty(a));
     BodyBuilder* builder = shd_bld_begin(a, shd_get_abstraction_mem(block));
     builder->tail_block = block;
     builder->block_entry_block = block;
@@ -251,7 +251,7 @@ static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
 }
 
 static Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_constructTag tag, union NodesUnion payload) {
-    Node* tail = basic_block_helper(bb->arena, params, NULL);
+    Node* tail = basic_block_helper(bb->arena, params);
     StackEntry entry = {
         .structured = {
             .tag = tag,
@@ -341,7 +341,7 @@ begin_control_t shd_bld_begin_control(BodyBuilder* bb, Nodes yield_types) {
             .is_uniform = true
     });
     const Node* jp = param_helper(a, jp_type);
-    Node* c = case_(a, shd_singleton(jp));
+    Node* c = basic_block_helper(a, shd_singleton(jp));
     return (begin_control_t) {
         .results = shd_bld_control(bb, yield_types, c),
         .case_ = c,
@@ -358,7 +358,7 @@ begin_loop_helper_t shd_bld_begin_loop_helper(BodyBuilder* bb, Nodes yield_types
     for (size_t i = 0; i < arg_types.count; i++) {
         params[i] = param_helper(a, shd_as_qualified_type(arg_types.nodes[i], false));
     }
-    Node* loop_header = case_(a, shd_nodes(a, arg_types.count, params));
+    Node* loop_header = basic_block_helper(a, shd_nodes(a, arg_types.count, params));
     shd_set_abstraction_body(outer_control.case_, shd_bld_jump(outer_control_case_builder, loop_header, initial_values));
     BodyBuilder* loop_header_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_header));
     begin_control_t inner_control = shd_bld_begin_control(loop_header_builder, arg_types);

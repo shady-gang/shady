@@ -86,6 +86,7 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
     IrArena* a = ctx->rewriter.dst_arena;
     Context ctx2 = *ctx;
     ctx = &ctx2;
+    Rewriter* r = &ctx->rewriter;
 
     if (!ctx->cfg) {
         shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", shd_get_abstraction_name(old));
@@ -110,7 +111,8 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
         shd_debugv_print("doing %s\n", shd_get_abstraction_name_safe(old_children[i]));
         find_liftable_loop_values(ctx, old_children[i], &new_params[i], &lifted[i]);
         Nodes nparams = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_children[i]));
-        new_children[i] = basic_block_helper(a, shd_concat_nodes(a, nparams, new_params[i]), shd_get_abstraction_name(old_children[i]));
+        new_children[i] = basic_block_helper(a, shd_concat_nodes(a, nparams, new_params[i]));
+        shd_rewrite_annotations(r, old_children[i], new_children[i]);
         shd_register_processed(&ctx->rewriter, old_children[i], new_children[i]);
         shd_register_processed_list(&ctx->rewriter, get_abstraction_params(old_children[i]), nparams);
         assert(!shd_dict_find_key(const Node*, ctx->lifted_arguments, old_children[i]));

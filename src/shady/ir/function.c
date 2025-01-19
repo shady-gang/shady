@@ -71,7 +71,7 @@ String shd_get_abstraction_name(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
-        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case BasicBlock_TAG: return shd_get_node_name_unsafe(abs);
         default: assert(false);
     }
 }
@@ -80,7 +80,7 @@ String shd_get_abstraction_name_unsafe(const Node* abs) {
     assert(is_abstraction(abs));
     switch (abs->tag) {
         case Function_TAG: return abs->payload.fun.name;
-        case BasicBlock_TAG: return abs->payload.basic_block.name;
+        case BasicBlock_TAG: return shd_get_node_name_unsafe(abs);
         default: assert(false);
     }
 }

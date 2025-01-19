@@ -38,7 +38,7 @@ static void test_body_builder_fun_body(IrArena* a) {
 
     const Node* p1_value = shd_bld_load(bb, p1);
     CHECK(p1_value->tag == Load_TAG, exit(-1));
-    Node* true_case = case_(a, shd_empty(a));
+    Node* true_case = basic_block_helper(a, shd_empty(a));
     BodyBuilder* tc_builder = shd_bld_begin(a, shd_get_abstraction_mem(true_case));
     shd_bld_store(tc_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(true_case, shd_bld_selection_merge(tc_builder, shd_empty(a)));
@@ -134,7 +134,7 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     const Node* first_load = shd_bld_load(bb, p1);
 
     BodyBuilder* block_builder = shd_bld_begin_pseudo_instr(a, shd_bld_mem(bb));
-    Node* if_true_case = case_(a, shd_empty(a));
+    Node* if_true_case = basic_block_helper(a, shd_empty(a));
     BodyBuilder* if_true_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
     shd_bld_store(if_true_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(if_true_case, shd_bld_selection_merge(if_true_builder, shd_empty(a)));

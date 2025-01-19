@@ -59,9 +59,9 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_bld_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), loaded_word);
             const Node* next_index = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
-            Node* true_case = case_(a, shd_empty(a));
+            Node* true_case = basic_block_helper(a, shd_empty(a));
             shd_set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
-            Node* false_case = case_(a, shd_empty(a));
+            Node* false_case = basic_block_helper(a, shd_empty(a));
             shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             shd_set_abstraction_body(loop_case, shd_bld_finish(loop_bb, branch(a, (Branch) {
@@ -105,9 +105,9 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_bld_store(loop_bb, lea_helper(a, dst_addr, index, shd_empty(a)), src_value);
             const Node* next_index = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, index, shd_uint32_literal(a, 1)));
 
-            Node* true_case = case_(a, shd_empty(a));
+            Node* true_case = basic_block_helper(a, shd_empty(a));
             shd_set_abstraction_body(true_case, join(a, (Join) { .join_point = l.continue_jp, .mem = shd_get_abstraction_mem(true_case), .args = shd_singleton(next_index) }));
-            Node* false_case = case_(a, shd_empty(a));
+            Node* false_case = basic_block_helper(a, shd_empty(a));
             shd_set_abstraction_body(false_case, join(a, (Join) { .join_point = l.break_jp, .mem = shd_get_abstraction_mem(false_case), .args = shd_empty(a) }));
 
             shd_set_abstraction_body(loop_case, shd_bld_finish(loop_bb, branch(a, (Branch) {

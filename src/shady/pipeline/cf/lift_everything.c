@@ -64,7 +64,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
             shd_destroy_dict(frontier);
             shd_dict_insert(const Node*, Nodes, ctx->lift, node, additional_args);
-            Node* new_bb = basic_block_helper(a, new_params, shd_get_abstraction_name_unsafe(node));
+            Node* new_bb = basic_block_helper(a, new_params);
+            shd_rewrite_annotations(r, node, new_bb);
 
             shd_register_processed(&ctx->fn_ctx->rewriter, node, new_bb);
             shd_set_abstraction_body(new_bb, shd_rewrite_node(&bb_ctx.rewriter, get_abstraction_body(node)));

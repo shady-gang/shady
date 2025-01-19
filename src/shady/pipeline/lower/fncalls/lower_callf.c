@@ -38,7 +38,7 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
     nargs = shd_nodes_append(a, nargs, jp);
 
     // the body of the control is just an immediate tail-call
-    Node* control_case = case_(a, shd_singleton(jp));
+    Node* control_case = basic_block_helper(a, shd_singleton(jp));
     const Node* control_body = tail_call(a, (TailCall) {
         .callee = fn_ptr,
         .args = nargs,
@@ -64,7 +64,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nparams = shd_recreate_params(&ctx->rewriter, oparams);
             shd_register_processed_list(&ctx->rewriter, oparams, nparams);
 
-            Node* prelude = case_(a, shd_empty(a));
+            Node* prelude = basic_block_helper(a, shd_empty(a));
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(prelude));
 
             // Supplement an additional parameter for the join point

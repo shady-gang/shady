@@ -752,14 +752,14 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect(accept_token(ctx, rpar_tok), "')'");
             const Node* (*merge)(const Node*) = config->front_end ? make_selection_merge : NULL;
 
-            Node* true_case = case_(arena, shd_nodes(arena, 0, NULL));
+            Node* true_case = basic_block_helper(arena, shd_nodes(arena, 0, NULL));
             shd_set_abstraction_body(true_case, expect_body(ctx, shd_get_abstraction_mem(true_case), merge));
 
             // else defaults to an empty body
             bool has_else = accept_token(ctx, else_tok);
             Node* false_case = NULL;
             if (has_else) {
-                false_case = case_(arena, shd_nodes(arena, 0, NULL));
+                false_case = basic_block_helper(arena, shd_nodes(arena, 0, NULL));
                 shd_set_abstraction_body(false_case, expect_body(ctx, shd_get_abstraction_mem(false_case), merge));
             }
             return shd_maybe_tuple_helper(arena, shd_bld_if(bb, yield_types, condition, true_case, false_case));
@@ -772,7 +772,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             expect_parameters(ctx, &parameters, &initial_arguments, bb);
             // by default loops continue forever
             const Node* (*default_loop_end_behaviour)(const Node*) = config->front_end ? make_loop_continue : NULL;
-            Node* loop_case = case_(arena, parameters);
+            Node* loop_case = basic_block_helper(arena, parameters);
             shd_set_abstraction_body(loop_case, expect_body(ctx, shd_get_abstraction_mem(loop_case), default_loop_end_behaviour));
             return shd_maybe_tuple_helper(arena, shd_bld_loop(bb, yield_types, initial_arguments, loop_case));
         }
@@ -787,7 +787,7 @@ static const Node* accept_control_flow_instruction(ctxparams, BodyBuilder* bb) {
             }));
             shd_set_debug_name(jp, str);
             expect(accept_token(ctx, rpar_tok), "')'");
-            Node* control_case = case_(arena, shd_singleton(jp));
+            Node* control_case = basic_block_helper(arena, shd_singleton(jp));
             shd_set_abstraction_body(control_case, expect_body(ctx, shd_get_abstraction_mem(control_case), NULL));
             return shd_maybe_tuple_helper(arena, shd_bld_control(bb, yield_types, control_case));
         }
@@ -1042,7 +1042,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
             break;
     }
 
-    Node* terminator_case = case_(arena, shd_empty(arena));
+    Node* terminator_case = basic_block_helper(arena, shd_empty(arena));
     BodyBuilder* terminator_bb = shd_bld_begin(arena, shd_get_abstraction_mem(terminator_case));
     const Node* terminator = accept_terminator(ctx, terminator_bb);
 
@@ -1058,7 +1058,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
     shd_set_abstraction_body(terminator_case, shd_bld_finish(terminator_bb, terminator));
 
-    Node* cont_wrapper_case = case_(arena, shd_empty(arena));
+    Node* cont_wrapper_case = basic_block_helper(arena, shd_empty(arena));
     BodyBuilder* cont_wrapper_bb = shd_bld_begin(arena, shd_get_abstraction_mem(cont_wrapper_case));
 
     Nodes ids = shd_empty(arena);
@@ -1071,7 +1071,7 @@ static const Node* expect_body(ctxparams, const Node* mem, const Node* default_t
 
             Nodes parameters;
             expect_parameters(ctx, &parameters, NULL, bb);
-            Node* continuation = basic_block_helper(arena, parameters, name);
+            Node* continuation = basic_block_helper(arena, parameters);
             shd_set_abstraction_body(continuation, expect_body(ctx, shd_get_abstraction_mem(continuation), NULL));
             ids = shd_nodes_append(arena, ids, string_lit_helper(arena, name));
             conts = shd_nodes_append(arena, conts, continuation);

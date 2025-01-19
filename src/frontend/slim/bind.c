@@ -189,7 +189,8 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
                 Nodes nparams = shd_recreate_params(r, get_abstraction_params(conts[i]));
-                bbs[i] = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(conts[i]));
+                bbs[i] = basic_block_helper(a, nparams);
+                shd_set_debug_name(bbs[i], name);
                 shd_register_processed(r, conts[i], bbs[i]);
                 add_binding(ctx, false, name, bbs[i]);
                 shd_log_fmt(DEBUGV, "Bound continuation '%s'\n", name);
@@ -269,8 +270,8 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         case BasicBlock_TAG: {
             assert(is_basic_block(node));
             Nodes new_params = shd_recreate_params(&ctx->rewriter, node->payload.basic_block.params);
-            String name = node->payload.basic_block.name;
-            Node* new_bb = basic_block_helper(a, new_params, name);
+            String name = shd_get_node_name_unsafe(node);
+            Node* new_bb = basic_block_helper(a, new_params);
             Context bb_ctx = *ctx;
             ctx = &bb_ctx;
             if (name)

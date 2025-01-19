@@ -17,7 +17,7 @@ typedef struct {
 } Context;
 
 static void add_bounds_check(IrArena* a, BodyBuilder* bb, const Node* i, const Node* max) {
-    Node* out_of_bounds_case = case_(a, shd_empty(a));
+    Node* out_of_bounds_case = basic_block_helper(a, shd_empty(a));
     shd_set_abstraction_body(out_of_bounds_case, merge_break(a, (MergeBreak) {
         .args = shd_empty(a),
         .mem = shd_get_abstraction_mem(out_of_bounds_case)
@@ -115,7 +115,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     } else
                         assert(false);
                     for (int dim = 0; dim < 3; dim++) {
-                        Node* loop_body = case_(a, shd_singleton(params[dim]));
+                        Node* loop_body = basic_block_helper(a, shd_singleton(params[dim]));
                         cases[scope * 3 + dim] = loop_body;
                         BodyBuilder* loop_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_body));
                         builders[scope * 3 + dim] = loop_bb;

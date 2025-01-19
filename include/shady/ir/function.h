@@ -16,14 +16,11 @@ static inline Node* function_helper(Module* m, Nodes params, const char* name, N
     return f;
 }
 
-static inline Node* basic_block_helper(IrArena* a, Nodes params, const char* name) {
+static inline Node* basic_block_helper(IrArena* a, Nodes params) {
     return shd_basic_block(a, (BasicBlock) {
         .params = params,
-        .name = name,
     });
 }
-
-static inline Node* case_(IrArena* a, Nodes params) { return basic_block_helper(a, params, NULL); }
 
 /// For typing instructions that return nothing (equivalent to C's void f())
 static inline const Type* empty_multiple_return_type(IrArena* arena) {

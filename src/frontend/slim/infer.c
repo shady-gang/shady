@@ -303,22 +303,25 @@ static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg
     Context body_context = *ctx;
     Nodes nparams = infer_params(ctx, get_abstraction_params(node));
 
-    Node* new_case = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(node));
+    Node* new_case = basic_block_helper(a, nparams);
     shd_register_processed(r, node, new_case);
     shd_set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
+    shd_rewrite_annotations(r, node, new_case);
     return new_case;
 }
 
 static const Node* _infer_basic_block(Context* ctx, const Node* node) {
     assert(is_basic_block(node));
-    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
     Context body_context = *ctx;
     Nodes nparams = infer_params(ctx, get_abstraction_params(node));
 
-    Node* bb = basic_block_helper(a, nparams, node->payload.basic_block.name);
+    Node* bb = basic_block_helper(a, nparams);
     assert(bb);
     shd_register_processed(&ctx->rewriter, node, bb);
+    shd_rewrite_annotations(r, node, bb);
 
     shd_set_abstraction_body(bb, infer(&body_context, node->payload.basic_block.body, NULL));
     return bb;
@@ -488,7 +491,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     const Node* jp = param_helper(a, jpt);
     shd_register_processed(&joinable_ctx.rewriter, ojp, jp);
 
-    Node* new_case = basic_block_helper(a, shd_singleton(jp), NULL);
+    Node* new_case = basic_block_helper(a, shd_singleton(jp));
     shd_register_processed(&joinable_ctx.rewriter, olam, new_case);
     shd_set_abstraction_body(new_case, infer(&joinable_ctx, get_abstraction_body(olam), NULL));
 

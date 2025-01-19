@@ -89,12 +89,13 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
         assert(obb->tag == BasicBlock_TAG);
         Nodes nparams = remake_params(ctx, get_abstraction_params(obb));
         shd_register_processed_list(r, get_abstraction_params(obb), nparams);
-        nbbs[i] = basic_block_helper(a, nparams, shd_get_abstraction_name_unsafe(obb));
+        nbbs[i] = basic_block_helper(a, nparams);
+        shd_rewrite_annotations(r, oabs, nbbs[i]);
         shd_register_processed(r, obb, nbbs[i]);
     }
 
     // We introduce a dummy case now because we don't know yet whether the body of the abstraction will be wrapped
-    Node* c = case_(a, shd_empty(a));
+    Node* c = basic_block_helper(a, shd_empty(a));
     Node* oc = c;
     shd_register_processed(r, shd_get_abstraction_mem(oabs), shd_get_abstraction_mem(c));
 
@@ -112,10 +113,10 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
     AddControl add_control;
     while(shd_dict_iter(controls->control_destinations, &i, NULL, &add_control)) {
         const Node* dst = add_control.destination;
-        Node* control_case = case_(a, shd_singleton(add_control.token));
+        Node* control_case = basic_block_helper(a, shd_singleton(add_control.token));
         shd_set_abstraction_body(control_case, jump_helper(a, shd_get_abstraction_mem(control_case), c, shd_empty(a)));
 
-        Node* c2 = case_(a, shd_empty(a));
+        Node* c2 = basic_block_helper(a, shd_empty(a));
         BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(c2));
         const Type* jp_type = add_control.token->type;
         shd_deconstruct_qualified_type(&jp_type);
@@ -226,7 +227,8 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     });
                     const Node* join_token = param_helper(a, shd_as_qualified_type(jp_type, false));
 
-                    Node* wrapper = basic_block_helper(a, wrapper_params, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
+                    Node* wrapper = basic_block_helper(a, wrapper_params);
+                    shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_abstraction_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,

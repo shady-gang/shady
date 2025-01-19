@@ -62,11 +62,12 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 false_block = shd_rewrite_node(r, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
-                false_block = basic_block_helper(a, shd_nodes(a, 0, NULL), shd_make_unique_name(a, "if_false"));
+                false_block = basic_block_helper(a, shd_nodes(a, 0, NULL));
+                shd_set_debug_name(false_block, "if_false");
                 shd_set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
             }
 
-            Node* control_case = basic_block_helper(a, shd_singleton(jp), NULL);
+            Node* control_case = basic_block_helper(a, shd_singleton(jp));
             const Node* control_body = branch(a, (Branch) {
                 .condition = shd_rewrite_node(r, node->payload.if_instr.condition),
                 .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case), true_block, shd_empty(a)),
@@ -104,17 +105,20 @@ static const Node* process_node(Context* ctx, const Node* node) {
             shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
             Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
-            Node* loop_header_block = basic_block_helper(a, new_params, shd_make_unique_name(a, "loop_header"));
+            Node* loop_header_block = basic_block_helper(a, new_params);
+            shd_set_debug_name(loop_header_block, "loop_header");
 
             BodyBuilder* inner_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_header_block));
-            Node* inner_control_case = case_(a, shd_singleton(continue_point));
+            Node* inner_control_case = basic_block_helper(a, shd_singleton(continue_point));
+            shd_set_debug_name(inner_control_case, "inner_control");
             shd_set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
                                                                      shd_rewrite_node(r, old_loop_block), new_params));
             Nodes args = shd_bld_control(inner_bb, param_types, inner_control_case);
 
             shd_set_abstraction_body(loop_header_block, shd_bld_finish(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = shd_bld_mem(inner_bb) })));
 
-            Node* outer_control_case = case_(a, shd_singleton(break_point));
+            Node* outer_control_case = basic_block_helper(a, shd_singleton(break_point));
+            shd_set_debug_name(outer_control_case, "outer_control");
             const Node* first_iteration_jump = jump(a, (Jump) {
                 .target = loop_header_block,
                 .args = shd_rewrite_nodes(r, payload.initial_args),
