@@ -190,6 +190,14 @@ const Node* shd_bld_jump(BodyBuilder* bb, const Node* target, Nodes args) {
     }));
 }
 
+const Node* shd_bld_indirect_tail_call(BodyBuilder* bb, const Node* target, Nodes args) {
+    return shd_bld_finish(bb, tail_call(bb->arena, (TailCall) {
+        .callee = target,
+        .args = args,
+        .mem = shd_bld_mem(bb),
+    }));
+}
+
 const Node* shd_bld_to_instr_yield_value(BodyBuilder* bb, const Node* value) {
     IrArena* a = bb->arena;
     if (!bb->tail_block && shd_list_count(bb->stack) == 0) {

@@ -639,7 +639,9 @@ const Type* _shd_check_type_tail_call(IrArena* arena, TailCall tail_call) {
         const Node* argument = args.nodes[i];
         assert(is_value(argument));
     }
-    assert(check_value_call(callee_type, shd_get_values_types(arena, tail_call.args)).count == 0);
+    check_value_call(callee_type, shd_get_values_types(arena, tail_call.args));
+    // TODO: check it matches function ?
+    // assert(check_value_call(callee_type, shd_get_values_types(arena, tail_call.args)).count == 0);
     return noret_type(arena);
 }
 

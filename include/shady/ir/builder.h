@@ -53,6 +53,7 @@ const Node* shd_bld_loop_continue(BodyBuilder* bb, Nodes args);
 const Node* shd_bld_loop_break(BodyBuilder* bb, Nodes args);
 const Node* shd_bld_join(BodyBuilder* bb, const Node* jp, Nodes args);
 const Node* shd_bld_jump(BodyBuilder* bb, const Node* target, Nodes args);
+const Node* shd_bld_indirect_tail_call(BodyBuilder* bb, const Node* target, Nodes args);
 
 void shd_bld_cancel(BodyBuilder* bb);
 

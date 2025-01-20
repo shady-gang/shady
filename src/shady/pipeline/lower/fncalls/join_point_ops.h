@@ -4,6 +4,8 @@
 typedef enum {
     ShadyOpDefaultJoinPoint,
     ShadyOpCreateJoinPoint,
+    ShadyOpDispatcherEnterFn,
+    ShadyOpDispatcherContinue,
 } ShadyJoinPointOpcodes;
 
 #endif

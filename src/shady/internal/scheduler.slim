@@ -183,7 +183,7 @@ fn builtin_find_schedulable_leaf() {
 }
 
 @Internal @Exported
-fn builtin_get_active_branch mask_t() {
+fn builtin_get_active_threads_mask mask_t() {
     val this_thread_branch = scheduler_vector#(subgroup_local_id);
     val same_dest = resume_at#(subgroup_local_id) == next_fn;
     val not_escaping = is_parent(this_thread_branch, active_branch);

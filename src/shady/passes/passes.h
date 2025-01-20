@@ -39,10 +39,6 @@ RewritePass shd_pass_lift_indirect_targets;
 /// @name Final CF lowering passes
 /// @{
 
-/// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
-RewritePass shd_pass_lower_callf;
-/// Emulates tailcalls, forks and joins using a top function
-RewritePass shd_pass_lower_tailcalls;
 
 /// @}
 

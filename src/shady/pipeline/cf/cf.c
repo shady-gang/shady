@@ -4,6 +4,9 @@
 #include "portability.h"
 #include "log.h"
 
+/// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
+RewritePass shd_pass_lower_callf;
+
 static CompilationResult remove_indirect_calls(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_setup_stack_frames, config)
     if (!config->hacks.force_join_point_lifting)
@@ -51,6 +54,11 @@ static void add_scheduler_source(const CompilerConfig* config, Module* dst) {
     shd_destroy_ir_arena(shd_module_get_arena(builtin_scheduler_mod));
 }
 
+/// Wires up intrinsics to the built-in scheduler code
+RewritePass shd_pass_lower_dynamic_control;
+/// Creates a top-level function
+RewritePass shd_pass_lower_tailcalls;
+
 static CompilationResult emulate_tailcalls(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     if (config->dynamic_scheduling) {
         add_scheduler_source(config, *pmod);
@@ -58,6 +66,7 @@ static CompilationResult emulate_tailcalls(SHADY_UNUSED void* unused, const Comp
 
     // run this again so the scheduler source is left alone
     RUN_PASS(shd_pass_mark_leaf_functions, config)
+    RUN_PASS(shd_pass_lower_dynamic_control, config)
     RUN_PASS(shd_pass_lower_tailcalls, config)
     RUN_PASS(shd_pass_lower_mask, config)
 

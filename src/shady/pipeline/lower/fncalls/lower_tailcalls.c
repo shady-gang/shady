@@ -42,11 +42,6 @@ static const Node* get_fn(Rewriter* rewriter, const char* name) {
     return fn_addr_helper(rewriter->dst_arena, decl);
 }
 
-static const Type* lowered_fn_type(Context* ctx) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    return shd_int_type_helper(a, false, ctx->config->target.memory.ptr_size);
-}
-
 static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
     IrArena* a = ctx->rewriter.dst_arena;
     return int_literal(a, (IntLiteral) {
@@ -73,43 +68,15 @@ static const Node* lower_fn_addr(Context* ctx, const Node* the_function) {
     return fn_ptr_as_value(ctx, get_fn_ptr(ctx, the_function));
 }
 
-/// Turn a function into a top-level entry point, calling into the top dispatch function.
-static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
-    assert(old->tag == Function_TAG && fun->tag == Function_TAG);
-    Context ctx2 = *ctx;
-    Rewriter* r = &ctx2.rewriter;
+static const Node* get_top_dispatcher_fn(Context* ctx) {
     IrArena* a = ctx->rewriter.dst_arena;
-    // For the lifted entry point, we keep _all_ annotations
-    Nodes rewritten_params = shd_recreate_params(&ctx2.rewriter, old->payload.fun.params);
-    Node* new_entry_pt = function_helper(ctx2.rewriter.dst_module, rewritten_params, shd_nodes(a, 0, NULL));
-    shd_rewrite_annotations(r, old, new_entry_pt);
-
-    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
-
-    shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
-
-    // shove the arguments on the stack
-    for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
-        shd_bld_stack_push_value(bb, rewritten_params.nodes[i]);
-    }
-
-    // Initialise next_fn/next_mask to the entry function
-    const Node* fork_fn = get_fn(&ctx->rewriter, "builtin_fork");
-    const Node* entry_point_addr = shd_uint32_literal(a, get_fn_ptr(ctx, old));
-    // fn_addr = gen_conversion(bb, lowered_fn_type(ctx), fn_addr);
-    shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
-
     if (!*ctx->top_dispatcher_fn) {
         *ctx->top_dispatcher_fn = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
         shd_set_debug_name(*ctx->top_dispatcher_fn, "top_dispatcher");
         // shd_add_annotation_named(*ctx->top_dispatcher_fn, "Generated");
         shd_add_annotation_named(*ctx->top_dispatcher_fn, "Leaf");
     }
-
-    shd_bld_call(bb, fn_addr_helper(a, *ctx->top_dispatcher_fn), shd_empty(a));
-
-    shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
-    return new_entry_pt;
+    return *ctx->top_dispatcher_fn;
 }
 
 static const Node* process(Context* ctx, const Node* old) {
@@ -122,18 +89,12 @@ static const Node* process(Context* ctx, const Node* old) {
             ctx2.uses = shd_new_uses_map_fn(old, (NcFunction | NcType));
             ctx = &ctx2;
 
-            const Node* entry_point_annotation = shd_lookup_annotation(old, "EntryPoint");
-            String exported_name = shd_get_exported_name(old);
-
             // Leave leaf-calls alone :)
             ctx2.disable_lowering = shd_lookup_annotation(old, "Leaf") || !old->payload.fun.body;
             if (ctx2.disable_lowering) {
                 Node* fun = shd_recreate_node_head(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
                     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
-                    if (entry_point_annotation) {
-                        // shd_bld_call(bb, fn_addr_helper(a, ctx2.init_fn), shd_empty(a));
-                    }
                     shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
                     shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
                 }
@@ -145,21 +106,10 @@ static const Node* process(Context* ctx, const Node* old) {
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
             Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
-            shd_set_debug_name(fun, shd_format_string_arena(a->arena, "%s_indirect", shd_get_node_name_safe(old)));
-            shd_remove_annotation_by_name(old, "EntryPoint");
-            shd_remove_annotation_by_name(old, "Exported");
             shd_rewrite_annotations(r, old, fun);
-            shd_add_annotation_named(fun, "Leaf");
             shd_add_annotation(fun, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
+            shd_register_processed(r, old, fun);
 
-            shd_register_processed(&ctx->rewriter, old, fun);
-
-            if (entry_point_annotation) {
-                assert(exported_name);
-                const Node* new_entry_pt = lift_entry_point(ctx, old, fun);
-                shd_add_annotation(new_entry_pt, shd_rewrite_node(r, entry_point_annotation));
-                shd_module_add_export(ctx->rewriter.dst_module, exported_name, new_entry_pt);
-            }
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             // Params become stack pops !
             for (size_t i = 0; i < old->payload.fun.params.count; i++) {
@@ -181,117 +131,42 @@ static const Node* process(Context* ctx, const Node* old) {
             return fun;
         }
         case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
-        case IndirectCall_TAG: {
-            IndirectCall payload = old->payload.indirect_call;
-            assert(payload.callee->tag == FnAddr_TAG && "Only direct calls should survive this pass");
-            FnAddr callee = payload.callee->payload.fn_addr;
-            const Node* ncallee = shd_rewrite_node(&ctx->rewriter, payload.callee->payload.fn_addr.fn);
-            if (!ctx->disable_lowering) {
-                return shd_rewrite_node(r, payload.mem);
-            }
-            return indirect_call(a, (IndirectCall) {
-                .callee = fn_addr_helper(a, ncallee),
-                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
-                .mem = shd_rewrite_node(r, payload.mem)
-            });
-        }
-        case JoinPointType_TAG: return shd_find_or_process_decl(&ctx->rewriter, "JoinPoint");
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
-            if (strcmp(payload.set, "shady.internal") == 0) {
-                String callee_name = NULL;
-                Nodes args = shd_rewrite_nodes(r, payload.operands);
-                switch ((ShadyJoinPointOpcodes ) payload.opcode) {
-                    case ShadyOpDefaultJoinPoint:
-                        callee_name = "builtin_entry_join_point";
-                        break;
-                    case ShadyOpCreateJoinPoint:
-                        callee_name = "builtin_create_control_point";
-                        args = shd_change_node_at_index(a, args, 0, prim_op_helper(a, convert_op, shd_singleton(shd_uint32_type(a)), shd_singleton(args.nodes[0])));
-                        break;
-                }
-                return indirect_call(a, (IndirectCall) {
-                    .mem = shd_rewrite_node(r, payload.mem),
-                    .callee = get_fn(r, callee_name),
-                    .args = args,
-                });
+            if (strcmp(payload.set, "shady.internal") == 0 && payload.opcode == ShadyOpDispatcherEnterFn) {
+                return call_helper(a, shd_rewrite_node(r, payload.mem), get_top_dispatcher_fn(ctx), shd_empty(a));
+            }
+            break;
+        }
+        case ExtTerminator_TAG: {
+            ExtTerminator payload = old->payload.ext_terminator;
+            if (strcmp(payload.set, "shady.internal") == 0 && payload.opcode == ShadyOpDispatcherContinue) {
+                return fn_ret_helper(a, shd_rewrite_node(r, payload.mem), shd_empty(a));
             }
             break;
         }
         case TailCall_TAG: {
-            //if (ctx->disable_lowering)
-            //    return recreate_node_identity(&ctx->rewriter, old);
+            assert(false);
             TailCall payload = old->payload.tail_call;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = shd_bld_conversion(bb, shd_uint32_type(a), target);
+            target = shd_bld_reinterpret_cast(bb, shd_uint32_type(a), target);
 
             shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
-            return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
-        }
-        case Join_TAG: {
-            Join payload = old->payload.join;
-            //if (ctx->disable_lowering)
-            //    return recreate_node_identity(&ctx->rewriter, old);
-
-            const Node* jp = shd_rewrite_node(&ctx->rewriter, old->payload.join.join_point);
-            const Node* jp_type = jp->type;
-            shd_deconstruct_qualified_type(&jp_type);
-            if (jp_type->tag == JoinPointType_TAG)
-                break;
-
-            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-            const Node* jp_payload = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
-            shd_bld_stack_push_value(bb, jp_payload);
-            const Node* dst = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
-            const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
-
-            shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
             if (pointee->tag == FnType_TAG) {
-                const Type* emulated_fn_ptr_type = shd_uint64_type(a);
-                return emulated_fn_ptr_type;
+                return int_type_helper(a, ctx->config->target.fn_ptr_size, false);
             }
             break;
         }
-        case Control_TAG: {
-            Control payload = old->payload.control;
-            if (shd_is_control_static(ctx->uses, old)) {
-                // const Node* old_inside = old->payload.control.inside;
-                const Node* old_jp = shd_first(get_abstraction_params(payload.inside));
-                assert(old_jp->tag == Param_TAG);
-                const Node* old_jp_type = old_jp->type;
-                shd_deconstruct_qualified_type(&old_jp_type);
-                assert(old_jp_type->tag == JoinPointType_TAG);
-                const Node* new_jp_type = join_point_type(a, (JoinPointType) {
-                    .yield_types = shd_rewrite_nodes(&ctx->rewriter, old_jp_type->payload.join_point_type.yield_types),
-                });
-                const Node* new_jp = param_helper(a, shd_as_qualified_type(new_jp_type, true));
-                shd_rewrite_annotations(r, old_jp, new_jp);
-                shd_register_processed(&ctx->rewriter, old_jp, new_jp);
-                Node* new_control_case = basic_block_helper(a, shd_singleton(new_jp));
-                shd_register_processed(r, payload.inside, new_control_case);
-                shd_set_abstraction_body(new_control_case, shd_rewrite_node(&ctx->rewriter, get_abstraction_body(payload.inside)));
-                // BodyBuilder* bb = begin_body_with_mem(a, rewrite_node(r, payload.mem));
-                Nodes nyield_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.control.yield_types);
-                return control(a, (Control) {
-                    .yield_types = nyield_types,
-                    .inside = new_control_case,
-                    .tail = shd_rewrite_node(r, get_structured_construct_tail(old)),
-                    .mem = shd_rewrite_node(r, payload.mem),
-                });
-                //return yield_values_and_wrap_in_block(bb, gen_control(bb, nyield_types, new_body));
-            }
-            break;
-        }
-        default:
-            break;
+        default: break;
     }
+
+    rebuild:
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
@@ -319,8 +194,8 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* loop_body_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_inside_case));
 
     const Node* next_function = shd_bld_load(loop_body_builder, shd_find_or_process_decl(r, "next_fn"));
-    const Node* get_active_branch_fn = get_fn(r, "builtin_get_active_branch");
-    const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, get_active_branch_fn, shd_empty(a)));
+    const Node* builtin_get_active_threads_mask_fn = get_fn(r, "builtin_get_active_threads_mask");
+    const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, builtin_get_active_threads_mask_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));
 
@@ -384,7 +259,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         .false_jump = jump_helper(a, shd_get_abstraction_mem(zero_case_lam), zero_if_false, shd_empty(a)),
     }));
 
-    const Node* zero_lit = shd_uint64_literal(a, 0);
+    const Node* zero_lit = int_literal_helper(a, ctx->config->target.fn_ptr_size, false, 0);
     shd_list_append(const Node*, literals, zero_lit);
     const Node* zero_jump = jump_helper(a, shd_bld_mem(loop_body_builder), zero_case_lam, shd_empty(a));
     shd_list_append(const Node*, jumps, zero_jump);
