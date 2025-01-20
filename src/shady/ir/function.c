@@ -102,6 +102,12 @@ void shd_set_abstraction_body(Node* abs, const Node* body) {
 
 Nodes shd_bld_call(BodyBuilder* bb, const Node* callee, Nodes args) {
     assert(shd_get_arena_config(shd_get_bb_arena(bb))->check_types);
+    const Node* instruction = call(shd_get_bb_arena(bb), (Call) { .callee = callee, .args = args, .mem = shd_bld_mem(bb) });
+    return shd_bld_add_instruction_extract(bb, instruction);
+}
+
+Nodes shd_bld_indirect_call(BodyBuilder* bb, const Node* callee, Nodes args) {
+    assert(shd_get_arena_config(shd_get_bb_arena(bb))->check_types);
     const Node* instruction = indirect_call(shd_get_bb_arena(bb), (IndirectCall) { .callee = callee, .args = args, .mem = shd_bld_mem(bb) });
     return shd_bld_add_instruction_extract(bb, instruction);
 }

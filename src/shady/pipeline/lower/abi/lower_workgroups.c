@@ -141,7 +141,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     global_id[dim] = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
                 shd_bld_store(bb2, shd_rewrite_node(&ctx->rewriter, shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinGlobalInvocationId)), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
-                shd_bld_call(bb2, fn_addr_helper(a, inner), wparams);
+                shd_bld_call(bb2, inner, wparams);
 
                 // Wrap in 3 loops for iterating over subgroups, then again for workgroups
                 for (unsigned scope = 1; scope < 2; scope--) {

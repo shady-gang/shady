@@ -172,7 +172,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
         })));
     }
 
-    return shd_first(shd_bld_call(bb, fn_addr_helper(a, fn), shd_singleton(src)));
+    return shd_first(shd_bld_call(bb, fn, shd_singleton(src)));
 }
 
 static const Node* process(Context* ctx, const Node* node) {

@@ -44,9 +44,9 @@ static const Node* process(Context* ctx, const Node* old) {
                 shd_module_add_export(m, exported_name, wrapper);
 
                 BodyBuilder* bld = shd_bld_begin(a, shd_get_abstraction_mem(wrapper));
-                shd_bld_call(bld, fn_addr_helper(a, init_fn), shd_empty(a));
-                Nodes results = shd_bld_call(bld, fn_addr_helper(a, new), wrapper_params);
-                shd_bld_call(bld, fn_addr_helper(a, fini_fn), shd_empty(a));
+                shd_bld_call(bld, init_fn, shd_empty(a));
+                Nodes results = shd_bld_call(bld, new, wrapper_params);
+                shd_bld_call(bld, fini_fn, shd_empty(a));
                 shd_set_abstraction_body(wrapper, shd_bld_return(bld, results));
                 return new;
             }

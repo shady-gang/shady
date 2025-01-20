@@ -37,11 +37,6 @@ typedef struct Context_ {
 
 static const Node* process(Context* ctx, const Node* old);
 
-static const Node* get_fn(Rewriter* rewriter, const char* name) {
-    const Node* decl = shd_find_or_process_decl(rewriter, name);
-    return fn_addr_helper(rewriter->dst_arena, decl);
-}
-
 static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
     IrArena* a = ctx->rewriter.dst_arena;
     return int_literal(a, (IntLiteral) {
@@ -153,7 +148,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = shd_bld_reinterpret_cast(bb, shd_uint32_type(a), target);
 
-            shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
+            shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
         }
         case PtrType_TAG: {
@@ -194,7 +189,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     BodyBuilder* loop_body_builder = shd_bld_begin(a, shd_get_abstraction_mem(loop_inside_case));
 
     const Node* next_function = shd_bld_load(loop_body_builder, shd_find_or_process_decl(r, "next_fn"));
-    const Node* builtin_get_active_threads_mask_fn = get_fn(r, "builtin_get_active_threads_mask");
+    const Node* builtin_get_active_threads_mask_fn = shd_find_or_process_decl(r, "builtin_get_active_threads_mask");
     const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, builtin_get_active_threads_mask_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
     const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));
@@ -278,7 +273,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         if (ctx->config->printf_trace.top_function) {
             shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
         }
-        shd_bld_call(if_builder, fn_addr_helper(a, shd_rewrite_node(r, ofunction)), shd_empty(a));
+        shd_bld_call(if_builder, shd_rewrite_node(r, ofunction), shd_empty(a));
         if (ctx->config->printf_trace.top_function) {
             const Node* resume_at = shd_bld_load(if_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0),mk_nodes(a, local_id)));
             String ptrn = NULL;

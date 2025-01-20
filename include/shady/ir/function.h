@@ -34,5 +34,6 @@ const Node* shd_get_abstraction_mem(const Node* abs);
 void shd_set_abstraction_body(Node* abs, const Node* body);
 
 Nodes shd_bld_call(BodyBuilder* bb, const Node* callee, Nodes args);
+Nodes shd_bld_indirect_call(BodyBuilder* bb, const Node* callee, Nodes args);
 
 #endif

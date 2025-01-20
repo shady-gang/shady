@@ -31,11 +31,6 @@ typedef struct Context_ {
 
 static const Node* process(Context* ctx, const Node* old);
 
-static const Node* get_fn(Rewriter* rewriter, const char* name) {
-    const Node* decl = shd_find_or_process_decl(rewriter, name);
-    return fn_addr_helper(rewriter->dst_arena, decl);
-}
-
 /// Turn a function into a top-level entry point, calling into the top dispatch function.
 static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* fun) {
     assert(old->tag == Function_TAG && fun->tag == Function_TAG);
@@ -49,7 +44,7 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new_entry_pt));
 
-    shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
+    shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_init_scheduler"), shd_empty(a));
 
     // shove the arguments on the stack
     for (size_t i = rewritten_params.count - 1; i < rewritten_params.count; i--) {
@@ -57,10 +52,9 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
     }
 
     // Initialise next_fn/next_mask to the entry function
-    const Node* fork_fn = get_fn(&ctx->rewriter, "builtin_fork");
     const Node* entry_point_addr = fn_addr_helper(a, shd_rewrite_node(r, old));
     entry_point_addr = shd_bld_reinterpret_cast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), entry_point_addr);
-    shd_bld_call(bb, fork_fn, shd_singleton(entry_point_addr));
+    shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(entry_point_addr));
     shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
         .result_t = unit_type(a),
         .mem = shd_bld_mem(bb),
@@ -141,9 +135,9 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                     default: goto rebuild;
                 }
-                return indirect_call(a, (IndirectCall) {
+                return call(a, (Call) {
                     .mem = shd_rewrite_node(r, payload.mem),
-                    .callee = get_fn(r, callee_name),
+                    .callee = shd_find_or_process_decl(r, callee_name),
                     .args = args,
                 });
             }
@@ -156,7 +150,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = shd_bld_reinterpret_cast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), target);
 
-            shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
+            shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
                 .set = "shady.internal",
@@ -178,7 +172,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dst = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
             const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
-            shd_bld_call(bb, get_fn(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
+            shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
                 .set = "shady.internal",
