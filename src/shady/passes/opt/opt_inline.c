@@ -167,17 +167,17 @@ static const Node* process(Context* ctx, const Node* node) {
                 return join(a, (Join) { .mem = shd_rewrite_node(r, payload.mem), .join_point = ctx->inlined_call->return_jp, .args = shd_rewrite_nodes(r, payload.args)});
             break;
         }
-        case TailCall_TAG: {
+        case IndirectTailCall_TAG: {
             if (!ctx->graph)
                 break;
-            const Node* ocallee = node->payload.tail_call.callee;
+            const Node* ocallee = node->payload.indirect_tail_call.callee;
             ocallee = ignore_immediate_fn_addr(ocallee);
             if (ocallee->tag == Function_TAG) {
                 CGNode* fn_node = *shd_dict_find_value(const Node*, CGNode*, ctx->graph->fn2cgn, ocallee);
                 if (get_inlining_heuristic(ctx->config, fn_node).can_be_inlined) {
                     shd_debugv_print("Inlining tail call to %s\n", shd_get_node_name_safe(ocallee));
-                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, node->payload.tail_call.args);
-                    return inline_call(ctx, ocallee, shd_rewrite_node(r, node->payload.tail_call.mem), nargs, NULL);
+                    Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, node->payload.indirect_tail_call.args);
+                    return inline_call(ctx, ocallee, shd_rewrite_node(r, node->payload.indirect_tail_call.mem), nargs, NULL);
                 }
             }
             break;

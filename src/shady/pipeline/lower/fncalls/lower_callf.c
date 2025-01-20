@@ -39,7 +39,7 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
 
     // the body of the control is just an immediate tail-call
     Node* control_case = basic_block_helper(a, shd_singleton(jp));
-    const Node* control_body = tail_call(a, (TailCall) {
+    const Node* control_body = indirect_tail_call(a, (IndirectTailCall) {
         .callee = fn_ptr,
         .args = nargs,
         .mem = shd_get_abstraction_mem(control_case),

@@ -627,7 +627,7 @@ const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
     return shd_maybe_multiple_return(arena, check_value_call(callee_type, argument_types));
 }
 
-const Type* _shd_check_type_tail_call(IrArena* arena, TailCall tail_call) {
+const Type* _shd_check_type_indirect_tail_call(IrArena* arena, IndirectTailCall tail_call) {
     assert(is_value(tail_call.callee));
     const Type* callee_type = tail_call.callee->type;
     SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);

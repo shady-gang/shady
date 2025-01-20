@@ -328,7 +328,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
         case Return_TAG:
         case Unreachable_TAG: return shd_recreate_node(&ctx->rewriter, body);
 
-        case TailCall_TAG: bail(ctx);
+        case IndirectTailCall_TAG: bail(ctx);
 
         case If_TAG:
         case Match_TAG:

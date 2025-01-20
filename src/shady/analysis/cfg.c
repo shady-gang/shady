@@ -239,7 +239,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                 return;
             }
             case Terminator_ExtTerminator_TAG:
-            case TailCall_TAG:
+            case IndirectTailCall_TAG:
             case Return_TAG:
             case Unreachable_TAG:
                 return;

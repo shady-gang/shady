@@ -180,7 +180,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
         case Jump_TAG:
         case Branch_TAG:
         case Switch_TAG:
-        case TailCall_TAG: shd_error("TODO");
+        case IndirectTailCall_TAG: shd_error("TODO");
         case If_TAG: return emit_if(emitter, fn, block_printer, terminator->payload.if_instr);
         case Match_TAG: return emit_match(emitter, fn, block_printer, terminator->payload.match_instr);
         case Loop_TAG: return emit_loop(emitter, fn, block_printer, terminator->payload.loop_instr);

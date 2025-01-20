@@ -1016,7 +1016,7 @@ static const Node* accept_terminator(ctxparams, BodyBuilder* bb) {
             const Node* callee = accept_operand(ctx, bb);
             expect(accept_token(ctx, rpar_tok), "')'");
             Nodes args = expect_operands(ctx, bb);
-            return tail_call(arena, (TailCall) {
+            return indirect_tail_call(arena, (IndirectTailCall) {
                 .callee = callee,
                 .args = args,
                 .mem = shd_bld_mem(bb)

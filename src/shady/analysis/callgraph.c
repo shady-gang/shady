@@ -72,9 +72,9 @@ static void search_for_callsites(CGVisitor* visitor, const Node* node) {
             visitor->root->calls_indirect = true;
             break;
         }
-        case TailCall_TAG: {
+        case IndirectTailCall_TAG: {
             assert(visitor->root && "tail calls can only occur in functions");
-            const Node* callee = node->payload.tail_call.callee;
+            const Node* callee = node->payload.indirect_call.callee;
             callee = ignore_immediate_fn_addr(callee);
             if (callee->tag == Function_TAG)
                 visit_callsite(visitor, callee, node);

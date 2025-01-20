@@ -362,12 +362,12 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             r = indirect_call(arena, payload);
             break;
         }
-        case TailCall_TAG: {
-            TailCall payload = node->payload.tail_call;
+        case IndirectTailCall_TAG: {
+            IndirectTailCall payload = node->payload.indirect_tail_call;
             const Node* nptr = resolve_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
-            r = tail_call(arena, payload);
+            r = indirect_tail_call(arena, payload);
             break;
         }
         default: return node;

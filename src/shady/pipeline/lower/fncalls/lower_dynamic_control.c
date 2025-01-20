@@ -143,8 +143,8 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
-        case TailCall_TAG: {
-            TailCall payload = old->payload.tail_call;
+        case IndirectTailCall_TAG: {
+            IndirectTailCall payload = old->payload.indirect_tail_call;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);

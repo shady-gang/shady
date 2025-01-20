@@ -252,8 +252,8 @@ void spv_emit_terminator(Emitter* emitter, FnBuilder* fn_builder, BBBuilder basi
             return;
         }
         case Terminator_Control_TAG:
-        case TailCall_TAG: {
-            TailCall payload = terminator->payload.tail_call;
+        case IndirectTailCall_TAG: {
+            IndirectTailCall payload = terminator->payload.indirect_tail_call;
             spv_emit_mem(emitter, fn_builder, payload.mem);
             LARRAY(SpvId, args, payload.args.count + 1);
             args[0] = spv_emit_value(emitter, fn_builder, payload.callee);

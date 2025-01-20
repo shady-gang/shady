@@ -191,7 +191,7 @@ const Node* shd_bld_jump(BodyBuilder* bb, const Node* target, Nodes args) {
 }
 
 const Node* shd_bld_indirect_tail_call(BodyBuilder* bb, const Node* target, Nodes args) {
-    return shd_bld_finish(bb, tail_call(bb->arena, (TailCall) {
+    return shd_bld_finish(bb, indirect_tail_call(bb->arena, (IndirectTailCall) {
         .callee = target,
         .args = args,
         .mem = shd_bld_mem(bb),

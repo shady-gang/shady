@@ -452,7 +452,7 @@
       ]
     },
     {
-      "name": "TailCall",
+      "name": "IndirectTailCall",
       "class": "terminator",
       "ops": [
         { "name": "mem", "class": "mem" },
