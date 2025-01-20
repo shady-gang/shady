@@ -51,7 +51,7 @@ static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
     IrArena* a = ctx->rewriter.dst_arena;
     return int_literal(a, (IntLiteral) {
         .is_signed = false,
-        .width = ctx->config->target.memory.ptr_size,
+        .width = ctx->config->target.fn_ptr_size,
         .value = ptr
     });
 }

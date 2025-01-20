@@ -65,7 +65,14 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsSubgroup:
             case AsShared:
             case AsGlobal:
-            case AsGeneric: return shd_get_mem_layout(a, int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false })); // TODO: use per-as layout
+            case AsGeneric: {
+                size_t size_in_bytes = shd_get_type_bitwidth(type);
+                return (TypeMemLayout) {
+                    .type = type,
+                    .alignment_in_bytes = size_in_bytes,
+                    .size_in_bytes = size_in_bytes,
+                };
+            }
             default: shd_error("Pointers in address space '%s' does not have a defined memory layout", shd_get_address_space_name(type->payload.ptr_type.address_space));
         }
         case Int_TAG:     return (TypeMemLayout) {
@@ -137,6 +144,8 @@ size_t shd_get_type_bitwidth(const Type* t) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
+            if (t->payload.ptr_type.address_space == AsCode)
+                return int_size_in_bytes(aconfig->target.fn_ptr_size) * 8;
             if (aconfig->target.address_spaces[t->payload.ptr_type.address_space].physical)
                 return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
             break;
