@@ -89,9 +89,7 @@ static const Node* process(Context* ctx, const Node* old) {
             if (ctx2.disable_lowering) {
                 Node* fun = shd_recreate_node_head(&ctx2.rewriter, old);
                 if (old->payload.fun.body) {
-                    BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
-                    shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
-                    shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
+                    shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old)));
                 }
 
                 shd_destroy_uses_map(ctx2.uses);
@@ -100,27 +98,8 @@ static const Node* process(Context* ctx, const Node* old) {
             }
 
             assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
-            Node* fun = function_helper(ctx->rewriter.dst_module, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
-            shd_rewrite_annotations(r, old, fun);
-            shd_add_annotation(fun, annotation_value(a, (AnnotationValue) { .name = "FnId", .value = lower_fn_addr(ctx, old) }));
-            shd_register_processed(r, old, fun);
-
-            BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
-            // Params become stack pops !
-            for (size_t i = 0; i < old->payload.fun.params.count; i++) {
-                const Node* old_param = old->payload.fun.params.nodes[i];
-                const Type* new_param_type = shd_rewrite_node(&ctx->rewriter, shd_get_unqualified_type(old_param->type));
-                const Node* popped = shd_bld_stack_pop_value(bb, new_param_type);
-                // TODO use the uniform stack instead ? or no ?
-                if (shd_is_qualified_type_uniform(old_param->type))
-                    popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
-                String debug_name = shd_get_node_name_unsafe(old_param);
-                if (debug_name)
-                    shd_set_debug_name((Node*) popped, debug_name);
-                shd_register_processed(&ctx->rewriter, old_param, popped);
-            }
-            shd_register_processed(&ctx2.rewriter, shd_get_abstraction_mem(old), shd_bld_mem(bb));
-            shd_set_abstraction_body(fun, shd_bld_finish(bb, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old))));
+            Node* fun = shd_recreate_node_head(r, old);
+            shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old)));
             shd_destroy_uses_map(ctx2.uses);
             shd_destroy_cfg(ctx2.cfg);
             return fun;
@@ -275,7 +254,18 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         if (ctx->config->printf_trace.top_function) {
             shd_bld_debug_printf(if_builder, "trace: thread %d:%d will run fn %u with mask = %lx\n", mk_nodes(a, sid, local_id, fn_lit, next_mask));
         }
-        shd_bld_call(if_builder, shd_rewrite_node(r, ofunction), shd_empty(a));
+        Nodes oparams = get_abstraction_params(ofunction);
+        LARRAY(const Node*, nargs, oparams.count);
+        for (size_t j = 0; j < oparams.count; j++) {
+            const Node* old_param = oparams.nodes[j];
+            const Type* arg_type = shd_rewrite_node(r, shd_get_unqualified_type(old_param->type));
+            const Node* popped = shd_bld_stack_pop_value(if_builder, arg_type);
+            // TODO use the uniform stack instead ? or no ?
+            if (shd_is_qualified_type_uniform(old_param->type))
+                popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
+            nargs[j] = popped;
+        }
+        shd_bld_call(if_builder, shd_rewrite_node(r, ofunction), shd_nodes(a, oparams.count, nargs));
         if (ctx->config->printf_trace.top_function) {
             const Node* resume_at = shd_bld_load(if_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0),mk_nodes(a, local_id)));
             String ptrn = NULL;
