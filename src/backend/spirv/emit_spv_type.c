@@ -31,6 +31,8 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
         case AsImage:                        return SpvStorageClassImage;
         case AsUniformConstant:              return SpvStorageClassUniformConstant;
 
+        case AsCode: return SpvStorageClassCodeSectionSHADY;
+
         default: {
             shd_error_print("Cannot emit address space %s.\n", shd_get_address_space_name(address_space));
             shd_error_die();

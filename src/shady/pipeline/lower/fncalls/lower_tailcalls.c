@@ -104,7 +104,10 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_destroy_cfg(ctx2.cfg);
             return fun;
         }
-        case FnAddr_TAG: return lower_fn_addr(ctx, old->payload.fn_addr.fn);
+        case FnAddr_TAG:
+            if (ctx->config->target.native_tailcalls)
+                break;
+            return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
             if (strcmp(payload.set, "shady.internal") == 0 && payload.opcode == ShadyOpDispatcherEnterFn) {
@@ -126,6 +129,9 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = shd_bld_reinterpret_cast(bb, shd_uint32_type(a), target);
 
+            if (ctx->config->target.native_tailcalls)
+                break;
+
             // fast-path
             assert(shd_is_qualified_type_uniform(payload.callee->type) && "only uniform tailcalls are allowed here");
             //shd_bld_store(bb, shd_find_or_process_decl(r, "next_fn"), target);
@@ -134,9 +140,8 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
-            if (pointee->tag == FnType_TAG) {
+            if (pointee->tag == FnType_TAG && !ctx->config->target.native_tailcalls)
                 return int_type_helper(a, ctx->config->target.fn_ptr_size, false);
-            }
             break;
         }
         default: break;

@@ -45,6 +45,8 @@ typedef struct {
 
     ExecutionModel execution_model;
     uint32_t subgroup_size;
+
+    bool native_tailcalls;
 } TargetConfig;
 
 TargetConfig shd_default_target_config(void);
