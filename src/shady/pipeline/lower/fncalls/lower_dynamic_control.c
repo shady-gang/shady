@@ -145,6 +145,15 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case IndirectTailCall_TAG: {
             IndirectTailCall payload = old->payload.indirect_tail_call;
+            if (shd_is_qualified_type_uniform(payload.callee->type)) {
+                const Node* mem0 = shd_get_original_mem(payload.mem);
+                assert(mem0->tag == AbsMem_TAG);
+                // checking that the payload is uniform is not sufficient: we could be branching uniformingly in non-uniform control flow
+                // this check is a bit conservative and heavy-handed but should be correct
+                if (mem0->payload.abs_mem.abs->tag == Function_TAG)
+                    break;
+            }
+
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);

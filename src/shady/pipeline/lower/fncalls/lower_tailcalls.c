@@ -141,14 +141,16 @@ static const Node* process(Context* ctx, const Node* old) {
             break;
         }
         case IndirectTailCall_TAG: {
-            assert(false);
             IndirectTailCall payload = old->payload.indirect_tail_call;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = shd_bld_reinterpret_cast(bb, shd_uint32_type(a), target);
 
-            shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
+            // fast-path
+            assert(shd_is_qualified_type_uniform(payload.callee->type) && "only uniform tailcalls are allowed here");
+            //shd_bld_store(bb, shd_find_or_process_decl(r, "next_fn"), target);
+            shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_jump"), shd_singleton(target));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
         }
         case PtrType_TAG: {

@@ -112,6 +112,16 @@ fn builtin_fork(varying fn_ptr_t branch_destination) {
 }
 
 @Internal @Exported
+fn builtin_jump(uniform fn_ptr_t branch_destination) {
+    // Partition the set of branch destinations and adapt the masks in turn
+    resume_at#(subgroup_local_id) = branch_destination;
+    scheduler_vector#(subgroup_local_id)#0 = subgroup_ballot(true);
+
+    next_fn = branch_destination;
+    active_branch = ext_instr["spirv.core", 338, uniform TreeNode](3, scheduler_vector#(subgroup_local_id));
+}
+
+@Internal @Exported
 fn builtin_yield(uniform fn_ptr_t resume_target) {
     resume_at#(subgroup_local_id) = resume_target;
     // resume_with#(subgroup_local_id) = subgroup_active_mask();
