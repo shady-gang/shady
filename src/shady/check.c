@@ -570,6 +570,10 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     }
 }
 
+const Type* _shd_check_type_ext_value(IrArena* arena, ExtValue payload) {
+    return payload.result_t;
+}
+
 const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
     return payload.result_t;
 }

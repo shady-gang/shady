@@ -275,10 +275,9 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
     shd_error("unreachable");
 }
 
-static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, ExtInstr instr) {
-    spv_emit_mem(emitter, fn_builder, instr.mem);
-    if (strcmp("spirv.core", instr.set) == 0) {
-        switch (instr.opcode) {
+static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Type* result_t, String set, SpvOp opcode, Nodes operands) {
+    if (strcmp("spirv.core", set) == 0) {
+        switch (opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
                 SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, shd_int32_literal(emitter->arena, SpvScopeSubgroup));
@@ -286,18 +285,18 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId);
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
-                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, instr.result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(instr.operands)), local_id);
+                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(operands)), local_id);
                 }
                 break;
             }
             case SpvOpGroupNonUniformBallot: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
-                assert(instr.operands.count == 2);
+                assert(operands.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
-                if (shd_get_unqualified_type(instr.result_t) == shd_get_actual_mask_type(emitter->arena)) {
+                if (shd_get_unqualified_type(result_t) == shd_get_actual_mask_type(emitter->arena)) {
                     const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
-                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, instr.operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(instr.operands)));
+                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(operands)));
                     // TODO: why are we doing this in SPIR-V and not the IR ?
                     SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
                     SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
@@ -311,13 +310,13 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             }
             case SpvOpGroupNonUniformIAdd: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformArithmetic);
-                SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(instr.operands));
-                SpvGroupOperation group_op = shd_get_int_literal_value(*shd_resolve_to_int_literal(instr.operands.nodes[1]), false);
-                return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, instr.result_t), instr.opcode, scope, group_op, spv_emit_value(emitter, fn_builder, instr.operands.nodes[2]), NULL);
+                SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(operands));
+                SpvGroupOperation group_op = shd_get_int_literal_value(*shd_resolve_to_int_literal(operands.nodes[1]), false);
+                return spvb_group_non_uniform_group_op(bb_builder, spv_emit_type(emitter, result_t), opcode, scope, group_op, spv_emit_value(emitter, fn_builder, operands.nodes[2]), NULL);
             }
             case SpvOpGroupNonUniformElect: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
-                assert(instr.operands.count == 1);
+                assert(operands.count == 1);
                 break;
                 // SpvId result_t = spv_emit_type(emitter, bool_type(emitter->arena));
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
@@ -325,16 +324,16 @@ static SpvId emit_ext_instr(Emitter* emitter, FnBuilder* fn_builder, BBBuilder b
             }
             default: break;
         }
-        LARRAY(SpvId, ops, instr.operands.count);
-        for (size_t i = 0; i < instr.operands.count; i++)
-            ops[i] = spv_emit_value(emitter, fn_builder, instr.operands.nodes[i]);
-        return spvb_op(bb_builder, instr.opcode, spv_emit_type(emitter, instr.result_t), instr.operands.count, ops);
+        LARRAY(SpvId, ops, operands.count);
+        for (size_t i = 0; i < operands.count; i++)
+            ops[i] = spv_emit_value(emitter, fn_builder, operands.nodes[i]);
+        return spvb_op(bb_builder, opcode, spv_emit_type(emitter, result_t), operands.count, ops);
     }
-    LARRAY(SpvId, ops, instr.operands.count);
-    for (size_t i = 0; i < instr.operands.count; i++)
-        ops[i] = spv_emit_value(emitter, fn_builder, instr.operands.nodes[i]);
-    SpvId set_id = spv_get_extended_instruction_set(emitter, instr.set);
-    return spvb_ext_instruction(bb_builder, spv_emit_type(emitter, instr.result_t), set_id, instr.opcode, instr.operands.count, ops);
+    LARRAY(SpvId, ops, operands.count);
+    for (size_t i = 0; i < operands.count; i++)
+        ops[i] = spv_emit_value(emitter, fn_builder, operands.nodes[i]);
+    SpvId set_id = spv_get_extended_instruction_set(emitter, set);
+    return spvb_ext_instruction(bb_builder, spv_emit_type(emitter, result_t), set_id, opcode, operands.count, ops);
 }
 
 static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* callee, Nodes args, const Type* return_type) {
@@ -363,7 +362,11 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_CopyBytes_TAG:
         case Instruction_FillBytes_TAG:
         case Instruction_StackAlloc_TAG: shd_error("Should be lowered elsewhere")
-        case Instruction_ExtInstr_TAG: return emit_ext_instr(emitter, fn_builder, bb_builder, instruction->payload.ext_instr);
+        case Instruction_ExtInstr_TAG: {
+            ExtInstr instr = instruction->payload.ext_instr;
+            spv_emit_mem(emitter, fn_builder, instr.mem);
+            return emit_ext_op(emitter, fn_builder, bb_builder, instr.result_t, instr.set, instr.opcode, instr.operands);
+        }
         case Instruction_Call_TAG: {
             Call payload = instruction->payload.call;
             spv_emit_mem(emitter, fn_builder, payload.mem);
@@ -565,6 +568,10 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             }
             shd_spv_register_interface(emitter, node, given_id);
             return given_id;
+        }
+        case ExtValue_TAG: {
+            ExtValue instr = node->payload.ext_value;
+            return emit_ext_op(emitter, fn_builder, bb_builder, instr.result_t, instr.set, instr.opcode, instr.operands);
         }
         default: {
             shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));
