@@ -569,17 +569,17 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             print_node(node->payload.fill.value);
             printf(")");
             return true;
-        }
+        }*/
         case FnAddr_TAG:
             printf(GREEN);
-            printf("FunctionAddress");
+            printf("FnAddr");
             printf(RESET);
             printf("(");
-            printf(DECL_COLOR);
-            printf("%s", (char*) get_declaration_name(node->payload.fn_addr.fn));
+            printf(FUNCTION_COLOR);
+            printf("%s", (char*) emit_node(ctx, node->payload.fn_addr.fn));
             printf(RESET);
             printf(")");
-            return true;*/
+            return true;
         default:
             _shd_print_node_generated(ctx, node);
             break;
