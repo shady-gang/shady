@@ -586,7 +586,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 r = shd_bld_add_instruction(b, indirect_call(a, (IndirectCall) {
                     .mem = shd_bld_mem(b),
                     .callee = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) {
-                        .address_space = AsGeneric,
+                        .address_space = AsCode,
                         .pointed_type = l2s_convert_type(p, callee_type)
                     })), shd_singleton(ops.nodes[num_args])),
                     .args = shd_nodes(a, num_args, ops.nodes),
