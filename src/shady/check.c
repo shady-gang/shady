@@ -578,6 +578,10 @@ const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
     return payload.result_t;
 }
 
+const Type* _shd_check_type_ext_terminator(IrArena* arena, ExtTerminator payload) {
+    return noret_type(arena);
+}
+
 static void check_arguments_types_against_parameters_helper(Nodes param_types, Nodes arg_types) {
     if (param_types.count != arg_types.count)
         shd_error("Mismatched number of arguments/parameters");

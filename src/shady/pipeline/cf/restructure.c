@@ -324,6 +324,7 @@ static const Node* structure(Context* ctx, const Node* body, const Node* exit) {
             return shd_bld_finish(bb, jump_helper(a, shd_bld_mem(bb), exit, shd_empty(a)));
         }
 
+        case Terminator_ExtTerminator_TAG:
         case Return_TAG:
         case Unreachable_TAG: return shd_recreate_node(&ctx->rewriter, body);
 

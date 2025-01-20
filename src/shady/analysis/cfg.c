@@ -238,6 +238,7 @@ static void process_cf_node(CfgBuildContext* ctx, CFNode* node) {
                     add_structural_edge(ctx, node, ctx->loop_construct_tail, StructuredLeaveBodyEdge, terminator);
                 return;
             }
+            case Terminator_ExtTerminator_TAG:
             case TailCall_TAG:
             case Return_TAG:
             case Unreachable_TAG:

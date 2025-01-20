@@ -677,6 +677,17 @@
         { "name": "opcode", "type": "uint32_t" },
         { "name": "operands", "class": "value", "list": true }
       ]
+    },
+    {
+      "name": "ExtTerminator",
+      "description": "Unknown instruction with side effects",
+      "class": "terminator",
+      "ops": [
+        { "name": "mem", "class": "mem", "nullable": true },
+        { "name": "set", "class": "string" },
+        { "name": "opcode", "type": "uint32_t" },
+        { "name": "operands", "class": "value", "list": true }
+      ]
     }
   ]
 }
