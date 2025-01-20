@@ -75,6 +75,9 @@
     },
     {
       "name": "DebugInfo"
+    },
+    {
+      "name": "Code"
     }
   ],
   "node-classes": [
