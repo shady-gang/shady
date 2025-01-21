@@ -74,8 +74,12 @@ static Module* run_pass(const CompilerConfig* config, Module* src) {
 
 #include "shady/pipeline/pipeline.h"
 
+/// Moves all Private allocations to Function
+RewritePass shd_pass_lower_top_level_globals;
+
 static void step_fn(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS((RewritePass*) run_pass, config)
+    RUN_PASS((RewritePass*) shd_pass_lower_top_level_globals, config)
 }
 
 void shd_pipeline_add_init_fini(ShdPipeline pipeline) {

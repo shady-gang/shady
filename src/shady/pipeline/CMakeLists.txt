@@ -6,4 +6,5 @@ target_sources(shady PRIVATE
         shader/shader_targets.c
         shader/specialize_execution_model.c
         polyfill/polyfill.c
+        mem/lower_top_level_globals.c
 )

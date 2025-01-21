@@ -3,6 +3,13 @@
 #include "passes/passes.h"
 #include "portability.h"
 
+/// Emulates unsupported subgroup operations using subgroup memory
+RewritePass shd_pass_lower_subgroup_ops;
+/// Emulates unsupported integer datatypes and operations
+RewritePass shd_pass_lower_int;
+RewritePass shd_pass_lower_fill;
+RewritePass shd_pass_lower_nullptr;
+
 static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_lower_int, config)
 

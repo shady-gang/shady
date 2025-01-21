@@ -70,9 +70,7 @@ RewritePass shd_pass_promote_io_variables;
 
 /// @name Subgroup stuff
 /// @{
-
-/// Emulates unsupported subgroup operations using subgroup memory
-RewritePass shd_pass_lower_subgroup_ops;
+///
 /// Lowers subgroup logical variables into something that actually exists (likely a carved out portion of shared memory)
 RewritePass shd_pass_lower_subgroup_vars;
 /// Lowers the abstract mask type to whatever the configured target mask representation is
@@ -83,12 +81,8 @@ RewritePass shd_pass_lower_mask;
 /// @name Emulation misc.
 /// @{
 
-/// Emulates unsupported integer datatypes and operations
-RewritePass shd_pass_lower_int;
 RewritePass shd_pass_lower_vec_arr;
 RewritePass shd_pass_lower_workgroups;
-RewritePass shd_pass_lower_fill;
-RewritePass shd_pass_lower_nullptr;
 RewritePass shd_pass_lower_inclusive_scan;
 
 /// @}
