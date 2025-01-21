@@ -475,7 +475,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         case Value_FnAddr_TAG: {
             spvb_capability(emitter->file_builder, SpvCapabilityInModuleFunctionAddressSHADY);
             SpvId fn = spv_emit_decl(emitter, node->payload.fn_addr.fn);
-            return spvb_constant_op(emitter->file_builder, spv_emit_type(emitter, node->type), SpvOpConstantFunctionPointerINTEL, 1, &fn);
+            return spvb_constant_op(emitter->file_builder, spv_emit_type(emitter, node->type), SpvOpConstantFunctionAddressSHADY, 1, &fn);
         }
         case IntLiteral_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
