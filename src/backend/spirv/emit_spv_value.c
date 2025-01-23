@@ -384,10 +384,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             LocalAlloc payload = instruction->payload.local_alloc;
             spv_emit_mem(emitter, fn_builder, payload.mem);
             assert(bb_builder);
-            return spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, ptr_type(emitter->arena, (PtrType) {
-                .address_space = AsFunction,
-                .pointed_type = instruction->payload.local_alloc.type
-            })), SpvStorageClassFunction);
+            return spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, instruction->type), SpvStorageClassFunction);
         }
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
