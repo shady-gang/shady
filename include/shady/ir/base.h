@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
 #define SHADY_DESIGNATED_INIT __attribute__((designated_init))
 #else
 #define SHADY_DESIGNATED_INIT
