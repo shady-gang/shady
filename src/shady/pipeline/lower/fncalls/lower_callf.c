@@ -29,7 +29,7 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
     // Create the body of the control that receives the appropriately typed join point
     const Type* jp_type = qualified_type(a, (QualifiedType) {
         .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, return_types) }),
-        .is_uniform = false
+        .scope = shd_get_arena_config(a)->target.scopes.gang,
     });
     const Node* jp = param_helper(a, jp_type);
     shd_set_debug_name(jp, "fn_return_point");
@@ -73,10 +73,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (shd_lookup_annotation(old, "EntryPoint")) {
-                ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint,
-                                                         shd_as_qualified_type(jp_type, true), shd_empty(a));
+                ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type), shd_empty(a));
             } else {
-                const Node* jp_variable = param_helper(a, shd_as_qualified_type(jp_type, false));
+                const Node* jp_variable = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
                 shd_set_debug_name(jp_variable, "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
@@ -107,7 +106,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
-                    .is_uniform = false
+                    .scope = shd_get_arena_config(a)->target.scopes.gang,
             });
             param_types = shd_nodes_append(a, param_types, jp_type);
             return fn_type(a, (FnType) {
@@ -151,7 +150,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
             const Type* ocallee_type = payload.callee->type;
             shd_deconstruct_qualified_type(&ocallee_type);
-            ocallee_type = shd_get_pointee_type(a, ocallee_type);
+            ocallee_type = shd_get_pointer_type_element(ocallee_type);
             assert(ocallee_type->tag == FnType_TAG);
 
             // Rewrite the callee and its arguments

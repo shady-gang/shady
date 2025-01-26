@@ -44,6 +44,12 @@ TargetConfig shd_default_target_config(void) {
 
         .subgroup_size = 8,
         .subgroup_mask_representation = SubgroupMaskAbstract,
+
+        .scopes = {
+            .constants = ShdScopeTop,
+            .gang = ShdScopeSubgroup,
+            .bottom = ShdScopeInvocation,
+        }
     };
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
@@ -57,7 +63,6 @@ TargetConfig shd_default_target_config(void) {
 
 ArenaConfig shd_default_arena_config(const TargetConfig* target) {
     ArenaConfig config = {
-        .is_simt = true,
         .name_bound = true,
         .allow_fold = true,
         .check_types = true,

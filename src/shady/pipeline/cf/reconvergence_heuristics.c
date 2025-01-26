@@ -56,7 +56,7 @@ static void gather_exiting_nodes(LoopTree* lt, const CFNode* entry, const CFNode
 
 typedef struct {
     const Node* alloca;
-    bool uniform;
+    ShdScope scope;
 } ExitValue;
 
 typedef struct {
@@ -118,7 +118,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
                     exit_params[j].alloca = shd_bld_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
-                    exit_params[j].uniform = shd_is_qualified_type_uniform(exit_param_types.nodes[j]);
+                    exit_params[j].scope = shd_get_qualified_type_scope(exit_param_types.nodes[j]);
                 }
                 exits[i] = (Exit) {
                     .params = exit_params,
@@ -130,15 +130,15 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count > 1)
                 exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(a));
 
-            const Node* join_token_exit = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+            const Node* join_token_exit = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
                     .yield_types = shd_empty(a)
-            }), true));
+            })));
             shd_set_debug_name(join_token_exit, "jp_exit");
 
             const Node* join_token_continue = param_helper(a,
-                                                    shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+                                                    qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
                                                             .yield_types = inner_yield_types
-                                                    }), true));
+                                                    })));
             shd_set_debug_name(join_token_continue, "jp_continue");
 
             for (size_t i = 0; i < exiting_nodes_count; i++) {
@@ -204,7 +204,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes inner_control_results = shd_bld_control(inner_bb, inner_yield_types, inner_control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
-                if (shd_is_qualified_type_uniform(nparams.nodes[j]->type))
+                if (shd_get_qualified_type_scope(nparams.nodes[j]->type) <= ShdScopeSubgroup)
                     inner_control_results = shd_change_node_at_index(a, inner_control_results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(inner_control_results.nodes[j])));
             }
             shd_set_abstraction_body(loop_outer, shd_bld_jump(inner_bb, loop_outer, inner_control_results));
@@ -230,7 +230,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 LARRAY(const Node*, recovered_args, exits[i].params_count);
                 for (size_t j = 0; j < exits[i].params_count; j++) {
                     recovered_args[j] = shd_bld_load(exit_recover_bb, exits[i].params[j].alloca);
-                    if (exits[i].params[j].uniform)
+                    if (exits[i].params[j].scope <= ShdScopeSubgroup)
                         recovered_args[j] = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(recovered_args[j]));
                 }
 
@@ -356,7 +356,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes exit_args;
 
             Nodes old_params = get_abstraction_params(post_dominator);
-            LARRAY(bool, uniform_param, old_params.count);
+            LARRAY(ShdScope, param_scope, old_params.count);
 
             if (old_params.count == 0) {
                 yield_types = shd_empty(a);
@@ -374,7 +374,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     //This should always contain a qualified type?
                     //if (contains_qualified_type(types[j]))
                     types[j] = shd_get_unqualified_type(qualified_type);
-                    uniform_param[j] = shd_is_qualified_type_uniform(qualified_type);
+                    param_scope[j] = shd_get_qualified_type_scope(qualified_type);
                     inner_args[j] = param_helper(a, qualified_type);
                     shd_rewrite_annotations(r, old_params.nodes[j], inner_args[j]);
                 }
@@ -383,9 +383,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
-            const Node* join_token = param_helper(a, shd_as_qualified_type(join_point_type(a, (JoinPointType) {
+            const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
-            }), true));
+            })));
             shd_set_debug_name(join_token, "jp_postdom");
 
             Node* pre_join = basic_block_helper(a, exit_args);
@@ -425,7 +425,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes results = shd_bld_control(bb, yield_types, control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < old_params.count; j++) {
-                if (uniform_param[j])
+                if (param_scope[j] <= ShdScopeSubgroup)
                     results = shd_change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
             }
             return shd_bld_jump(bb, join_target, results);

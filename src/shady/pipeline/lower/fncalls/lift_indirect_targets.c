@@ -117,7 +117,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     Nodes new_params = shd_recreate_params(r, ovariables);
     shd_register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param_helper(a, shd_as_qualified_type(shd_uint32_type(a), false));
+    const Node* payload = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
     shd_set_debug_name(payload, "sp");
     new_params = shd_nodes_prepend(a, new_params, payload);
 
@@ -138,7 +138,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         //if (param_name)
         //    set_value_name(recovered_value, param_name);
 
-        if (shd_is_qualified_type_uniform(ovar->type))
+        if (shd_get_qualified_type_scope(ovar->type) <= ShdScopeSubgroup)
             recovered_value = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .operands = shd_singleton(recovered_value) });
 
         shd_register_processed(r, ovar, recovered_value);
@@ -196,8 +196,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Type* jp_type = join_point_type(a, (JoinPointType) {
                     .yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
                 });
-                const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint,
-                                                         shd_as_qualified_type(jp_type, true), mk_nodes(a, tail_ptr, sp));
+                const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, jp_type), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(jp));
 

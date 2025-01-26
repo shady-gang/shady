@@ -34,7 +34,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
         return *found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* qualified_t = qualified_type(a, (QualifiedType) { .is_uniform = false, .type = element_type });
+    const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
 
     const Node* value_param = NULL;
     if (push) {

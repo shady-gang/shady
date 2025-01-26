@@ -48,7 +48,7 @@ static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
     }
 
     switch (node->tag) {
-        case QualifiedType_TAG: return qualified_type(rewriter->dst_arena, (QualifiedType) { .type = shd_rewrite_node(rewriter, node->payload.qualified_type.type), .is_uniform = false });
+        case QualifiedType_TAG: return shd_rewrite_node(rewriter, node->payload.qualified_type.type);
         default: return shd_recreate_node(rewriter, node);
     }
 }
@@ -148,6 +148,9 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
             }
+
+            if (pointed_type == unit_type(emitter->arena))
+                pointed_type = shd_uint8_type(emitter->arena);
 
             SpvId pointee = spv_emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);

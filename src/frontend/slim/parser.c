@@ -16,12 +16,6 @@
 #include <assert.h>
 #include <string.h>
 
-typedef enum DivergenceQualifier_ {
-    Unknown,
-    Uniform,
-    Varying
-} DivergenceQualifier;
-
 static int max_precedence() {
     return 10;
 }
@@ -163,7 +157,6 @@ static const Type* accept_unqualified_type(ctxparams);
 static const Node* accept_expr(ctxparams, BodyBuilder*, int);
 static Nodes expect_operands(ctxparams, BodyBuilder*);
 static const Node* expect_operand(ctxparams, BodyBuilder*);
-static const Type* accept_qualified_type(ctxparams);
 
 static const Type* accept_numerical_type(ctxparams) {
     if (accept_token(ctx, i8_tok)) {
@@ -219,17 +212,71 @@ static const Node* accept_numerical_literal(ctxparams) {
     if (negate) // add back the - in front
         str = shd_format_string_arena(arena->arena, "-%s", str);
 
-    const Node* n = untyped_number(arena, (UntypedNumber) {
-            .plaintext = str
-    });
-
-    if (num_type)
-        n = constrained(arena, (ConstrainedValue) {
-            .type = num_type,
-            .value = n
+    if (num_type) {
+        // TODO: share this logic in infer.c
+        if (num_type->tag == Int_TAG) {
+            Int payload = num_type->payload.int_type;
+            char* endptr;
+            int64_t i = strtoll(str, &endptr, 10);
+            return int_literal_helper(arena, payload.width, payload.is_signed, i);
+        } else if (num_type->tag == Float_TAG) {
+            Float payload = num_type->payload.float_type;
+            uint64_t v;
+            switch (payload.width) {
+                case FloatTy16:
+                shd_error("TODO: implement fp16 parsing");
+                case FloatTy32:
+                    assert(sizeof(float) == sizeof(uint32_t));
+                    float f = strtof(str, NULL);
+                    memcpy(&v, &f, sizeof(uint32_t));
+                    break;
+                case FloatTy64:
+                    assert(sizeof(double) == sizeof(uint64_t));
+                    double d = strtod(str, NULL);
+                    memcpy(&v, &d, sizeof(uint64_t));
+                    break;
+            }
+            return float_literal(arena, (FloatLiteral) { .value = v, .width = payload.width });
+        } else {
+            syntax_error("illegal type literal");
+            return NULL;
+        }
+    } else {
+        return untyped_number(arena, (UntypedNumber) {
+                .plaintext = str
         });
+    }
+}
 
-    return n;
+static bool accept_scope(ctxparams, ShdScope* out) {
+    if (accept_token(ctx, uniform_tok))
+        *out = config->target_config->scopes.gang;
+    else if (accept_token(ctx, varying_tok))
+        *out = config->target_config->scopes.bottom;
+    else
+        return false;
+    return true;
+}
+
+static const Type* accept_maybe_qualified_type(ctxparams) {
+    ShdScope scope;
+    bool scope_specified = accept_scope(ctx, &scope);
+    const Type* unqualified = accept_unqualified_type(ctx);
+    if (!unqualified && !scope_specified)
+        return NULL;
+    expect(unqualified, "unqualified type");
+    if (scope_specified)
+        return qualified_type(arena, (QualifiedType) { .scope = scope, .type = unqualified });
+    else
+        return unqualified;
+}
+
+static const Type* accept_qualified_type(ctxparams) {
+    ShdScope scope;
+    expect(accept_scope(ctx, &scope), "frequency qualifier");
+    const Type* unqualified = accept_unqualified_type(ctx);
+    expect(unqualified, "unqualified type");
+    return qualified_type(arena, (QualifiedType) { .scope = scope, .type = unqualified });
 }
 
 static Nodes accept_type_arguments(ctxparams) {
@@ -490,35 +537,6 @@ static const Type* accept_unqualified_type(ctxparams) {
     }
 }
 
-static DivergenceQualifier accept_uniformity_qualifier(ctxparams) {
-    DivergenceQualifier divergence = Unknown;
-    if (accept_token(ctx, uniform_tok))
-        divergence = Uniform;
-    else if (accept_token(ctx, varying_tok))
-        divergence = Varying;
-    return divergence;
-}
-
-static const Type* accept_maybe_qualified_type(ctxparams) {
-    DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
-    const Type* unqualified = accept_unqualified_type(ctx);
-    if (qualifier != Unknown)
-        expect(unqualified, "unqualified type");
-    if (qualifier == Unknown)
-        return unqualified;
-    else
-        return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
-}
-
-static const Type* accept_qualified_type(ctxparams) {
-    DivergenceQualifier qualifier = accept_uniformity_qualifier(ctx);
-    if (qualifier == Unknown)
-        return NULL;
-    const Type* unqualified = accept_unqualified_type(ctx);
-    expect(unqualified, "unqualified type");
-    return qualified_type(arena, (QualifiedType) { .is_uniform = qualifier == Uniform, .type = unqualified });
-}
-
 static const Node* accept_operand(ctxparams, BodyBuilder* bb) {
     return config->front_end ? accept_expr(ctx, bb, max_precedence()) : accept_value(ctx, bb);
 }
@@ -539,7 +557,7 @@ static void expect_parameters(ctxparams, Nodes* parameters, Nodes* default_value
             break;
 
         next: {
-            const Type* qtype = accept_qualified_type(ctx);
+            const Type* qtype = accept_maybe_qualified_type(ctx);
             expect(qtype, "qualified type");
             const char* id = accept_identifier(ctx);
             expect(id, "parameter name");

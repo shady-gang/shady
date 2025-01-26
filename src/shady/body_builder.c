@@ -251,7 +251,7 @@ const Node* shd_bld_to_instr_pure_with_values(BodyBuilder* bb, Nodes values) {
 static Nodes gen_variables(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
 
-    Nodes qyield_types = shd_add_qualifiers(a, yield_types, false);
+    Nodes qyield_types = shd_add_qualifiers(a, yield_types, shd_get_arena_config(a)->target.scopes.bottom);
     LARRAY(const Node*, tail_params, yield_types.count);
     for (size_t i = 0; i < yield_types.count; i++)
         tail_params[i] = param_helper(a, qyield_types.nodes[i]);
@@ -346,7 +346,7 @@ begin_control_t shd_bld_begin_control(BodyBuilder* bb, Nodes yield_types) {
     IrArena* a = bb->arena;
     const Type* jp_type = qualified_type(a, (QualifiedType) {
             .type = join_point_type(a, (JoinPointType) { .yield_types = yield_types }),
-            .is_uniform = true
+            .scope = shd_get_arena_config(a)->target.scopes.gang,
     });
     const Node* jp = param_helper(a, jp_type);
     Node* c = basic_block_helper(a, shd_singleton(jp));
@@ -364,7 +364,7 @@ begin_loop_helper_t shd_bld_begin_loop_helper(BodyBuilder* bb, Nodes yield_types
     BodyBuilder* outer_control_case_builder = shd_bld_begin(a, shd_get_abstraction_mem(outer_control.case_));
     LARRAY(const Node*, params, arg_types.count);
     for (size_t i = 0; i < arg_types.count; i++) {
-        params[i] = param_helper(a, shd_as_qualified_type(arg_types.nodes[i], false));
+        params[i] = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, arg_types.nodes[i]));
     }
     Node* loop_header = basic_block_helper(a, shd_nodes(a, arg_types.count, params));
     shd_set_abstraction_body(outer_control.case_, shd_bld_jump(outer_control_case_builder, loop_header, initial_values));

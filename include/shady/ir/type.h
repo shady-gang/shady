@@ -39,9 +39,6 @@ bool shd_is_ordered_type(const Type*);
 bool shd_is_physical_ptr_type(const Type* t);
 bool shd_is_generic_ptr_type(const Type* t);
 
-/// Returns the (possibly qualified) pointee type from a (possibly qualified) ptr type
-const Type* shd_get_pointee_type(IrArena*, const Type*);
-
 String shd_get_address_space_name(AddressSpace);
 
 /// Returns the scope of an address space.
@@ -53,11 +50,6 @@ String shd_get_address_space_name(AddressSpace);
 /// AsGeneric can be any of AsPrivate | AsShared | AsGlobal so it gets the maximum, Invocation scope
 /// TODO: CrossDevice isn't currently used. Evaluate at a later date.
 ShdScope shd_get_addr_space_scope(AddressSpace);
-
-/// TODO: deprecated, use shd_get_addr_space_scope
-/// Returns false iff pointers in that address space can contain different data at the same address
-/// (amongst threads in the same subgroup)
-bool shd_is_addr_space_uniform(IrArena*, AddressSpace);
 
 String shd_get_type_name(IrArena* arena, const Type* t);
 
@@ -74,13 +66,13 @@ Nodes shd_get_values_types(IrArena*, Nodes);
 // Qualified type helpers
 /// Ensures an operand has divergence-annotated type and extracts it
 const Type* shd_get_unqualified_type(const Type*);
-bool shd_is_qualified_type_uniform(const Type*);
-bool shd_deconstruct_qualified_type(const Type**);
+ShdScope shd_get_qualified_type_scope(const Type*);
+ShdScope shd_deconstruct_qualified_type(const Type**);
 
-const Type* shd_as_qualified_type(const Type* type, bool uniform);
+ShdScope shd_combine_scopes(ShdScope, ShdScope);
 
 Nodes shd_strip_qualifiers(IrArena*, Nodes);
-Nodes shd_add_qualifiers(IrArena*, Nodes, bool);
+Nodes shd_add_qualifiers(IrArena*, Nodes, ShdScope);
 
 // Pack (vector) type helpers
 const Type* shd_get_packed_type_element(const Type* type);

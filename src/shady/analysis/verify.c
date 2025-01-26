@@ -89,8 +89,8 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
         case Constant_TAG: {
             if (n->payload.constant.value) {
                 const Type* t = n->payload.constant.value->type;
-                bool u = shd_deconstruct_qualified_type(&t);
-                assert(u);
+                ShdScope s = shd_deconstruct_qualified_type(&t);
+                assert(s == shd_get_arena_config(n->arena)->target.scopes.constants);
                 assert(shd_is_subtype(n->payload.constant.type_hint, t));
             }
             break;
@@ -98,8 +98,8 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
         case GlobalVariable_TAG: {
             if (n->payload.global_variable.init) {
                 const Type* t = n->payload.global_variable.init->type;
-                bool u = shd_deconstruct_qualified_type(&t);
-                assert(u);
+                ShdScope s = shd_deconstruct_qualified_type(&t);
+                assert(s == shd_get_arena_config(n->arena)->target.scopes.constants);
                 assert(shd_is_subtype(n->payload.global_variable.type, t));
             }
             break;

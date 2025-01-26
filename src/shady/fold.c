@@ -390,7 +390,7 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
         // TODO: case subgroup_broadcast_first_op:
         case subgroup_assume_uniform_op: {
             const Node* value = shd_first(payload.operands);
-            if (shd_is_qualified_type_uniform(value->type))
+            if (shd_get_qualified_type_scope(value->type) <= ShdScopeSubgroup)
                 return quote_single(arena, value);
             break;
         }

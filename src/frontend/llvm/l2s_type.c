@@ -35,12 +35,12 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
             LLVMGetParamTypes(t, param_types);
             LARRAY(const Type*, cparam_types, num_params);
             for (size_t i = 0; i < num_params; i++)
-                cparam_types[i] = shd_as_qualified_type(l2s_convert_type(p, param_types[i]), false);
+                cparam_types[i] = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, l2s_convert_type(p, param_types[i]));
             const Type* ret_type = l2s_convert_type(p, LLVMGetReturnType(t));
             if (LLVMGetTypeKind(LLVMGetReturnType(t)) == LLVMVoidTypeKind)
                 ret_type = empty_multiple_return_type(a);
             else
-                ret_type = shd_as_qualified_type(ret_type, false);
+                ret_type = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ret_type);
             return fn_type(a, (FnType) {
                 .param_types = shd_nodes(a, num_params, cparam_types),
                 .return_types = ret_type == empty_multiple_return_type(a) ? shd_empty(a) : shd_singleton(ret_type)

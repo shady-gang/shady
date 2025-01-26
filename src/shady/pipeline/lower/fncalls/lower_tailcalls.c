@@ -133,7 +133,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 break;
 
             // fast-path
-            assert(shd_is_qualified_type_uniform(payload.callee->type) && "only uniform tailcalls are allowed here");
+            assert(shd_get_qualified_type_scope(payload.callee->type) <= ShdScopeSubgroup && "only uniform tailcalls are allowed here");
             //shd_bld_store(bb, shd_find_or_process_decl(r, "next_fn"), target);
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_jump"), shd_singleton(target));
             return shd_bld_finish(bb, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_bld_mem(bb) }));
@@ -266,7 +266,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
             const Type* arg_type = shd_rewrite_node(r, shd_get_unqualified_type(old_param->type));
             const Node* popped = shd_bld_stack_pop_value(if_builder, arg_type);
             // TODO use the uniform stack instead ? or no ?
-            if (shd_is_qualified_type_uniform(old_param->type))
+            if (shd_get_qualified_type_scope(old_param->type) <= ShdScopeSubgroup)
                 popped = prim_op(a, (PrimOp) { .op = subgroup_assume_uniform_op, .type_arguments = shd_empty(a), .operands = shd_singleton(popped) });
             nargs[j] = popped;
         }

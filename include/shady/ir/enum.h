@@ -37,6 +37,8 @@ typedef enum {
     ShdScopeBottom = ShdScopeInvocation
 } ShdScope;
 
+String shd_get_scope_name(ShdScope);
+
 // see enum.json
 #include "enum_generated.h"
 

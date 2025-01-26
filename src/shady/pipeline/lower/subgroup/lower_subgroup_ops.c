@@ -136,7 +136,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (is_supported_natively(ctx, op, src_t)) {
         if (strcmp("shady.primop", op.iset) == 0)
             return prim_op_helper(a, op.opcode, shd_empty(a), shd_singleton(src));
-        return shd_bld_ext_instruction(bb, op.iset, op.opcode, shd_as_qualified_type(src_t, true), shd_nodes_append(a, op.params, src));
+        return shd_bld_ext_instruction(bb, op.iset, op.opcode, qualified_type_helper(a, ShdScopeSubgroup, src_t), shd_nodes_append(a, op.params, src));
     } else if (error_if_not_native) {
         shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");
         shd_log_node(ERROR, src_t);
@@ -156,9 +156,9 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param_helper(a, shd_as_qualified_type(src_t, false));
+        const Node* src_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, src_t));
         shd_set_debug_name(src_param, "src");
-        fn = function_helper(m, shd_singleton(src_param), shd_singleton(shd_as_qualified_type(src_t, true)));
+        fn = function_helper(m, shd_singleton(src_param), shd_singleton(qualified_type_helper(a, ShdScopeSubgroup, src_t)));
         shd_set_debug_name(fn, shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)));
         shd_add_annotation_named(fn, "Leaf");
         shd_add_annotation_named(fn, "Generated");

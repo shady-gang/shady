@@ -76,29 +76,29 @@ static bool allowed(Context* ctx, AddressSpace as) {
 }
 
 typedef enum { LoadFn, StoreFn } WhichFn;
-static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, bool uniform_ptr, const Type* t) {
+static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, ShdScope ptr_scope, const Type* t) {
     IrArena* a = ctx->rewriter.dst_arena;
     String name;
     switch (which) {
-        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s%s", shd_get_type_name(a, t), uniform_ptr ? "_uniform" : ""); break;
-        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s", shd_get_type_name(a, t)); break;
+        case LoadFn: name = shd_fmt_string_irarena(a, "generated_load_Generic_%s_%s", shd_get_type_name(a, t), shd_get_scope_name(ptr_scope)); break;
+        case StoreFn: name = shd_fmt_string_irarena(a, "generated_store_Generic_%s_%s", shd_get_type_name(a, t), shd_get_scope_name(ptr_scope)); break;
     }
 
     const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, name);
     if (found)
         return *found;
 
-    const Node* ptr_param = param_helper(a, shd_as_qualified_type(ctx->generic_ptr_type, uniform_ptr));
+    const Node* ptr_param = param_helper(a, qualified_type_helper(a, ptr_scope, ctx->generic_ptr_type));
     shd_set_debug_name(ptr_param, "ptr");
     const Node* value_param;
     Nodes params = shd_singleton(ptr_param);
     Nodes return_ts = shd_empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = shd_singleton(shd_as_qualified_type(t, uniform_ptr));
+            return_ts = shd_singleton(qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
             break;
         case StoreFn:
-            value_param = param_helper(a, shd_as_qualified_type(t, false));
+            value_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
             shd_set_debug_name(value_param, "value");
             params = shd_nodes_append(a, params, value_param);
             break;
@@ -211,11 +211,10 @@ static const Node* process(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* old_ptr_t = payload.ptr->type;
-            bool u = shd_deconstruct_qualified_type(&old_ptr_t);
-            u &= shd_is_addr_space_uniform(a, old_ptr_t->payload.ptr_type.address_space);
+            ShdScope ptr_scope = shd_deconstruct_qualified_type(&old_ptr_t);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
-                    .callee = get_or_make_access_fn(ctx, LoadFn, u, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type)),
+                    .callee = get_or_make_access_fn(ctx, LoadFn, ptr_scope, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type)),
                     .args = shd_singleton(shd_rewrite_node(&ctx->rewriter, payload.ptr)),
                     .mem = shd_rewrite_node(r, payload.mem)
                 });
@@ -225,10 +224,10 @@ static const Node* process(Context* ctx, const Node* old) {
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* old_ptr_t = payload.ptr->type;
-            shd_deconstruct_qualified_type(&old_ptr_t);
+            ShdScope ptr_scope = shd_deconstruct_qualified_type(&old_ptr_t);
             if (old_ptr_t->payload.ptr_type.address_space == AsGeneric) {
                 return call(a, (Call) {
-                    .callee = get_or_make_access_fn(ctx, StoreFn, false, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type)),
+                    .callee = get_or_make_access_fn(ctx, StoreFn, ptr_scope, shd_rewrite_node(r, old_ptr_t->payload.ptr_type.pointed_type)),
                     .args = mk_nodes(a, shd_rewrite_node(r, payload.ptr), shd_rewrite_node(r, payload.value)),
                     .mem = shd_rewrite_node(r, payload.mem),
                 });

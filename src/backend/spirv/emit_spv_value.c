@@ -467,7 +467,6 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
     switch (is_value(node)) {
         case NotAValue: shd_error("");
         case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
-        case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG:
         case Value_FnAddr_TAG: {
             spvb_capability(emitter->file_builder, SpvCapabilityInModuleFunctionAddressSHADY);

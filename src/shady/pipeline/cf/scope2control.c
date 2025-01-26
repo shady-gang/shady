@@ -40,6 +40,7 @@ typedef struct {
     struct Dict* control_destinations;
 } Controls;
 
+// TODO: isn't the arena typed making this redundant ?
 static Nodes remake_params(Context* ctx, Nodes old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -51,7 +52,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
         }
         nvars[i] = param_helper(a, t);
         assert(nvars[i]->tag == Param_TAG);
@@ -125,7 +126,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
 
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
-            if (shd_is_qualified_type_uniform(original_params.nodes[j]->type))
+            if (shd_get_qualified_type_scope(original_params.nodes[j]->type) <= ShdScopeSubgroup)
                 results = shd_change_node_at_index(a, results, j, prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(results.nodes[j])));
         }
 
@@ -225,7 +226,8 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Type* jp_type = join_point_type(a, (JoinPointType) {
                         .yield_types = yield_types
                     });
-                    const Node* join_token = param_helper(a, shd_as_qualified_type(jp_type, false));
+                    // TODO: shouldn't this be 'gang'
+                    const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
 
                     Node* wrapper = basic_block_helper(a, wrapper_params);
                     shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_node_name_safe(dst)));

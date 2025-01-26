@@ -45,7 +45,6 @@ const Type* _shd_check_type_record_type(IrArena* arena, RecordType type) {
 
 const Type* _shd_check_type_qualified_type(IrArena* arena, QualifiedType qualified_type) {
     assert(shd_is_data_type(qualified_type.type));
-    assert(arena->config.is_simt || qualified_type.is_uniform);
     return NULL;
 }
 
@@ -105,20 +104,31 @@ const Type* _shd_check_type_untyped_number(IrArena* arena, UntypedNumber untyped
 
 const Type* _shd_check_type_int_literal(IrArena* arena, IntLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
+        .scope = shd_get_arena_config(arena)->target.scopes.constants,
         .type = int_type(arena, (Int) { .width = lit.width, .is_signed = lit.is_signed })
     });
 }
 
 const Type* _shd_check_type_float_literal(IrArena* arena, FloatLiteral lit) {
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
+            .scope = shd_get_arena_config(arena)->target.scopes.constants,
         .type = float_type(arena, (Float) { .width = lit.width })
     });
 }
 
-const Type* _shd_check_type_true_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
-const Type* _shd_check_type_false_lit(IrArena* arena) { return qualified_type(arena, (QualifiedType) { .type = bool_type(arena), .is_uniform = true }); }
+const Type* _shd_check_type_true_lit(IrArena* arena) {
+    return qualified_type(arena, (QualifiedType) {
+        .type = bool_type(arena),
+        .scope = shd_get_arena_config(arena)->target.scopes.constants,
+    });
+}
+
+const Type* _shd_check_type_false_lit(IrArena* arena) {
+    return qualified_type(arena, (QualifiedType) {
+        .type = bool_type(arena),
+        .scope = shd_get_arena_config(arena)->target.scopes.constants,
+    });
+}
 
 const Type* _shd_check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     const Type* t = arr_type(arena, (ArrType) {
@@ -127,40 +137,40 @@ const Type* _shd_check_type_string_lit(IrArena* arena, StringLiteral str_lit) {
     });
     return qualified_type(arena, (QualifiedType) {
         .type = t,
-        .is_uniform = true,
+        .scope = shd_get_arena_config(arena)->target.scopes.constants,
     });
 }
 
 const Type* _shd_check_type_null_ptr(IrArena* a, NullPtr payload) {
     assert(shd_is_data_type(payload.ptr_type) && payload.ptr_type->tag == PtrType_TAG);
-    return shd_as_qualified_type(payload.ptr_type, true);
+    return qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, payload.ptr_type);
 }
 
 const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
     if (composite.type) {
         assert(shd_is_data_type(composite.type));
         Nodes expected_member_types = shd_get_composite_type_element_types(composite.type);
-        bool is_uniform = true;
+        ShdScope scope = shd_get_arena_config(arena)->target.scopes.constants;
         assert(composite.contents.count == expected_member_types.count);
         for (size_t i = 0; i < composite.contents.count; i++) {
             const Type* element_type = composite.contents.nodes[i]->type;
-            is_uniform &= shd_deconstruct_qualified_type(&element_type);
+            scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&element_type));
             assert(shd_is_subtype(expected_member_types.nodes[i], element_type));
         }
         return qualified_type(arena, (QualifiedType) {
-            .is_uniform = is_uniform,
+            .scope = scope,
             .type = composite.type
         });
     }
-    bool is_uniform = true;
+    ShdScope scope = shd_get_arena_config(arena)->target.scopes.constants;
     LARRAY(const Type*, member_ts, composite.contents.count);
     for (size_t i = 0; i < composite.contents.count; i++) {
         const Type* element_type = composite.contents.nodes[i]->type;
-        is_uniform &= shd_deconstruct_qualified_type(&element_type);
+        scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&element_type));
         member_ts[i] = element_type;
     }
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = is_uniform,
+        .scope = scope,
         .type = record_type(arena, (RecordType) {
             .members = shd_nodes(arena, composite.contents.count, member_ts)
         })
@@ -171,10 +181,10 @@ const Type* _shd_check_type_fill(IrArena* arena, Fill payload) {
     assert(shd_is_data_type(payload.type));
     const Node* element_t = shd_get_fill_type_element_type(payload.type);
     const Node* value_t = payload.value->type;
-    bool u = shd_deconstruct_qualified_type(&value_t);
+    ShdScope s = shd_deconstruct_qualified_type(&value_t);
     assert(shd_is_subtype(element_t, value_t));
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = u,
+        .scope = s,
         .type = payload.type
     });
 }
@@ -182,7 +192,7 @@ const Type* _shd_check_type_fill(IrArena* arena, Fill payload) {
 const Type* _shd_check_type_undef(IrArena* arena, Undef payload) {
     assert(shd_is_data_type(payload.type));
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
+        .scope = shd_get_arena_config(arena)->target.scopes.bottom,
         .type = payload.type
     });
 }
@@ -195,7 +205,7 @@ const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
     return qualified_type(arena, (QualifiedType) {
-        .is_uniform = true,
+        .scope = shd_get_arena_config(arena)->target.scopes.constants,
         .type = ptr_type(arena, (PtrType) {
             .pointed_type = fn_addr.fn->type,
             .address_space = AsCode /* the actual AS does not matter because these are opaque anyways */,
@@ -233,8 +243,8 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* first_operand_type = shd_first(prim_op.operands)->type;
             const Type* second_operand_type = prim_op.operands.nodes[1]->type;
 
-            bool uniform_result = shd_deconstruct_qualified_type(&first_operand_type);
-            uniform_result &= shd_deconstruct_qualified_type(&second_operand_type);
+            ShdScope result_scope = shd_deconstruct_qualified_type(&first_operand_type);
+            result_scope = shd_combine_scopes(result_scope, shd_deconstruct_qualified_type(&second_operand_type));
 
             size_t value_simd_width = shd_deconstruct_maybe_packed_type(&first_operand_type);
             size_t shift_simd_width = shd_deconstruct_maybe_packed_type(&second_operand_type);
@@ -243,7 +253,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(first_operand_type->tag == Int_TAG);
             assert(second_operand_type->tag == Int_TAG);
 
-            return shd_as_qualified_type(shd_maybe_packed_type_helper(first_operand_type, value_simd_width), uniform_result);
+            return qualified_type_helper(arena, result_scope, shd_maybe_packed_type_helper(first_operand_type, value_simd_width));
         }
         case add_carry_op:
         case sub_borrow_op:
@@ -259,16 +269,16 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
-            bool result_uniform = true;
+            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
+                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
                 assert(shd_is_arithm_type(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
-                result_uniform &= operand_uniform;
+                result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
             const Type* result_t = first_operand_type;
@@ -276,7 +286,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 // TODO: assert unsigned
                 result_t = record_type(arena, (RecordType) {.members = mk_nodes(arena, result_t, result_t)});
             }
-            return shd_as_qualified_type(result_t, result_uniform);
+            return qualified_type_helper(arena, result_scope, result_t);
         }
 
         case not_op: {
@@ -294,19 +304,19 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
-            bool result_uniform = true;
+            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
+                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
                 assert(shd_has_boolean_ops(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
-                result_uniform &= operand_uniform;
+                result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
-            return shd_as_qualified_type(first_operand_type, result_uniform);
+            return qualified_type_helper(arena, result_scope, first_operand_type);
         }
         case lt_op:
         case lte_op:
@@ -319,20 +329,19 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
             size_t first_operand_width = shd_get_maybe_packed_type_width(first_operand_type);
 
-            bool result_uniform = true;
+            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
+                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
                 assert((ordered ? shd_is_ordered_type : shd_is_comparable_type)(shd_get_maybe_packed_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
-                result_uniform &= operand_uniform;
+                result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
-            return shd_as_qualified_type(shd_maybe_packed_type_helper(bool_type(arena), first_operand_width),
-                                         result_uniform);
+            return qualified_type_helper(arena, result_scope, shd_maybe_packed_type_helper(bool_type(arena), first_operand_width));
         }
         case sqrt_op:
         case inv_sqrt_op:
@@ -347,48 +356,48 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
-            bool uniform = shd_deconstruct_qualified_type(&src_type);
+            ShdScope scope = shd_deconstruct_qualified_type(&src_type);
             size_t width = shd_deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG);
-            return shd_as_qualified_type(shd_maybe_packed_type_helper(src_type, width), uniform);
+            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case pow_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
-            bool result_uniform = true;
+            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
+                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
                 assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
-                result_uniform &= operand_uniform;
+                result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
-            return shd_as_qualified_type(first_operand_type, result_uniform);
+            return qualified_type_helper(arena, result_scope, first_operand_type);
         }
         case fma_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
-            bool result_uniform = true;
+            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
                 const Node* arg = prim_op.operands.nodes[i];
                 const Type* operand_type = arg->type;
-                bool operand_uniform = shd_deconstruct_qualified_type(&operand_type);
+                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
                 assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
-                result_uniform &= operand_uniform;
+                result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
-            return shd_as_qualified_type(first_operand_type, result_uniform);
+            return qualified_type_helper(arena, result_scope, first_operand_type);
         }
         case abs_op:
         case sign_op:
@@ -396,17 +405,17 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
-            bool uniform = shd_deconstruct_qualified_type(&src_type);
+            ShdScope scope = shd_deconstruct_qualified_type(&src_type);
             size_t width = shd_deconstruct_maybe_packed_type(&src_type);
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
-            return shd_as_qualified_type(shd_maybe_packed_type_helper(src_type, width), uniform);
+            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case align_of_op:
         case size_of_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 0);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .scope = shd_get_arena_config(arena)->target.scopes.constants,
                 .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
             });
         }
@@ -414,10 +423,10 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
             const Type* optype = shd_first(prim_op.operands)->type;
-            bool uniform = shd_deconstruct_qualified_type(&optype);
-            assert(uniform && optype->tag == Int_TAG);
+            ShdScope index_scope = shd_deconstruct_qualified_type(&optype);
+            assert(index_scope == shd_get_arena_config(arena)->target.scopes.constants && optype->tag == Int_TAG);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .scope = shd_get_arena_config(arena)->target.scopes.constants,
                 .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
             });
         }
@@ -425,14 +434,13 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
-            bool condition_uniform = shd_deconstruct_qualified_type(&condition_type);
+            ShdScope scope = shd_deconstruct_qualified_type(&condition_type);
             size_t width = shd_deconstruct_maybe_packed_type(&condition_type);
 
             const Type* alternatives_types[2];
-            bool alternatives_all_uniform = true;
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
-                alternatives_all_uniform &= shd_deconstruct_qualified_type(&alternatives_types[i]);
+                scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&alternatives_types[i]));
                 size_t alternative_width = shd_deconstruct_maybe_packed_type(&alternatives_types[i]);
                 assert(alternative_width == width);
             }
@@ -441,8 +449,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return shd_as_qualified_type(shd_maybe_packed_type_helper(alternatives_types[0], width),
-                                         alternatives_all_uniform && condition_uniform);
+            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(alternatives_types[0], width));
         }
         case insert_op:
         case extract_dynamic_op:
@@ -455,21 +462,21 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             Nodes indices = shd_nodes(arena, prim_op.operands.count - indices_start, &prim_op.operands.nodes[indices_start]);
 
             const Type* t = source->type;
-            bool uniform = shd_deconstruct_qualified_type(&t);
-            shd_enter_composite_type_indices(&t, &uniform, indices, true);
+            ShdScope scope = shd_deconstruct_qualified_type(&t);
+            shd_enter_composite_type_indices(&t, &scope, indices, true);
 
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
                 const Type* inserted_data_type = inserted_data->type;
-                bool is_uniform = uniform & shd_deconstruct_qualified_type(&inserted_data_type);
+                scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&inserted_data_type));
                 assert(shd_is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
                 return qualified_type(arena, (QualifiedType) {
-                    .is_uniform = is_uniform,
+                    .scope = scope,
                     .type = shd_get_unqualified_type(source->type),
                 });
             }
 
-            return shd_as_qualified_type(t, uniform);
+            return qualified_type_helper(arena, scope, t);
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);
@@ -478,8 +485,8 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Node* rhs = prim_op.operands.nodes[1];
             const Type* lhs_t = lhs->type;
             const Type* rhs_t = rhs->type;
-            bool lhs_u = shd_deconstruct_qualified_type(&lhs_t);
-            bool rhs_u = shd_deconstruct_qualified_type(&rhs_t);
+            ShdScope lhs_scope = shd_deconstruct_qualified_type(&lhs_t);
+            ShdScope rhs_scope = shd_deconstruct_qualified_type(&rhs_t);
             assert(lhs_t->tag == PackType_TAG && rhs_t->tag == PackType_TAG);
             size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             const Type* element_t = lhs_t->payload.pack_type.element_type;
@@ -487,28 +494,27 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             size_t indices_count = prim_op.operands.count - 2;
             const Node** indices = &prim_op.operands.nodes[2];
-            bool u = lhs_u & rhs_u;
+            ShdScope scope = shd_combine_scopes(lhs_scope, rhs_scope);
             for (size_t i = 0; i < indices_count; i++) {
-                u &= shd_is_qualified_type_uniform(indices[i]->type);
+                scope = shd_combine_scopes(scope, shd_get_qualified_type_scope(indices[i]->type));
                 int64_t index = shd_get_int_literal_value(*shd_resolve_to_int_literal(indices[i]), true);
                 assert(index < 0 /* poison */ || (index >= 0 && index < total_size && "shuffle element out of range"));
             }
-            return shd_as_qualified_type(
-                    pack_type(arena, (PackType) {.element_type = element_t, .width = indices_count}), u);
+            return qualified_type_helper(arena, scope, pack_type(arena, (PackType) {.element_type = element_t, .width = indices_count}));
         }
         case reinterpret_op: {
             assert(prim_op.type_arguments.count == 1);
             assert(prim_op.operands.count == 1);
             const Node* source = shd_first(prim_op.operands);
             const Type* src_type = source->type;
-            bool src_uniform = shd_deconstruct_qualified_type(&src_type);
+            ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
 
             const Type* dst_type = shd_first(prim_op.type_arguments);
             assert(shd_is_data_type(dst_type));
             assert(shd_is_reinterpret_cast_legal(src_type, dst_type));
 
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = src_uniform,
+                .scope = src_scope,
                 .type = dst_type
             });
         }
@@ -517,7 +523,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* source = shd_first(prim_op.operands);
             const Type* src_type = source->type;
-            bool src_uniform = shd_deconstruct_qualified_type(&src_type);
+            ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
 
             const Type* dst_type = shd_first(prim_op.type_arguments);
             assert(shd_is_data_type(dst_type));
@@ -525,20 +531,20 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
             // TODO check the conversion is legal
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = src_uniform,
+                .scope = src_scope,
                 .type = dst_type
             });
         }
         // Mask management
         case empty_mask_op: {
             assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
-            return shd_as_qualified_type(shd_get_actual_mask_type(arena), true);
+            return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, shd_get_actual_mask_type(arena));
         }
         case mask_is_thread_active_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = shd_is_qualified_type_uniform(prim_op.operands.nodes[0]->type) && shd_is_qualified_type_uniform(prim_op.operands.nodes[1]->type),
+                .scope = shd_combine_scopes(shd_get_qualified_type_scope(prim_op.operands.nodes[0]->type), shd_get_qualified_type_scope(prim_op.operands.nodes[1]->type)),
                 .type = bool_type(arena)
             });
         }
@@ -548,7 +554,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Type* operand_type = shd_get_unqualified_type(prim_op.operands.nodes[0]->type);
             return qualified_type(arena, (QualifiedType) {
-                .is_uniform = true,
+                .scope = ShdScopeSubgroup,
                 .type = operand_type
             });
         }
@@ -564,7 +570,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* image_t = sampled_image_t->payload.sampled_image_type.image_type;
             assert(image_t->tag == ImageType_TAG);
             size_t coords_dim = shd_deconstruct_packed_type(&coords_t);
-            return qualified_type(arena, (QualifiedType) { .is_uniform = false, .type = shd_maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });
+            return qualified_type(arena, (QualifiedType) { .scope = shd_get_arena_config(arena)->target.scopes.bottom, .type = shd_maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });
         }
         case PRIMOPS_COUNT: assert(false);
     }
@@ -630,7 +636,7 @@ const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
 const Type* _shd_check_type_indirect_tail_call(IrArena* arena, IndirectTailCall tail_call) {
     assert(is_value(tail_call.callee));
     const Type* callee_type = tail_call.callee->type;
-    SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
+    shd_deconstruct_qualified_type(&callee_type);
     AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
     assert(as == AsCode);
 
@@ -666,7 +672,7 @@ const Type* _shd_check_type_if_instr(IrArena* arena, If if_instr) {
     if (if_instr.yield_types.count > 0)
         assert(if_instr.if_false);
 
-    check_arguments_types_against_parameters_helper(shd_get_param_types(arena, get_abstraction_params(if_instr.tail)), shd_add_qualifiers(arena, if_instr.yield_types, false));
+    check_arguments_types_against_parameters_helper(shd_get_param_types(arena, get_abstraction_params(if_instr.tail)), shd_add_qualifiers(arena, if_instr.yield_types, shd_get_arena_config(arena)->target.scopes.bottom));
     return noret_type(arena);
 }
 
@@ -711,7 +717,7 @@ const Type* _shd_check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload
 const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = shd_is_addr_space_uniform(a, AsPrivate),
+        .scope = shd_get_addr_space_scope(AsPrivate),
         .type = ptr_type(a, (PtrType) {
             .pointed_type = alloc.type,
             .address_space = AsPrivate,
@@ -723,7 +729,7 @@ const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
 const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = shd_is_addr_space_uniform(a, AsFunction),
+        .scope = shd_get_addr_space_scope(AsFunction),
         .type = ptr_type(a, (PtrType) {
             .pointed_type = alloc.type,
             .address_space = AsFunction,
@@ -734,54 +740,52 @@ const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
 
 const Type* _shd_check_type_load(IrArena* a, Load load) {
     const Node* ptr_type = load.ptr->type;
-    bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
+    ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
     size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
 
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
     const Type* elem_type = node_ptr_type_->pointed_type;
     elem_type = shd_maybe_packed_type_helper(elem_type, width);
-    return shd_as_qualified_type(elem_type,ptr_uniform && shd_is_addr_space_uniform(a, ptr_type->payload.ptr_type.address_space));
+    return qualified_type_helper(a, shd_combine_scopes(ptr_scope, shd_get_addr_space_scope(ptr_type->payload.ptr_type.address_space)), elem_type);
 }
 
 const Type* _shd_check_type_store(IrArena* a, Store store) {
     const Node* ptr_type = store.ptr->type;
-    bool ptr_uniform = shd_deconstruct_qualified_type(&ptr_type);
+    shd_deconstruct_qualified_type(&ptr_type);
     size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
     const Type* elem_type = ptr_type_payload->pointed_type;
     assert(elem_type);
     elem_type = shd_maybe_packed_type_helper(elem_type, width);
-    // we don't enforce uniform stores - but we care about storing the right thing :)
-    const Type* val_expected_type = qualified_type(a, (QualifiedType) {
-        .is_uniform = !a->config.is_simt,
+    const Type* expected_stored_type = qualified_type(a, (QualifiedType) {
+        .scope = shd_get_arena_config(a)->target.scopes.bottom,
         .type = elem_type
     });
 
-    assert(shd_is_subtype(val_expected_type, store.value->type));
+    assert(shd_is_subtype(expected_stored_type, store.value->type));
     return empty_multiple_return_type(a);
 }
 
 const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffset lea) {
     const Type* base_ptr_type = lea.ptr->type;
-    bool uniform = shd_deconstruct_qualified_type(&base_ptr_type);
+    ShdScope ptr_scope = shd_deconstruct_qualified_type(&base_ptr_type);
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
     const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
     assert(lea.offset);
     const Type* offset_type = lea.offset->type;
-    bool offset_uniform = shd_deconstruct_qualified_type(&offset_type);
+    ShdScope offset_scope = shd_deconstruct_qualified_type(&offset_type);
     assert(offset_type->tag == Int_TAG && "lea expects an integer offset");
 
     const IntLiteral* lit = shd_resolve_to_int_literal(lea.offset);
     bool offset_is_zero = lit && lit->value == 0;
     assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
     assert(offset_is_zero || shd_is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
-    uniform &= offset_uniform;
 
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = uniform,
+        .scope = shd_combine_scopes(ptr_scope, offset_scope),
         .type = ptr_type(a, (PtrType) {
             .pointed_type = pointee_type,
             .address_space = base_ptr_type->payload.ptr_type.address_space,
@@ -792,14 +796,14 @@ const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElement
 
 const Type* _shd_check_type_ptr_composite_element(IrArena* a, PtrCompositeElement lea) {
     const Type* base_ptr_type = lea.ptr->type;
-    bool uniform = shd_deconstruct_qualified_type(&base_ptr_type);
+    ShdScope s = shd_deconstruct_qualified_type(&base_ptr_type);
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
     const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
-    shd_enter_composite_type(&pointee_type, &uniform, lea.index, true);
+    shd_enter_composite_type(&pointee_type, &s, lea.index, true);
 
     return qualified_type(a, (QualifiedType) {
-        .is_uniform = uniform,
+        .scope = s,
         .type = ptr_type(a, (PtrType) {
             .pointed_type = pointee_type,
             .address_space = base_ptr_type->payload.ptr_type.address_space,
@@ -840,21 +844,21 @@ const Type* _shd_check_type_push_stack(IrArena* a, PushStack payload) {
 }
 
 const Type* _shd_check_type_pop_stack(IrArena* a, PopStack payload) {
-    return shd_as_qualified_type(payload.type, false);
+    return qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, payload.type);
 }
 
 const Type* _shd_check_type_set_stack_size(IrArena* a, SetStackSize payload) {
     assert(shd_get_unqualified_type(payload.value->type) == shd_uint32_type(a));
-    return shd_as_qualified_type(unit_type(a), true);
+    return empty_multiple_return_type(a);
 }
 
 const Type* _shd_check_type_get_stack_size(IrArena* a, SHADY_UNUSED GetStackSize ss) {
-    return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = shd_uint32_type(a) });
+    return qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = shd_uint32_type(a) });
 }
 
 const Type* _shd_check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStackBaseAddr gsba) {
     const Node* ptr = ptr_type(a, (PtrType) { .pointed_type = shd_uint8_type(a), .address_space = AsPrivate});
-    return qualified_type(a, (QualifiedType) { .is_uniform = false, .type = ptr });
+    return qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = ptr });
 }
 
 const Type* _shd_check_type_debug_printf(IrArena* a, DebugPrintf payload) {
@@ -904,7 +908,7 @@ const Type* _shd_check_type_join(IrArena* arena, Join join) {
     assert(join_target_type->tag == JoinPointType_TAG);
 
     Nodes join_point_param_types = join_target_type->payload.join_point_type.yield_types;
-    join_point_param_types = shd_add_qualifiers(arena, join_point_param_types, !arena->config.is_simt);
+    join_point_param_types = shd_add_qualifiers(arena, join_point_param_types, shd_get_arena_config(arena)->target.scopes.bottom);
 
     check_arguments_types_against_parameters_helper(join_point_param_types, shd_get_values_types(arena, join.args));
 
@@ -952,7 +956,7 @@ const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable globa
 
     assert(global_variable.address_space < NumAddressSpaces);
 
-    return qualified_type_helper(arena, true, ptr_type(arena, (PtrType) {
+    return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
         .is_reference = global_variable.is_ref,
@@ -961,7 +965,7 @@ const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable globa
 
 const Type* _shd_check_type_builtin_ref(IrArena* arena, BuiltinRef ref) {
     ShdScope scope = shd_get_builtin_scope(ref.builtin);
-    return qualified_type_helper(arena, scope <= ShdScopeSubgroup, ptr_type(arena, (PtrType) {
+    return qualified_type_helper(arena, scope, ptr_type(arena, (PtrType) {
         .pointed_type = shd_get_builtin_type(arena, ref.builtin),
         .address_space = shd_get_builtin_address_space(ref.builtin),
         .is_reference = true,
@@ -970,7 +974,7 @@ const Type* _shd_check_type_builtin_ref(IrArena* arena, BuiltinRef ref) {
 
 const Type* _shd_check_type_constant(IrArena* arena, Constant cnst) {
     assert(shd_is_data_type(cnst.type_hint));
-    return qualified_type_helper(arena, true, cnst.type_hint);
+    return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, cnst.type_hint);
 }
 
 #include "type_generated.c"

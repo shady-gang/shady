@@ -166,7 +166,7 @@ void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* 
 #define BASIC_BLOCK_COLOR MAGENTA
 
 #define TYPE_COLOR BCYAN
-#define TYPE_SHAPE_COLOR CYAN
+#define SCOPE_COLOR CYAN
 
 #define MEM_COLOR YELLOW
 #define VALUE_COLOR BYELLOW
@@ -293,6 +293,20 @@ static void print_function_body(PrinterCtx* ctx, const Node* node) {
     }
 }
 
+String shd_get_scope_name(ShdScope scope) {
+    switch (scope) {
+        case ShdScopeTop:        return "CrossDevice";
+        case ShdScopeDevice:     return "Device";
+        case ShdScopeWorkgroup:  return "Workgroup";
+        case ShdScopeSubgroup:   return "Subgroup";
+        case ShdScopeInvocation: return "Invocation";
+    }
+}
+
+static void print_scope(PrinterCtx* ctx, ShdScope scope) {
+    printf("%s", shd_get_scope_name(scope));
+}
+
 static bool print_type(PrinterCtx* ctx, const Node* node) {
     printf(TYPE_COLOR);
     switch (is_type(node)) {
@@ -311,8 +325,8 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             break;
         case MaskType_TAG: printf("mask"); break;
         case QualifiedType_TAG:
-            printf(TYPE_SHAPE_COLOR);
-            printf(node->payload.qualified_type.is_uniform ? "uniform" : "varying");
+            printf(SCOPE_COLOR);
+            print_scope(ctx, node->payload.qualified_type.scope);
             printf(RESET);
             printf(" ");
             print_operand_helper(ctx, NcType, node->payload.qualified_type.type);
@@ -458,12 +472,6 @@ static void print_string_lit(PrinterCtx* ctx, const char* string) {
 static bool print_value(PrinterCtx* ctx, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: assert(false); break;
-        case ConstrainedValue_TAG: {
-            print_node(node->payload.constrained.type);
-            printf(" ");
-            print_node(node->payload.constrained.value);
-            break;
-        }
         case Value_Param_TAG:
             printf(VALUE_COLOR);
             String name = shd_get_node_name_unsafe(node);
@@ -1009,5 +1017,13 @@ void _shd_print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, b
     else
         shd_print(ctx->printer, "false");
 }
+
+static void _shd_print_node_operand_ShdScope(PrinterCtx* ctx, const Node* n, String name, ShdScope scope) {
+    print_operand_name_helper(ctx, name);
+    shd_print(ctx->printer, SCOPE_COLOR);
+    print_scope(ctx, scope);
+    shd_print(ctx->printer, RESET);
+}
+
 
 #include "print_generated.c"

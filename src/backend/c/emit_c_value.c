@@ -62,7 +62,6 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
     switch (is_value(value)) {
         case NotAValue: assert(false);
-        case Value_ConstrainedValue_TAG:
         case Value_UntypedNumber_TAG: shd_error("lower me");
         case Param_TAG: shd_error("tried to emit a param: all params should be emitted by their binding abstraction !");
         default: {
@@ -692,8 +691,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             String rhs_e = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             const Type* lhs_t = lhs->type;
             const Type* rhs_t = rhs->type;
-            bool lhs_u = shd_deconstruct_qualified_type(&lhs_t);
-            bool rhs_u = shd_deconstruct_qualified_type(&rhs_t);
+            shd_deconstruct_qualified_type(&lhs_t);
+            shd_deconstruct_qualified_type(&rhs_t);
             size_t left_size = lhs_t->payload.pack_type.width;
             // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             String suffixes = "xyzw";
@@ -906,13 +905,13 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
     CTerm acc = shd_c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
-    bool uniform = shd_is_qualified_type_uniform(src_qtype);
+    ShdScope scope = shd_get_qualified_type_scope(src_qtype);
     const Type* curr_ptr_type = shd_get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
 
-    const Type* pointee_type = shd_get_pointee_type(arena, curr_ptr_type);
+    const Type* pointee_type = shd_get_pointer_type_element(curr_ptr_type);
     const Node* selector = lea.index;
-    uniform &= shd_is_qualified_type_uniform(selector->type);
+    scope = shd_combine_scopes(scope, shd_get_qualified_type_scope(selector->type));
     switch (is_type(pointee_type)) {
         case ArrType_TAG: {
             CTerm index = shd_c_emit_value(emitter, fn, selector);
@@ -934,7 +933,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // See https://github.com/ispc/ispc/issues/2496
             if (emitter->config.dialect == CDialect_ISPC) {
                 String interm = shd_make_unique_name(arena, "lea_intermediary_ptr_value");
-                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, shd_as_qualified_type(curr_ptr_type, uniform), interm), shd_c_to_ssa(emitter, acc));
+                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, qualified_type_helper(arena, scope, curr_ptr_type), interm), shd_c_to_ssa(emitter, acc));
                 acc = term_from_cvalue(interm);
             }
 
@@ -972,7 +971,7 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
     CTerm acc = shd_c_emit_value(emitter, fn, lea.ptr);
 
     const Type* src_qtype = lea.ptr->type;
-    bool uniform = shd_is_qualified_type_uniform(src_qtype);
+    ShdScope scope = shd_get_qualified_type_scope(src_qtype);
     const Type* curr_ptr_type = shd_get_unqualified_type(src_qtype);
     assert(curr_ptr_type->tag == PtrType_TAG);
 
@@ -982,13 +981,13 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
         // we sadly need to drop to the value level (aka explicit pointer arithmetic) to do this
         // this means such code is never going to be legal in GLSL
         // also the cast is to account for our arrays-in-structs hack
-        const Type* pointee_type = shd_get_pointee_type(arena, curr_ptr_type);
+        const Type* pointee_type = shd_get_pointer_type_element(curr_ptr_type);
         acc = term_from_cvalue(shd_format_string_arena(arena->arena, "((%s) &(%s)[%s])", shd_c_emit_type(emitter, curr_ptr_type, NULL), shd_c_to_ssa(emitter, acc), shd_c_to_ssa(emitter, offset)));
-        uniform &= shd_is_qualified_type_uniform(lea.offset->type);
+        scope = shd_combine_scopes(scope, shd_get_qualified_type_scope(lea.offset->type));
     }
 
     if (emitter->config.dialect == CDialect_ISPC)
-        acc = shd_c_bind_intermediary_result(emitter, p, qualified_type_helper(emitter->arena, uniform, curr_ptr_type), acc);
+        acc = shd_c_bind_intermediary_result(emitter, p, qualified_type_helper(emitter->arena, scope, curr_ptr_type), acc);
 
     return acc;
 }
@@ -1047,13 +1046,17 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Store payload = instruction->payload.store;
             shd_c_emit_mem(emitter, fn, payload.mem);
             const Type* addr_type = payload.ptr->type;
-            bool addr_uniform = shd_deconstruct_qualified_type(&addr_type);
-            bool value_uniform = shd_is_qualified_type_uniform(payload.value->type);
+            ShdScope as_scope = shd_get_addr_space_scope(addr_type->payload.ptr_type.address_space);
+            ShdScope value_scope = shd_get_qualified_type_scope(payload.value->type);
+            ShdScope addr_scope = shd_deconstruct_qualified_type(&addr_type);
             assert(addr_type->tag == PtrType_TAG);
             CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
             CValue cvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.value));
             // ISPC lets you broadcast to a uniform address space iff the address is non-uniform, otherwise we need to do this
-            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && shd_is_addr_space_uniform(a, addr_type->payload.ptr_type.address_space) && !value_uniform)
+            bool addr_uniform = addr_scope <= ShdScopeSubgroup;
+            bool as_uniform = as_scope <= ShdScopeSubgroup;
+            bool value_uniform = value_scope <= ShdScopeSubgroup;
+            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && as_uniform && !value_uniform)
                 cvalue = shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
@@ -1118,12 +1121,12 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
 static bool can_appear_at_top_level(Emitter* emitter, const Node* node) {
     if (is_instruction(node))
         return false;
-    if (emitter->config.dialect == CDialect_ISPC) {
-        if (node->tag == GlobalVariable_TAG)
-            if (!shd_is_addr_space_uniform(emitter->arena, node->payload.global_variable.address_space))
-                //if (is_value(node) && !is_qualified_type_uniform(node->type))
-                    return false;
-    }
+    // if (emitter->config.dialect == CDialect_ISPC) {
+    //     if (node->tag == GlobalVariable_TAG)
+    //         if (!shd_is_addr_space_uniform(emitter->arena, node->payload.global_variable.address_space))
+    //             //if (is_value(node) && !is_qualified_type_uniform(node->type))
+    //                 return false;
+    // }
     return true;
 }
 

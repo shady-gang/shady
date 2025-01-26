@@ -41,7 +41,7 @@ typedef struct {
 
 static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, AllocaInfo* k, const UsesMap* map) {
     const Type* ptr_type = ptr_value->type;
-    bool ptr_u = shd_deconstruct_qualified_type(&ptr_type);
+    shd_deconstruct_qualified_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
 
     const Use* use = shd_get_first_use(map, ptr_value);

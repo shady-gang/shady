@@ -29,7 +29,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = shd_as_qualified_type(shd_rewrite_node(r, node->payload.param.type), false);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
         }
         nvars[i] = param_helper(a, t);
         shd_rewrite_annotations(r, node, nvars[i]);
@@ -76,7 +76,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < payload.params.count; i++) {
                         const Node* oparam = payload.params.nodes[i];
-                        const Node* nparam = param_helper(a, shd_as_qualified_type(shd_get_unqualified_type(oparam->payload.param.type), true));
+                        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, shd_get_unqualified_type(oparam->payload.param.type)));
                         payload.params = shd_change_node_at_index(a, payload.params, i, nparam);
                         shd_rewrite_annotations(r, oparam, nparam);
                     }

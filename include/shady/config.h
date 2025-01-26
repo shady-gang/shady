@@ -38,6 +38,12 @@ typedef struct {
         bool physical;
     } builtins[BuiltinsCount];
 
+    struct {
+        ShdScope constants;
+        ShdScope gang;
+        ShdScope bottom;
+    } scopes;
+
     IntSizes fn_ptr_size;
 
     /// Selects which type the subgroup intrinsic primops use to manipulate masks
@@ -58,7 +64,6 @@ struct ArenaConfig_ {
     bool check_types;
     bool allow_fold;
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
-    bool is_simt;
 
     struct {
         uint32_t workgroup_size[3];

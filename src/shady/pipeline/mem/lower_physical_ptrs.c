@@ -19,11 +19,7 @@ typedef struct Context_ {
 
     Nodes collected[NumAddressSpaces];
 
-    struct Dict*   serialisation_uniform[NumAddressSpaces];
-    struct Dict* deserialisation_uniform[NumAddressSpaces];
-
-    struct Dict*   serialisation_varying[NumAddressSpaces];
-    struct Dict* deserialisation_varying[NumAddressSpaces];
+    struct Dict* fns;
 
     const Node* fake_private_memory;
     const Node* fake_subgroup_memory;
@@ -241,26 +237,21 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
     }
 }
 
-static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool uniform_address, bool ser, AddressSpace as) {
+static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScope address_scope, bool ser, AddressSpace as) {
     assert(is_as_emulated(ctx, as));
-    struct Dict* cache;
+    IrArena* a = ctx->rewriter.dst_arena;
 
-    if (uniform_address)
-        cache = ser ? ctx->serialisation_uniform[as] : ctx->deserialisation_uniform[as];
-    else
-        cache = ser ? ctx->serialisation_varying[as] : ctx->deserialisation_varying[as];
+    String fn_name = shd_fmt_string_irarena(a, "generated_%s_%s_%s_%s", ser ? "Store" : "Load", shd_get_scope_name(address_scope), shd_get_type_name(a, element_type), shd_get_address_space_name(as));
 
-    const Node** found = shd_dict_find_value(const Node*, const Node*, cache, element_type);
+    const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, fn_name);
     if (found)
         return *found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
-
     const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
-    const Node* address_param = param_helper(a, qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || uniform_address, .type = emulated_ptr_type }));
+    const Node* address_param = param_helper(a, qualified_type(a, (QualifiedType) { .scope = address_scope, .type = emulated_ptr_type }));
     shd_set_debug_name(address_param, "ptr");
 
-    const Type* input_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && shd_is_addr_space_uniform(a, as) && false), .type = element_type });
+    const Type* input_value_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
     const Node* value_param = NULL;
     if (ser) {
         value_param = param_helper(a, input_value_t);
@@ -268,16 +259,15 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, bool un
     }
     Nodes params = ser ? mk_nodes(a, address_param, value_param) : shd_singleton(address_param);
 
-    const Type* return_value_t = qualified_type(a, (QualifiedType) { .is_uniform = !a->config.is_simt || (uniform_address && shd_is_addr_space_uniform(a, as)), .type = element_type });
+    const Type* return_value_t = qualified_type(a, (QualifiedType) { .scope = shd_combine_scopes(address_scope, shd_get_addr_space_scope(as)), .type = element_type });
     Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
 
     Node* fun = function_helper(ctx->rewriter.dst_module, params, return_ts);
-    String name = shd_format_string_arena(a->arena, "generated_%s_%s_%s_%s", ser ? "store" : "load", shd_get_address_space_name(as), uniform_address ? "uniform" : "varying", shd_get_type_name(a, element_type));
-    shd_set_debug_name(fun, name);
+    shd_set_debug_name(fun, fn_name);
     shd_add_annotation_named(fun, "Generated");
     shd_add_annotation_named(fun, "Leaf");
 
-    shd_dict_insert(const Node*, Node*, cache, element_type, fun);
+    shd_dict_insert(String, Node*, ctx->fns, fn_name, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
     const Node* base = *get_emulated_as_word_array(ctx, as);
@@ -300,21 +290,21 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* ptr_type = payload.ptr->type;
-            bool uniform_ptr = shd_deconstruct_qualified_type(&ptr_type);
+            ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
-            const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, false, ptr_type->payload.ptr_type.address_space);
+            const Node* fn = gen_serdes_fn(ctx, element_type, ptr_scope, false, ptr_type->payload.ptr_type.address_space);
             Nodes results = shd_bld_call(bb, fn, shd_singleton(pointer_as_offset));
             return shd_bld_to_instr_yield_values(bb, results);
         }
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* ptr_type = payload.ptr->type;
-            bool uniform_ptr = shd_deconstruct_qualified_type(&ptr_type);
+            ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
@@ -322,7 +312,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
-            const Node* fn = gen_serdes_fn(ctx, element_type, uniform_ptr, true, ptr_type->payload.ptr_type.address_space);
+            const Node* fn = gen_serdes_fn(ctx, element_type, ptr_scope, true, ptr_type->payload.ptr_type.address_space);
 
             const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
             shd_bld_call(bb, fn, mk_nodes(a, pointer_as_offset, value));
@@ -478,6 +468,9 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
 
+KeyHash shd_hash_string(const char** string);
+bool shd_compare_string(const char** a, const char** b);
+
 Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.address_spaces[AsPrivate].physical = false;
@@ -498,14 +491,7 @@ Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) 
     if (dst->arena->config.target.address_spaces[AsShared].allowed)
         construct_emulated_memory_array(&ctx, AsShared);
 
-    for (size_t i = 0; i < NumAddressSpaces; i++) {
-        if (is_as_emulated(&ctx, i)) {
-            ctx.serialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-            ctx.deserialisation_varying[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-            ctx.serialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-            ctx.deserialisation_uniform[i] = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
-        }
-    }
+    ctx.fns = shd_new_dict(String, Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);
 
     Rewriter* r = &ctx.rewriter;
     Node* ninit;
@@ -520,14 +506,7 @@ Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) 
 
     shd_destroy_rewriter(&ctx.rewriter);
 
-    for (size_t i = 0; i < NumAddressSpaces; i++) {
-        if (is_as_emulated(&ctx, i)) {
-            shd_destroy_dict(ctx.serialisation_varying[i]);
-            shd_destroy_dict(ctx.deserialisation_varying[i]);
-            shd_destroy_dict(ctx.serialisation_uniform[i]);
-            shd_destroy_dict(ctx.deserialisation_uniform[i]);
-        }
-    }
+    shd_destroy_dict(ctx.fns);
 
     return dst;
 }

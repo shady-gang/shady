@@ -145,7 +145,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case IndirectTailCall_TAG: {
             IndirectTailCall payload = old->payload.indirect_tail_call;
-            if (shd_is_qualified_type_uniform(payload.callee->type)) {
+            if (shd_get_qualified_type_scope(payload.callee->type) <= shd_get_arena_config(a)->target.scopes.gang) {
                 const Node* mem0 = shd_get_original_mem(payload.mem);
                 assert(mem0->tag == AbsMem_TAG);
                 // checking that the payload is uniform is not sufficient: we could be branching uniformingly in non-uniform control flow
@@ -198,7 +198,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 shd_deconstruct_qualified_type(&old_jp_type);
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = shd_recreate_node(r, old_jp_type);
-                const Node* new_jp = param_helper(a, shd_as_qualified_type(new_jp_type, true));
+                const Node* new_jp = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, new_jp_type));
                 shd_rewrite_annotations(r, old_jp, new_jp);
                 shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = basic_block_helper(a, shd_singleton(new_jp));

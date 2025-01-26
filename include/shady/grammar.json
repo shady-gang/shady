@@ -231,7 +231,7 @@
       "name": "QualifiedType",
       "class": "type",
       "ops": [
-        { "name": "is_uniform", "type": "bool" },
+        { "name": "scope", "type": "ShdScope" },
         { "name": "type", "class": "type" }
       ]
     },
@@ -259,16 +259,6 @@
         { "name": "type", "class": "type" },
         { "name": "abs", "type": "const Node*", "ignore": true },
         { "name": "pindex", "type": "unsigned", "ignore": true }
-      ]
-    },
-    {
-      "name": "ConstrainedValue",
-      "snake_name": "constrained",
-      "class": "value",
-      "type": false,
-      "ops": [
-        { "name": "type", "class": "type" },
-        { "name": "value", "class": "value" }
       ]
     },
     {

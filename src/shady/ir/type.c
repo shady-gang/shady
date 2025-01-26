@@ -32,7 +32,7 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
         case NotAType: shd_error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {
             // uniform T <: varying T
-            if (supertype->payload.qualified_type.is_uniform && !type->payload.qualified_type.is_uniform)
+            if (supertype->payload.qualified_type.scope < type->payload.qualified_type.scope)
                 return false;
             return shd_is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
         }
@@ -326,25 +326,6 @@ Nodes shd_unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     }
 }
 
-const Type* shd_get_pointee_type(IrArena* arena, const Type* type) {
-    bool qualified = false, uniform = false;
-    if (shd_is_value_type(type)) {
-        qualified = true;
-        uniform = shd_is_qualified_type_uniform(type);
-        type = shd_get_unqualified_type(type);
-    }
-    assert(type->tag == PtrType_TAG);
-    uniform &= shd_is_addr_space_uniform(arena, type->payload.ptr_type.address_space);
-    type = type->payload.ptr_type.pointed_type;
-
-    if (qualified)
-        type = qualified_type(arena, (QualifiedType) {
-            .type = type,
-            .is_uniform = uniform
-        });
-    return type;
-}
-
 Nodes shd_get_param_types(IrArena* arena, Nodes variables) {
     LARRAY(const Type*, arr, variables.count);
     for (size_t i = 0; i < variables.count; i++) {
@@ -362,10 +343,16 @@ Nodes shd_get_values_types(IrArena* arena, Nodes values) {
     return shd_nodes(arena, values.count, arr);
 }
 
-bool shd_is_qualified_type_uniform(const Type* type) {
+ShdScope shd_combine_scopes(ShdScope a, ShdScope b) {
+    if (a > b)
+        return a;
+    return b;
+}
+
+ShdScope shd_get_qualified_type_scope(const Type* type) {
     const Type* result_type = type;
-    bool is_uniform = shd_deconstruct_qualified_type(&result_type);
-    return is_uniform;
+    ShdScope scope = shd_deconstruct_qualified_type(&result_type);
+    return scope;
 }
 
 const Type* shd_get_unqualified_type(const Type* type) {
@@ -375,16 +362,12 @@ const Type* shd_get_unqualified_type(const Type* type) {
     return result_type;
 }
 
-bool shd_deconstruct_qualified_type(const Type** type_out) {
+ShdScope shd_deconstruct_qualified_type(const Type** type_out) {
     const Type* type = *type_out;
     if (type->tag == QualifiedType_TAG) {
         *type_out = type->payload.qualified_type.type;
-        return type->payload.qualified_type.is_uniform;
+        return type->payload.qualified_type.scope;
     } else shd_error("Expected a value type (annotated with qual_type)")
-}
-
-const Type* shd_as_qualified_type(const Type* type, bool uniform) {
-    return qualified_type(type->arena, (QualifiedType) { .type = type, .is_uniform = uniform });
 }
 
 Nodes shd_strip_qualifiers(IrArena* arena, Nodes tys) {
@@ -394,11 +377,10 @@ Nodes shd_strip_qualifiers(IrArena* arena, Nodes tys) {
     return shd_nodes(arena, tys.count, arr);
 }
 
-Nodes shd_add_qualifiers(IrArena* arena, Nodes tys, bool uniform) {
+Nodes shd_add_qualifiers(IrArena* arena, Nodes tys, ShdScope scope) {
     LARRAY(const Type*, arr, tys.count);
     for (size_t i = 0; i < tys.count; i++)
-        arr[i] = shd_as_qualified_type(tys.nodes[i],
-                                       uniform || !shd_get_arena_config(arena)->is_simt /* SIMD arenas ban varying value types */);
+        arr[i] = qualified_type_helper(arena, scope, tys.nodes[i]);
     return shd_nodes(arena, tys.count, arr);
 }
 

@@ -232,7 +232,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 default:
                     return shd_c_emit_type(emitter, type->payload.qualified_type.type, center);
                 case CDialect_ISPC:
-                    if (type->payload.qualified_type.is_uniform)
+                    if (type->payload.qualified_type.scope <= ShdScopeSubgroup)
                         return shd_c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "uniform %s", center));
                     else
                         return shd_c_emit_type(emitter, type->payload.qualified_type.type, shd_format_string_arena(emitter->arena->arena, "varying %s", center));

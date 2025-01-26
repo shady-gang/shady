@@ -118,7 +118,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
             for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
                 const Type* member_t = struct_t->payload.record_type.members.nodes[j];
                 assert(member_t->tag == PtrType_TAG);
-                member_t = shd_get_pointee_type(member_t->arena, member_t);
+                member_t = shd_get_pointer_type_element(member_t);
                 TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
 
                 ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));

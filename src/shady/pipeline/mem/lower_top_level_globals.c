@@ -32,7 +32,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), payload.params);
             const Node* param = NULL;
             if (!shd_lookup_annotation(node, "EntryPoint")) {
-                param = param_helper(a, qualified_type_helper(a, false, ptr_type_helper(a, ctx->new_as, ctx->t, true)));
+                param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ptr_type_helper(a, ctx->new_as, ctx->t, true)));
                 payload.params = shd_nodes_prepend(a, payload.params, param);
                 fn_ctx.param = param;
             }
@@ -88,7 +88,7 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case FnType_TAG: {
             FnType payload = shd_recreate_node(r, node)->payload.fn_type;
-            payload.param_types = shd_nodes_prepend(a, payload.param_types, ptr_type_helper(a, ctx->new_as, qualified_type_helper(a, false, ctx->t), true));
+            payload.param_types = shd_nodes_prepend(a, payload.param_types, ptr_type_helper(a, ctx->new_as, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ctx->t), true));
             return fn_type(a, payload);
         }
         case GlobalVariable_TAG: {

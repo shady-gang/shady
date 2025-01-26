@@ -850,7 +850,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = param_helper(parser->arena,shd_as_qualified_type(get_def_type(parser, result_t), parser->is_entry_pt));
+            ShdScope scope = shd_get_arena_config(a)->target.scopes.bottom;
+            if (parser->is_entry_pt)
+                scope = shd_get_arena_config(a)->target.scopes.constants;
+            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, scope, get_def_type(parser, result_t)));
             break;
         }
         case SpvOpLabel: {
@@ -905,7 +908,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = param_helper(parser->arena,shd_as_qualified_type(get_def_type(parser, result_t), false));
+            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, get_def_type(parser, result_t)));
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {

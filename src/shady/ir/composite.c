@@ -36,14 +36,14 @@ const Node* shd_tuple_helper(IrArena* a, Nodes contents) {
     return composite_helper(a, t, contents);
 }
 
-void shd_enter_composite_type(const Type** datatype, bool* uniform, const Node* selector, bool allow_entering_pack) {
+void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node* selector, bool allow_entering_pack) {
     const Type* current_type = *datatype;
 
     if (selector->arena->config.check_types) {
         const Type* selector_type = selector->type;
-        bool selector_uniform = shd_deconstruct_qualified_type(&selector_type);
+        ShdScope selector_scope = shd_deconstruct_qualified_type(&selector_type);
         assert(selector_type->tag == Int_TAG && "selectors must be integers");
-        *uniform &= selector_uniform;
+        *scope = shd_combine_scopes(*scope, selector_scope);
     }
 
     try_again:
@@ -83,10 +83,10 @@ void shd_enter_composite_type(const Type** datatype, bool* uniform, const Node* 
     *datatype = current_type;
 }
 
-void shd_enter_composite_type_indices(const Type** datatype, bool* uniform, Nodes indices, bool allow_entering_pack) {
+void shd_enter_composite_type_indices(const Type** datatype, ShdScope* s, Nodes indices, bool allow_entering_pack) {
     for(size_t i = 0; i < indices.count; i++) {
         const Node* selector = indices.nodes[i];
-        shd_enter_composite_type(datatype, uniform, selector, allow_entering_pack);
+        shd_enter_composite_type(datatype, s, selector, allow_entering_pack);
     }
 }
 
