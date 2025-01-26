@@ -292,22 +292,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-static const Node* infer_case(Context* ctx, const Node* node, Nodes inferred_arg_type) {
-    Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
-    assert(inferred_arg_type.count == node->payload.basic_block.params.count || node->payload.basic_block.params.count == 0);
-
-    Context body_context = *ctx;
-    Nodes nparams = infer_params(ctx, get_abstraction_params(node), false);
-
-    Node* new_case = basic_block_helper(a, nparams);
-    shd_register_processed(r, node, new_case);
-    shd_set_abstraction_body(new_case, infer(&body_context, node->payload.basic_block.body, NULL));
-    shd_rewrite_annotations(r, node, new_case);
-    return new_case;
-}
-
-static const Node* _infer_basic_block(Context* ctx, const Node* node) {
+static const Node* infer_basic_block(Context* ctx, const Node* node) {
     assert(is_basic_block(node));
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -422,17 +407,16 @@ static const Node* infer_if(Context* ctx, const Node* node) {
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
     Nodes expected_join_types = shd_add_qualifiers(a, join_types, shd_get_arena_config(a)->target.scopes.bottom);
 
-    const Node* true_body = infer_case(&infer_if_body_ctx, node->payload.if_instr.if_true, shd_nodes(a, 0, NULL));
+    const Node* true_body = infer_basic_block(&infer_if_body_ctx, node->payload.if_instr.if_true);
     // don't allow seeing the variables made available in the true branch
     infer_if_body_ctx.rewriter = ctx->rewriter;
-    const Node* false_body = node->payload.if_instr.if_false ? infer_case(&infer_if_body_ctx, node->payload.if_instr.if_false, shd_nodes(a, 0, NULL)) : NULL;
+    const Node* false_body = node->payload.if_instr.if_false ? infer_basic_block(&infer_if_body_ctx, node->payload.if_instr.if_false) : NULL;
 
     return if_instr(a, (If) {
         .yield_types = join_types,
         .condition = condition,
         .if_true = true_body,
         .if_false = false_body,
-        //.tail = infer_case(ctx, node->payload.if_instr.tail, expected_join_types)
         .tail = infer(ctx, node->payload.if_instr.tail, NULL),
         .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
@@ -455,16 +439,14 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
         new_initial_args[i] = infer(ctx, old_initial_args.nodes[i], new_params_types.nodes[i]);
 
     Nodes loop_yield_types = infer_nodes(ctx, node->payload.loop_instr.yield_types);
-    Nodes qual_yield_types = shd_add_qualifiers(a, loop_yield_types, shd_get_arena_config(a)->target.scopes.bottom);
 
-    const Node* nbody = infer_case(&loop_body_ctx, old_body, new_params_types);
+    const Node* nbody = infer_basic_block(&loop_body_ctx, old_body);
     // TODO check new body params match continue types
 
     return loop_instr(a, (Loop) {
         .yield_types = loop_yield_types,
         .initial_args = shd_nodes(a, old_params.count, new_initial_args),
         .body = nbody,
-        //.tail = infer_case(ctx, node->payload.loop_instr.tail, qual_yield_types)
         .tail = infer(ctx, node->payload.loop_instr.tail, NULL),
         .mem = infer(ctx, node->payload.if_instr.mem, NULL),
     });
@@ -584,7 +566,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
         assert(expected_type == NULL);
         return infer_annotation(&ctx, node);
     } else if (is_basic_block(node)) {
-        return _infer_basic_block(&ctx, node);
+        return infer_basic_block(&ctx, node);
     } else if (is_mem(node)) {
         return shd_recreate_node(&ctx.rewriter, node);
     }
