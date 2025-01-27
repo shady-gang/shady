@@ -18,26 +18,6 @@ typedef struct {
     Arena* arena;
 } Context;
 
-static Nodes remake_params(Context* ctx, Nodes old) {
-    Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
-    LARRAY(const Node*, nvars, old.count);
-    for (size_t i = 0; i < old.count; i++) {
-        const Node* node = old.nodes[i];
-        const Type* t = NULL;
-        if (node->payload.param.type) {
-            if (node->payload.param.type->tag == QualifiedType_TAG)
-                t = shd_rewrite_node(r, node->payload.param.type);
-            else
-                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
-        }
-        nvars[i] = param_helper(a, t);
-        shd_rewrite_annotations(r, node, nvars[i]);
-        assert(nvars[i]->tag == Param_TAG);
-    }
-    return shd_nodes(a, old.count, nvars);
-}
-
 static const Node* process_node(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
