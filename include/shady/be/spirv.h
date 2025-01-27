@@ -15,6 +15,7 @@ typedef struct {
 
     struct {
         bool shuffle_instead_of_broadcast_first;
+        bool avoid_spirv_cross_broken_bda_pointers;
     } hacks;
 } SPIRVTargetConfig;
 

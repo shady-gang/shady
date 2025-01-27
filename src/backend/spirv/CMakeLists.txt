@@ -5,6 +5,7 @@ add_library(shady_spirv STATIC
     emit_spv_control_flow.c
     spirv_lift_globals_ssbo.c
     spirv_map_entrypoint_args.c
+    spirv_remove_bda_params.c
     spirv_builder.c
 )
 set_property(TARGET shady_spirv PROPERTY POSITION_INDEPENDENT_CODE ON)

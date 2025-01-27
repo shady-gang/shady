@@ -322,13 +322,17 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
 
 RewritePass shd_spvbe_pass_map_entrypoint_args;
 RewritePass shd_spvbe_pass_lift_globals_ssbo;
+RewritePass shd_spvbe_pass_remove_bda_params;
 
 #include "shady/pipeline/pipeline.h"
 
-static CompilationResult run_spv_backend_transforms(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
+static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig** p_spv_config, const CompilerConfig* config, Module** pmod) {
+    const SPIRVTargetConfig* spv_config = *p_spv_config;
     RUN_PASS(shd_pass_lower_entrypoint_args, config)
     RUN_PASS(shd_spvbe_pass_map_entrypoint_args, config)
     RUN_PASS(shd_spvbe_pass_lift_globals_ssbo, config)
+    if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
+        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
     RUN_PASS(shd_pass_eliminate_constants, config)
     RUN_PASS(shd_import, config)
 
@@ -336,7 +340,7 @@ static CompilationResult run_spv_backend_transforms(SHADY_UNUSED void* unused, c
 }
 
 void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, SPIRVTargetConfig* econfig) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, NULL, 0);
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, &econfig, sizeof(econfig));
 }
 
 void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_config, Module* mod, size_t* output_size, char** output) {

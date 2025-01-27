@@ -260,6 +260,7 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
         config->lower.emulate_subgroup_ops_extended_types = true;
         shd_warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
         config->lower.decay_ptrs = true;
+        spv_config->hacks.avoid_spirv_cross_broken_bda_pointers = true;
     }
     if (device->caps.properties.driver_properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
         shd_warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
