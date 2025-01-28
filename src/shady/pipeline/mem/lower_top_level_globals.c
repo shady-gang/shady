@@ -9,6 +9,7 @@
 
 #include "log.h"
 #include "portability.h"
+#include "shady/ir/mem.h"
 
 typedef struct {
     Rewriter rewriter;
@@ -19,6 +20,24 @@ typedef struct {
     const Node* param;
     Node2Node backing;
 } Context;
+
+static void store_init_values(Context* ctx, BodyBuilder* bb) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
+    Nodes oglobals = shd_module_collect_reachable_globals(ctx->rewriter.src_module);
+
+    for (size_t i = 0; i < oglobals.count; i++) {
+        const Node* oglobal = oglobals.nodes[i];
+        if (oglobal->payload.global_variable.address_space != ctx->as)
+            continue;
+        const Node* oinit = oglobal->payload.global_variable.init;
+        if (!oinit)
+            continue;
+        const Node* new_ptr = shd_rewrite_node(r, oglobal);
+        const Node* ninit = shd_rewrite_node(r, oinit);
+        shd_bld_store(bb, new_ptr, ninit);
+    }
+}
 
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
@@ -42,11 +61,14 @@ static const Node* process(Context* ctx, const Node* node) {
             if (get_abstraction_body(node)) {
                 if (!param) {
                     const Node* mem0 = shd_get_abstraction_mem(new);
-                    const Node* alloc = local_alloc_helper(a, mem0, ctx->t);
+                    BodyBuilder* bb = shd_bld_begin(a, mem0);
+                    const Node* alloc = shd_bld_add_instruction(bb, local_alloc_helper(a, mem0, ctx->t));
                     fn_ctx.param = alloc;
-                    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), alloc);
-                }
-                shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node)));
+                    store_init_values(&fn_ctx, bb);
+                    shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
+                    shd_set_abstraction_body(new, shd_bld_finish(bb, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node))));
+                } else
+                    shd_set_abstraction_body(new, shd_rewrite_node(&fn_ctx.rewriter, get_abstraction_body(node)));
             }
             shd_destroy_rewriter(&fn_ctx.rewriter);
             return new;
