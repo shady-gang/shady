@@ -48,7 +48,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
         Scheduler* scheduler = shd_new_scheduler(cfg);
-        struct Dict* set = shd_free_frontier(scheduler, cfg, cfg->entry->node);
+        NodeSet set = shd_free_frontier(scheduler, cfg, cfg->entry->node);
         if (shd_dict_count(set) > 0) {
             shd_log_fmt(ERROR, "Leaking variables in ");
             shd_log_node(ERROR, cfg->entry->node);
@@ -56,7 +56,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
 
             size_t j = 0;
             const Node* leaking;
-            while (shd_dict_iter(set, &j, &leaking, NULL)) {
+            while (shd_node_set_iter(set, &j, &leaking)) {
                 shd_log_node(ERROR, leaking);
                 shd_error_print("\n");
             }
@@ -65,7 +65,7 @@ static void verify_scoping(const CompilerConfig* config, Module* mod) {
             shd_log_module(ERROR, config, mod);
             shd_error_die();
         }
-        shd_destroy_dict(set);
+        shd_destroy_node_set(set);
         shd_destroy_scheduler(scheduler);
         shd_destroy_cfg(cfg);
     }

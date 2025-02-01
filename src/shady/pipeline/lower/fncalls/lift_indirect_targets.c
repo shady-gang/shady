@@ -61,12 +61,12 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
     return shd_bld_get_stack_size(builder);
 }
 
-static Nodes set2nodes(IrArena* a, struct Dict* set) {
+static Nodes set2nodes(IrArena* a, NodeSet set) {
     size_t count = shd_dict_count(set);
     LARRAY(const Node*, tmp, count);
     size_t i = 0, j = 0;
     const Node* key;
-    while (shd_dict_iter(set, &i, &key, NULL)) {
+    while (shd_node_set_iter(set, &i, &key)) {
         tmp[j++] = key;
     }
     assert(j == count);
@@ -83,9 +83,9 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     const Node* obody = get_abstraction_body(liftee);
 
     Scheduler* scheduler = shd_new_scheduler(cfg);
-    struct Dict* frontier_set = shd_free_frontier(scheduler, cfg, liftee);
+    NodeSet frontier_set = shd_free_frontier(scheduler, cfg, liftee);
     Nodes frontier = set2nodes(a, frontier_set);
-    shd_destroy_dict(frontier_set);
+    shd_destroy_node_set(frontier_set);
 
     size_t recover_context_size = frontier.count;
 

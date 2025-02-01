@@ -5,9 +5,9 @@
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/decl.h"
+#include "shady/dict.h"
 
 #include "portability.h"
-#include "dict.h"
 #include "log.h"
 
 typedef struct {
@@ -15,7 +15,7 @@ typedef struct {
     const CompilerConfig* config;
     BodyBuilder* bb;
     Node* lifted_globals_decl;
-    struct Dict* global2id;
+    Node2Node global2id;
 } Context;
 
 static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const Node* node) {
@@ -44,7 +44,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
             if (node->payload.global_variable.address_space != AsGlobal)
                 break;
             assert(ctx->bb && "this Global isn't appearing in an abstraction - we cannot replace it with a load!");
-            const Node* index = *shd_dict_find_value(const Node*, const Node*, ctx->global2id, node);
+            const Node* index = shd_node2node_find(ctx->global2id, node);
             const Node* ptr_addr = lea_helper(a, ctx->lifted_globals_decl, shd_int32_literal(a, 0), shd_singleton(index));
             const Node* ptr = shd_bld_load(ctx->bb, ptr_addr);
             OpRewriteResult* result = shd_new_rewrite_result_none(r);
@@ -63,9 +63,6 @@ static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
     return shd_default_rewriter_selector(r, n);
 }
 
-KeyHash shd_hash_node(const Node** pnode);
-bool shd_compare_node(const Node** pa, const Node** pb);
-
 Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -74,7 +71,7 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
         .config = config,
-        .global2id = shd_new_dict(const Node*, const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .global2id = shd_new_node2node(),
     };
     ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
 
@@ -92,7 +89,7 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         member_names[lifted_globals_count] = shd_get_node_name_safe(odecl);
 
         const Node* index = shd_int32_literal(a, lifted_globals_count);
-        shd_dict_insert(const Node*, const Node*, ctx.global2id, odecl, index);
+        shd_node2node_insert(ctx.global2id, odecl, index);
 
         lifted_globals_count++;
     }
@@ -112,7 +109,7 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
     }
 
     shd_rewrite_module(&ctx.rewriter);
-    shd_destroy_dict(ctx.global2id);
+    shd_destroy_node2node(ctx.global2id);
 
     lifted_globals_count = 0;
     for (size_t i = 0; i < oglobals.count; i++) {

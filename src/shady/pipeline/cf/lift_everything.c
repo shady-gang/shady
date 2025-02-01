@@ -40,7 +40,7 @@ static const Node* process(Context* ctx, const Node* node) {
             CFNode* n = shd_cfg_lookup(ctx->cfg, node);
             if (shd_cfg_is_node_structural_target(n))
                 break;
-            struct Dict* frontier = shd_free_frontier(ctx->scheduler, ctx->cfg, node);
+            NodeSet frontier = shd_free_frontier(ctx->scheduler, ctx->cfg, node);
             // insert_dict(const Node*, Dict*, ctx->lift, node, frontier);
 
             Nodes additional_args = shd_empty(a);
@@ -52,7 +52,7 @@ static const Node* process(Context* ctx, const Node* node) {
             Context bb_ctx = *ctx;
             bb_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
 
-            while (shd_dict_iter(frontier, &i, &value, NULL)) {
+            while (shd_node_set_iter(frontier, &i, &value)) {
                 if (is_value(value)) {
                     additional_args = shd_nodes_append(a, additional_args, value);
                     const Type* t = shd_rewrite_node(r, value->type);
@@ -62,7 +62,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
             }
 
-            shd_destroy_dict(frontier);
+            shd_destroy_node_set(frontier);
             shd_dict_insert(const Node*, Nodes, ctx->lift, node, additional_args);
             Node* new_bb = basic_block_helper(a, new_params);
             shd_rewrite_annotations(r, node, new_bb);

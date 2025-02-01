@@ -1,4 +1,5 @@
 #include "shady/pass.h"
+#include "shady/dict.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 
@@ -7,7 +8,6 @@
 #include "log.h"
 #include "portability.h"
 #include "list.h"
-#include "dict.h"
 #include "util.h"
 
 #include <assert.h>
@@ -27,11 +27,10 @@ typedef struct Context_ {
 } Context;
 
 static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
-    struct Dict* cache = push ? ctx->push : ctx->pop;
+    Node2Node cache = push ? ctx->push : ctx->pop;
 
-    const Node** found = shd_dict_find_value(const Node*, const Node*, cache, element_type);
-    if (found)
-        return *found;
+    const Node* found = shd_node2node_find(cache, element_type);
+    if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
@@ -47,7 +46,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     Node* fun = function_helper(ctx->rewriter.dst_module, params, return_ts);
     shd_add_annotation_named(fun, "Generated");
     shd_add_annotation_named(fun, "Leaf");
-    shd_dict_insert(const Node*, Node*, cache, element_type, fun);
+    shd_node2node_insert(cache, element_type, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
 
@@ -151,9 +150,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-KeyHash shd_hash_node(Node** pnode);
-bool shd_compare_node(Node** pa, Node** pb);
-
 Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -164,8 +160,8 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
 
         .config = config,
 
-        .push = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
-        .pop = shd_new_dict(const Node*, Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
+        .push = shd_new_node2node(),
+        .pop = shd_new_node2node(),
     };
 
     if (config->per_thread_stack_size > 0) {
@@ -199,7 +195,7 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
 
-    shd_destroy_dict(ctx.push);
-    shd_destroy_dict(ctx.pop);
+    shd_destroy_node2node(ctx.push);
+    shd_destroy_node2node(ctx.pop);
     return dst;
 }

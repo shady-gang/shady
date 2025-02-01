@@ -58,9 +58,9 @@ static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* npar
     *nparams = shd_empty(a);
     *lparams = shd_empty(a);
 
-    struct Dict* fvs = shd_free_frontier(ctx->scheduler, ctx->cfg, old);
+    NodeSet fvs = shd_free_frontier(ctx->scheduler, ctx->cfg, old);
     const Node* fv;
-    for (size_t i = 0; shd_dict_iter(fvs, &i, &fv, NULL);) {
+    for (size_t i = 0; shd_node_set_iter(fvs, &i, &fv);) {
         const CFNode* defining_cf_node = shd_schedule_instruction(ctx->scheduler, fv);
         assert(defining_cf_node);
         const LTNode* defining_loop = get_loop(shd_loop_tree_lookup(ctx->loop_tree, defining_cf_node->node));
@@ -79,7 +79,7 @@ static void find_liftable_loop_values(Context* ctx, const Node* old, Nodes* npar
             *lparams = shd_nodes_append(a, *lparams, fv);
         }
     }
-    shd_destroy_dict(fvs);
+    shd_destroy_node_set(fvs);
 }
 
 static const Node* process_abstraction_body(Context* ctx, const Node* old, const Node* body) {
