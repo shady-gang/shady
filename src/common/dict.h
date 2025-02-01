@@ -26,8 +26,12 @@ bool shd_dict_iter(struct Dict* dict, size_t* iterator_state, void* key, void* v
 
 size_t shd_dict_count(struct Dict* dict);
 
+#define shd_dict_find_value_fast(K, T, hash, cmp, dict, key) (T*) shd_dict_find_value_fast_impl(dict, hash, cmp, (void*) (&(key)))
+void* shd_dict_find_value_fast_impl(struct Dict*, HashFn, CmpFn, void*);
 #define shd_dict_find_value(K, T, dict, key) (T*) shd_dict_find_value_impl(dict, (void*) (&(key)))
 void* shd_dict_find_value_impl(struct Dict*, void*);
+#define shd_dict_find_key_fast(K, hash, cmp, dict, key) (K*) shd_dict_find_fast_impl(dict, hash, cmp, (void*) (&(key)))
+void* shd_dict_find_fast_impl(struct Dict*, HashFn, CmpFn, void*);
 #define shd_dict_find_key(K, dict, key) (K*) shd_dict_find_impl(dict, (void*) (&(key)))
 void* shd_dict_find_impl(struct Dict*, void*);
 
@@ -41,6 +45,9 @@ void* shd_dict_insert_get_value_impl(struct Dict*, void* key, void* value);
 #define shd_set_insert_get_key(K, dict, key) *(K*) shd_dict_insert_get_key_impl(dict, (void*) (&(key)), NULL)
 void* shd_dict_insert_get_key_impl(struct Dict*, void* key, void* value);
 
+#define shd_dict_insert_fast(K, V, hash, cmp, dict, key, value) shd_dict_insert_fast_impl(dict, hash, cmp, (void*) (&(key)), (void*) (&(value)))
+#define shd_set_insert_fast(K, hash, cmp, dict, key) shd_dict_insert_fast_impl(dict, hash, cmp, (void*) (&(key)), NULL)
+bool shd_dict_insert_fast_impl(struct Dict*, HashFn, CmpFn, void* key, void* value);
 #define shd_dict_insert(K, V, dict, key, value) shd_dict_insert_impl(dict, (void*) (&(key)), (void*) (&(value)))
 #define shd_set_insert(K, dict, key) shd_dict_insert_impl(dict, (void*) (&(key)), NULL)
 bool shd_dict_insert_impl(struct Dict*, void* key, void* value);
