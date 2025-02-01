@@ -270,9 +270,9 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             if (UNTYPED_POINTERS) {
                 const Type* element_t = l2s_convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
-                bool idk;
+                ShdScope idc;
                 //element_t = shd_as_qualified_type(element_t, false);
-                shd_enter_composite_type_indices(&element_t, &idk, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
+                shd_enter_composite_type_indices(&element_t, &idc, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
                 r = prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r));
             }
             return r;
