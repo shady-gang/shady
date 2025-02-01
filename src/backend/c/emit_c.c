@@ -369,12 +369,18 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
 #include "shady/pipeline/pipeline.h"
 
+/// Moves all Private allocations to Function
+RewritePass shd_pass_lower_top_level_globals;
+
 static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
     RUN_PASS(shd_pass_eliminate_constants, config)
     if (econfig->dialect == CDialect_ISPC) {
         RUN_PASS(shd_pass_lower_workgroups, config)
         RUN_PASS(shd_pass_lower_inclusive_scan, config)
+    }
+    if (econfig->dialect == CDialect_CUDA) {
+        RUN_PASS(shd_pass_lower_top_level_globals, config)
     }
     if (econfig->dialect != CDialect_GLSL) {
         RUN_PASS(shd_pass_lower_vec_arr, config)

@@ -326,8 +326,12 @@ RewritePass shd_spvbe_pass_remove_bda_params;
 
 #include "shady/pipeline/pipeline.h"
 
+/// Moves all Private allocations to Function
+RewritePass shd_pass_lower_top_level_globals;
+
 static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig** p_spv_config, const CompilerConfig* config, Module** pmod) {
     const SPIRVTargetConfig* spv_config = *p_spv_config;
+    RUN_PASS(shd_pass_lower_top_level_globals, config)
     RUN_PASS(shd_pass_lower_entrypoint_args, config)
     RUN_PASS(shd_spvbe_pass_map_entrypoint_args, config)
     RUN_PASS(shd_spvbe_pass_lift_globals_ssbo, config)
