@@ -127,6 +127,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
     IrArena* arena = node->arena;
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
+        case or_op:
         case add_op: {
             // If either operand is zero, destroy the add
             for (size_t i = 0; i < 2; i++)
@@ -168,6 +169,19 @@ static inline const Node* fold_simplify_math(const Node* node) {
         case neq_op: {
             if (payload.operands.nodes[0] == payload.operands.nodes[1])
                 return quote_single(arena, false_lit(arena));
+            break;
+        }
+        case and_op: {
+            for (size_t i = 0; i < 2; i++)
+                if (is_zero(payload.operands.nodes[i]))
+                    quote_single(arena, payload.operands.nodes[i]); // return zero !
+            break;
+        }
+        case lshift_op:
+        case rshift_arithm_op:
+        case rshift_logical_op: {
+            if (is_zero(payload.operands.nodes[1]))
+                return payload.operands.nodes[0];
             break;
         }
         default: break;
