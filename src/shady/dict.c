@@ -7,7 +7,7 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 NodeSet shd_new_node_set(void) { return shd_new_set(const Node*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node); }
 bool shd_node_set_find(NodeSet set, const Node* key) { return shd_dict_find_key(const Node*, set, key); }
-bool shd_node_set_insert(NodeSet set, const Node* key) { return shd_set_insert_get_result(const Node*, set, key); }
+bool shd_node_set_insert(NodeSet set, const Node* key) { return shd_set_insert(const Node*, set, key); }
 bool shd_node_set_iter(Node2Node set, size_t* index, const Node** key) { return shd_dict_iter(set, index, key, NULL); }
 void shd_destroy_node_set(NodeSet set) { return shd_destroy_dict(set); }
 

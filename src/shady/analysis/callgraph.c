@@ -53,8 +53,8 @@ static void visit_callsite(CGVisitor* visitor, const Node* callee, const Node* i
         .dst_fn = target,
         .instr = instr,
     };
-    shd_set_insert_get_result(CGEdge, visitor->root->callees, edge);
-    shd_set_insert_get_result(CGEdge, target->callers, edge);
+    shd_set_insert(CGEdge, visitor->root->callees, edge);
+    shd_set_insert(CGEdge, target->callers, edge);
 }
 
 static void search_for_callsites(CGVisitor* visitor, const Node* node) {

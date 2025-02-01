@@ -23,7 +23,7 @@ static void visit_verify_same_arena(ArenaVerifyVisitor* visitor, const Node* nod
     assert(visitor->arena == node->arena);
     if (shd_dict_find_key(const Node*, visitor->once, node))
         return;
-    shd_set_insert_get_result(const Node*, visitor->once, node);
+    shd_set_insert(const Node*, visitor->once, node);
     shd_visit_node_operands(&visitor->visitor, 0, node);
 }
 

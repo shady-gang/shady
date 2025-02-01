@@ -223,7 +223,7 @@ void spvb_set_addressing_model(SpvbFileBuilder* file_builder, SpvAddressingModel
 
 #define target_data file_builder->capabilities
 void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
-    if (shd_set_insert_get_result(SpvCapability, file_builder->capabilities_set, cap)) {
+    if (shd_set_insert(SpvCapability, file_builder->capabilities_set, cap)) {
         op(SpvOpCapability, 2);
         literal_int(cap);
     }
@@ -232,7 +232,7 @@ void spvb_capability(SpvbFileBuilder* file_builder, SpvCapability cap) {
 
 #define target_data file_builder->extensions
 void spvb_extension(SpvbFileBuilder* file_builder, const char* name) {
-    if (shd_set_insert_get_result(char*, file_builder->extensions_set, name)) {
+    if (shd_set_insert(char*, file_builder->extensions_set, name)) {
         op(SpvOpExtension, 1 + div_roundup(strlen(name) + 1, 4));
         literal_name(name);
     }

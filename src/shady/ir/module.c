@@ -62,9 +62,9 @@ typedef struct {
 static void visit_node(VisitorCtx* ctx, const Node* n) {
     if (shd_dict_find_key(const Node*, ctx->seen, n))
         return;
-    shd_set_insert_get_result(const Node*, ctx->seen, n);
+    shd_set_insert(const Node*, ctx->seen, n);
     if (n->tag == ctx->tag)
-        shd_set_insert_get_result(const Node*, ctx->set, n);
+        shd_set_insert(const Node*, ctx->set, n);
     shd_visit_node_operands(&ctx->v, 0, n);
 }
 

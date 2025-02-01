@@ -40,7 +40,7 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
         Node* folded = (Node*) _shd_fold_node(arena, ptr);
         if (folded != ptr) {
             // The folding process simplified the node, we store a mapping to that simplified node and bail out !
-            shd_set_insert_get_result(Node*, arena->node_set, folded);
+            shd_set_insert(Node*, arena->node_set, folded);
             return folded;
         }
     }
@@ -52,7 +52,7 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     Node* alloc = (Node*) shd_arena_alloc(arena->arena, sizeof(Node));
     *alloc = node;
     alloc->id = _shd_allocate_node_id(arena, alloc);
-    shd_set_insert_get_result(const Node*, arena->node_set, alloc);
+    shd_set_insert(const Node*, arena->node_set, alloc);
 
     return alloc;
 }

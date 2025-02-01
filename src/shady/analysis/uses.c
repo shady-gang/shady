@@ -40,7 +40,7 @@ static Use* get_last_use(UsesMap* map, const Node* n) {
 
 static void uses_visit_node(UsesMapVisitor* v, const Node* n) {
     if (!shd_dict_find_key(const Node*, v->seen, n)) {
-        shd_set_insert_get_result(const Node*, v->seen, n);
+        shd_set_insert(const Node*, v->seen, n);
         UsesMapVisitor nv = *v;
         nv.user = n;
         shd_visit_node_operands(&nv.v, v->exclude, n);

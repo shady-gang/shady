@@ -88,7 +88,7 @@ Nodes shd_nodes(IrArena* arena, size_t count, const Node* in_nodes[]) {
     for (size_t i = 0; i < count; i++)
         nodes.nodes[i] = in_nodes[i];
 
-    shd_set_insert_get_result(Nodes, arena->nodes_set, nodes);
+    shd_set_insert(Nodes, arena->nodes_set, nodes);
     return nodes;
 }
 
@@ -107,7 +107,7 @@ Strings shd_strings(IrArena* arena, size_t count, const char* in_strs[]) {
     for (size_t i = 0; i < count; i++)
         strings.strings[i] = in_strs[i];
 
-    shd_set_insert_get_result(Strings, arena->strings_set, strings);
+    shd_set_insert(Strings, arena->strings_set, strings);
     return strings;
 }
 
@@ -185,7 +185,7 @@ static const char* string_impl(IrArena* arena, size_t size, const char* zero_ter
     strncpy(new_str, zero_terminated, size);
     new_str[size] = '\0';
 
-    shd_set_insert_get_result(const char*, arena->string_set, new_str);
+    shd_set_insert(const char*, arena->string_set, new_str);
     return new_str;
 }
 

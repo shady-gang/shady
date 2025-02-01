@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     memset(contained, 0, sizeof(contained));
 
     for (int i = 0; i < TEST_ENTRIES; i++) {
-        bool unique = shd_set_insert_get_result(int, d, arr[i]);
+        bool unique = shd_set_insert(int, d, arr[i]);
         if (!unique) {
             shd_error("Entry %d was thought to be already in the dict", arr[i]);
         }
@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < TEST_ENTRIES; i++) {
         assert(!!shd_dict_find_key(int, d, arr[i]) == contained[arr[i]]);
         if (!contained[arr[i]]) {
-            bool unique = shd_set_insert_get_result(int, d, arr[i]);
+            bool unique = shd_set_insert(int, d, arr[i]);
             if (!unique) {
                 shd_error("Entry %d was thought to be already in the dict", arr[i]);
             }

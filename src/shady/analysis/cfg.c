@@ -141,7 +141,7 @@ static void add_structural_edge(CfgBuildContext* ctx, CFNode* parent, const Node
 
 static void add_structural_dominance_edge(CfgBuildContext* ctx, CFNode* parent, const Node* dst, CFEdgeType type, const Node* term) {
     add_edge(ctx, parent->node, dst, type, term);
-    shd_set_insert_get_result(const Node*, parent->structurally_dominates, dst);
+    shd_set_insert(const Node*, parent->structurally_dominates, dst);
 }
 
 static void add_jump_edge(CfgBuildContext* ctx, const Node* src, const Node* j) {

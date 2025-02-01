@@ -42,7 +42,7 @@ void spv_register_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* n
             spvb_name(emitter->file_builder, id, name);
     }
     struct Dict* map = fn_builder ? fn_builder->emitted : emitter->global_node_ids;
-    shd_dict_insert_get_result(struct Node*, SpvId, map, node, id);
+    shd_dict_insert(struct Node*, SpvId, map, node, id);
 }
 
 SpvId* spv_search_emitted(Emitter* emitter, FnBuilder* fn_builder, const Node* node) {

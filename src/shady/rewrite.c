@@ -310,7 +310,7 @@ void shd_register_processed_result(Rewriter* r, const Node* old, const OpRewrite
         shd_error("The same node got processed twice !");
     }
 #endif
-    bool inserted_ok = shd_dict_insert_get_result(const Node*, const OpRewriteResult*, r->map, old, result);
+    bool inserted_ok = shd_dict_insert(const Node*, const OpRewriteResult*, r->map, old, result);
     assert(inserted_ok);
 }
 

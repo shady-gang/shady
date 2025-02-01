@@ -54,7 +54,7 @@ static FnPtr get_fn_ptr(Context* ctx, const Node* the_function) {
     if (found) return *found;
 
     FnPtr ptr = (*ctx->next_fn_ptr)++;
-    bool r = shd_dict_insert_get_result(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
+    bool r = shd_dict_insert(const Node*, FnPtr, ctx->assigned_fn_ptrs, the_function, ptr);
     assert(r);
     return ptr;
 }
