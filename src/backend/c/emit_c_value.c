@@ -231,7 +231,7 @@ CTerm shd_c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t
     if (is_term_empty(term))
         return term;
     if (t == empty_multiple_return_type(emitter->arena)) {
-        shd_print(p, "%s;", shd_c_to_ssa(emitter, term));
+        shd_print(p, "\n%s;", shd_c_to_ssa(emitter, term));
         return empty_term();
     }
     String bind_to = shd_make_unique_name(emitter->arena, "");
@@ -910,7 +910,7 @@ static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* 
 
     String params = shd_printer_growy_unwrap(paramsp);
 
-    CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "\n%s(%s)", e_callee, params));
+    CTerm called = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", e_callee, params));
     called = shd_c_bind_intermediary_result(emitter, p, result_type, called);
 
     free_tmp_str(params);
