@@ -119,6 +119,35 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     return c_decl;
 }
 
+String shd_c_emit_dim(SpvDim dim_id) {
+    String dim;
+    switch (dim_id) {
+        case SpvDim1D:
+            dim = "1D";
+            break;
+        case SpvDim2D:
+            dim = "2D";
+            break;
+        case SpvDim3D:
+            dim = "3D";
+            break;
+        case SpvDimCube:
+            dim = "Cube";
+            break;
+        case SpvDimRect:
+            dim = "Rect";
+            break;
+        case SpvDimBuffer:
+            dim = "Buffer";
+            break;
+        case SpvDimSubpassData:
+        case SpvDimTileImageDataEXT:
+        case SpvDimMax:
+        shd_error("Invalid Dim");
+    }
+    return dim;
+}
+
 String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
@@ -135,7 +164,26 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case LamType_TAG:
         case BBType_TAG: shd_error("these types do not exist in C");
         case MaskType_TAG: shd_error("should be lowered away");
-        case Type_SampledImageType_TAG:
+        case Type_SampledImageType_TAG: {
+            if (emitter->config.dialect != CDialect_GLSL) {
+                shd_error("TODO: implement textures on non-glsl backends");
+            }
+
+            const Type* sampled = type->payload.sampled_image_type.image_type;
+            assert(sampled->tag == ImageType_TAG);
+
+            String prefix = "";
+            if (sampled->payload.image_type.sampled_type->tag == Int_TAG)
+                prefix = sampled->payload.image_type.sampled_type->payload.int_type.is_signed ? "i" : "u";
+
+            String dim = shd_c_emit_dim(sampled->payload.image_type.dim);
+
+            String array = sampled->payload.image_type.arrayed ? "Array" : "";
+            String shadow = sampled->payload.image_type.depth ? "Shadow" : "";
+
+            emitted = shd_fmt_string_irarena(emitter->arena, "%ssampler%s%s%s", prefix, dim, array, shadow);
+            break;
+        }
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
         case JoinPointType_TAG: shd_error("TODO")

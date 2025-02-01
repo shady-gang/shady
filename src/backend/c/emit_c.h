@@ -9,6 +9,8 @@
 #include "arena.h"
 #include "printer.h"
 
+#include "spirv/unified1/spirv.h"
+
 typedef struct CFG_ CFG;
 typedef struct Scheduler_ Scheduler;
 
@@ -85,6 +87,8 @@ void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* typ
 CTerm shd_c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node);
 CTerm shd_c_emit_mem(Emitter* e, FnEmitter* b, const Node* mem);
 String shd_c_emit_body(Emitter* emitter, FnEmitter* fn, const Node* abs);
+
+String shd_c_emit_dim(SpvDim dim_id);
 
 #define free_tmp_str(s) free((char*) (s))
 

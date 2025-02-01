@@ -717,6 +717,23 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             }
             return shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
         }
+        case sample_texture_op: {
+            String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
+            String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
+
+            String dst = shd_make_unique_name(arena, "sampled");
+            String dim = "";
+            if (emitter->config.glsl_version < 130) {
+                const Type* t = prim_op->operands.nodes[0]->type;
+                assert(t->tag == SampledImageType_TAG);
+                t = t->payload.sampled_image_type.image_type;
+                assert(t->tag == ImageType_TAG);
+                dim = shd_c_emit_dim(t->payload.image_type.dim);
+            }
+            shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, node->type, dst), dim, sampler, coords);
+            term = term_from_cvalue(dst);
+            break;
+        }
         case empty_mask_op:
         case mask_is_thread_active_op: shd_error("lower_me");
         default: break;
@@ -1040,6 +1057,8 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             Load payload = instruction->payload.load;
             shd_c_emit_mem(emitter, fn, payload.mem);
             CAddr dereferenced = shd_c_deref(emitter, shd_c_emit_value(emitter, fn, payload.ptr));
+            if (shd_get_unqualified_type(payload.ptr->type)->payload.ptr_type.address_space == AsUniformConstant)
+                return term_from_cvalue(dereferenced);
             return shd_c_bind_intermediary_result(emitter, p, instruction->type, term_from_cvalue(dereferenced));
         }
         case Instruction_Store_TAG: {
