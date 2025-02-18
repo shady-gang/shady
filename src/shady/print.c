@@ -28,6 +28,8 @@ struct PrinterCtx_ {
     Scheduler* scheduler;
     const UsesMap* uses;
 
+    int depth;
+
     Growy* root_growy;
     Printer* root_printer;
 
@@ -52,6 +54,7 @@ static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
         .config = config,
         .emitted = shd_new_dict(const Node*, String, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .root_growy = shd_new_growy(),
+        .depth = 0
     };
     ctx.root_printer = shd_new_printer_from_growy(ctx.root_growy);
     return ctx;
@@ -75,7 +78,9 @@ void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) 
     PrinterCtx ctx = make_printer_ctx(printer, config);
     String emitted = emit_node(&ctx, node);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
-    shd_print(ctx.printer, "%s%s", s, emitted);
+    if (strlen(s) > 0 && !config.only_immediate)
+        shd_print(ctx.printer, "%s\n", s);
+    shd_print(ctx.printer, "%s", emitted);
     free((void*)s);
     shd_printer_flush(ctx.printer);
     destroy_printer_ctx(ctx);
@@ -101,14 +106,6 @@ void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
     *str_ptr = shd_growy_deconstruct(g);
 }
 
-void shd_dump_node(const Node* node) {
-    Printer* p = shd_new_printer_from_file(stdout);
-    if (node)
-        shd_print(p, "%%%d ", node->id);
-    shd_print_node(p, (NodePrintConfig) { .color = true }, node);
-    printf("\n");
-}
-
 void shd_dump_module(Module* mod) {
     Printer* p = shd_new_printer_from_file(stdout);
     shd_print_module(p, (NodePrintConfig) { .color = true, .print_internal = true }, mod);
@@ -116,10 +113,33 @@ void shd_dump_module(Module* mod) {
     printf("\n");
 }
 
+void shd_dump_module_unscheduled(Module* mod) {
+    Printer* p = shd_new_printer_from_file(stdout);
+    shd_print_module(p, (NodePrintConfig) { .color = true, .print_internal = true, .no_scheduling = true }, mod);
+    shd_destroy_printer(p);
+    printf("\n");
+}
+
+void shd_dump(const Node* node) {
+    Printer* p = shd_new_printer_from_file(stdout);
+    if (node)
+        shd_print(p, "%%%d ", node->id);
+    shd_print_node(p, (NodePrintConfig) { .color = true }, node);
+    printf("\n");
+}
+
+void shd_dump_unscheduled(const Node* node) {
+    Printer* p = shd_new_printer_from_file(stdout);
+    if (node)
+        shd_print(p, "%%%d ", node->id);
+    shd_print_node(p, (NodePrintConfig) { .color = true, .no_scheduling = true }, node);
+    printf("\n");
+}
+
 void shd_log_node(LogLevel level, const Node* node) {
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
-        shd_print_node(p, (NodePrintConfig) {.color = true}, node);
+        shd_print_node(p, (NodePrintConfig) { .color = true, .max_depth = 1, .only_immediate = true }, node);
         shd_destroy_printer(p);
     }
 }
@@ -268,7 +288,7 @@ static void print_terminator_op(PrinterCtx* ctx, const Node* term) {
 static void print_function_body(PrinterCtx* ctx, const Node* node) {
     PrinterCtx sub_ctx = *ctx;
     sub_ctx.fn = node;
-    if (node->arena->config.name_bound) {
+    if (node->arena->config.name_bound && !ctx->config.no_scheduling) {
         CFGBuildConfig cfg_config = structured_scope_cfg_build();
         CFG* cfg = shd_new_cfg(node, node, cfg_config);
         sub_ctx.cfg = cfg;
@@ -699,8 +719,13 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
     }
 }
 
-static void print_node_head(PrinterCtx* ctx, const Node* node) {
-    String name = shd_get_node_name_safe(node);
+static void print_node_name(PrinterCtx* ctx, const Node* node) {
+    if (!node) {
+        printf("null");
+        return;
+    }
+    // avoid the safe version overhead
+    String name = shd_get_node_name_unsafe(node);
     if (name && strlen(name) > 0)
         printf("%s", name);
     else
@@ -755,7 +780,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         PrinterCtx ctx2 = *ctx;
         ctx2.printer = shd_new_printer_from_growy(g2);
 
-        print_node_head(&ctx2, node);
+        print_node_name(&ctx2, node);
         String s = shd_printer_growy_unwrap(ctx2.printer);
         printed_node_name = shd_string(node->arena, s);
         shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
@@ -771,7 +796,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         skip = true;
 
     if (!printed_node_name) {
-        printed_node_name = shd_fmt_string_irarena(node->arena, "%%%d", node->id);
+        printed_node_name = shd_get_node_name_safe(node);
     }
 
     if (skip) {
@@ -781,6 +806,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     Growy* g3 = shd_new_growy();
     PrinterCtx ctx3 = *ctx;
+    ctx3.depth++;
     ctx3.printer = shd_new_printer_from_growy(g3);
     bool print_inline = print_node_impl(&ctx3, node);
     String s = shd_printer_growy_unwrap(ctx3.printer);
@@ -899,10 +925,14 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass oc, const Node* op) 
     else if (oc == NcType)
         shd_print(ctx->printer, TYPE_COLOR);
 
-    if (oc == NcTerminator) {
-        print_terminator_op(ctx, op);
+    if (!ctx->config.max_depth || ctx->depth < ctx->config.max_depth) {
+        if (oc == NcTerminator) {
+            print_terminator_op(ctx, op);
+        } else {
+            shd_print(ctx->printer, "%s", emit_node(ctx, op));
+        }
     } else {
-        shd_print(ctx->printer, "%s", emit_node(ctx, op));
+        print_node_name(ctx, op);
     }
     shd_print(ctx->printer, RESET);
 

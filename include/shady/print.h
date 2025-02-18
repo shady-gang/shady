@@ -14,6 +14,9 @@ typedef struct {
     bool color;
     bool reparseable;
     bool in_cfg;
+    int max_depth;
+    bool only_immediate;
+    bool no_scheduling;
 } NodePrintConfig;
 
 void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size);
