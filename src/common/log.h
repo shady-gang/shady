@@ -56,6 +56,8 @@ void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* 
   shd_error_die();                                          \
 }
 
+#define CHECK(x, failure_handler) { if (!(x)) { shd_error_print(#x " failed\n"); failure_handler; } }
+
 #include <stdnoreturn.h>
 noreturn void shd_error_die(void);
 

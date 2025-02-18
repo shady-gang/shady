@@ -3,8 +3,6 @@
 #include "shady/runtime.h"
 #include "shady/ir.h"
 
-#define CHECK(x, failure_handler) { if (!(x)) { shd_error_print(#x " failed\n"); failure_handler; } }
-
 // typedef struct SpecProgram_ SpecProgram;
 
 struct Runtime_ {
