@@ -396,6 +396,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .mem = shd_get_abstraction_mem(pre_join),
             }));
 
+            // rewrite these things first otherwise we will duplicate BB contents
+            const Node* condition = shd_rewrite_node(r, payload.condition);
+            const Node* mem = shd_rewrite_node(r, node->payload.branch.mem);
+            Nodes args = shd_rewrite_nodes(r, payload.true_jump->payload.jump.args);
+
             Context control_ctx = *ctx;
             control_ctx.rewriter = shd_create_children_rewriter(r);
             for (size_t i = 0; i < old_params.count; i++) {
@@ -407,13 +412,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* control_case = basic_block_helper(a, shd_singleton(join_token));
             const Node* inner_terminator = branch(a, (Branch) {
                 .mem = shd_get_abstraction_mem(control_case),
-                .condition = shd_rewrite_node(r, payload.condition),
+                .condition = condition,
                 .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                          shd_rewrite_node(&control_ctx.rewriter, payload.true_jump->payload.jump.target),
-                                         shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
+                                         args),
                 .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                           shd_rewrite_node(&control_ctx.rewriter, payload.false_jump->payload.jump.target),
-                                          shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
+                                          args),
             });
             shd_set_abstraction_body(control_case, inner_terminator);
 
@@ -421,7 +426,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             const Node* join_target = shd_rewrite_node(r, post_dominator);
 
-            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, node->payload.branch.mem));
+            BodyBuilder* bb = shd_bld_begin(a, mem);
             Nodes results = shd_bld_control(bb, yield_types, control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < old_params.count; j++) {
