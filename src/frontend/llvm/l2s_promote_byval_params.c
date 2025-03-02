@@ -40,6 +40,7 @@ static const Node* process(Context* ctx, const Node* node){
                     shd_remove_annotation_by_name(param, "ByVal");
                     payload.params = shd_change_node_at_index(a, payload.params, i,param);
                 } else {
+                    arr[i] = NULL;
                     shd_register_processed(r, oparam, payload.params.nodes[i]);
                 }
             }
