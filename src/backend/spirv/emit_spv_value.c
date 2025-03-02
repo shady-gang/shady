@@ -543,7 +543,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             break;
         }
         case Value_ScopeCast_TAG: {
-            new = spv_emit_type(emitter, node->payload.scope_cast.src);
+            new = spv_emit_value(emitter, fn_builder, node->payload.scope_cast.src);
             if (emitter->spirv_tgt.target_version.minor > 4)
                 new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, node->type), 1, &new);
             break;
