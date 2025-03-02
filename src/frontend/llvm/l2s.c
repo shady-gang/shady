@@ -139,11 +139,11 @@ const Node* l2s_convert_basic_block_body(Parser* p, FnParseCtx* fn_ctx, LLVMBasi
 
 const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     if (is_llvm_intrinsic(fn)) {
-        shd_warn_print("Skipping unknown LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
+        shd_debug_print("Skipping LLVM intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
     }
     if (is_shady_intrinsic(fn)) {
-        shd_warn_print("Skipping shady intrinsic function: %s\n", LLVMGetValueName(fn));
+        shd_debug_print("Skipping shady intrinsic function: %s\n", LLVMGetValueName(fn));
         return NULL;
     }
 
