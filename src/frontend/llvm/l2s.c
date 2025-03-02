@@ -1,5 +1,7 @@
 #include "l2s_private.h"
 
+#include "shady/pass.h"
+
 #include "ir_private.h"
 #include "analysis/verify.h"
 
@@ -302,7 +304,9 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
-bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst) {
+RewritePass l2s_promote_byval_params;
+
+bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, String name, Module** pmod) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -352,12 +356,14 @@ bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* arena2 = shd_new_ir_arena(&aconfig);
-    *dst = shd_new_module(arena2, name);
-    l2s_postprocess(&p, dirty, *dst);
+    *pmod = shd_new_module(arena2, name);
+    l2s_postprocess(&p, dirty, *pmod);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:");
-    shd_log_module(DEBUGVV, config, *dst);
-    shd_verify_module(config, *dst);
+    shd_log_module(DEBUGVV, config, *pmod);
+    shd_verify_module(config, *pmod);
     shd_destroy_ir_arena(arena);
+
+    RUN_PASS(l2s_promote_byval_params, config);
 
     shd_destroy_dict(p.map);
     shd_destroy_dict(p.annotations);
