@@ -12,6 +12,6 @@ S f(S s) {
     return t;
 }
 
-compute_shader void main(S s) {
+compute_shader local_size(32, 1, 1) void main(S s) {
     f(s);
 }
