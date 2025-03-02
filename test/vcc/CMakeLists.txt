@@ -13,6 +13,7 @@ spv_outputting_test(NAME test/vcc/loop.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS
 spv_outputting_test(NAME test/vcc/goto.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
 spv_outputting_test(NAME test/vcc/ternary.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
 spv_outputting_test(NAME test/vcc/string.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
+spv_outputting_test(NAME test/vcc/byval_struct.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS})
 
 spv_outputting_test(NAME test/vcc/vec_swizzle.c COMPILER vcc EXTRA_ARGS ${VCC_TEST_ARGS} --entry-point test --execution-model Fragment)
 

@@ -153,15 +153,20 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     shd_debug_print("Converting function: %s\n", LLVMGetValueName(fn));
 
     Nodes params = shd_empty(a);
+    size_t param_index = 0;
     for (LLVMValueRef oparam = LLVMGetFirstParam(fn); oparam; oparam = LLVMGetNextParam(oparam)) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = l2s_convert_type(p, ot);
+        const Type* byval_t = l2s_get_param_byval_attr(p, fn, param_index);
         const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+        if (byval_t)
+            shd_add_annotation(nparam, annotation_id_helper(a, "ByVal", byval_t));
         l2s_apply_debug_info(p, oparam, nparam);
         shd_dict_insert(LLVMValueRef, const Node*, p->map, oparam, nparam);
         params = shd_nodes_append(a, params, nparam);
         if (oparam == LLVMGetLastParam(fn))
             break;
+        param_index++;
     }
     const Type* fn_type = l2s_convert_type(p, LLVMGlobalGetValueType(fn));
     assert(fn_type->tag == FnType_TAG);

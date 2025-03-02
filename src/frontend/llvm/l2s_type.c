@@ -1,5 +1,7 @@
 #include "l2s_private.h"
 
+#include "shady/be/dump.h"
+
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
@@ -141,4 +143,27 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
     shd_error_print("Unsupported type: ");
     LLVMDumpType(t);
     shd_error_die();
+}
+
+const Type* l2s_get_param_byval_attr(Parser* p, LLVMValueRef fn, size_t param_index) {
+    size_t num_attrs = LLVMGetAttributeCountAtIndex(fn, param_index + 1);
+    LARRAY(LLVMAttributeRef, attrs, num_attrs);
+    LLVMGetAttributesAtIndex(fn, param_index + 1, attrs);
+    bool is_byval = false;
+    for (size_t i = 0; i < num_attrs; i++) {
+        LLVMAttributeRef attr = attrs[i];
+        size_t k = LLVMGetEnumAttributeKind(attr);
+        size_t e = LLVMGetEnumAttributeKindForName("byval", 5);
+        uint64_t value = LLVMGetEnumAttributeValue(attr);
+        if (k == e) {
+            //printf("p = %zu, i = %zu, k = %zu, e = %zu\n", param_index, i, k, e);
+            // printf("p = %zu, value = %zu\n", param_index, value);
+            LLVMTypeRef tr = (LLVMTypeRef) value;
+            LLVMDumpType(tr);
+            const Type* t = l2s_convert_type(p, tr);
+            // shd_dump(t);
+            return t;
+        }
+    }
+    return NULL;
 }

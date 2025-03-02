@@ -91,6 +91,8 @@ inline static String is_llvm_intrinsic(LLVMValueRef fn) {
     return NULL;
 }
 
+const Type* l2s_get_param_byval_attr(Parser* p, LLVMValueRef fn, size_t param_index);
+
 inline static String is_shady_intrinsic(LLVMValueRef fn) {
     assert(LLVMIsAFunction(fn) || LLVMIsConstant(fn));
     String name = LLVMGetValueName(fn);

@@ -513,19 +513,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 memset(decoded, 0, sizeof(DecodedParamAttr) * params_count);
                 size_t param_index = 0;
                 for (LLVMValueRef oparam = LLVMGetFirstParam(callee); oparam && oparam <= LLVMGetLastParam(callee); oparam = LLVMGetNextParam(oparam)) {
-                    size_t num_attrs = LLVMGetAttributeCountAtIndex(callee, param_index + 1);
-                    LARRAY(LLVMAttributeRef, attrs, num_attrs);
-                    LLVMGetAttributesAtIndex(callee, param_index + 1, attrs);
-                    bool is_byval = false;
-                    for (size_t i = 0; i < num_attrs; i++) {
-                        LLVMAttributeRef attr = attrs[i];
-                        size_t k = LLVMGetEnumAttributeKind(attr);
-                        size_t e = LLVMGetEnumAttributeKindForName("byval", 5);
-                        uint64_t value = LLVMGetEnumAttributeValue(attr);
-                        // printf("p = %zu, i = %zu, k = %zu, e = %zu\n", param_index, i, k, e);
-                        if (k == e)
-                            decoded[param_index].is_byval = true;
-                    }
+                    decoded[param_index].is_byval = l2s_get_param_byval_attr(p, callee, param_index);
                     param_index++;
                 }
 

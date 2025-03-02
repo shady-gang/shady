@@ -34,8 +34,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case Function_TAG: {
-            Function payload = node->payload.fun;
-            payload = shd_rewrite_function_head_payload(r, payload);
+            Function opayload = node->payload.fun;
+            Function payload = shd_rewrite_function_head_payload(r, opayload);
 
             Nodes annotations = shd_empty(a);
             ParsedAnnotation* an = l2s_find_annotation(ctx->p, node);
@@ -55,8 +55,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
                     primop_intrinsic = op;
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < payload.params.count; i++) {
-                        const Node* oparam = payload.params.nodes[i];
-                        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, shd_get_unqualified_type(oparam->payload.param.type)));
+                        const Node* oparam = opayload.params.nodes[i];
+                        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, shd_rewrite_node(r, shd_get_unqualified_type(oparam->payload.param.type))));
                         payload.params = shd_change_node_at_index(a, payload.params, i, nparam);
                         shd_rewrite_annotations(r, oparam, nparam);
                     }
