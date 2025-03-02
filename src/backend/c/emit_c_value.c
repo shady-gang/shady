@@ -54,6 +54,20 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
     }
 }
 
+static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_type) {
+    switch (emitter->config.dialect) {
+        case CDialect_ISPC: {
+            const Type* t = shd_get_unqualified_type(value_type);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
+        }
+        case CDialect_GLSL: {
+            const Type* t = shd_get_unqualified_type(value_type);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
+        }
+        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
+    }
+}
+
 static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* value) {
     if (is_instruction(value))
         return emit_instruction(emitter, fn, p, value);
@@ -114,6 +128,16 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_c_emit_global_variable_definition(emitter, AsGlobal, name, value->payload.undef.type, true, NULL);
             emitted = name;
             break;
+        }
+        case Value_ScopeCast_TAG: {
+            ScopeCast payload = value->payload.scope_cast;
+            if (payload.scope <= ShdScopeSubgroup) {
+                if (emitter->config.dialect == CDialect_ISPC) {
+                    CValue vvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src));
+                    return broadcast_first(emitter, vvalue, payload.src);
+                }
+            }
+            return shd_c_emit_value(emitter, fn, payload.src);
         }
         case Value_NullPtr_TAG: return term_from_cvalue("NULL");
         case Value_Composite_TAG: {
@@ -428,20 +452,6 @@ static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm exp
         return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_deref(emitter, expr), index2);
 }
 
-static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_type) {
-    switch (emitter->config.dialect) {
-        case CDialect_ISPC: {
-            const Type* t = shd_get_unqualified_type(value_type);
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
-        }
-        case CDialect_GLSL: {
-            const Type* t = shd_get_unqualified_type(value_type);
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
-        }
-        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
-    }
-}
-
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
@@ -709,13 +719,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             shd_print(p, ");\n");
             term = term_from_cvalue(dst);
             break;
-        }
-        case subgroup_assume_uniform_op: {
-            if (emitter->config.dialect == CDialect_ISPC) {
-                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-                return broadcast_first(emitter, value, prim_op->operands.nodes[0]->type);
-            }
-            return shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]);
         }
         case sample_texture_op: {
             String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));

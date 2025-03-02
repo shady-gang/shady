@@ -548,16 +548,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = bool_type(arena)
             });
         }
-        // Subgroup ops
-        case subgroup_assume_uniform_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 1);
-            const Type* operand_type = shd_get_unqualified_type(prim_op.operands.nodes[0]->type);
-            return qualified_type(arena, (QualifiedType) {
-                .scope = ShdScopeSubgroup,
-                .type = operand_type
-            });
-        }
         // Intermediary ops
         case sample_texture_op: {
             assert(prim_op.type_arguments.count == 0);
@@ -574,6 +564,14 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         case PRIMOPS_COUNT: assert(false);
     }
+}
+
+const Type* _shd_check_type_scope_cast(IrArena* a, ScopeCast cast) {
+    const Type* operand_type = shd_get_unqualified_type(cast.src->type);
+    return qualified_type(a, (QualifiedType) {
+        .scope = cast.scope,
+        .type = operand_type
+    });
 }
 
 const Type* _shd_check_type_ext_value(IrArena* arena, ExtValue payload) {

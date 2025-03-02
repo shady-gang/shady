@@ -29,7 +29,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* new = (Node*) shd_recreate_node(r, node);
             BodyBuilder* bb = shd_bld_begin_pure(a);
             const Node* value = new->payload.constant.value;
-            value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
+            value = scope_cast_helper(a, value, ctx->config->target.scopes.constants);
             new->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(value));
             return new;
         }

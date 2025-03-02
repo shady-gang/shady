@@ -136,6 +136,8 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (is_supported_natively(ctx, op, src_t)) {
         if (strcmp("shady.primop", op.iset) == 0)
             return prim_op_helper(a, op.opcode, shd_empty(a), shd_singleton(src));
+        if (strcmp("shady.scope_cast", op.iset) == 0)
+            return scope_cast_helper(a, src, shd_resolve_to_int_literal(shd_first(op.params))->value);
         return shd_bld_ext_instruction(bb, op.iset, op.opcode, qualified_type_helper(a, ShdScopeSubgroup, src_t), shd_nodes_append(a, op.params, src));
     } else if (error_if_not_native) {
         shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");
@@ -191,19 +193,17 @@ static const Node* process(Context* ctx, const Node* node) {
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(
                     rebuild_op(ctx, bb, op, shd_rewrite_node(r, payload.operands.nodes[1]), false)));
             }
+            break;
         }
-        case PrimOp_TAG: {
-            PrimOp payload = node->payload.prim_op;
-            if (payload.op == subgroup_assume_uniform_op) {
-                BodyBuilder* bb = shd_bld_begin_pure(a);
-                SubgroupOp op = {
-                    .iset = "shady.primop",
-                    .opcode = payload.op,
-                    .params = shd_empty(a),
-                };
-                return shd_bld_to_instr_yield_values(bb, shd_singleton(
-                    rebuild_op(ctx, bb, op, shd_rewrite_node(r, payload.operands.nodes[0]), false)));
-            }
+        case ScopeCast_TAG: {
+            ScopeCast payload = node->payload.scope_cast;
+            BodyBuilder* bb = shd_bld_begin_pure(a);
+            SubgroupOp op = {
+                .iset = "shady.scope_cast",
+                .opcode = 0,
+                .params = shd_singleton(shd_uint64_literal(a, payload.scope)),
+            };
+            return shd_bld_to_instr_yield_value(bb,rebuild_op(ctx, bb, op, shd_rewrite_node(r, payload.src), false));
         }
         default: break;
     }

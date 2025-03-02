@@ -402,12 +402,6 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
         // TODO: case subgroup_broadcast_first_op:
-        case subgroup_assume_uniform_op: {
-            const Node* value = shd_first(payload.operands);
-            if (shd_get_qualified_type_scope(value->type) <= ShdScopeSubgroup)
-                return quote_single(arena, value);
-            break;
-        }
         case convert_op:
         case reinterpret_op: {
             // get rid of identity casts
@@ -515,6 +509,12 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
             if (is_zero(payload.offset))
                 return payload.ptr;
+            break;
+        }
+        case ScopeCast_TAG: {
+            ScopeCast payload = node->payload.scope_cast;
+            if (shd_get_qualified_type_scope(payload.src->type) <= payload.scope)
+                return quote_single(arena, payload.src);
             break;
         }
         case Branch_TAG: {

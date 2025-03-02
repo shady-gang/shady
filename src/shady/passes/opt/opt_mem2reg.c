@@ -104,8 +104,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ovalue) {
                 *ctx->todo = true;
                 const Node* value = shd_rewrite_node(r, ovalue);
-                if (shd_get_qualified_type_scope(node->type) <= ShdScopeSubgroup)
-                    value = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(value));
+                value = scope_cast_helper(a, value, shd_get_qualified_type_scope(node->type));
                 return mem_and_value(a, (MemAndValue) { .mem = shd_rewrite_node(r, payload.mem), .value = value });
             }
         }

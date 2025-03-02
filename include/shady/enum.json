@@ -19,9 +19,6 @@
       "name": "memory_layout"
     },
     {
-      "name": "subgroup_intrinsic"
-    },
-    {
       "name": "mask"
     }
   ],
@@ -185,10 +182,6 @@
     {
       "name": "offset_of",
       "class": "memory_layout"
-    },
-    {
-      "name": "subgroup_assume_uniform",
-      "class": "subgroup_intrinsic"
     },
     {
       "name": "select"

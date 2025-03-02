@@ -136,8 +136,6 @@ static const IselTableEntry isel_table[] = {
 
     [sample_texture_op] = {Plain, Monomorphic, TyOperand, .op = SpvOpImageSampleImplicitLod },
 
-    [subgroup_assume_uniform_op] = {Plain, Monomorphic, Same, .op = ISEL_IDENTITY },
-
     [PRIMOPS_COUNT] = { Custom }
 };
 
@@ -544,6 +542,12 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             new = spvb_undef(emitter->file_builder, spv_emit_type(emitter, node->payload.undef.type));
             break;
         }
+        case Value_ScopeCast_TAG: {
+            new = spv_emit_type(emitter, node->payload.scope_cast.src);
+            if (emitter->spirv_tgt.target_version.minor > 4)
+                new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, node->type), 1, &new);
+            break;
+        }
         case Value_Fill_TAG: shd_error("lower me")
         case Value_GlobalVariable_TAG:
         case Value_Constant_TAG: return spv_emit_decl(emitter, node);
@@ -586,6 +590,8 @@ static bool can_appear_at_top_level(const Node* node) {
         case False_TAG:
         case BuiltinRef_TAG:
             return true;
+        case ScopeCast_TAG:
+            return can_appear_at_top_level(node->payload.scope_cast.src);
         case Composite_TAG: {
             bool ok = true;
             Nodes components = node->payload.composite.contents;

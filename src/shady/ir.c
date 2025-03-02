@@ -158,6 +158,9 @@ Nodes shd_concat_nodes(IrArena* arena, Nodes a, Nodes b) {
 }
 
 Nodes shd_change_node_at_index(IrArena* arena, Nodes old, size_t i, const Node* n) {
+    assert(i < old.count);
+    if (old.nodes[i] == n)
+        return old;
     LARRAY(const Node*, tmp, old.count);
     for (size_t j = 0; j < old.count; j++)
         tmp[j] = old.nodes[j];
