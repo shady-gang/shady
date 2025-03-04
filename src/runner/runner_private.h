@@ -64,7 +64,7 @@ struct Buffer_ {
 
 void shd_rn_unload_program(Program* program);
 
-Backend* shd_rt_initialize_vk_backend(Runner*);
+Backend* shd_vkr_init(Runner* base);
 Backend* shd_rt_shd_rt_initialize_cuda_backend(Runner*);
 
 #endif

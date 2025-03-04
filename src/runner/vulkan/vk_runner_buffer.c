@@ -102,7 +102,7 @@ err_post_obj_create:
     return NULL;
 }
 
-VkrBuffer* shd_rt_vk_allocate_buffer_device(VkrDevice* device, size_t size) {
+VkrBuffer* shd_vkr_allocate_buffer_device(VkrDevice* device, size_t size) {
     return vkr_allocate_buffer_device_(device, size, AllocDeviceLocal);
 }
 
@@ -120,11 +120,11 @@ static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
     return true;
 }
 
-bool shd_rt_vk_can_import_host_memory(VkrDevice* device) {
+bool shd_vkr_can_import_host_memory(VkrDevice* device) {
     return vkr_can_import_host_memory_(device, false);
 }
 
-VkrBuffer* shd_rt_vk_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
+VkrBuffer* shd_vkr_import_buffer_host(VkrDevice* device, void* ptr, size_t size) {
     if (!vkr_can_import_host_memory_(device, true)) {
         shd_error_die();
     }
@@ -218,7 +218,7 @@ err_post_obj_create:
     return NULL;
 }
 
-void shd_rt_vk_destroy_buffer(VkrBuffer* buffer) {
+void shd_vkr_destroy_buffer(VkrBuffer* buffer) {
     vkDestroyBuffer(buffer->device->device, buffer->buffer, NULL);
     vkFreeMemory(buffer->device->device, buffer->memory, NULL);
     free(buffer);
@@ -237,19 +237,19 @@ static void* vkr_get_buffer_host_pointer(VkrBuffer* buf) {
 }
 
 static VkrCommand* submit_buffer_copy(VkrDevice* device, VkBuffer src, size_t src_offset, VkBuffer dst, size_t dst_offset, size_t size) {
-    VkrCommand* commands = shd_rt_vk_begin_command(device);
+    VkrCommand* commands = shd_vkr_begin_command(device);
     if (!commands)
         return NULL;
 
     vkCmdCopyBuffer(commands->cmd_buf, src, dst, 1, (VkBufferCopy[]) { { .srcOffset = src_offset, .dstOffset = dst_offset, .size = size } });
 
-    if (!shd_rt_vk_submit_command(commands))
+    if (!shd_vkr_submit_command(commands))
         goto err_post_commands_create;
 
     return commands;
 
 err_post_commands_create:
-    shd_rt_vk_destroy_command(commands);
+    shd_vkr_destroy_command(commands);
     return NULL;
 }
 
@@ -269,11 +269,11 @@ static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, vo
         goto err_post_buffer_create;
 
     vkUnmapMemory(device->device, src_buf->memory);
-    shd_rt_vk_destroy_buffer(src_buf);
+    shd_vkr_destroy_buffer(src_buf);
     return true;
 
     err_post_buffer_create:
-    shd_rt_vk_destroy_buffer(src_buf);
+    shd_vkr_destroy_buffer(src_buf);
     return false;
 }
 
@@ -293,11 +293,11 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
 
     memcpy(dst, mapped, size);
     vkUnmapMemory(device->device, dst_buf->memory);
-    shd_rt_vk_destroy_buffer(dst_buf);
+    shd_vkr_destroy_buffer(dst_buf);
     return true;
 
     err_post_buffer_create:
-    shd_rt_vk_destroy_buffer(dst_buf);
+    shd_vkr_destroy_buffer(dst_buf);
     return false;
 }
 
@@ -305,18 +305,18 @@ static bool vkr_copy_to_buffer_importing(VkrBuffer* dst, size_t buffer_offset, v
     CHECK(dst->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = dst->device;
 
-    VkrBuffer* src_buf = shd_rt_vk_import_buffer_host(device, src, size);
+    VkrBuffer* src_buf = shd_vkr_import_buffer_host(device, src, size);
     if (!src_buf)
         return false;
 
     if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_import;
 
-    shd_rt_vk_destroy_buffer(src_buf);
+    shd_vkr_destroy_buffer(src_buf);
     return true;
 
 err_post_buffer_import:
-    shd_rt_vk_destroy_buffer(src_buf);
+    shd_vkr_destroy_buffer(src_buf);
     return false;
 }
 
@@ -324,31 +324,31 @@ static bool vkr_copy_from_buffer_importing(VkrBuffer* src, size_t buffer_offset,
     CHECK(src->base.backend_tag == VulkanRuntimeBackend, return false);
     VkrDevice* device = src->device;
 
-    VkrBuffer* dst_buf = shd_rt_vk_import_buffer_host(device, dst, size);
+    VkrBuffer* dst_buf = shd_vkr_import_buffer_host(device, dst, size);
     if (!dst_buf)
         return false;
 
     if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_import;
 
-    shd_rt_vk_destroy_buffer(dst_buf);
+    shd_vkr_destroy_buffer(dst_buf);
     return true;
 
 err_post_buffer_import:
-    shd_rt_vk_destroy_buffer(dst_buf);
+    shd_vkr_destroy_buffer(dst_buf);
     return false;
 }
 
 static Buffer make_base_buffer(VkrDevice* device) {
     Buffer buffer = {
         .backend_tag = VulkanRuntimeBackend,
-        .destroy = (void (*)(Buffer*)) shd_rt_vk_destroy_buffer,
+        .destroy = (void (*)(Buffer*)) shd_vkr_destroy_buffer,
         .get_device_ptr = (uint64_t(*)(Buffer*)) vkr_get_buffer_device_pointer,
         .get_host_ptr = (void*(*)(Buffer*)) vkr_get_buffer_host_pointer,
         .copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer_fallback,
         .copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer_fallback,
     };
-    if (shd_rt_vk_can_import_host_memory(device)) {
+    if (shd_vkr_can_import_host_memory(device)) {
         buffer.copy_from = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_from_buffer_importing;
         buffer.copy_into = (bool(*)(Buffer*, size_t, void*, size_t)) vkr_copy_to_buffer_importing;
     }

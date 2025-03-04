@@ -134,7 +134,7 @@ static void shutdown_vulkan_runtime(VkrBackend* backend) {
     free(backend);
 }
 
-Backend* shd_rt_initialize_vk_backend(Runner* base) {
+Backend* shd_vkr_init(Runner* base) {
     VkrBackend* backend = malloc(sizeof(VkrBackend));
     memset(backend, 0, sizeof(VkrBackend));
     backend->base = (Backend) {
@@ -143,7 +143,7 @@ Backend* shd_rt_initialize_vk_backend(Runner* base) {
     };
 
     CHECK(initialize_vk_instance(backend), goto init_fail_free)
-    shd_rt_vk_probe_devices(backend);
+    shd_vkr_probe_devices(backend);
     shd_info_print("Shady Vulkan backend successfully initialized !\n");
     return &backend->base;
 

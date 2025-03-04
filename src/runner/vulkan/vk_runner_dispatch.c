@@ -30,7 +30,7 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog) {
             write_descriptor_sets[write_descriptor_sets_count] = (VkWriteDescriptorSet) {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = NULL,
-                .descriptorType = shd_rt_vk_as_to_descriptor_type(resource->as),
+                .descriptorType = shd_vkr_as_to_descriptor_type(resource->as),
                 .descriptorCount = 1,
                 .dstSet = prog->sets[resource->set],
                 .dstBinding = resource->binding,
@@ -53,18 +53,18 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog) {
 
 static Command make_command_base() {
     return (Command) {
-        .wait_for_completion = (bool (*)(Command*)) shd_rt_vk_wait_completion,
+        .wait_for_completion = (bool (*)(Command*)) shd_vkr_wait_completion,
     };
 }
 
-VkrCommand* shd_rt_vk_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options) {
+VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options) {
     assert(program && device);
 
-    VkrSpecProgram* prog = shd_rt_vk_get_specialized_program(program, entry_point, device);
+    VkrSpecProgram* prog = shd_vkr_get_specialized_program(program, entry_point, device);
 
     shd_debug_print("Dispatching kernel on %s\n", device->caps.properties.base.properties.deviceName);
 
-    VkrCommand* cmd = shd_rt_vk_begin_command(device);
+    VkrCommand* cmd = shd_vkr_begin_command(device);
     if (!cmd)
         return NULL;
 
@@ -102,17 +102,17 @@ VkrCommand* shd_rt_vk_launch_kernel(VkrDevice* device, Program* program, String 
         vkCmdWriteTimestamp(cmd->cmd_buf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, cmd->query_pool, 1);
     }
 
-    if (!shd_rt_vk_submit_command(cmd))
+    if (!shd_vkr_submit_command(cmd))
         goto err_post_commands_create;
 
     return cmd;
 
 err_post_commands_create:
-    shd_rt_vk_destroy_command(cmd);
+    shd_vkr_destroy_command(cmd);
     return NULL;
 }
 
-VkrCommand* shd_rt_vk_begin_command(VkrDevice* device) {
+VkrCommand* shd_vkr_begin_command(VkrDevice* device) {
     VkrCommand* cmd = calloc(1, sizeof(VkrCommand));
     cmd->base = make_command_base();
     cmd->device = device;
@@ -141,7 +141,7 @@ err_post_commands_create:
     return NULL;
 }
 
-bool shd_rt_vk_submit_command(VkrCommand* cmd) {
+bool shd_vkr_submit_command(VkrCommand* cmd) {
     CHECK_VK(vkEndCommandBuffer(cmd->cmd_buf), return false);
 
     CHECK_VK(vkCreateFence(cmd->device->device, &(VkFenceCreateInfo) {
@@ -168,7 +168,7 @@ err_post_fence_create:
     return false;
 }
 
-bool shd_rt_vk_wait_completion(VkrCommand* cmd) {
+bool shd_vkr_wait_completion(VkrCommand* cmd) {
     assert(cmd->submitted && "Command must be submitted before they can be waited on");
     CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
     if (cmd->profiled_gpu_time) {
@@ -176,11 +176,11 @@ bool shd_rt_vk_wait_completion(VkrCommand* cmd) {
         CHECK_VK(vkGetQueryPoolResults(cmd->device->device, cmd->query_pool, 0, 2, sizeof(uint64_t) * 2, ts, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT), {});
         *cmd->profiled_gpu_time = (ts[1] - ts[0]) * cmd->device->caps.properties.base.properties.limits.timestampPeriod;
     }
-    shd_rt_vk_destroy_command(cmd);
+    shd_vkr_destroy_command(cmd);
     return true;
 }
 
-void shd_rt_vk_destroy_command(VkrCommand* cmd) {
+void shd_vkr_destroy_command(VkrCommand* cmd) {
     if (cmd->submitted)
         vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
     if (cmd->query_pool)

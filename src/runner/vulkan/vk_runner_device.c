@@ -291,7 +291,7 @@ static void shutdown_vkr_device(VkrDevice* device) {
     SpecProgramKey k;
     VkrSpecProgram* sp;
     while (shd_dict_iter(device->specialized_programs, &i, &k, &sp)) {
-        shd_rt_vk_destroy_specialized_program(sp);
+        shd_vkr_destroy_specialized_program(sp);
     }
     shd_destroy_dict(device->specialized_programs);
     vkDestroyCommandPool(device->device, device->cmd_pool, NULL);
@@ -301,7 +301,7 @@ static void shutdown_vkr_device(VkrDevice* device) {
 
 static const char* get_vkr_device_name(VkrDevice* device) { return device->caps.properties.base.properties.deviceName; }
 
-bool shd_rt_vk_probe_devices(VkrBackend* runtime) {
+bool shd_vkr_probe_devices(VkrBackend* runtime) {
     uint32_t devices_count;
     CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, NULL), return false)
     LARRAY(VkPhysicalDevice, available_devices, devices_count);
@@ -321,10 +321,10 @@ bool shd_rt_vk_probe_devices(VkrBackend* runtime) {
             device->base = (Device) {
                 .cleanup = (void(*)(Device*)) shutdown_vkr_device,
                 .get_name = (String(*)(Device*)) get_vkr_device_name,
-                .allocate_buffer = (Buffer* (*)(Device*, size_t)) shd_rt_vk_allocate_buffer_device,
-                .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_rt_vk_import_buffer_host,
-                .launch_kernel = (Command* (*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_rt_vk_launch_kernel,
-                .can_import_host_memory = (bool (*)(Device*)) shd_rt_vk_can_import_host_memory,
+                .allocate_buffer = (Buffer* (*)(Device*, size_t)) shd_vkr_allocate_buffer_device,
+                .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_vkr_import_buffer_host,
+                .launch_kernel = (Command* (*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_vkr_launch_kernel,
+                .can_import_host_memory = (bool (*)(Device*)) shd_vkr_can_import_host_memory,
             };
             shd_list_append(Device*, runtime->base.runner->devices, device);
         }

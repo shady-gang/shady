@@ -15,7 +15,7 @@ Runner* shd_rn_initialize(RunnerConfig config) {
     runtime->programs = shd_new_list(Program*);
 
 #if VK_BACKEND_PRESENT
-    Backend* vk_backend = shd_rt_initialize_vk_backend(runtime);
+    Backend* vk_backend = shd_vkr_init(runtime);
     CHECK(vk_backend, goto init_fail_free);
     shd_list_append(Backend*, runtime->backends, vk_backend);
 #endif
