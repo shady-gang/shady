@@ -45,7 +45,7 @@ static CudaBuffer* new_buffer_common(size_t size) {
     return buffer;
 }
 
-CudaBuffer* shd_rt_cuda_allocate_buffer(CudaDevice* device, size_t size) {
+CudaBuffer* shd_cur_allocate_buffer(CudaDevice*, size_t size) {
     CUdeviceptr device_ptr;
     CHECK_CUDA(cuMemAlloc(&device_ptr, size), return NULL);
     CudaBuffer* buffer = new_buffer_common(size);
@@ -56,7 +56,7 @@ CudaBuffer* shd_rt_cuda_allocate_buffer(CudaDevice* device, size_t size) {
     return buffer;
 }
 
-CudaBuffer* shd_rt_cuda_import_host_memory(CudaDevice* device, void* host_ptr, size_t size) {
+CudaBuffer* shd_cur_import_host_memory(CudaDevice*, void* host_ptr, size_t size) {
     CUdeviceptr device_ptr;
     CHECK_CUDA(cuMemHostRegister(host_ptr, size, CU_MEMHOSTREGISTER_DEVICEMAP), return NULL);
     CHECK_CUDA(cuMemHostGetDevicePointer(&device_ptr, host_ptr, 0), return NULL);
@@ -68,6 +68,6 @@ CudaBuffer* shd_rt_cuda_import_host_memory(CudaDevice* device, void* host_ptr, s
     return buffer;
 }
 
-bool shd_rt_cuda_can_import_host_memory(CudaDevice* d) {
+bool shd_cur_can_import_host_memory(CudaDevice*) {
     return true;
 }

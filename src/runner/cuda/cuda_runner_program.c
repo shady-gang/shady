@@ -159,8 +159,8 @@ static CudaKernel* create_specialized_program(CudaDevice* device, SpecProgramKey
     return kernel;
 }
 
-CudaKernel* shd_rt_cuda_get_specialized_program(CudaDevice* device, Program* program, String entry_point) {
-    SpecProgramKey key = { .base = program, .entry_point = entry_point };
+CudaKernel* shd_cur_get_specialized_program(CudaDevice* device, Program* program, String ep) {
+    SpecProgramKey key = { .base = program, .entry_point = ep };
     CudaKernel** found = shd_dict_find_value(SpecProgramKey, CudaKernel*, device->specialized_programs, key);
     if (found)
         return *found;
@@ -170,7 +170,7 @@ CudaKernel* shd_rt_cuda_get_specialized_program(CudaDevice* device, Program* pro
     return spec;
 }
 
-bool shd_rt_cuda_destroy_specialized_kernel(CudaKernel* kernel) {
+bool shd_cur_destroy_specialized_kernel(CudaKernel* kernel) {
     free(kernel->cuda_code);
     free(kernel->ptx);
     CHECK_CUDA(cuModuleUnload(kernel->cuda_module), return false);

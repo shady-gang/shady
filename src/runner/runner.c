@@ -20,7 +20,7 @@ Runner* shd_rn_initialize(RunnerConfig config) {
     shd_list_append(Backend*, runtime->backends, vk_backend);
 #endif
 #if CUDA_BACKEND_PRESENT
-    Backend* cuda_backend = shd_rt_initialize_cuda_backend(runtime);
+    Backend* cuda_backend = shd_cur_init(runtime);
     CHECK(cuda_backend, goto init_fail_free);
     shd_list_append(Backend*, runtime->backends, cuda_backend);
 #endif
