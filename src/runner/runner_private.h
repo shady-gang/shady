@@ -1,6 +1,6 @@
 #ifndef SHADY_RUNTIME_PRIVATE
 #define SHADY_RUNTIME_PRIVATE
-#include "shady/runtime.h"
+#include "shady/runner.h"
 #include "shady/ir.h"
 
 // typedef struct SpecProgram_ SpecProgram;

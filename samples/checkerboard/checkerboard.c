@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #include "shady/ir/arena.h"
-#include "shady/runtime.h"
+#include "shady/runner.h"
 #include "shady/driver.h"
 
 #include "log.h"

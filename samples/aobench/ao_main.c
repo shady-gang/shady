@@ -1,9 +1,9 @@
 #define EXTERNAL_FN /* not static */
 
 #include "ao.h"
-#include "../runtime/runtime_app_common.h"
+#include "../runner/runner_app_common.h"
 
-#include "shady/runtime.h"
+#include "shady/runner.h"
 #include "shady/driver.h"
 
 #include "portability.h"
