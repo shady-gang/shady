@@ -22,7 +22,7 @@ Runner* shd_rn_initialize(RunnerConfig config) {
 #if CUDA_BACKEND_PRESENT
     Backend* cuda_backend = shd_rt_initialize_cuda_backend(runtime);
     CHECK(cuda_backend, goto init_fail_free);
-    append_list(Backend*, runtime->backends, cuda_backend);
+    shd_list_append(Backend*, runtime->backends, cuda_backend);
 #endif
 
     shd_info_print("Shady runtime successfully initialized !\n");

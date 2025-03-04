@@ -17,10 +17,10 @@ static const char* cuda_device_get_name(CudaDevice* device) { return device->nam
 static void cuda_device_cleanup(CudaDevice* device) {
     size_t i = 0;
     CudaKernel* kernel;
-    while (dict_iter(device->specialized_programs, &i, NULL, &kernel)) {
-        shd_cuda_destroy_specialized_kernel(kernel);
+    while (shd_dict_iter(device->specialized_programs, &i, NULL, &kernel)) {
+        shd_rt_cuda_destroy_specialized_kernel(kernel);
     }
-    destroy_dict(device->specialized_programs);
+    shd_destroy_dict(device->specialized_programs);
 }
 
 bool cuda_command_wait(CudaCommand* command) {
@@ -35,7 +35,7 @@ bool cuda_command_wait(CudaCommand* command) {
 }
 
 static CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options) {
-    CudaKernel* kernel = shd_cuda_get_specialized_program(device, p, entry_point);
+    CudaKernel* kernel = shd_rt_cuda_get_specialized_program(device, p, entry_point);
 
     CudaCommand* cmd = calloc(sizeof(CudaCommand), 1);
     *cmd = (CudaCommand) {
@@ -51,7 +51,7 @@ static CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, Strin
         cudaEventRecord(cmd->start, 0);
     }
 
-    ArenaConfig final_config = *get_arena_config(get_module_arena(kernel->final_module));
+    ArenaConfig final_config = *shd_get_arena_config(shd_module_get_arena(kernel->final_module));
     unsigned int gx = final_config.specializations.workgroup_size[0];
     unsigned int gy = final_config.specializations.workgroup_size[1];
     unsigned int gz = final_config.specializations.workgroup_size[2];
@@ -61,7 +61,7 @@ static CudaCommand* shd_cuda_launch_kernel(CudaDevice* device, Program* p, Strin
 }
 
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return hash_murmur(ptr, sizeof(SpecProgramKey));
+    return shd_hash(ptr, sizeof(SpecProgramKey));
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
@@ -82,7 +82,7 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
             .launch_kernel = (Command*(*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_cuda_launch_kernel,
         },
         .handle = handle,
-        .specialized_programs = new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),
+        .specialized_programs = shd_new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),
     };
     CHECK_CUDA(cuDeviceGetName(device->name, 255, handle), goto dealloc_and_return_null);
     CHECK_CUDA(cuDeviceGetAttribute(&device->cc_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device->handle), goto dealloc_and_return_null);
@@ -103,22 +103,22 @@ static bool probe_cuda_devices(CudaBackend* b) {
         if (!device)
             continue;
         b->num_devices++;
-        append_list(CudaDevice*, b->base.runtime->devices, device);
+        shd_list_append(CudaDevice*, b->base.runner->devices, device);
     }
     return true;
 }
 
-Backend* shd_rt_initialize_cuda_backend(Runtime* base) {
+Backend* shd_rt_initialize_cuda_backend(Runner* base) {
     CudaBackend* backend = malloc(sizeof(CudaBackend));
     memset(backend, 0, sizeof(CudaBackend));
     backend->base = (Backend) {
-        .runtime = base,
+        .runner = base,
         .cleanup = (void(*)()) shutdown_cuda_runtime,
     };
 
     CHECK_CUDA(cuInit(0), goto init_fail_free);
     CHECK(probe_cuda_devices(backend), goto init_fail_free);
-    info_print("Shady CUDA backend successfully initialized, found %d devices\n", backend->num_devices);
+    shd_info_print("Shady CUDA backend successfully initialized, found %d devices\n", backend->num_devices);
     return &backend->base;
 
     init_fail_free:

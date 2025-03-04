@@ -1,7 +1,9 @@
 #include "cuda_runner_private.h"
 
 #include "shady/driver.h"
+#include "shady/pipeline/pipeline.h"
 #include "shady/be/c.h"
+#include "shady/pass.h"
 
 #include "log.h"
 #include "portability.h"
@@ -15,12 +17,14 @@ static CompilerConfig get_compiler_config_for_device(CudaDevice* device, const C
     return config;
 }
 
+void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+
 static bool emit_cuda_c_code(CudaKernel* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
     config.specialization.entry_point = spec->key.entry_point;
 
-    Module* dst_mod = spec->key.base->module;
-    CHECK(shd_run_compiler_passes(&config, &dst_mod) == CompilationNoError, return false);
+    spec->final_module = shd_import(&config, spec->key.base->module);
 
     CTargetConfig emitter_config = {
         .dialect = CDialect_CUDA,
@@ -28,9 +32,17 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
         .allow_compound_literals = false,
         .decay_unsized_arrays = true,
     };
-    Module* final_mod;
-    shd_emit_c(&config, emitter_config, dst_mod, &spec->cuda_code_size, &spec->cuda_code, &final_mod);
-    spec->final_module = final_mod;
+
+    ShdPipeline pipeline = shd_create_empty_pipeline();
+    shd_pipeline_add_normalize_input_cf(pipeline);
+    shd_pipeline_add_shader_target_lowering(pipeline, config.target, config.specialization.execution_model, config.specialization.entry_point);
+    shd_pipeline_add_c_target_passes(pipeline, &emitter_config);
+    CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->final_module);
+    shd_destroy_pipeline(pipeline);
+
+    CHECK(result == CompilationNoError, return false);
+
+    shd_emit_c(&config, emitter_config, spec->final_module, &spec->cuda_code_size, &spec->cuda_code);
 
     if (shd_log_get_level() <= DEBUG)
         shd_write_file("cuda_dump.cu", spec->cuda_code_size - 1, spec->cuda_code);
