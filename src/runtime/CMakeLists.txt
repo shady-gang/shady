@@ -1,0 +1,1 @@
+option(SHADY_ENABLE_RUNTIME "Runtime support library for shady kernels" ON)

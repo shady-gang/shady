@@ -1,7 +1,7 @@
-#ifndef SHADY_VK_RUNTIME_PRIVATE_H
-#define SHADY_VK_RUNTIME_PRIVATE_H
+#ifndef SHADY_VK_RUNNER_PRIVATE_H
+#define SHADY_VK_RUNNER_PRIVATE_H
 
-#include "../runtime_private.h"
+#include "../runner_private.h"
 #include "shady/ir.h"
 
 #include "portability.h"

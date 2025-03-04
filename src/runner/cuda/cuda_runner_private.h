@@ -1,7 +1,7 @@
 #ifndef SHADY_CUDA_RUNTIME_PRIVATE_H
 #define SHADY_CUDA_RUNTIME_PRIVATE_H
 
-#include "../runtime_private.h"
+#include "../runner_private.h"
 
 #include <cuda.h>
 #include <cuda_runtime.h>

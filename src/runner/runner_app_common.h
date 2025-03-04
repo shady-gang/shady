@@ -2,7 +2,7 @@
 #define SHADY_RUNTIME_CLI
 
 #include "shady/driver.h"
-#include "runtime_private.h"
+#include "runner_private.h"
 
 #include "log.h"
 

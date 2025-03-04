@@ -1,4 +1,4 @@
-#include "runtime_private.h"
+#include "runner_private.h"
 #include "shady/driver.h"
 
 #include "log.h"

@@ -2,7 +2,7 @@
 #include "shady/ir.h"
 #include "shady/driver.h"
 
-#include "runtime_app_common.h"
+#include "runner_app_common.h"
 
 #include "log.h"
 #include "portability.h"
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     shd_driver_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
-    shd_info_print("Shady runtime test starting...\n");
+    shd_info_print("Shady runner test starting...\n");
 
     Runtime* runtime = shd_rt_initialize(args.runtime_config);
     Device* device = shd_rt_get_device(runtime, args.common_app_args.device);

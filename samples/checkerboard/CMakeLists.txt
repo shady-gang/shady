@@ -1,8 +1,8 @@
-if(NOT TARGET runtime)
-    message("Runtime component unavailable. Skipping checkerboard sample.")
+if(NOT TARGET runner)
+    message("Runner component unavailable. Skipping checkerboard sample.")
 else()
     add_executable(checkerboard checkerboard.c)
-    target_link_libraries(checkerboard PRIVATE m runtime common driver)
+    target_link_libraries(checkerboard PRIVATE m runner common driver)
     target_include_directories(checkerboard PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
     embed_file(string checkerboard_kernel_src checkerboard_kernel.slim)
