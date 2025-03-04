@@ -265,7 +265,7 @@ static bool vkr_copy_to_buffer_fallback(VkrBuffer* dst, size_t buffer_offset, vo
     CHECK_VK(vkMapMemory(device->device, src_buf->memory, src_buf->offset, src_buf->size, 0, &mapped), goto err_post_buffer_create);
     memcpy(mapped, src, size);
 
-    if (!shd_rt_wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+    if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_create;
 
     vkUnmapMemory(device->device, src_buf->memory);
@@ -288,7 +288,7 @@ static bool vkr_copy_from_buffer_fallback(VkrBuffer* src, size_t buffer_offset, 
     void* mapped;
     CHECK_VK(vkMapMemory(device->device, dst_buf->memory, dst_buf->offset, dst_buf->size, 0, &mapped), goto err_post_buffer_create);
 
-    if (!shd_rt_wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+    if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_create;
 
     memcpy(dst, mapped, size);
@@ -309,7 +309,7 @@ static bool vkr_copy_to_buffer_importing(VkrBuffer* dst, size_t buffer_offset, v
     if (!src_buf)
         return false;
 
-    if (!shd_rt_wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
+    if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src_buf->buffer, src_buf->offset, dst->buffer, dst->offset + buffer_offset, size)))
         goto err_post_buffer_import;
 
     shd_rt_vk_destroy_buffer(src_buf);
@@ -328,7 +328,7 @@ static bool vkr_copy_from_buffer_importing(VkrBuffer* src, size_t buffer_offset,
     if (!dst_buf)
         return false;
 
-    if (!shd_rt_wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
+    if (!shd_rn_wait_completion((Command*) submit_buffer_copy(device, src->buffer, src->offset + buffer_offset, dst_buf->buffer, dst_buf->offset, size)))
         goto err_post_buffer_import;
 
     shd_rt_vk_destroy_buffer(dst_buf);

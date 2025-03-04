@@ -5,8 +5,8 @@
 
 // typedef struct SpecProgram_ SpecProgram;
 
-struct Runtime_ {
-    RuntimeConfig config;
+struct Runner_ {
+    RunnerConfig config;
 
     struct List* backends;
     struct List* devices;
@@ -16,11 +16,11 @@ struct Runtime_ {
 typedef enum {
     VulkanRuntimeBackend,
     CUDARuntimeBackend,
-} ShdRuntimeBackend;
+} RunnerBackend;
 
 typedef struct Backend_ Backend;
 struct Backend_ {
-    Runtime* runtime;
+    Runner* runner;
     void (*cleanup)(Backend*);
 };
 
@@ -42,7 +42,7 @@ typedef struct {
 } ProgramParamsInfo;
 
 struct Program_ {
-    Runtime* runtime;
+    Runner* runtime;
     const CompilerConfig* base_config;
     /// owns the module, may be NULL if module is owned by someone else
     IrArena* arena;
@@ -54,7 +54,7 @@ struct Command_ {
 };
 
 struct Buffer_ {
-    ShdRuntimeBackend backend_tag;
+    RunnerBackend backend_tag;
     void     (*destroy)(Buffer*);
     void*    (*get_host_ptr)(Buffer*);
     uint64_t (*get_device_ptr)(Buffer*);
@@ -62,9 +62,9 @@ struct Buffer_ {
     bool     (*copy_from)(Buffer* src, size_t buffer_offset, void* dst, size_t bytes);
 };
 
-void shd_rt_unload_program(Program* program);
+void shd_rn_unload_program(Program* program);
 
-Backend* shd_rt_initialize_vk_backend(Runtime*);
-Backend* shd_rt_shd_rt_initialize_cuda_backend(Runtime*);
+Backend* shd_rt_initialize_vk_backend(Runner*);
+Backend* shd_rt_shd_rt_initialize_cuda_backend(Runner*);
 
 #endif

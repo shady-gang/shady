@@ -443,7 +443,7 @@ static void flush_staged_data(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->resources.num_resources; i++) {
         ProgramResourceInfo* resource = program->resources.resources[i];
         if (resource->staging) {
-            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
+            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
             free(resource->staging);
         }
     }
@@ -462,10 +462,10 @@ static bool prepare_resources(VkrSpecProgram* program) {
         }
 
         if (resource->default_data) {
-            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
+            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
         } else {
             char* zeroes = calloc(1, resource->size);
-            shd_rt_copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
+            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
             free(zeroes);
         }
 
@@ -475,7 +475,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
                 dst = resource->parent->staging;
             }
             assert(dst);
-            *((uint64_t*) (dst + resource->offset)) = shd_rt_get_buffer_device_pointer((Buffer*) resource->buffer);
+            *((uint64_t*) (dst + resource->offset)) = shd_rn_get_buffer_device_pointer((Buffer*) resource->buffer);
         }
     }
 

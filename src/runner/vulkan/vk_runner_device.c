@@ -307,7 +307,7 @@ bool shd_rt_vk_probe_devices(VkrBackend* runtime) {
     LARRAY(VkPhysicalDevice, available_devices, devices_count);
     CHECK_VK(vkEnumeratePhysicalDevices(runtime->instance, &devices_count, available_devices), return false)
 
-    if (devices_count == 0 && !runtime->base.runtime->config.allow_no_devices) {
+    if (devices_count == 0 && !runtime->base.runner->config.allow_no_devices) {
         shd_error_print("No vulkan devices found!\n");
         shd_error_print("You may be able to diagnose this further using `VK_LOADER_DEBUG=all vulkaninfo`.\n");
         return false;
@@ -326,17 +326,17 @@ bool shd_rt_vk_probe_devices(VkrBackend* runtime) {
                 .launch_kernel = (Command* (*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_rt_vk_launch_kernel,
                 .can_import_host_memory = (bool (*)(Device*)) shd_rt_vk_can_import_host_memory,
             };
-            shd_list_append(Device*, runtime->base.runtime->devices, device);
+            shd_list_append(Device*, runtime->base.runner->devices, device);
         }
     }
 
-    if (shd_list_count(runtime->base.runtime->devices) == 0 && !runtime->base.runtime->config.allow_no_devices) {
+    if (shd_list_count(runtime->base.runner->devices) == 0 && !runtime->base.runner->config.allow_no_devices) {
         shd_error_print("No __suitable__ vulkan devices found!\n");
         shd_error_print("This is caused by running on weird hardware configurations. Hardware support might get better in the future.\n");
         return false;
     }
 
-    shd_info_print("Found %d usable devices\n", shd_list_count(runtime->base.runtime->devices));
+    shd_info_print("Found %d usable devices\n", shd_list_count(runtime->base.runner->devices));
 
     return true;
 }

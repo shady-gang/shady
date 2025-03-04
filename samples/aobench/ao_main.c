@@ -17,7 +17,7 @@
 
 typedef struct {
     CompilerConfig compiler_config;
-    RuntimeConfig runtime_config;
+    RunnerConfig runtime_config;
     CommonAppArgs common_app_args;
 } Args;
 
@@ -98,8 +98,8 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     shd_info_print("Shady checkerboard test starting...\n");
 
-    Runtime* runtime = shd_rt_initialize(args->runtime_config);
-    Device* device = shd_rt_get_device(runtime, args->common_app_args.device);
+    Runner* runtime = shd_rn_initialize(args->runtime_config);
+    Device* device = shd_rn_get_device(runtime, args->common_app_args.device);
     assert(device);
 
     img[0] = 69;
@@ -107,49 +107,49 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     Buffer* buf;
     if (import_memory)
-        buf = shd_rt_import_buffer_host(device, img, sizeof(*img) * WIDTH * HEIGHT * 3);
+        buf = shd_rn_import_buffer_host(device, img, sizeof(*img) * WIDTH * HEIGHT * 3);
     else
-        buf = shd_rt_allocate_buffer_device(device, sizeof(*img) * WIDTH * HEIGHT * 3);
+        buf = shd_rn_allocate_buffer_device(device, sizeof(*img) * WIDTH * HEIGHT * 3);
 
-    uint64_t buf_addr = shd_rt_get_buffer_device_pointer(buf);
+    uint64_t buf_addr = shd_rn_get_buffer_device_pointer(buf);
 
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     Module* m;
     CHECK(shd_driver_load_source_file_from_filename(&args->compiler_config, path, "aobench", &m) == NoError, return);
-    Program* program = shd_rt_new_program_from_module(runtime, &args->compiler_config, m);
+    Program* program = shd_rn_new_program_from_module(runtime, &args->compiler_config, m);
 
     // run it twice to compile everything and benefit from caches
-    shd_rt_wait_completion(shd_rt_launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void* []) { &buf_addr }, NULL));
+    shd_rn_wait_completion(shd_rn_launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void* []) { &buf_addr }, NULL));
     uint64_t tsn = shd_get_time_nano();
     uint64_t profiled_gpu_time = 0;
     ExtraKernelOptions extra_kernel_options = {
         .profiled_gpu_time = &profiled_gpu_time
     };
-    shd_rt_wait_completion(shd_rt_launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void* []) { &buf_addr }, &extra_kernel_options));
+    shd_rn_wait_completion(shd_rn_launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void* []) { &buf_addr }, &extra_kernel_options));
     uint64_t tpn = shd_get_time_nano();
     shd_info_print("device rendering took %dus (gpu time: %dus)\n", (tpn - tsn) / 1000, profiled_gpu_time / 1000);
 
     if (!import_memory)
-        shd_rt_copy_from_buffer(buf, 0, img, sizeof(*img) * WIDTH * HEIGHT * 3);
+        shd_rn_copy_from_buffer(buf, 0, img, sizeof(*img) * WIDTH * HEIGHT * 3);
     shd_debug_print("data %d\n", (int) img[0]);
-    shd_rt_destroy_buffer(buf);
+    shd_rn_destroy_buffer(buf);
 
-    shd_rt_shutdown(runtime);
+    shd_rn_shutdown(runtime);
 }
 
 int main(int argc, char **argv) {
     shd_log_set_level(INFO);
     Args args = {
         .compiler_config = shd_default_compiler_config(),
-        .runtime_config = shd_rt_default_config(),
+        .runtime_config = shd_rn_default_config(),
     };
 
     args.compiler_config.input_cf.restructure_with_heuristics = true;
 
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.compiler_config, &argc, argv);
-    shd_rt_cli_parse_runtime_config(&args.runtime_config, &argc, argv);
+    shd_rn_cli_parse_config(&args.runtime_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;

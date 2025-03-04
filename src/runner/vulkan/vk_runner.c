@@ -51,7 +51,7 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
         VkLayerProperties* layer = &layer_properties[i];
 
         // Enable validation if the config says so
-        if (runtime->base.runtime->config.use_validation && strcmp(layer->layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+        if (runtime->base.runner->config.use_validation && strcmp(layer->layerName, "VK_LAYER_KHRONOS_validation") == 0) {
             shd_info_print("Enabling validation... \n");
             runtime->enabled_layers.validation.enabled = true;
             enabled_layers[enabled_layers_count++] = layer->layerName;
@@ -134,11 +134,11 @@ static void shutdown_vulkan_runtime(VkrBackend* backend) {
     free(backend);
 }
 
-Backend* shd_rt_initialize_vk_backend(Runtime* base) {
+Backend* shd_rt_initialize_vk_backend(Runner* base) {
     VkrBackend* backend = malloc(sizeof(VkrBackend));
     memset(backend, 0, sizeof(VkrBackend));
     backend->base = (Backend) {
-        .runtime = base,
+        .runner = base,
         .cleanup = (void(*)()) shutdown_vulkan_runtime,
     };
 
