@@ -56,7 +56,7 @@ static const Node* process(Context* ctx, const Node* node){
                     shd_bld_store(builder, ptr, payload.params.nodes[i]);
                     ptr = shd_bld_conversion(builder, ptr_type_helper(a, AsGeneric, arr[i], false), ptr);
                     ptr = shd_bld_reinterpret_cast(builder, shd_get_unqualified_type(shd_rewrite_node(r, oparam->type)), ptr);
-                    ptr = scope_cast_helper(a, ptr, shd_get_qualified_type_scope(oparam->type));
+                    ptr = scope_cast_helper(a, shd_get_qualified_type_scope(oparam->type), ptr);
                     shd_register_processed(r, oparam, ptr);
                 }
             }

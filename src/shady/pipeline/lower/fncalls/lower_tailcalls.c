@@ -266,7 +266,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
             const Type* arg_type = shd_rewrite_node(r, shd_get_unqualified_type(old_param->type));
             const Node* popped = shd_bld_stack_pop_value(if_builder, arg_type);
             // TODO use the uniform stack instead ? or no ?
-            popped = scope_cast_helper(a, popped, shd_get_qualified_type_scope(old_param->type));
+            popped = scope_cast_helper(a, shd_get_qualified_type_scope(old_param->type), popped);
             nargs[j] = popped;
         }
         shd_bld_call(if_builder, shd_rewrite_node(r, ofunction), shd_nodes(a, oparams.count, nargs));

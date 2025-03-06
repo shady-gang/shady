@@ -126,7 +126,7 @@ static void wrap_in_controls(Context* ctx, CFG* cfg, Node* nabs, const Node* oab
 
         Nodes original_params = get_abstraction_params(dst);
         for (size_t j = 0; j < results.count; j++) {
-            results = shd_change_node_at_index(a, results, j, scope_cast_helper(a, results.nodes[j], shd_get_qualified_type_scope(original_params.nodes[j]->type)));
+            results = shd_change_node_at_index(a, results, j, scope_cast_helper(a, shd_get_qualified_type_scope(original_params.nodes[j]->type), results.nodes[j]));
         }
 
         c = c2;

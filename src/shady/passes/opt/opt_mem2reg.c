@@ -104,7 +104,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (ovalue) {
                 *ctx->todo = true;
                 const Node* value = shd_rewrite_node(r, ovalue);
-                value = scope_cast_helper(a, value, shd_get_qualified_type_scope(node->type));
+                value = scope_cast_helper(a, shd_get_qualified_type_scope(node->type), value);
                 return mem_and_value(a, (MemAndValue) { .mem = shd_rewrite_node(r, payload.mem), .value = value });
             }
         }

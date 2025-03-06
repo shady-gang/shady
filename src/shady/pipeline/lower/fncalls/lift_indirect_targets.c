@@ -138,7 +138,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
         //if (param_name)
         //    set_value_name(recovered_value, param_name);
 
-        recovered_value = scope_cast_helper(a, recovered_value, shd_get_qualified_type_scope(ovar->type));
+        recovered_value = scope_cast_helper(a, shd_get_qualified_type_scope(ovar->type), recovered_value);
 
         shd_register_processed(r, ovar, recovered_value);
     }
@@ -197,7 +197,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 });
                 const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, jp_type), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
-                jp = scope_cast_helper(a, jp, ctx->config->target.scopes.gang);
+                jp = scope_cast_helper(a, ctx->config->target.scopes.gang, jp);
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
                 shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bld_mem(bb));

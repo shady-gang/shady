@@ -204,7 +204,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             Nodes inner_control_results = shd_bld_control(inner_bb, inner_yield_types, inner_control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < inner_control_results.count; j++) {
-                inner_control_results = shd_change_node_at_index(a, inner_control_results, j, scope_cast_helper(a, inner_control_results.nodes[j],shd_get_qualified_type_scope(nparams.nodes[j]->type)));
+                inner_control_results = shd_change_node_at_index(a, inner_control_results, j, scope_cast_helper(a, shd_get_qualified_type_scope(nparams.nodes[j]->type), inner_control_results.nodes[j]));
             }
             shd_set_abstraction_body(loop_outer, shd_bld_jump(inner_bb, loop_outer, inner_control_results));
             Node* outer_control_case = basic_block_helper(a, shd_singleton(join_token_exit));
@@ -229,7 +229,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
                 LARRAY(const Node*, recovered_args, exits[i].params_count);
                 for (size_t j = 0; j < exits[i].params_count; j++) {
                     recovered_args[j] = shd_bld_load(exit_recover_bb, exits[i].params[j].alloca);
-                    recovered_args[j] = scope_cast_helper(a, recovered_args[j], exits[i].params[j].scope);
+                    recovered_args[j] = scope_cast_helper(a, exits[i].params[j].scope, recovered_args[j]);
                 }
 
                 exit_numbers[i] = shd_int32_literal(a, i);
@@ -428,7 +428,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Nodes results = shd_bld_control(bb, yield_types, control_case);
             // make sure what was uniform still is
             for (size_t j = 0; j < old_params.count; j++) {
-                results = shd_change_node_at_index(a, results, j, scope_cast_helper(a, results.nodes[j], param_scope[j]));
+                results = shd_change_node_at_index(a, results, j, scope_cast_helper(a, param_scope[j], results.nodes[j]));
             }
             return shd_bld_jump(bb, join_target, results);
         }

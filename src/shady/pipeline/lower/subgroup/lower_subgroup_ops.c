@@ -137,7 +137,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
         if (strcmp("shady.primop", op.iset) == 0)
             return prim_op_helper(a, op.opcode, shd_empty(a), shd_singleton(src));
         if (strcmp("shady.scope_cast", op.iset) == 0)
-            return scope_cast_helper(a, src, shd_resolve_to_int_literal(shd_first(op.params))->value);
+            return scope_cast_helper(a, shd_resolve_to_int_literal(shd_first(op.params))->value, src);
         return shd_bld_ext_instruction(bb, op.iset, op.opcode, qualified_type_helper(a, ShdScopeSubgroup, src_t), shd_nodes_append(a, op.params, src));
     } else if (error_if_not_native) {
         shd_log_fmt(ERROR, "subgroup_first emulation is not supported for ");

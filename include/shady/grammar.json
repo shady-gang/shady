@@ -360,8 +360,8 @@
       "class": "value",
       "description": "Changes the qualified scope of a value",
       "ops": [
-        { "name": "src", "class": "value" },
-        { "name": "scope", "type": "ShdScope" }
+        { "name": "scope", "type": "ShdScope" },
+        { "name": "src", "class": "value" }
       ]
     },
     {
