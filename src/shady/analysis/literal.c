@@ -26,19 +26,19 @@ const Node* shd_chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                 ptr = payload.ptr;
                 continue;
             }
+            case BitCast_TAG: {
+                // chase ptr casts to their source
+                        // TODO: figure out round-trips through integer casts?
+                if (ptr->payload.bit_cast.type->tag == PtrType_TAG) {
+                    ptr = shd_first(ptr->payload.prim_op.operands);
+                    continue;
+                }
+                break;
+            }
             case PrimOp_TAG: {
                 switch (ptr->payload.prim_op.op) {
                     case convert_op: {
                         // chase generic pointers to their source
-                        if (shd_first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
-                            ptr = shd_first(ptr->payload.prim_op.operands);
-                            continue;
-                        }
-                        break;
-                    }
-                    case reinterpret_op: {
-                        // chase ptr casts to their source
-                        // TODO: figure out round-trips through integer casts?
                         if (shd_first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
                             ptr = shd_first(ptr->payload.prim_op.operands);
                             continue;
@@ -104,10 +104,17 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
                     continue;
                 }
             }
+            case BitCast_TAG: {
+                BitCast payload = node->payload.bit_cast;
+                if (config.allow_incompatible_types) {
+                    node = payload.src;
+                    continue;
+                }
+                break;
+            }
             case PrimOp_TAG: {
                 switch (node->payload.prim_op.op) {
-                    case convert_op:
-                    case reinterpret_op: {
+                    case convert_op: {
                         if (config.allow_incompatible_types) {
                             node = shd_first(node->payload.prim_op.operands);
                             continue;

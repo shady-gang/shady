@@ -29,6 +29,7 @@ static const Node* assert_and_strip_fn_addr(const Node* fn) {
     return fn;
 }
 
+// TODO: nuke from orbit
 static const Node* look_past_stuff(const Node* thing) {
     if (thing->tag == Constant_TAG) {
         const Node* instr = thing->payload.constant.value;
@@ -37,10 +38,12 @@ static const Node* look_past_stuff(const Node* thing) {
     }
     if (thing->tag == PrimOp_TAG) {
         switch (thing->payload.prim_op.op) {
-            case reinterpret_op:
             case convert_op: thing = shd_first(thing->payload.prim_op.operands); break;
             default: assert(false);
         }
+    }
+    if (thing->tag == BitCast_TAG) {
+        thing = thing->payload.bit_cast.src;
     }
     if (thing->tag == PtrCompositeElement_TAG) {
         thing = thing->payload.ptr_composite_element.ptr;

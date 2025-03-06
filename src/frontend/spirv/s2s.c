@@ -968,11 +968,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                .op = reinterpret_op,
-                .type_arguments = shd_singleton(dst_t),
-                .operands = shd_singleton(src)
-            }));
+            parser->defs[result].node = bit_cast_helper(parser->arena, dst_t, src);
             break;
         }
         case SpvOpInBoundsPtrAccessChain:

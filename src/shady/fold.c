@@ -77,16 +77,6 @@ break;
                     return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = int_literals[0]->value % int_literals[1]->value }));
                 else
                     return quote_single(arena, shd_fp_literal_helper(arena, float_width, fmod(shd_get_float_literal_value(*float_literals[0]), shd_get_float_literal_value(*float_literals[1]))));
-            case reinterpret_op: {
-                const Type* dst_t = shd_first(payload.type_arguments);
-                uint64_t raw_value = int_literals[0] ? int_literals[0]->value : float_literals[0]->value;
-                if (dst_t->tag == Int_TAG) {
-                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = raw_value }));
-                } else if (dst_t->tag == Float_TAG) {
-                    return quote_single(arena, float_literal(arena, (FloatLiteral) { .width = dst_t->payload.float_type.width, .value = raw_value }));
-                }
-                break;
-            }
             case convert_op: {
                 const Type* dst_t = shd_first(payload.type_arguments);
                 uint64_t bitmask = 0;
@@ -211,12 +201,6 @@ static inline const Node* resolve_ptr_source0(const Node* ptr, bool ensure_compa
                 if (shd_get_unqualified_type(src->type)->tag != PtrType_TAG)
                     break;
                 switch (instruction.op) {
-                    case reinterpret_op: {
-                        if (ensure_compatible_pointee)
-                            break;
-                        ptr = shd_first(instruction.operands);
-                        continue;
-                    }
                     case convert_op: {
                         // only ptr-to-generic pointers are acceptable
                         if (shd_first(instruction.type_arguments)->tag != PtrType_TAG)
@@ -227,6 +211,15 @@ static inline const Node* resolve_ptr_source0(const Node* ptr, bool ensure_compa
                     default: break;
                 }
                 break;
+            }
+            case BitCast_TAG: {
+                BitCast payload = ptr->payload.bit_cast;
+                if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
+                    break;
+                if (ensure_compatible_pointee)
+                    break;
+                ptr = payload.src;
+                continue;
             }
             case PtrCompositeElement_TAG: {
                 PtrCompositeElement payload = ptr->payload.ptr_composite_element;
@@ -278,7 +271,7 @@ static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compat
         const Node* r = ptr_non_compatible;
         // r = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(r->type))),shd_singleton(r));
         const Node* dst_t = change_pointee(shd_get_unqualified_type(r->type), shd_get_unqualified_type(ptr->type)->payload.ptr_type.pointed_type);
-        r = prim_op_helper(arena, reinterpret_op, shd_singleton(dst_t),shd_singleton(r));
+        r = bit_cast_helper(arena, dst_t, r);
         return r;
     }
 
@@ -402,39 +395,9 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     PrimOp payload = node->payload.prim_op;
     switch (payload.op) {
         // TODO: case subgroup_broadcast_first_op:
-        case convert_op:
-        case reinterpret_op: {
-            // get rid of identity casts
+        case convert_op: {
             if (payload.type_arguments.nodes[0] == shd_get_unqualified_type(payload.operands.nodes[0]->type))
                 return quote_single(arena, payload.operands.nodes[0]);
-            // reinterpret[A](reinterpret[B](x)) => reinterpret[A](x)
-            if (payload.op == reinterpret_op) {
-                const Node* src = shd_first(payload.operands);
-                if (src->tag == PrimOp_TAG && src->payload.prim_op.op == reinterpret_op) {
-                    payload.operands = shd_singleton(shd_first(src->payload.prim_op.operands));
-                    return prim_op(arena, payload);
-                }
-                // over-fit hack for LLVM output:
-                if (shd_first(payload.type_arguments)->tag == PtrType_TAG && shd_get_unqualified_type(src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
-                    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(src->type));
-                    if (src_type->tag == NominalType_TAG)
-                        src_type = src_type->payload.nom_type.body;
-                    const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
-                    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
-                        if (src_type->payload.record_type.members.nodes[0] == dst_type) {
-                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
-                        }
-                    } else if (src_type->tag == PackType_TAG) {
-                        if (src_type->payload.pack_type.element_type == dst_type) {
-                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
-                        }
-                    } else if (src_type->tag == ArrType_TAG) {
-                        if (src_type->payload.arr_type.element_type == dst_type) {
-                            return ptr_composite_element_helper(arena, src, shd_uint32_literal(arena, 0));
-                        }
-                    }
-                }
-            }
             break;
         }
         default: break;
@@ -472,7 +435,6 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
         case PrimOp_TAG: {
             PrimOp payload = node->payload.prim_op;
             switch (payload.op) {
-                case reinterpret_op:
                 case convert_op: {
                     if (shd_first(payload.operands)->tag == Undef_TAG)
                         return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
@@ -515,6 +477,48 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             ScopeCast payload = node->payload.scope_cast;
             if (shd_get_qualified_type_scope(payload.src->type) <= payload.scope)
                 return quote_single(arena, payload.src);
+            break;
+        }
+        case BitCast_TAG: {
+            BitCast payload = node->payload.bit_cast;
+            // get rid of identity casts
+            if (shd_get_unqualified_type(payload.src->type) == payload.type)
+                return payload.src;
+            switch (payload.src->tag) {
+                case Undef_TAG: return undef_helper(arena, payload.type);
+                // reinterpret[A](reinterpret[B](x)) => reinterpret[A](x)
+                case BitCast_TAG: return bit_cast_helper(arena, payload.type, payload.src->payload.bit_cast.src);
+                default: break;
+            }
+            // Canonize typical LLVM output
+            if (payload.type->tag == PtrType_TAG && shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
+                const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(payload.src->type));
+                if (src_type->tag == NominalType_TAG)
+                    src_type = src_type->payload.nom_type.body;
+                const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
+                if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
+                    if (src_type->payload.record_type.members.nodes[0] == dst_type) {
+                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                    }
+                } else if (src_type->tag == PackType_TAG) {
+                    if (src_type->payload.pack_type.element_type == dst_type) {
+                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                    }
+                } else if (src_type->tag == ArrType_TAG) {
+                    if (src_type->payload.arr_type.element_type == dst_type) {
+                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                    }
+                }
+            }
+            if (payload.type->tag == Int_TAG) {
+                const FloatLiteral* lit = shd_resolve_to_float_literal(payload.src);
+                if (lit)
+                    return int_literal(arena, (IntLiteral) { .is_signed = payload.type->payload.int_type.is_signed, .width = payload.type->payload.int_type.width, .value = lit->value });
+            } else if (payload.type->tag == Float_TAG) {
+                const IntLiteral* lit = shd_resolve_to_int_literal(payload.src);
+                if (lit)
+                    return float_literal(arena, (FloatLiteral) { .width = payload.type->payload.float_type.width, .value = lit->value });
+            }
             break;
         }
         case Branch_TAG: {

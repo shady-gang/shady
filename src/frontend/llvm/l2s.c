@@ -193,7 +193,7 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
         .jumps_todo = shd_new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
-    r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) { .address_space = AsCode, .pointed_type = unit_type(a) })), shd_singleton(r));
+    r = bit_cast_helper(a, ptr_type(a, (PtrType) { .address_space = AsCode, .pointed_type = unit_type(a) }), r);
     //r = prim_op_helper(a, convert_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
     shd_dict_insert(LLVMValueRef, const Node*, p->map, fn, r);
 
@@ -285,7 +285,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         }
 
         if (UNTYPED_POINTERS) {
-            const Node* r = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_t), shd_singleton(decl));
+            const Node* r = bit_cast_helper(a, ptr_t, decl);
             shd_dict_insert(LLVMValueRef, const Node*, p->map, global, r);
             return r;
         }

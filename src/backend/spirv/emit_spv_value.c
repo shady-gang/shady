@@ -108,14 +108,6 @@ static const IselTableEntry isel_table[] = {
         { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_ILLEGAL,  ISEL_IDENTITY }
     }},
 
-    [reinterpret_op] = {Plain, FirstAndResult, TyOperand, .foar = {
-        { ISEL_ILLEGAL,      SpvOpBitcast,       SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
-        { SpvOpBitcast,       ISEL_ILLEGAL,      SpvOpBitcast,  ISEL_ILLEGAL,  SpvOpConvertUToPtr },
-        { SpvOpBitcast,       SpvOpBitcast,       ISEL_IDENTITY, ISEL_ILLEGAL,  ISEL_ILLEGAL /* no fp-ptr casts */ },
-        { ISEL_ILLEGAL,       ISEL_ILLEGAL,       ISEL_ILLEGAL,  ISEL_IDENTITY, ISEL_ILLEGAL /* no bool reinterpret */ },
-        { SpvOpConvertPtrToU, SpvOpConvertPtrToU, ISEL_ILLEGAL,  ISEL_ILLEGAL,  ISEL_CUSTOM }
-    }},
-
     [sqrt_op] =     { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Sqrt },
     [inv_sqrt_op] = { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450InverseSqrt},
     [floor_op] =    { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Floor },
@@ -208,13 +200,6 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
 
     custom:
     switch (the_op.op) {
-        case reinterpret_op: {
-            const Type* dst = shd_first(the_op.type_arguments);
-            const Type* src = shd_get_unqualified_type(shd_first(the_op.operands)->type);
-            assert(dst->tag == PtrType_TAG && src->tag == PtrType_TAG);
-            assert(src != dst);
-            return spvb_op(bb_builder, SpvOpBitcast, spv_emit_type(emitter, dst), 1, (SpvId[]) {spv_emit_value(emitter, fn_builder, shd_first(the_op.operands)) });
-        }
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
@@ -428,6 +413,24 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             spvb_store(bb_builder, eval, eptr, operands_count, operands);
             return 0;
         }
+        case Instruction_BitCast_TAG: {
+            BitCast payload = instruction->payload.bit_cast;
+            bool src_ptr = shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG;
+            bool dst_ptr = payload.type->tag == PtrType_TAG;
+            SpvOp op = SpvOpBitcast;
+            if (src_ptr && !dst_ptr)
+                op = SpvOpConvertPtrToU;
+            else if (!src_ptr && dst_ptr)
+                op = SpvOpConvertUToPtr;
+            SpvId src = spv_emit_value(emitter, fn_builder, payload.src);
+            return spvb_op(bb_builder, op, spv_emit_type(emitter, instruction->type), 1, &src);
+        }
+        case Instruction_ScopeCast_TAG: {
+            SpvId new = spv_emit_value(emitter, fn_builder, instruction->payload.scope_cast.src);
+            if (emitter->spirv_tgt.target_version.minor > 4)
+                new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, instruction->type), 1, &new);
+            break;
+        }
         case Instruction_PtrCompositeElement_TAG: {
             PtrCompositeElement payload = instruction->payload.ptr_composite_element;
             SpvId base = spv_emit_value(emitter, fn_builder, payload.ptr);
@@ -540,12 +543,6 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         }
         case Value_Undef_TAG: {
             new = spvb_undef(emitter->file_builder, spv_emit_type(emitter, node->payload.undef.type));
-            break;
-        }
-        case Value_ScopeCast_TAG: {
-            new = spv_emit_value(emitter, fn_builder, node->payload.scope_cast.src);
-            if (emitter->spirv_tgt.target_version.minor > 4)
-                new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, node->type), 1, &new);
             break;
         }
         case Value_Fill_TAG: shd_error("lower me")

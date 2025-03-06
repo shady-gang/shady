@@ -70,7 +70,6 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
                     visit_ptr_uses(use->user, slice_type, k, map);
                     continue;
                 }*/
-                case reinterpret_op:
                 case convert_op: {
                     if (shd_first(payload.type_arguments)->tag == PtrType_TAG) {
                         k->non_logical_use = true;
@@ -84,6 +83,14 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             }
             if (shd_has_primop_got_side_effects(payload.op))
                 k->leaks = true;
+        } else if (use->user->tag == BitCast_TAG) {
+            BitCast payload = use->user->payload.bit_cast;
+            if (payload.type->tag == PtrType_TAG) {
+                k->non_logical_use = true;
+                visit_ptr_uses(use->user, slice_type, k, map);
+            } else {
+                k->leaks = true;
+            }
         } else if (use->user->tag == PtrArrayElementOffset_TAG) {
             visit_ptr_uses(use->user, slice_type, k, map);
             k->non_logical_use = true;
@@ -106,11 +113,15 @@ static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr
                 k.src_alloca = *shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, instr);
                 return k;
             }
+            case BitCast_TAG: {
+                BitCast payload = instr->payload.bit_cast;
+                ptr = payload.src;
+                continue;
+            }
             case PrimOp_TAG: {
                 PrimOp payload = instr->payload.prim_op;
                 switch (payload.op) {
-                    case convert_op:
-                    case reinterpret_op: {
+                    case convert_op: {
                         ptr = shd_first(payload.operands);
                         continue;
                     }

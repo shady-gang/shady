@@ -287,6 +287,12 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Node* value = infer(ctx, node->payload.fill.value, qualified_type(a, (QualifiedType) { .scope = scope, .type = element_t }));
             return fill(a, (Fill) { .type = composite_t, .value = value });
         }
+        case Value_BitCast_TAG: {
+            BitCast payload = node->payload.bit_cast;
+            const Type* dst_t = infer(ctx, payload.type, NULL);
+            const Type* src = infer(ctx, payload.src, dst_t);
+            return bit_cast_helper(a, dst_t, src);
+        }
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, node);
@@ -327,13 +333,13 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = shd_empty(a);
     switch (node->payload.prim_op.op) {
-        case reinterpret_op:
         case convert_op: {
             new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
             const Type* src_pointer_type = shd_get_unqualified_type(new_operands[0]->type);
             const Type* old_dst_pointer_type = shd_first(old_type_args);
             const Type* dst_pointer_type = shd_first(type_args);
 
+            // TODO: this is vestigial (reinterpret_op), was it still needed ?
             if (shd_is_generic_ptr_type(src_pointer_type) != shd_is_generic_ptr_type(dst_pointer_type))
                 op = convert_op;
 

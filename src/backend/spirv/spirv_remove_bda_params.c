@@ -20,9 +20,9 @@ static Nodes rewrite_args(Context* ctx, const Nodes old) {
     for (size_t i = 0; i < old.count; i++) {
         const Node* new = shd_rewrite_node(r, old.nodes[i]);
         const Type* t = old.nodes[i]->type;
-        ShdScope s = shd_deconstruct_qualified_type(&t);
+        shd_deconstruct_qualified_type(&t);
         if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-            new = prim_op_helper(a, reinterpret_op, shd_singleton(int_type_helper(a, target->memory.ptr_size, false)), shd_singleton(new));
+            new = bit_cast_helper(a, int_type_helper(a, target->memory.ptr_size, false), new);
         }
         arr[i] = new;
     }
@@ -43,7 +43,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ShdScope s = shd_deconstruct_qualified_type(&t);
                 if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
                     const Node* param = param_helper(a, qualified_type_helper(a, s, int_type_helper(a, target->memory.ptr_size, false)));
-                    const Node* reinterpreted = prim_op_helper(a, reinterpret_op, shd_singleton(t), shd_singleton(param));
+                    const Node* reinterpreted = bit_cast_helper(a, t, param);
                     payload.params = shd_change_node_at_index(a, payload.params, i, param);
                     shd_register_processed(r, get_abstraction_params(node).nodes[i], reinterpreted);
                 } else {

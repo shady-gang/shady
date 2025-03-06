@@ -357,10 +357,19 @@
     },
     {
       "name": "ScopeCast",
-      "class": "value",
+      "class": ["value", "instruction"],
       "description": "Changes the qualified scope of a value",
       "ops": [
         { "name": "scope", "type": "ShdScope" },
+        { "name": "src", "class": "value" }
+      ]
+    },
+    {
+      "name": "BitCast",
+      "class": ["value", "instruction"],
+      "description": "Reinterprets the bit-pattern of a value into a different type",
+      "ops": [
+        { "name": "type", "class": "type" },
         { "name": "src", "class": "value" }
       ]
     },

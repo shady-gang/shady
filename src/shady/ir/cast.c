@@ -7,7 +7,7 @@
 
 const Node* shd_bld_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
     assert(is_type(dst));
-    return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = reinterpret_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
+    return bit_cast_helper(shd_get_bb_arena(bb), dst, src);
 }
 
 const Node* shd_bld_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {

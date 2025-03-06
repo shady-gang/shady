@@ -31,10 +31,17 @@ static const Node* get_ptr_source(const Node* ptr) {
                 ptr = payload.ptr;
                 break;
             }
+            case BitCast_TAG: {
+                BitCast payload = ptr->payload.bit_cast;
+                if (shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG) {
+                    ptr = payload.src;
+                    continue;
+                }
+                break;
+            }
             case PrimOp_TAG: {
                 PrimOp payload = ptr->payload.prim_op;
                 switch (payload.op) {
-                    case reinterpret_op:
                     case convert_op: {
                         const Node* src = shd_first(payload.operands);
                         if (shd_get_unqualified_type(src->type)->tag == PtrType_TAG) {

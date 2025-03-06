@@ -152,7 +152,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobal: {
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
-                const Node* unsigned_value = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_int_t), shd_singleton(value));
+                const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
                 return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
             }
             default: shd_error("TODO")
@@ -199,7 +199,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
-            const Node* unsigned_value = prim_op_helper(a, reinterpret_op, shd_singleton(unsigned_int_t), shd_singleton(value));
+            const Node* unsigned_value = bit_cast_helper(a, unsigned_int_t, value);
             return gen_serialisation(ctx, bb, unsigned_int_t, arr, address, unsigned_value);
         }
         case RecordType_TAG: {

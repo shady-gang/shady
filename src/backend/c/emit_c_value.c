@@ -129,16 +129,6 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             emitted = name;
             break;
         }
-        case Value_ScopeCast_TAG: {
-            ScopeCast payload = value->payload.scope_cast;
-            if (payload.scope <= ShdScopeSubgroup) {
-                if (emitter->config.dialect == CDialect_ISPC) {
-                    CValue vvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src));
-                    return broadcast_first(emitter, vvalue, payload.src);
-                }
-            }
-            return shd_c_emit_value(emitter, fn, payload.src);
-        }
         case Value_NullPtr_TAG: return term_from_cvalue("NULL");
         case Value_Composite_TAG: {
             const Type* type = value->payload.composite.type;
@@ -452,6 +442,84 @@ static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm exp
         return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_deref(emitter, expr), index2);
 }
 
+static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
+    IrArena* arena = emitter->arena;
+    BitCast payload = node->payload.bit_cast;
+    CTerm src_value = shd_c_emit_value(emitter, fn, payload.src);
+    const Type* src_type = shd_get_unqualified_type(payload.src->type);
+    const Type* dst_type = payload.type;
+    switch (emitter->config.dialect) {
+        case CDialect_CUDA:
+        case CDialect_C11: {
+            String src = shd_make_unique_name(arena, "bitcast_src");
+            String dst = shd_make_unique_name(arena, "bitcast_result");
+            shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, src_type, src), shd_c_to_ssa(emitter, src_value));
+            shd_print(p, "\n%s;", shd_c_emit_type(emitter, dst_type, dst));
+            shd_print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
+            return term_from_cvalue(dst);
+        }
+        // GLSL does not feature arbitrary casts, instead we need to run specialized conversion functions...
+        case CDialect_GLSL: {
+            String conv_fn = NULL;
+            if (dst_type->tag == Float_TAG) {
+                assert(src_type->tag == Int_TAG);
+                switch (dst_type->payload.float_type.width) {
+                    case FloatTy16: break;
+                    case FloatTy32: conv_fn = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
+                        break;
+                    case FloatTy64: break;
+                }
+            } else if (dst_type->tag == Int_TAG) {
+                if (src_type->tag == Int_TAG) {
+                    if (!emitter->config.explicitly_sized_types)
+                        conv_fn = dst_type->payload.int_type.is_signed ? "int" : "uint";
+                    else
+                        conv_fn = shd_c_emit_type(emitter, dst_type, NULL);
+                } else {
+                    assert(src_type->tag == Float_TAG);
+                    switch (src_type->payload.float_type.width) {
+                        case FloatTy16: break;
+                        case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
+                            break;
+                        case FloatTy64: break;
+                    }
+                }
+            }
+            if (conv_fn) {
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, shd_c_to_ssa(emitter, src_value)));
+            }
+            shd_error_print("glsl: unsupported bit cast from ");
+            shd_log_node(ERROR, src_type);
+            shd_error_print(" to ");
+            shd_log_node(ERROR, dst_type);
+            shd_error_print(".\n");
+            shd_error_die();
+        }
+        case CDialect_ISPC: {
+            if (dst_type->tag == Float_TAG) {
+                assert(src_type->tag == Int_TAG);
+                String n;
+                switch (dst_type->payload.float_type.width) {
+                    case FloatTy16: n = "float16bits";
+                        break;
+                    case FloatTy32: n = "floatbits";
+                        break;
+                    case FloatTy64: n = "doublebits";
+                        break;
+                }
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", n, shd_c_to_ssa(emitter, src_value)));
+            } else if (src_type->tag == Float_TAG) {
+                assert(dst_type->tag == Int_TAG);
+                return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "intbits(%s)", shd_c_to_ssa(emitter, src_value)));
+            }
+
+            CType t = shd_c_emit_type(emitter, dst_type, NULL);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src_value)));
+        }
+    }
+    SHADY_UNREACHABLE;
+}
+
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
@@ -561,81 +629,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                 term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src)));
             }
             break;
-        }
-        case reinterpret_op: {
-            CTerm src_value = shd_c_emit_value(emitter, fn, shd_first(prim_op->operands));
-            const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
-            const Type* dst_type = shd_first(prim_op->type_arguments);
-            switch (emitter->config.dialect) {
-                case CDialect_CUDA:
-                case CDialect_C11: {
-                    String src = shd_make_unique_name(arena, "bitcast_src");
-                    String dst = shd_make_unique_name(arena, "bitcast_result");
-                    shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, src_type, src), shd_c_to_ssa(emitter, src_value));
-                    shd_print(p, "\n%s;", shd_c_emit_type(emitter, dst_type, dst));
-                    shd_print(p, "\nmemcpy(&%s, &%s, sizeof(%s));", dst, src, src);
-                    return term_from_cvalue(dst);
-                }
-                // GLSL does not feature arbitrary casts, instead we need to run specialized conversion functions...
-                case CDialect_GLSL: {
-                    String conv_fn = NULL;
-                    if (dst_type->tag == Float_TAG) {
-                        assert(src_type->tag == Int_TAG);
-                        switch (dst_type->payload.float_type.width) {
-                            case FloatTy16: break;
-                            case FloatTy32: conv_fn = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
-                                break;
-                            case FloatTy64: break;
-                        }
-                    } else if (dst_type->tag == Int_TAG) {
-                        if (src_type->tag == Int_TAG) {
-                            if (!emitter->config.explicitly_sized_types)
-                                conv_fn = dst_type->payload.int_type.is_signed ? "int" : "uint";
-                            else
-                                conv_fn = shd_c_emit_type(emitter, dst_type, NULL);
-                        } else {
-                            assert(src_type->tag == Float_TAG);
-                            switch (src_type->payload.float_type.width) {
-                                case FloatTy16: break;
-                                case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
-                                    break;
-                                case FloatTy64: break;
-                            }
-                        }
-                    }
-                    if (conv_fn) {
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", conv_fn, shd_c_to_ssa(emitter, src_value)));
-                    }
-                    shd_error_print("glsl: unsupported bit cast from ");
-                    shd_log_node(ERROR, src_type);
-                    shd_error_print(" to ");
-                    shd_log_node(ERROR, dst_type);
-                    shd_error_print(".\n");
-                    shd_error_die();
-                }
-                case CDialect_ISPC: {
-                    if (dst_type->tag == Float_TAG) {
-                        assert(src_type->tag == Int_TAG);
-                        String n;
-                        switch (dst_type->payload.float_type.width) {
-                            case FloatTy16: n = "float16bits";
-                                break;
-                            case FloatTy32: n = "floatbits";
-                                break;
-                            case FloatTy64: n = "doublebits";
-                                break;
-                        }
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", n, shd_c_to_ssa(emitter, src_value)));
-                    } else if (src_type->tag == Float_TAG) {
-                        assert(dst_type->tag == Int_TAG);
-                        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "intbits(%s)", shd_c_to_ssa(emitter, src_value)));
-                    }
-
-                    CType t = shd_c_emit_type(emitter, dst_type, NULL);
-                    return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src_value)));
-                }
-            }
-            SHADY_UNREACHABLE;
         }
         case insert_op:
         case extract_dynamic_op:
@@ -1095,6 +1088,17 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             shd_c_emit_mem(emitter, fn, payload.mem);
             shd_print(p, "\nmemset(%s, %s, %s);", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.dst)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.count)));
             return empty_term();
+        }
+        case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
+        case Value_ScopeCast_TAG: {
+            ScopeCast payload = instruction->payload.scope_cast;
+            if (payload.scope <= ShdScopeSubgroup) {
+                if (emitter->config.dialect == CDialect_ISPC) {
+                    CValue vvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src));
+                    return broadcast_first(emitter, vvalue, payload.src);
+                }
+            }
+            return shd_c_emit_value(emitter, fn, payload.src);
         }
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;

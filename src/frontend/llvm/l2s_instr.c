@@ -37,7 +37,7 @@ static Nodes reinterpret_operands(BodyBuilder* b, Nodes ops, const Type* dst_t) 
     IrArena* a = dst_t->arena;
     LARRAY(const Node*, nops, ops.count);
     for (size_t i = 0; i < ops.count; i++)
-        nops[i] = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(dst_t), shd_singleton(ops.nodes[i])));
+        nops[i] = bit_cast_helper(a, dst_t, ops.nodes[i]);
     return shd_nodes(a, ops.count, nops);
 }
 
@@ -76,7 +76,7 @@ static const Node* convert_jump(Parser* p, FnParseCtx* fn_ctx, const Node* src, 
     return jump_helper(a, mem, dst_bb, shd_nodes(a, params_count, params));
 }
 
-static const Type* type_untyped_ptr(const Type* untyped_ptr_t, const Type* element_type) {
+static const Type* add_pointee_to_ptr_t(const Type* untyped_ptr_t, const Type* element_type) {
     IrArena* a = untyped_ptr_t->arena;
     assert(element_type);
     assert(untyped_ptr_t->tag == PtrType_TAG);
@@ -200,14 +200,16 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMSDiv: {
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
-            return  prim_op_helper(a, reinterpret_op, shd_singleton(int_t), shd_singleton(prim_op_helper(a, div_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t))));
+            const Node* r = prim_op_helper(a, div_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            r = bit_cast_helper(a, int_t, r);
         } case LLVMURem:
         case LLVMFRem:
             return prim_op_helper(a, mod_op, shd_empty(a), convert_operands(p, num_ops, instr));
         case LLVMSRem: {
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
-            return prim_op_helper(a, reinterpret_op, shd_singleton(int_t), shd_singleton(prim_op_helper(a, mod_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t))));
+            const Node* r = prim_op_helper(a, mod_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            r = bit_cast_helper(a, int_t, r);
         } case LLVMShl:
             return prim_op_helper(a, lshift_op, shd_empty(a), convert_operands(p, num_ops, instr));
         case LLVMLShr:
@@ -227,7 +229,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             const Node* r = shd_bld_add_instruction(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bld_mem(b) }));
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
-                r = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r)));
+                r = bit_cast_helper(a, untyped_ptr_t, r);
             }
             return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(r));
         }
@@ -238,8 +240,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             if (UNTYPED_POINTERS) {
                 const Type* element_t = t;
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
-                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
+                const Type* typed_ptr_t = add_pointee_to_ptr_t(untyped_ptr_t, element_t);
+                ptr = bit_cast_helper(a, typed_ptr_t, ptr);
             }
             return shd_bld_add_instruction(b, load(a, (Load) { .ptr = ptr, .mem = shd_bld_mem(b) }));
         }
@@ -251,8 +253,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             if (UNTYPED_POINTERS) {
                 const Type* element_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 1)));
-                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
+                const Type* typed_ptr_t = add_pointee_to_ptr_t(untyped_ptr_t, element_t);
+                ptr = bit_cast_helper(a, typed_ptr_t, ptr);
             }
             return shd_bld_add_instruction(b, store(a, (Store) { .ptr = ptr, .value = ops.nodes[0], .mem = shd_bld_mem(b) }));
         }
@@ -262,8 +264,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             if (UNTYPED_POINTERS) {
                 const Type* element_t = l2s_convert_type(p, LLVMGetGEPSourceElementType(instr));
                 const Type* untyped_ptr_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
-                const Type* typed_ptr = type_untyped_ptr(untyped_ptr_t, element_t);
-                ptr = shd_bld_add_instruction(b, prim_op_helper(a, reinterpret_op, shd_singleton(typed_ptr), shd_singleton(ptr)));
+                const Type* typed_ptr_t = add_pointee_to_ptr_t(untyped_ptr_t, element_t);
+                ptr = bit_cast_helper(a, typed_ptr_t, ptr);
             }
             ops = shd_change_node_at_index(a, ops, 0, ptr);
             const Node* r = lea_helper(a, ops.nodes[0], ops.nodes[1], shd_nodes(a, ops.count - 2, &ops.nodes[2]));
@@ -273,7 +275,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 ShdScope idc;
                 //element_t = shd_as_qualified_type(element_t, false);
                 shd_enter_composite_type_indices(&element_t, &idc, shd_nodes(a, ops.count - 2, &ops.nodes[2]), true);
-                r = prim_op_helper(a, reinterpret_op, shd_singleton(untyped_ptr_t), shd_singleton(r));
+                r = bit_cast_helper(a, untyped_ptr_t, r);
             }
             return r;
         }
@@ -297,7 +299,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* unsigned_src_t = change_int_t_sign(src_t, false);
                 const Type* unsigned_dst_t = change_int_t_sign(t, false);
                 r = prim_op_helper(a, convert_op, shd_singleton(unsigned_dst_t), reinterpret_operands(b, ops, unsigned_src_t));
-                r = prim_op_helper(a, reinterpret_op, shd_singleton(t), shd_singleton(r));
+                r = bit_cast_helper(a, t, r);
             }
             return r;
         } case LLVMSExt: {
@@ -315,7 +317,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* signed_src_t = change_int_t_sign(src_t, true);
                 const Type* signed_dst_t = change_int_t_sign(t, true);
                 r = prim_op_helper(a, convert_op, shd_singleton(signed_dst_t), reinterpret_operands(b, ops, signed_src_t));
-                r = prim_op_helper(a, reinterpret_op, shd_singleton(t), shd_singleton(r));
+                r = bit_cast_helper(a, t, r);
             }
             return r;
         } case LLVMFPToUI:
@@ -334,7 +336,6 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             // when constructing or deconstructing generic pointers, we need to emit a convert_op instead
             assert(num_ops == 1);
             const Node* src = shd_first(convert_operands(p, num_ops, instr));
-            Op op = reinterpret_op;
             const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             if (src_t->tag == PtrType_TAG && t->tag == PtrType_TAG) {
                 if ((t->payload.ptr_type.address_space == AsGeneric)) {
@@ -342,15 +343,14 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         case AsGeneric: // generic-to-generic isn't a conversion.
                             break;
                         default: {
-                            op = convert_op;
-                            break;
+                            return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(src));
                         }
                     }
                 }
             } else {
                 assert(opcode != LLVMAddrSpaceCast);
             }
-            return prim_op_helper(a, op, shd_singleton(t), shd_singleton(src));
+            return bit_cast_helper(a, t, src);
         }
         case LLVMICmp: {
             Op op;
@@ -573,10 +573,10 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 Nodes ops = convert_operands(p, num_ops, instr);
                 r = shd_bld_add_instruction(b, indirect_call(a, (IndirectCall) {
                     .mem = shd_bld_mem(b),
-                    .callee = prim_op_helper(a, reinterpret_op, shd_singleton(ptr_type(a, (PtrType) {
+                    .callee = bit_cast_helper(a, ptr_type(a, (PtrType) {
                         .address_space = AsCode,
                         .pointed_type = l2s_convert_type(p, callee_type)
-                    })), shd_singleton(ops.nodes[num_args])),
+                    }), ops.nodes[num_args]),
                     .args = shd_nodes(a, num_args, ops.nodes),
                 }));
             }

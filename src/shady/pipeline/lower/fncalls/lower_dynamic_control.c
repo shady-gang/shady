@@ -130,7 +130,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                     case ShadyOpCreateJoinPoint:
                         callee_name = "builtin_create_control_point";
-                        const Node* dst = prim_op_helper(a, reinterpret_op, shd_singleton(int_type_helper(a, ctx->config->target.fn_ptr_size, false)), shd_singleton(args.nodes[0]));
+                        const Node* dst = bit_cast_helper(a, int_type_helper(a, ctx->config->target.fn_ptr_size, false), args.nodes[0]);
                         args = shd_change_node_at_index(a, args, 0, dst);
                         break;
                     default: goto rebuild;
