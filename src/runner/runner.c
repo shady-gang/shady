@@ -16,13 +16,13 @@ Runner* shd_rn_initialize(RunnerConfig config) {
 
 #if VK_BACKEND_PRESENT
     Backend* vk_backend = shd_vkr_init(runtime);
-    CHECK(vk_backend, goto init_fail_free);
-    shd_list_append(Backend*, runtime->backends, vk_backend);
+    if (vk_backend)
+        shd_list_append(Backend*, runtime->backends, vk_backend);
 #endif
 #if CUDA_BACKEND_PRESENT
     Backend* cuda_backend = shd_cur_init(runtime);
-    CHECK(cuda_backend, goto init_fail_free);
-    shd_list_append(Backend*, runtime->backends, cuda_backend);
+    if (cuda_backend)
+        shd_list_append(Backend*, runtime->backends, cuda_backend);
 #endif
 
     shd_info_print("Shady runtime successfully initialized !\n");
