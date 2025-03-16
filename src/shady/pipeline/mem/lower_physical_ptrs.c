@@ -63,7 +63,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                 // TODO: add a per-as size configuration
                 const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
                 const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
-                return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
+                return shd_bld_bitcast(bb, element_type, unsigned_int);
             }
             default: shd_error("TODO")
         }
@@ -92,13 +92,13 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
                     widened = shd_bld_conversion(bb, shd_uint32_type(a), acc);
                 shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
             }
-            acc = shd_bld_reinterpret_cast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
+            acc = shd_bld_bitcast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
             return acc;
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
-            return shd_bld_reinterpret_cast(bb, element_type, unsigned_int);
+            return shd_bld_bitcast(bb, element_type, unsigned_int);
         }
         case NominalType_TAG:
         case RecordType_TAG: {

@@ -199,13 +199,13 @@ static const Node* process(Context* ctx, const Node* old) {
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
                 const Type* access_type = shd_get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
-                if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                if (shd_is_bitcast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
                     BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                     const Node* data = shd_bld_load(bb, k.src_alloca->new);
-                    data = shd_bld_reinterpret_cast(bb, access_type, data);
+                    data = shd_bld_bitcast(bb, access_type, data);
                     return shd_bld_to_instr_yield_value(bb, data);
                 }
             }
@@ -217,12 +217,12 @@ static const Node* process(Context* ctx, const Node* old) {
             PtrSourceKnowledge k = get_ptr_source_knowledge(ctx, payload.ptr);
             if (k.src_alloca) {
                 const Type* access_type = shd_get_pointer_type_element(shd_get_unqualified_type(shd_rewrite_node(r, payload.ptr->type)));
-                if (shd_is_reinterpret_cast_legal(access_type, k.src_alloca->type)) {
+                if (shd_is_bitcast_legal(access_type, k.src_alloca->type)) {
                     if (k.src_alloca->new == shd_rewrite_node(r, payload.ptr))
                         break;
                     *ctx->todo |= true;
                     BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-                    const Node* data = shd_bld_reinterpret_cast(bb, access_type, shd_rewrite_node(r, payload.value));
+                    const Node* data = shd_bld_bitcast(bb, access_type, shd_rewrite_node(r, payload.value));
                     shd_bld_store(bb, k.src_alloca->new, data);
                     return shd_bld_to_instr_yield_values(bb, shd_empty(a));
                 }

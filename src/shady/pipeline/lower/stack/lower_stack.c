@@ -66,7 +66,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     assert(shd_get_unqualified_type(addr->type)->tag == PtrType_TAG);
     AddressSpace addr_space = shd_get_unqualified_type(addr->type)->payload.ptr_type.address_space;
 
-    addr = shd_bld_reinterpret_cast(bb, ptr_type(a, (PtrType) { .address_space = addr_space, .pointed_type = element_type }), addr);
+    addr = shd_bld_bitcast(bb, ptr_type(a, (PtrType) { .address_space = addr_space, .pointed_type = element_type }), addr);
 
     const Node* popped_value = NULL;
     if (push)

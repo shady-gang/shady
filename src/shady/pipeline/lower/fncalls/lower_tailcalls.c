@@ -127,7 +127,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = shd_bld_reinterpret_cast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), target);
+            target = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), target);
 
             if (ctx->config->target.native_tailcalls)
                 break;

@@ -116,8 +116,8 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
             break;
         }
         case Type_PtrType_TAG: {
-            param = shd_bld_reinterpret_cast(bb, shd_uint64_type(a), param);
-            return shd_bld_reinterpret_cast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));
+            param = shd_bld_bitcast(bb, shd_uint64_type(a), param);
+            return shd_bld_bitcast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));
         }
         default: break;
     }

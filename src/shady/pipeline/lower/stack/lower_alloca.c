@@ -148,7 +148,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* converted_offset = shd_bld_convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
                 const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
-                slot = shd_bld_reinterpret_cast(bb, ptr_t, slot);
+                slot = shd_bld_bitcast(bb, ptr_t, slot);
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
                 const Node* updated_stack_ptr = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));

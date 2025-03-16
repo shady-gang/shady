@@ -563,7 +563,7 @@ const Type* _shd_check_type_bit_cast(IrArena* a, BitCast cast) {
     ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
 
     assert(shd_is_data_type(cast.type));
-    assert(shd_is_reinterpret_cast_legal(src_type, cast.type));
+    assert(shd_is_bitcast_legal(src_type, cast.type));
 
     return qualified_type(a, (QualifiedType) {
         .scope = src_scope,

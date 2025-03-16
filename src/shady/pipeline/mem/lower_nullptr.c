@@ -19,7 +19,7 @@ static const Node* make_nullptr(Context* ctx, const Type* t) {
         return found;
 
     BodyBuilder* bb = shd_bld_begin_pure(a);
-    const Node* nul = shd_bld_reinterpret_cast(bb, t, shd_uint64_literal(a, 0));
+    const Node* nul = shd_bld_bitcast(bb, t, shd_uint64_literal(a, 0));
     Node* decl = constant_helper(ctx->rewriter.dst_module, t);
     shd_set_debug_name(decl, shd_fmt_string_irarena(a, "nullptr_%s", shd_get_type_name(a, t)));
     shd_add_annotation_named(decl, "Generated");

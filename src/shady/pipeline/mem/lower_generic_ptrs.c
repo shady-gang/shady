@@ -61,7 +61,7 @@ static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t 
     //          patched_ptr = patched_ptr | sign_extension_patch
                 patched_ptr = prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, patched_ptr, sign_extension_patch));
     const Type* dst_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = get_addr_space_from_tag(tag) });
-    const Node* reinterpreted_ptr = shd_bld_reinterpret_cast(bb, dst_ptr_t, patched_ptr);
+    const Node* reinterpreted_ptr = shd_bld_bitcast(bb, dst_ptr_t, patched_ptr);
     return reinterpreted_ptr;
 }
 
@@ -250,7 +250,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
                         // gen_comment(bb, x);
                         const Node* src_ptr = shd_rewrite_node(&ctx->rewriter, old_src);
-                        const Node* generic_ptr = shd_bld_reinterpret_cast(bb, ctx->generic_ptr_type, src_ptr);
+                        const Node* generic_ptr = shd_bld_bitcast(bb, ctx->generic_ptr_type, src_ptr);
                         const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
                         //          generic_ptr = generic_ptr & 0x001111 ... 111
                                     generic_ptr = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));

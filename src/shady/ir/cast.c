@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-const Node* shd_bld_reinterpret_cast(BodyBuilder* bb, const Type* dst, const Node* src) {
+const Node* shd_bld_bitcast(BodyBuilder* bb, const Type* dst, const Node* src) {
     assert(is_type(dst));
     return bit_cast_helper(shd_get_bb_arena(bb), dst, src);
 }
@@ -15,7 +15,7 @@ const Node* shd_bld_conversion(BodyBuilder* bb, const Type* dst, const Node* src
     return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = convert_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
 }
 
-bool shd_is_reinterpret_cast_legal(const Type* src_type, const Type* dst_type) {
+bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {
     assert(shd_is_data_type(src_type) && shd_is_data_type(dst_type));
     if (src_type == dst_type)
         return true; // folding will eliminate those, but we need to pass type-checking first :)
