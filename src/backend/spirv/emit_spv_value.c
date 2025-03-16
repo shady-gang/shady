@@ -429,7 +429,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             SpvId new = spv_emit_value(emitter, fn_builder, instruction->payload.scope_cast.src);
             if (emitter->spirv_tgt.target_version.minor > 4)
                 new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, instruction->type), 1, &new);
-            break;
+            return new;
         }
         case Instruction_PtrCompositeElement_TAG: {
             PtrCompositeElement payload = instruction->payload.ptr_composite_element;
