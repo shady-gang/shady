@@ -170,6 +170,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 init = spv_emit_value(emitter, NULL, gvar->init);
             SpvStorageClass storage_class = spv_emit_addr_space(emitter, gvar->address_space);
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, decl->type), storage_class, false, init);
+            spv_emit_aliased_restrict(emitter, given_id, decl->type);
 
             for (size_t i = 0; i < decl->annotations.count; i++) {
                 const Node* a = decl->annotations.nodes[i];

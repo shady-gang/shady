@@ -48,6 +48,8 @@ SpvId spv_emit_value(Emitter*, FnBuilder*, const Node*);
 SpvId spv_emit_mem(Emitter*, FnBuilder*, const Node*);
 void spv_emit_terminator(Emitter*, FnBuilder*, BBBuilder, const Node* abs, const Node* terminator);
 
+void spv_emit_aliased_restrict(Emitter*, SpvId id, const Type* t);
+
 void spv_register_emitted(Emitter*, FnBuilder*, const Node*, SpvId id);
 SpvId* spv_search_emitted(Emitter* emitter, FnBuilder*, const Node* node);
 SpvId spv_find_emitted(Emitter* emitter, FnBuilder*, const Node* node);

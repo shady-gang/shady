@@ -367,7 +367,9 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             LocalAlloc payload = instruction->payload.local_alloc;
             spv_emit_mem(emitter, fn_builder, payload.mem);
             assert(bb_builder);
-            return spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, instruction->type), SpvStorageClassFunction);
+            SpvId id = spvb_local_variable(spvb_get_fn_builder(bb_builder), spv_emit_type(emitter, instruction->type), SpvStorageClassFunction);
+            spv_emit_aliased_restrict(emitter, id, instruction->type);
+            return id;
         }
         case Instruction_Load_TAG: {
             Load payload = instruction->payload.load;
@@ -639,4 +641,17 @@ SpvId spv_emit_mem(Emitter* e, FnBuilder* b, const Node* mem) {
     if (is_instruction(mem))
         return spv_emit_value(e, b, mem);
     shd_error("What sort of mem is this ?");
+}
+
+/// Dumb nonsense: this isn't consistently emitted for pointers in complex data structures
+/// These qualifiers should, at most, go on SSA _values_, not on variables !
+/// but the validator wants it so, oh well...
+void spv_emit_aliased_restrict(Emitter* emitter, SpvId id, const Type* t) {
+    assert(t->tag == QualifiedType_TAG);
+    t = shd_get_unqualified_type(t);
+    if (t->tag == PtrType_TAG) {
+        PtrType payload = t->payload.ptr_type;
+        if (payload.pointed_type->tag == PtrType_TAG && payload.pointed_type->payload.ptr_type.address_space == AsGlobal)
+            spvb_decorate(emitter->file_builder, id, SpvDecorationAliasedPointer, 0, NULL);
+    }
 }
