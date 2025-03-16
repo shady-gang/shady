@@ -34,95 +34,34 @@ static void add_binding(VkDescriptorSetLayoutCreateInfo* layout_create_info, Gro
     shd_growy_append_object(bindings_lists[set], binding);
 }
 
-VkDescriptorType shd_vkr_as_to_descriptor_type(AddressSpace as) {
-    switch (as) {
-        case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        default: shd_error("No mapping to a descriptor type");
-    }
-}
+static bool extract_resources_layout(VkrSpecProgram* program, size_t sets_count, VkDescriptorSetLayout layouts[]) {
+    LARRAY(VkDescriptorSetLayoutCreateInfo, layout_create_infos, sets_count);
+    LARRAY(Growy*, bindings_lists, sets_count);
+    memset(layout_create_infos, 0, sizeof(VkDescriptorSetLayoutCreateInfo) * sets_count);
+    memset(bindings_lists, 0, sizeof(Growy*) * sets_count);
 
-static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLayout layouts[]) {
-    VkDescriptorSetLayoutCreateInfo layout_create_infos[MAX_DESCRIPTOR_SETS] = { 0 };
-    Growy* bindings_lists[MAX_DESCRIPTOR_SETS] = { 0 };
-    Growy* resources = shd_new_growy();
-
-    Nodes decls = shd_module_get_all_exported(program->specialized_module);
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG) continue;
-
-        if (shd_lookup_annotation(decl, "Constants")) {
-            AddressSpace as = decl->payload.global_variable.address_space;
-            switch (as) {
-                case AsShaderStorageBufferObject:
-                case AsUniform: break;
-                default: continue;
-            }
-
-            int set = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
-            int binding = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
-
-            ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
-            *res_info = (ProgramResourceInfo) {
-                .is_bound = true,
-                .as = as,
-                .set = set,
-                .binding = binding,
-            };
-            shd_growy_append_object(resources, res_info);
-            program->resources.num_resources++;
-
-            const Type* struct_t = decl->payload.global_variable.type;
-            assert(struct_t->tag == RecordType_TAG && struct_t->payload.record_type.special == DecorateBlock);
-
-            for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
-                const Type* member_t = struct_t->payload.record_type.members.nodes[j];
-                assert(member_t->tag == PtrType_TAG);
-                member_t = shd_get_pointer_type_element(member_t);
-                TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
-
-                ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
-                *constant_res_info = (ProgramResourceInfo) {
-                    .parent = res_info,
-                    .as = as,
-                };
-                shd_growy_append_object(resources, constant_res_info);
-                program->resources.num_resources++;
-
-                constant_res_info->size = layout.size_in_bytes;
-                constant_res_info->offset = res_info->size;
-                res_info->size += sizeof(void*);
-
-                Nodes annotations = decl->annotations;
-                for (size_t k = 0; k < annotations.count; k++) {
-                    const Node* a = annotations.nodes[k];
-                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
-                        constant_res_info->default_data = calloc(1, layout.size_in_bytes);
-                        shd_rt_materialize_constant_at(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
-                        //printf("wowie");
-                    }
-                }
-            }
-
-            if (shd_vkr_can_import_host_memory(program->device))
-                res_info->host_backed_allocation = true;
-            else
-                res_info->staging = calloc(1, res_info->size);
-
-            VkDescriptorSetLayoutBinding vk_binding = {
-                .binding = binding,
-                .descriptorType = shd_vkr_as_to_descriptor_type(as),
-                .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_ALL,
-                .pImmutableSamplers = NULL,
-            };
-            register_required_descriptors(program, &vk_binding);
-            add_binding(layout_create_infos, bindings_lists, set, vk_binding);
+    for (size_t i = 0; i < program->interface_items_count; i++) {
+        RuntimeInterfaceItemEx* item = &program->interface_items[i];
+        switch (item->interface_item.dst_kind) {
+            case SHD_RII_Dst_Descriptor: break;
+            default: continue;
         }
+
+        int set = item->interface_item.dst_details.descriptor.set;
+        int binding = item->interface_item.dst_details.descriptor.binding;
+
+        VkDescriptorSetLayoutBinding vk_binding = {
+            .binding = binding,
+            .descriptorType = item->interface_item.dst_details.descriptor.type,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = NULL,
+        };
+        register_required_descriptors(program, &vk_binding);
+        add_binding(layout_create_infos, bindings_lists, set, vk_binding);
     }
 
-    for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
+    for (size_t set = 0; set < sets_count; set++) {
         layouts[set] = 0;
         layout_create_infos[set].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_create_infos[set].flags = 0;
@@ -133,27 +72,26 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
         }
     }
 
-    program->resources.resources = (ProgramResourceInfo**) shd_growy_deconstruct(resources);
-
     return true;
 }
 
 static bool extract_layout(VkrSpecProgram* program) {
-    if (program->parameters.args_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
+    size_t push_constant_size = shd_vkr_get_push_constant_size(program);
+    if (push_constant_size > program->device->caps.properties.base.properties.limits.maxPushConstantsSize) {
         shd_error_print("EntryPointArgs exceed available push constant space\n");
         return false;
     }
     VkPushConstantRange push_constant_ranges[1] = {
-        { .offset = 0, .size = program->parameters.args_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
+        { .offset = 0, .size = push_constant_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
     };
 
-    CHECK(extract_resources_layout(program, program->set_layouts), return false);
+    CHECK(extract_resources_layout(program, MAX_DESCRIPTOR_SETS, program->set_layouts), return false);
 
     CHECK_VK(vkCreatePipelineLayout(program->device->device, &(VkPipelineLayoutCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .pushConstantRangeCount = program->parameters.args_size ? sizeof(push_constant_ranges) / sizeof(push_constant_ranges[0]) : 0,
+        .pushConstantRangeCount = 1,
         .pPushConstantRanges = push_constant_ranges,
         .setLayoutCount = MAX_DESCRIPTOR_SETS,
         .pSetLayouts = program->set_layouts,
@@ -228,109 +166,6 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
     }
 }
 
-static bool extract_parameters_info(ProgramParamsInfo* parameters, Module* mod) {
-    Nodes decls = shd_module_get_all_exported(mod);
-
-    const Node* args_struct_annotation;
-    const Node* args_struct_type = NULL;
-    const Node* entry_point_function = NULL;
-
-    for (int i = 0; i < decls.count; ++i) {
-        const Node* node = decls.nodes[i];
-
-        switch (node->tag) {
-            case GlobalVariable_TAG: {
-                const Node* entry_point_args_annotation = shd_lookup_annotation(node, "EntryPointArgs");
-                if (entry_point_args_annotation) {
-                    if (node->payload.global_variable.type->tag != RecordType_TAG) {
-                        shd_error_print("EntryPointArgs must be a struct\n");
-                        return false;
-                    }
-
-                    if (args_struct_type) {
-                        shd_error_print("there cannot be more than one EntryPointArgs\n");
-                        return false;
-                    }
-
-                    args_struct_annotation = entry_point_args_annotation;
-                    args_struct_type = node->payload.global_variable.type;
-                }
-                break;
-            }
-            case Function_TAG: {
-                if (shd_lookup_annotation(node, "EntryPoint")) {
-                    if (node->payload.fun.params.count != 0) {
-                        shd_error_print("EntryPoint cannot have parameters\n");
-                        return false;
-                    }
-
-                    if (entry_point_function) {
-                        shd_error_print("there cannot be more than one EntryPoint\n");
-                        return false;
-                    }
-
-                    entry_point_function = node;
-                }
-                break;
-            }
-            default: break;
-        }
-    }
-
-    if (!entry_point_function) {
-        shd_error_print("could not find EntryPoint\n");
-        return false;
-    }
-
-    if (!args_struct_type) {
-        *parameters = (ProgramParamsInfo) { .num_args = 0 };
-        return true;
-    }
-
-    if (args_struct_annotation->tag != AnnotationValue_TAG) {
-        shd_error_print("EntryPointArgs annotation must contain exactly one value\n");
-        return false;
-    }
-
-    const Node* annotation_fn = args_struct_annotation->payload.annotation_value.value;
-    assert(annotation_fn->tag == FnAddr_TAG);
-    if (annotation_fn->payload.fn_addr.fn != entry_point_function) {
-        shd_error_print("EntryPointArgs annotation refers to different EntryPoint\n");
-        return false;
-    }
-
-    size_t num_args = args_struct_type->payload.record_type.members.count;
-
-    if (num_args == 0) {
-        shd_error_print("EntryPointArgs cannot be shd_empty\n");
-        return false;
-    }
-
-    IrArena* a = shd_module_get_arena(mod);
-
-    LARRAY(FieldLayout, fields, num_args);
-    shd_get_record_layout(a, args_struct_type, fields);
-
-    size_t* offset_size_buffer = calloc(1, 2 * num_args * sizeof(size_t));
-    if (!offset_size_buffer) {
-        shd_error_print("failed to allocate EntryPointArgs offsets and sizes array\n");
-        return false;
-    }
-    size_t* offsets = offset_size_buffer;
-    size_t* sizes = offset_size_buffer + num_args;
-
-    for (int i = 0; i < num_args; ++i) {
-        offsets[i] = fields[i].offset_in_bytes;
-        sizes[i] = fields[i].mem_layout.size_in_bytes;
-    }
-
-    parameters->num_args = num_args;
-    parameters->arg_offset = offsets;
-    parameters->arg_size = sizes;
-    parameters->args_size = offsets[num_args - 1] + sizes[num_args - 1];
-    return true;
-}
-
 #include "shady/pipeline/pipeline.h"
 #include "shady/pass.h"
 
@@ -356,7 +191,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     CHECK(result == CompilationNoError, return false);
 
     shd_emit_spirv(&config, spv_cfg, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes);
-    CHECK(extract_parameters_info(&spec->parameters, spec->specialized_module), return false);
+    shd_vkr_populate_interface(spec);
 
     if (spec->key.base->runtime->config.dump_spv) {
         String module_name = shd_module_get_name(spec->specialized_module);
@@ -400,42 +235,38 @@ static bool allocate_sets(VkrSpecProgram* program) {
 }
 
 static void flush_staged_data(VkrSpecProgram* program) {
-    for (size_t i = 0; i < program->resources.num_resources; i++) {
-        ProgramResourceInfo* resource = program->resources.resources[i];
-        if (resource->staging) {
-            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, resource->buffer, resource->size);
-            free(resource->staging);
+    for (size_t i = 0; i < program->interface_items_count; i++) {
+        RuntimeInterfaceItemEx* item = &program->interface_items[i];
+        if (item->flushable_data) {
+            shd_rn_copy_to_buffer((Buffer*) item->buffer, 0, item->flushable_data, item->buffer->size);
+            free(item->flushable_data);
         }
     }
 }
 
 static bool prepare_resources(VkrSpecProgram* program) {
-    for (size_t i = 0; i < program->resources.num_resources; i++) {
-        ProgramResourceInfo* resource = program->resources.resources[i];
+    for (size_t i = 0; i < program->interface_items_count; i++) {
+        RuntimeInterfaceItemEx* item = &program->interface_items[i];
 
-        if (resource->host_backed_allocation) {
-            assert(shd_vkr_can_import_host_memory(program->device));
-            resource->host_ptr = shd_alloc_aligned(resource->size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
-            resource->buffer = shd_vkr_import_buffer_host(program->device, resource->host_ptr, resource->size);
-        } else {
-            resource->buffer = shd_vkr_allocate_buffer_device(program->device, resource->size);
-        }
+        switch (item->interface_item.src_kind) {
+            case SHD_RII_Src_Param:
+                continue;
+            case SHD_RII_Src_LiftedConstant: {
+                size_t size;
+                shd_rt_materialize_constant(item->interface_item.src_details.lifted_constant.constant, &size, NULL);
 
-        if (resource->default_data) {
-            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, resource->default_data, resource->size);
-        } else {
-            char* zeroes = calloc(1, resource->size);
-            shd_rn_copy_to_buffer((Buffer*) resource->buffer, 0, zeroes, resource->size);
-            free(zeroes);
-        }
+                if (shd_vkr_can_import_host_memory(program->device)) {
+                    item->host_owning_ptr = shd_alloc_aligned(size, program->device->caps.properties.external_memory_host.minImportedHostPointerAlignment);
+                    item->buffer = shd_vkr_import_buffer_host(program->device, item->host_owning_ptr, size);
+                } else {
+                    item->buffer = shd_vkr_allocate_buffer_device(program->device, size);
+                }
 
-        if (resource->parent) {
-            char* dst = resource->parent->host_ptr;
-            if (!dst) {
-                dst = resource->parent->staging;
+                void* materialized_constant_data = calloc(size, 1);
+                shd_rn_copy_to_buffer((Buffer*) item->buffer, 0, materialized_constant_data, size);
+
+                break;
             }
-            assert(dst);
-            *((uint64_t*) (dst + resource->offset)) = shd_rn_get_buffer_device_pointer((Buffer*) resource->buffer);
         }
     }
 
@@ -478,18 +309,17 @@ void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
     vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
-    free( (void*) spec->parameters.arg_offset);
     free(spec->spirv_bytes);
     if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
         shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));
-    for (size_t i = 0; i < spec->resources.num_resources; i++) {
-        ProgramResourceInfo* resource = spec->resources.resources[i];
-        if (resource->buffer)
-            shd_vkr_destroy_buffer(resource->buffer);
-        if (resource->host_ptr && resource->host_backed_allocation)
-            shd_free_aligned(resource->host_ptr);
+    for (size_t i = 0; i < spec->interface_items_count; i++) {
+        RuntimeInterfaceItemEx* item = &spec->interface_items[i];
+        if (item->buffer)
+            shd_vkr_destroy_buffer(item->buffer);
+        if (item->host_owning_ptr)
+            shd_free_aligned(item->host_owning_ptr);
     }
-    free(spec->resources.resources);
+    free(spec->interface_items);
     vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);
     shd_destroy_arena(spec->arena);
     free(spec);

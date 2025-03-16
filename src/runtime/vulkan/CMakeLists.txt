@@ -8,5 +8,5 @@ endif()
 
 if (SHADY_ENABLE_RUNTIME_VULKAN_BACKEND)
     add_library(shd_vk_runtime STATIC vk_runtime.c)
-    target_link_libraries(shd_vk_runtime PRIVATE Vulkan::Headers api)
+    target_link_libraries(shd_vk_runtime PRIVATE Vulkan::Headers api common)
 endif()

@@ -2,7 +2,9 @@
 #define SHADY_VK_RUNNER_PRIVATE_H
 
 #include "../runner_private.h"
+
 #include "shady/ir.h"
+#include "shady/runtime/vulkan.h"
 
 #include "portability.h"
 #include "arena.h"
@@ -194,34 +196,18 @@ bool shd_vkr_wait_completion(VkrCommand* cmd);
 
 VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options);
 
-typedef struct ProgramResourceInfo_ ProgramResourceInfo;
-struct ProgramResourceInfo_ {
-    bool is_bound;
-    int set, binding;
-
-    ProgramResourceInfo* parent;
-    size_t offset;
-
-    bool host_backed_allocation;
-    char* host_ptr;
-
-    char* staging;
-
-    AddressSpace as;
-    size_t size;
-    VkrBuffer* buffer;
-
-    unsigned char* default_data;
-};
-
 typedef struct {
-    size_t num_resources;
-    ProgramResourceInfo** resources;
-} ProgramResourcesInfo;
+    RuntimeInterfaceItem interface_item;
+
+    void* host_owning_ptr;
+    void* flushable_data;
+    VkrBuffer* buffer;
+} RuntimeInterfaceItemEx;
+
+void shd_vkr_populate_interface(VkrSpecProgram* spec);
+size_t shd_vkr_get_push_constant_size(VkrSpecProgram* program);
 
 #define MAX_DESCRIPTOR_SETS 4
-
-VkDescriptorType shd_vkr_as_to_descriptor_type(AddressSpace as);
 
 struct VkrSpecProgram_ {
     SpecProgramKey key;
@@ -234,8 +220,8 @@ struct VkrSpecProgram_ {
     size_t spirv_size;
     char* spirv_bytes;
 
-    ProgramParamsInfo parameters;
-    ProgramResourcesInfo resources;
+    size_t interface_items_count;
+    RuntimeInterfaceItemEx* interface_items;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;

@@ -7,9 +7,9 @@ else()
 endif()
 
 if (SHADY_ENABLE_RUNNER_VULKAN_BACKEND)
-    add_library(vk_runner STATIC vk_runner.c vk_runner_device.c vk_runner_program.c vk_runner_dispatch.c vk_runner_buffer.c)
+    add_library(vk_runner STATIC vk_runner.c vk_runner_device.c vk_runner_program.c vk_runner_dispatch.c vk_runner_buffer.c vk_runner_interface.c)
     target_link_libraries(vk_runner PRIVATE api)
-    target_link_libraries(vk_runner PRIVATE "$<BUILD_INTERFACE:common>" "$<BUILD_INTERFACE:shd_runtime>")
+    target_link_libraries(vk_runner PRIVATE "$<BUILD_INTERFACE:common>" "$<BUILD_INTERFACE:shd_runtime>" "$<BUILD_INTERFACE:shd_vk_runtime>")
     target_link_libraries(vk_runner PRIVATE Vulkan::Headers Vulkan::Vulkan)
 
     target_compile_definitions(runner PUBLIC VK_BACKEND_PRESENT=1)

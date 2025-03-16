@@ -1,82 +1,89 @@
+#include <shady/ir/type.h>
+
 #include "shady/runtime/vulkan.h"
 
 #include "shady/ir/module.h"
 #include "shady/ir/grammar.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/int.h"
+#include "shady/ir/memory_layout.h"
 
-void shd_vkr_get_constant_data(Module* mod, size_t* count, size_t* sizes, void** data) {
+#include "portability.h"
+#include "log.h"
+
+void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfaceItem* out) {
     Nodes decls = shd_module_get_all_exported(mod);
+    bool found = false;
+    *count = 0;
     for (size_t i = 0; i < decls.count; i++) {
         const Node* decl = decls.nodes[i];
         if (decl->tag != GlobalVariable_TAG) continue;
 
-        if (shd_lookup_annotation(decl, "Constants")) {
-            AddressSpace as = decl->payload.global_variable.address_space;
-            switch (as) {
-                case AsShaderStorageBufferObject:
-                case AsUniform: break;
-                default: assert(false);
-            }
+        if (shd_lookup_annotation(decl, "EntryPointPushConstants")) {
+            assert(!found && "Two EntryPointPushConstants found");
+            found = true;
 
-            //int set = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorSet"))), false);
-            //int binding = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "DescriptorBinding"))), false);
+            const Type* t = decl->payload.global_variable.type;
+            assert(t->tag == RecordType_TAG);
+            RecordType payload = t->payload.record_type;
+            LARRAY(FieldLayout, field_layouts, payload.members.count);
+            shd_get_record_layout(t->arena, t, field_layouts);
 
-            //ProgramResourceInfo* res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
-            //*res_info = (ProgramResourceInfo) {
-            //    .is_bound = true,
-            //    .as = as,
-            //    .set = set,
-            //    .binding = binding,
-            //};
-            //shd_growy_append_object(resources, res_info);
-            //program->resources.num_resources++;
-
-            const Type* struct_t = decl->payload.global_variable.type;
-            assert(struct_t->tag == RecordType_TAG && struct_t->payload.record_type.special == DecorateBlock);
-
-            for (size_t j = 0; j < struct_t->payload.record_type.members.count; j++) {
-                const Type* member_t = struct_t->payload.record_type.members.nodes[j];
-                assert(member_t->tag == PtrType_TAG);
-                //member_t = shd_get_pointer_type_element(member_t);
-                //TypeMemLayout layout = shd_get_mem_layout(shd_module_get_arena(program->specialized_module), member_t);
-                //ProgramResourceInfo* constant_res_info = shd_arena_alloc(program->arena, sizeof(ProgramResourceInfo));
-                //*constant_res_info = (ProgramResourceInfo) {
-                //    .parent = res_info,
-                //    .as = as,
-                //};
-                //shd_growy_append_object(resources, constant_res_info);
-                //program->resources.num_resources++;
-                //constant_res_info->size = layout.size_in_bytes;
-                //constant_res_info->offset = res_info->size;
-                //res_info->size += sizeof(void*);
-
-                // TODO initial value
+            for (size_t j = 0; j < payload.members.count; j++) {
                 Nodes annotations = decl->annotations;
                 for (size_t k = 0; k < annotations.count; k++) {
-                    const Node* a = annotations.nodes[k];
-                    if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
-                        constant_res_info->default_data = calloc(1, layout.size_in_bytes);
-                        write_value(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
-                        //printf("wowie");
+                    const Node* an = annotations.nodes[k];
+                    if (strcmp(get_annotation_name(an), "RuntimeProvideMemInPushConstant") == 0) {
+                        Nodes arr = an->payload.annotation_values.values;
+                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
+                        if (member_idx != j)
+                            continue;
+                        const Node* contents = arr.nodes[1];
+                        if (out) {
+                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
+                            out[*count] = (RuntimeInterfaceItem) {
+                                .dst_kind = SHD_RII_Dst_PushConstant,
+                                .dst_details.push_constant = {
+                                    .offset = field_layouts[j].offset_in_bytes,
+                                    .size = layout.size_in_bytes,
+                                },
+                                .src_kind = SHD_RII_Src_LiftedConstant,
+                                .src_details.lifted_constant = {
+                                    .constant = contents
+                                },
+                            };
+                        }
+                        (*count)++;
+                        goto next;
+                    } else if (strcmp(get_annotation_name(an), "RuntimeParamInPushConstant") == 0) {
+                        Nodes arr = an->payload.annotation_values.values;
+                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
+                        if (member_idx != j)
+                            continue;
+                        size_t param_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[1]), false);
+                        if (out) {
+                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, payload.members.nodes[j]);
+                            out[*count] = (RuntimeInterfaceItem) {
+                                .dst_kind = SHD_RII_Dst_PushConstant,
+                                .dst_details.push_constant = {
+                                    .offset = field_layouts[j].offset_in_bytes,
+                                    .size = layout.size_in_bytes,
+                                },
+                                .src_kind = SHD_RII_Src_Param,
+                                .src_details.param = {
+                                    .param_idx = param_idx,
+                                }
+                            };
+                        }
+                        (*count)++;
+                        goto next;
                     }
                 }
+
+                shd_error("Failed to find metadata for push constant field %lu\n", j);
+                shd_error_die();
+                next: continue;
             }
-
-            if (shd_vkr_can_import_host_memory(program->device))
-                res_info->host_backed_allocation = true;
-            else
-                res_info->staging = calloc(1, res_info->size);
-
-            VkDescriptorSetLayoutBinding vk_binding = {
-                .binding = binding,
-                .descriptorType = shd_vkr_as_to_descriptor_type(as),
-                .descriptorCount = 1,
-                .stageFlags = VK_SHADER_STAGE_ALL,
-                .pImmutableSamplers = NULL,
-            };
-            register_required_descriptors(program, &vk_binding);
-            add_binding(layout_create_infos, bindings_lists, set, vk_binding);
         }
     }
 }

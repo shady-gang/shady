@@ -103,8 +103,6 @@ OptPass shd_opt_mem2reg;
 RewritePass shd_pass_restructurize;
 RewritePass shd_pass_lower_switch_btree;
 
-RewritePass shd_pass_lower_entrypoint_args;
-
 RewritePass shd_pass_specialize_entry_point;
 RewritePass shd_pass_specialize_execution_model;
 

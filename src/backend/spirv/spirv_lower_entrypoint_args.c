@@ -15,37 +15,63 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static const Node* generate_arg_struct_type(Rewriter* rewriter, Nodes params) {
+static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
     IrArena* a = rewriter->dst_arena;
 
+    Nodes params = old_entry_point->payload.fun.params;
     LARRAY(const Node*, types, params.count);
     LARRAY(String, names, params.count);
 
+    Nodes annotations = shd_empty(a);
+
+    //size_t offset = 0;
+
+    bool finished_with_synethic_args = false;
+    int synthetic_args_count = 0;
     for (int i = 0; i < params.count; ++i) {
-        const Type* type = shd_rewrite_node(rewriter, params.nodes[i]->type);
+        const Node* param = params.nodes[i];
+        const Type* type = shd_rewrite_node(rewriter, param->type);
 
         if (shd_deconstruct_qualified_type(&type) != shd_get_arena_config(a)->target.scopes.constants)
             shd_error("EntryPoint parameters must be uniform");
+
+            const Node* runtime_annotation = shd_lookup_annotation(param, "RuntimeProvideMem");
+            if (runtime_annotation) {
+                Nodes arr = runtime_annotation->payload.annotation_values.values;
+                //size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
+                const Node* contents = shd_rewrite_node(rewriter, arr.nodes[1]);
+
+                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
+                    .name = "RuntimeProvideMemInPushConstant",
+                    .values = mk_nodes(a, shd_int32_literal(a, i), contents)
+                }));
+                synthetic_args_count++;
+                assert(!finished_with_synethic_args);
+            } else {
+                finished_with_synethic_args = true;
+                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
+                    .name = "RuntimeParamInPushConstant",
+                    .values = mk_nodes(a, shd_int32_literal(a, i), shd_int32_literal(a, i - synthetic_args_count))
+                }));
+            }
 
         types[i] = type;
         names[i] = shd_get_node_name_safe(params.nodes[i]);
     }
 
-    return record_type(a, (RecordType) {
+    const Type* type = record_type(a, (RecordType) {
         .members = shd_nodes(a, params.count, types),
-        .names = shd_strings(a, params.count, names)
+        .names = shd_strings(a, params.count, names),
+        .special = DecorateBlock,
     });
-}
 
-static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
-    IrArena* a = rewriter->dst_arena;
-
-    const Node* type = generate_arg_struct_type(rewriter, old_entry_point->payload.fun.params);
     String name = shd_fmt_string_irarena(a, "__%s_args", shd_get_node_name_safe(old_entry_point));
-    Node* var = global_variable_helper(rewriter->dst_module, type, AsExternal);
+    Node* var = global_variable_helper(rewriter->dst_module, type, AsPushConstant);
+    var->annotations = annotations;
     shd_set_debug_name(var, name);
     shd_module_add_export(rewriter->dst_module, name, var);
-    shd_add_annotation(var, annotation_value(a, (AnnotationValue) { .name = "EntryPointArgs", .value = fn_addr_helper(a, new_entry_point) }));
+
+    shd_add_annotation(var, annotation_value(a, (AnnotationValue) { .name = "EntryPointPushConstants", .value = fn_addr_helper(a, new_entry_point) }));
 
     return var;
 }
@@ -88,7 +114,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_entrypoint_args(const CompilerConfig* config, Module* src) {
+Module* shd_spv_lower_entrypoint_args(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

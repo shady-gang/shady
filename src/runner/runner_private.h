@@ -3,8 +3,6 @@
 #include "shady/runner.h"
 #include "shady/ir.h"
 
-// typedef struct SpecProgram_ SpecProgram;
-
 struct Runner_ {
     RunnerConfig config;
 
@@ -33,13 +31,6 @@ struct Device_ {
     Buffer* (*import_host_memory_as_buffer)(Device*, void* base, size_t bytes);
     bool (*can_import_host_memory)(Device*);
 };
-
-typedef struct {
-    size_t num_args;
-    const size_t* arg_offset;
-    const size_t* arg_size;
-    size_t args_size;
-} ProgramParamsInfo;
 
 struct Program_ {
     Runner* runtime;

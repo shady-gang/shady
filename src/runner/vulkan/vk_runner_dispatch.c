@@ -7,48 +7,75 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog) {
-    if (prog->resources.num_resources == 0)
-        return;
-
-    LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->resources.num_resources);
-    LARRAY(VkDescriptorBufferInfo, descriptor_buffer_info, prog->resources.num_resources);
+static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog, int args_count, void** args) {
+    LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->interface_items_count);
+    LARRAY(VkDescriptorBufferInfo, descriptor_buffer_info, prog->interface_items_count);
     size_t write_descriptor_sets_count = 0;
 
-    LARRAY(VkDescriptorSet, bind_sets, prog->resources.num_resources);
+    LARRAY(VkDescriptorSet, bind_sets, prog->interface_items_count);
     size_t bind_sets_count = 0;
 
-    for (size_t i = 0; i < prog->resources.num_resources; i++) {
-        ProgramResourceInfo* resource = prog->resources.resources[i];
-        if (resource->is_bound) {
-            descriptor_buffer_info[write_descriptor_sets_count] = (VkDescriptorBufferInfo) {
-                .buffer = resource->buffer->buffer,
-                .offset = resource->buffer->offset,
-                .range = resource->buffer->size - resource->buffer->offset,
-            };
+    size_t push_constant_size = shd_vkr_get_push_constant_size(prog);
+    void* push_constant_buffer = calloc(push_constant_size, 1);
 
-            write_descriptor_sets[write_descriptor_sets_count] = (VkWriteDescriptorSet) {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .pNext = NULL,
-                .descriptorType = shd_vkr_as_to_descriptor_type(resource->as),
-                .descriptorCount = 1,
-                .dstSet = prog->sets[resource->set],
-                .dstBinding = resource->binding,
-                .pBufferInfo = &descriptor_buffer_info[write_descriptor_sets_count],
-            };
+    for (size_t i = 0; i < prog->interface_items_count; i++) {
+        RuntimeInterfaceItemEx* resource = &prog->interface_items[i];
 
-            write_descriptor_sets_count++;
+        switch (resource->interface_item.dst_kind) {
+            case SHD_RII_Dst_PushConstant: {
+                switch (resource->interface_item.src_kind) {
+                    case SHD_RII_Src_Param: {
+                        size_t idx = resource->interface_item.src_details.param.param_idx;
+                        assert(idx < args_count);
+                        memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset, args[idx], resource->interface_item.dst_details.push_constant.size);
+                        break;
+                    }
+                    case SHD_RII_Src_LiftedConstant: {
+                        VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) resource->buffer);
+                        memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
+                            &bda,
+                            resource->interface_item.dst_details.push_constant.size);
+                        assert(resource->interface_item.dst_details.push_constant.size == sizeof(VkDeviceAddress));
+                        break;
+                    }
+                }
+                break;
+            }
+            case SHD_RII_Dst_Descriptor: {
+                // TODO
+                /*descriptor_buffer_info[write_descriptor_sets_count] = (VkDescriptorBufferInfo) {
+                    .buffer = resource->buffer->buffer,
+                    .offset = resource->buffer->offset,
+                    .range = resource->buffer->size - resource->buffer->offset,
+                };*/
+
+                write_descriptor_sets[write_descriptor_sets_count] = (VkWriteDescriptorSet) {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .pNext = NULL,
+                    .descriptorType = resource->interface_item.dst_details.descriptor.type,
+                    .descriptorCount = 1,
+                    .dstSet = prog->sets[resource->interface_item.dst_details.descriptor.set],
+                    .dstBinding = resource->interface_item.dst_details.descriptor.binding,
+                    .pBufferInfo = &descriptor_buffer_info[write_descriptor_sets_count],
+                };
+
+                write_descriptor_sets_count++;
+                break;
+            }
         }
     }
 
-    vkUpdateDescriptorSets(prog->device->device, write_descriptor_sets_count, write_descriptor_sets, 0, NULL);
-
-    for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
-        bind_sets[set] = prog->sets[set];
+    if (prog->required_descriptor_counts_count > 0) {
+        vkUpdateDescriptorSets(prog->device->device, write_descriptor_sets_count, write_descriptor_sets, 0, NULL);
+        for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++) {
+            bind_sets[set] = prog->sets[set];
+        }
+        bind_sets_count = MAX_DESCRIPTOR_SETS;
+        vkCmdBindDescriptorSets(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
     }
-    bind_sets_count = MAX_DESCRIPTOR_SETS;
 
-    vkCmdBindDescriptorSets(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
+    vkCmdPushConstants(cmd->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_size, push_constant_buffer);
+    free(push_constant_buffer);
 }
 
 static Command make_command_base() {
@@ -68,20 +95,8 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
     if (!cmd)
         return NULL;
 
-    ProgramParamsInfo entrypoint_info = prog->parameters;
-    if (entrypoint_info.args_size) {
-        assert(args_count == entrypoint_info.num_args && "number of arguments must match number of entrypoint arguments");
-
-        size_t push_constant_buffer_size = entrypoint_info.args_size;
-        LARRAY(unsigned char, push_constant_buffer, push_constant_buffer_size);
-        for (int i = 0; i < entrypoint_info.num_args; ++i)
-            memcpy(push_constant_buffer + entrypoint_info.arg_offset[i], args[i], entrypoint_info.arg_size[i]);
-
-        vkCmdPushConstants(cmd->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_buffer_size, push_constant_buffer);
-    }
-
     vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
-    bind_program_resources(cmd, prog);
+    bind_program_resources(cmd, prog, args_count, args);
 
     if (options && options->profiled_gpu_time) {
         VkQueryPoolCreateInfo qpci = {

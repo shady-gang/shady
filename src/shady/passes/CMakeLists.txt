@@ -33,7 +33,6 @@ target_sources(shady PRIVATE
     opt/opt_mem2reg.c
         ../pipeline/shader/specialize_entry_point.c
         ../pipeline/mem/lower_logical_pointers.c
-        ../pipeline/lower/abi/lower_entrypoint_args.c
         ../pipeline/cf/scope2control.c
         ../pipeline/cf/lift_everything.c
         ../pipeline/cf/scope_heuristic.c
