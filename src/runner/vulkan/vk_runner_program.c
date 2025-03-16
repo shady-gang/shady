@@ -2,6 +2,7 @@
 
 #include "shady/driver.h"
 #include "shady/ir/memory_layout.h"
+#include "shady/runtime/runtime.h"
 
 #include "log.h"
 #include "portability.h"
@@ -38,46 +39,6 @@ VkDescriptorType shd_vkr_as_to_descriptor_type(AddressSpace as) {
         case AsUniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         case AsShaderStorageBufferObject: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         default: shd_error("No mapping to a descriptor type");
-    }
-}
-
-static void write_value(unsigned char* tgt, const Node* value) {
-    IrArena* a = value->arena;
-    switch (value->tag) {
-        case IntLiteral_TAG: {
-            switch (value->payload.int_literal.width) {
-                case IntTy8: *((uint8_t*) tgt) = (uint8_t) (value->payload.int_literal.value & 0xFF); break;
-                case IntTy16: *((uint16_t*) tgt) = (uint16_t) (value->payload.int_literal.value & 0xFFFF); break;
-                case IntTy32: *((uint32_t*) tgt) = (uint32_t) (value->payload.int_literal.value & 0xFFFFFFFF); break;
-                case IntTy64: *((uint64_t*) tgt) = (uint64_t) (value->payload.int_literal.value); break;
-            }
-            break;
-        }
-        case Composite_TAG: {
-            Nodes values = value->payload.composite.contents;
-            const Type* struct_t = value->payload.composite.type;
-            struct_t = shd_get_maybe_nominal_type_body(struct_t);
-
-            if (struct_t->tag == RecordType_TAG) {
-                LARRAY(FieldLayout, fields, values.count);
-                shd_get_record_layout(a, struct_t, fields);
-                for (size_t i = 0; i < values.count; i++) {
-                    // TypeMemLayout layout = get_mem_layout(value->arena, get_unqualified_type(element->type));
-                    write_value(tgt + fields->offset_in_bytes, values.nodes[i]);
-                }
-            } else if (struct_t->tag == ArrType_TAG) {
-                for (size_t i = 0; i < values.count; i++) {
-                    TypeMemLayout layout = shd_get_mem_layout(value->arena, shd_get_unqualified_type(values.nodes[i]->type));
-                    write_value(tgt, values.nodes[i]);
-                    tgt += layout.size_in_bytes;
-                }
-            } else {
-                assert(false);
-            }
-            break;
-        }
-        default:
-            assert(false);
     }
 }
 
@@ -133,13 +94,12 @@ static bool extract_resources_layout(VkrSpecProgram* program, VkDescriptorSetLay
                 constant_res_info->offset = res_info->size;
                 res_info->size += sizeof(void*);
 
-                // TODO initial value
                 Nodes annotations = decl->annotations;
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* a = annotations.nodes[k];
                     if ((strcmp(get_annotation_name(a), "InitialValue") == 0) && shd_resolve_to_int_literal(shd_first(shd_get_annotation_values(a)))->value == j) {
                         constant_res_info->default_data = calloc(1, layout.size_in_bytes);
-                        write_value(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
+                        shd_rt_materialize_constant_at(constant_res_info->default_data, shd_get_annotation_values(a).nodes[1]);
                         //printf("wowie");
                     }
                 }
