@@ -111,7 +111,7 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
             const Type* pointee = NULL;
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
-            pointee = convert_type(p, element_type);
+            pointee = l2s_convert_type(p, element_type);
 #else
             pointee = unit_type(a);
 #endif
