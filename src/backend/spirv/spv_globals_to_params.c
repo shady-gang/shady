@@ -1,7 +1,6 @@
 #include "shady/pass.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/debug.h"
-#include "shady/ir/memory_layout.h"
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/decl.h"
@@ -41,8 +40,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
             if (shd_lookup_annotation(node, "EntryPoint")) {
                 // copy the params
                 for (size_t i = 0; i < ctx->extra_globals.count; i++) {
-                    const Node* v = shd_bld_load(fn_ctx.bb, ctx->extra_params.nodes[i]);
-                    shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], v);
+                    shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], ctx->extra_params.nodes[i]);
                 }
             }
             Node* post_prelude = basic_block_helper(a, shd_empty(a));
@@ -114,19 +112,6 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         ctx.extra_globals = shd_nodes_append(a, ctx.extra_globals, g);
     }
 
-    //if (lifted_globals_count > 0) {
-    //    const Type* lifted_globals_struct_t = record_type(a, (RecordType) {
-    //        .members = shd_nodes(a, lifted_globals_count, member_tys),
-    //        .names = shd_strings(a, lifted_globals_count, member_names),
-    //        .special = DecorateBlock
-    //    });
-    //    ctx.lifted_globals_decl = global_variable_helper(dst, lifted_globals_struct_t, AsShaderStorageBufferObject);
-    //    shd_set_debug_name(ctx.lifted_globals_decl, "lifted_globals");
-    //    shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorSet", .value = shd_int32_literal(a, 0) }));
-    //    shd_add_annotation(ctx.lifted_globals_decl, annotation_value(a, (AnnotationValue) { .name = "DescriptorBinding", .value = shd_int32_literal(a, 0) }));
-    //    shd_add_annotation_named(ctx.lifted_globals_decl, "Constants");
-    //}
-
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_node2node(ctx.lifted_globals);
 
@@ -135,7 +120,6 @@ Module* shd_spvbe_pass_lift_globals_ssbo(SHADY_UNUSED const CompilerConfig* conf
         if (odecl->payload.global_variable.address_space != AsGlobal)
             continue;
         if (odecl->payload.global_variable.init) {
-            TypeMemLayout layout = shd_get_mem_layout(a, size_t_type(a));
             shd_add_annotation(ctx.extra_params.nodes[i], annotation_values(a, (AnnotationValues) {
                     .name = "RuntimeProvideMem",
                     .values = mk_nodes(a, shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))

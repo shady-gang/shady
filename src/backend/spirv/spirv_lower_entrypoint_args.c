@@ -38,8 +38,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
             const Node* runtime_annotation = shd_lookup_annotation(param, "RuntimeProvideMem");
             if (runtime_annotation) {
                 Nodes arr = runtime_annotation->payload.annotation_values.values;
-                //size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
-                const Node* contents = shd_rewrite_node(rewriter, arr.nodes[1]);
+                const Node* contents = shd_rewrite_node(rewriter, arr.nodes[0]);
 
                 annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
                     .name = "RuntimeProvideMemInPushConstant",
