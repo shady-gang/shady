@@ -23,7 +23,7 @@ typedef struct {
 
 static const char* default_shader =
 "@EntryPoint(\"Compute\") @Exported @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn my_kernel(i32 a, ptr global i32 b) {\n"
-"    val rb = reinterpret[u64](b);\n"
+"    val rb = bitcast[u64](b);\n"
 "    debug_printf(\"hi %d 0x%lx\\n\", a, rb);\n"
 "    return ();\n"
 "}";
