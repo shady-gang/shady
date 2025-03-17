@@ -533,19 +533,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             });
         }
         // Intermediary ops
-        case sample_texture_op: {
-            assert(prim_op.type_arguments.count == 0);
-            assert(prim_op.operands.count == 2);
-            const Type* sampled_image_t = shd_first(prim_op.operands)->type;
-            bool uniform_src = shd_deconstruct_qualified_type(&sampled_image_t);
-            const Type* coords_t = prim_op.operands.nodes[1]->type;
-            shd_deconstruct_qualified_type(&coords_t);
-            assert(sampled_image_t->tag == SampledImageType_TAG);
-            const Type* image_t = sampled_image_t->payload.sampled_image_type.image_type;
-            assert(image_t->tag == ImageType_TAG);
-            size_t coords_dim = shd_deconstruct_packed_type(&coords_t);
-            return qualified_type(arena, (QualifiedType) { .scope = shd_get_arena_config(arena)->target.scopes.bottom, .type = shd_maybe_packed_type_helper(image_t->payload.image_type.sampled_type, 4) });
-        }
         case PRIMOPS_COUNT: assert(false);
     }
 }

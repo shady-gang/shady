@@ -85,6 +85,21 @@ static const Type* add_pointee_to_ptr_t(const Type* untyped_ptr_t, const Type* e
     return typed_ptr_t;
 }
 
+static ShdScope parse_scope(String str) {
+    assert(str);
+    if (strcmp(str, "Invocation") == 0)
+        return ShdScopeInvocation;
+    if (strcmp(str, "Subgroup") == 0)
+        return ShdScopeSubgroup;
+    if (strcmp(str, "Workgroup") == 0)
+        return ShdScopeWorkgroup;
+    if (strcmp(str, "Device") == 0)
+        return ShdScopeDevice;
+    if (strcmp(str, "CrossDevice") == 0)
+        return ShdScopeCrossDevice;
+    shd_error("Unknown scope %s", str);
+}
+
 /// instr may be an instruction or a constantexpr
 const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
     Node* fn = fn_ctx ? fn_ctx->fn : NULL;
@@ -558,6 +573,15 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
 
                         shd_error_print("Unrecognised shady instruction '%s'\n", instructionname);
                         shd_error_die();
+                    } else if (strcmp(keyword, "pure_op") == 0) {
+                        char* set = strtok(NULL, "::");
+                        char* opcode_str = strtok(NULL, "::");
+                        char* scope_str = strtok(NULL, "::");
+                        ShdScope shd_scope = parse_scope(scope_str);
+                        Nodes ops = convert_operands(p, num_args, instr);
+                        uint32_t op = strtol(opcode_str, NULL, 10);
+
+                        return ext_value_helper(a, qualified_type_helper(a, shd_scope, t), set, op, ops);
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();

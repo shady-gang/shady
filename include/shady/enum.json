@@ -202,10 +202,6 @@
       "name": "shuffle"
     },
     {
-      "name": "sample_texture",
-      "side-effects": true
-    },
-    {
       "name": "empty_mask",
       "class": "mask"
     },

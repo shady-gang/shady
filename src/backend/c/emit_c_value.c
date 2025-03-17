@@ -68,6 +68,8 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
     }
 }
 
+static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValue value);
+
 static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* value) {
     if (is_instruction(value))
         return emit_instruction(emitter, fn, p, value);
@@ -235,6 +237,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_c_register_emitted(emitter, NULL, value, t);
             return t;
         }
+        case Value_ExtValue_TAG: return emit_ext_value(emitter, fn, p, value->payload.ext_value);
     }
 
     assert(emitted);
@@ -713,23 +716,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             term = term_from_cvalue(dst);
             break;
         }
-        case sample_texture_op: {
-            String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-            String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-
-            String dst = shd_make_unique_name(arena, "sampled");
-            String dim = "";
-            if (emitter->config.glsl_version < 130) {
-                const Type* t = prim_op->operands.nodes[0]->type;
-                assert(t->tag == SampledImageType_TAG);
-                t = t->payload.sampled_image_type.image_type;
-                assert(t->tag == ImageType_TAG);
-                dim = shd_c_emit_dim(t->payload.image_type.dim);
-            }
-            shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, node->type, dst), dim, sampler, coords);
-            term = term_from_cvalue(dst);
-            break;
-        }
         case empty_mask_op:
         case mask_is_thread_active_op: shd_error("lower_me");
         default: break;
@@ -882,6 +868,32 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
     } else {
         shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", instr.set, instr.opcode);
     }
+}
+
+static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValue value) {
+    IrArena* a = emitter->arena;
+    if (strcmp(value.set, "spirv.core") == 0) {
+        switch (value.opcode) {
+            case SpvOpImageSampleImplicitLod: {
+                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.operands.nodes[0]));
+                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.operands.nodes[1]));
+
+                String dst = shd_make_unique_name(a, "sampled");
+                String dim = "";
+                if (emitter->config.glsl_version < 130) {
+                    const Type* t = value.operands.nodes[0]->type;
+                    assert(t->tag == SampledImageType_TAG);
+                    t = t->payload.sampled_image_type.image_type;
+                    assert(t->tag == ImageType_TAG);
+                    dim = shd_c_emit_dim(t->payload.image_type.dim);
+                }
+                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, value.result_t, dst), dim, sampler, coords);
+                return term_from_cvalue(dst);
+            }
+        }
+    }
+
+    shd_error("Unsupported extended value: (set = %s, opcode = %d )", value.set, value.opcode);
 }
 
 static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* callee, Nodes args, const Type* result_type) {
