@@ -429,8 +429,8 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         }
         case Instruction_ScopeCast_TAG: {
             SpvId new = spv_emit_value(emitter, fn_builder, instruction->payload.scope_cast.src);
-            if (emitter->spirv_tgt.target_version.minor > 4)
-                new = spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, instruction->type), 1, &new);
+            //if (emitter->spirv_tgt.target_version.minor > 4)
+            new = spvb_op(bb_builder, SpvOpCopyObject, spv_emit_type(emitter, instruction->type), 1, &new);
             return new;
         }
         case Instruction_PtrCompositeElement_TAG: {
