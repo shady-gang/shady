@@ -356,6 +356,31 @@
       ]
     },
     {
+      "name": "SizeOf",
+      "class": "value",
+      "description": "Provides the size in bytes of a data type",
+      "ops": [
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "AlignOf",
+      "class": "value",
+      "description": "Provides the alignment in bytes of a data type",
+      "ops": [
+        { "name": "type", "class": "type" }
+      ]
+    },
+    {
+      "name": "OffsetOf",
+      "class": "value",
+      "description": "Provides the byte offset of a field in a record type",
+      "ops": [
+        { "name": "type", "class": "type" },
+        { "name": "idx", "class": "value" }
+      ]
+    },
+    {
       "name": "ScopeCast",
       "class": ["value", "instruction"],
       "description": "Changes the qualified scope of a value",

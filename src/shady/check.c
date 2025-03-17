@@ -410,26 +410,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
             return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
-        case align_of_op:
-        case size_of_op: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 0);
-            return qualified_type(arena, (QualifiedType) {
-                .scope = shd_get_arena_config(arena)->target.scopes.constants,
-                .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
-            });
-        }
-        case offset_of_op: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 1);
-            const Type* optype = shd_first(prim_op.operands)->type;
-            ShdScope index_scope = shd_deconstruct_qualified_type(&optype);
-            assert(index_scope == shd_get_arena_config(arena)->target.scopes.constants && optype->tag == Int_TAG);
-            return qualified_type(arena, (QualifiedType) {
-                .scope = shd_get_arena_config(arena)->target.scopes.constants,
-                .type = int_type(arena, (Int) { .width = arena->config.target.memory.ptr_size, .is_signed = false })
-            });
-        }
         case select_op: {
             assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
@@ -518,6 +498,30 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         // Intermediary ops
         case PRIMOPS_COUNT: assert(false);
     }
+}
+
+const Type* _shd_check_type_size_of(IrArena* a, SizeOf payload) {
+    return qualified_type(a, (QualifiedType) {
+        .scope = shd_get_arena_config(a)->target.scopes.constants,
+        .type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false })
+    });
+}
+
+const Type* _shd_check_type_align_of(IrArena* a, AlignOf payload) {
+    return qualified_type(a, (QualifiedType) {
+        .scope = shd_get_arena_config(a)->target.scopes.constants,
+        .type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false })
+    });
+}
+
+const Type* _shd_check_type_offset_of(IrArena* a, OffsetOf payload) {
+    const Type* optype = payload.idx->type;
+    ShdScope index_scope = shd_deconstruct_qualified_type(&optype);
+    assert(index_scope == shd_get_arena_config(a)->target.scopes.constants && optype->tag == Int_TAG);
+    return qualified_type(a, (QualifiedType) {
+        .scope = shd_get_arena_config(a)->target.scopes.constants,
+        .type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false })
+    });
 }
 
 const Type* _shd_check_type_scope_cast(IrArena* a, ScopeCast cast) {

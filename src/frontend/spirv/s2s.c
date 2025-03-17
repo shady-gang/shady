@@ -1069,11 +1069,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 const Type* elem_t = src->type;
                 shd_deconstruct_qualified_type(&elem_t);
                 shd_deconstruct_pointer_type(&elem_t);
-                cnt = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                    .op = size_of_op,
-                    .type_arguments = shd_singleton(elem_t),
-                    .operands = shd_empty(parser->arena)
-                }));
+                cnt = shd_bld_add_instruction(parser->current_block.builder, size_of_helper(parser->arena, elem_t));
             } else {
                 cnt = get_def_ssa_value(parser, instruction[3]);
             }

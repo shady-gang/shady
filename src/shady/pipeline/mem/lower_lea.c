@@ -35,7 +35,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
         case ArrType_TAG: {
             const Type* element_type = shd_get_fill_type_element_type(pointed_type);
 
-            const Node* element_t_size = prim_op_helper(a, size_of_op, shd_singleton(element_type), shd_empty(a));
+            const Node* element_t_size = size_of_helper(a, element_type);
 
             const Node* new_index = shd_bld_convert_int_extend_according_to_src_t(bb, emulated_ptr_t, index);
             const Node* physical_offset = prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, new_index, element_t_size));
@@ -54,7 +54,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
             size_t n = selector_value->value;
             assert(n < member_types.count);
 
-            const Node* offset_of = prim_op_helper(a, offset_of_op, shd_singleton(pointed_type), shd_singleton(shd_uint64_literal(a, n)));
+            const Node* offset_of = offset_of_helper(a, pointed_type, shd_uint64_literal(a, n));
             return prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, base, offset_of));
         }
         default: shd_error("cannot index into this")
@@ -75,7 +75,7 @@ static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* p
         // assert(arr_type->tag == ArrType_TAG);
         // const Type* element_type = arr_type->payload.arr_type.element_type;
 
-        const Node* element_t_size = prim_op_helper(a, size_of_op, shd_singleton(element_type), shd_empty(a));
+        const Node* element_t_size = size_of_helper(a, element_type);
 
         const Node* new_offset = shd_bld_convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
         const Node* physical_offset = prim_op_helper(a, mul_op, shd_empty(a), mk_nodes(a, new_offset, element_t_size));

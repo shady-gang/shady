@@ -237,6 +237,19 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             shd_c_register_emitted(emitter, NULL, value, t);
             return t;
         }
+        case Value_SizeOf_TAG: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", shd_c_emit_type(emitter, value->payload.size_of.type, NULL)));
+        case Value_AlignOf_TAG: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", shd_c_emit_type(emitter, value->payload.align_of.type, NULL)));
+        case Value_OffsetOf_TAG: {
+            OffsetOf payload = value->payload.offset_of;
+            const Type* t = payload.type;
+            while (t->tag == NominalType_TAG) {
+                t = shd_get_nominal_type_body(t);
+            }
+            const Node* index = payload.idx;
+            uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
+            String member_name = shd_c_get_record_field_name(t, index_literal);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", shd_c_emit_type(emitter, t, NULL), member_name));
+        }
         case Value_ExtValue_TAG: return emit_ext_value(emitter, fn, p, value->payload.ext_value);
     }
 
@@ -611,23 +624,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s %s %s)", src, prim_op->op == lshift_op ? "<<" : ">>", c_offset));
             break;
         }
-        case size_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "sizeof(%s)", shd_c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
-            break;
-        case align_of_op:
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "alignof(%s)", shd_c_emit_type(emitter, shd_first(prim_op->type_arguments), NULL)));
-            break;
-        case offset_of_op: {
-            const Type* t = shd_first(prim_op->type_arguments);
-            while (t->tag == NominalType_TAG) {
-                t = shd_get_nominal_type_body(t);
-            }
-            const Node* index = shd_first(prim_op->operands);
-            uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
-            String member_name = shd_c_get_record_field_name(t, index_literal);
-            term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", shd_c_emit_type(emitter, t, NULL), member_name));
-            break;
-        } case select_op: {
+        case select_op: {
             assert(prim_op->operands.count == 3);
             CValue condition = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
             CValue l = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));

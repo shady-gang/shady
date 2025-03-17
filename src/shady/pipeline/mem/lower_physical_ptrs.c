@@ -108,7 +108,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             Nodes member_types = compound_type->payload.record_type.members;
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* field_offset = prim_op_helper(a, offset_of_op, shd_singleton(element_type), shd_singleton(size_t_literal(a, i)));
+                const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
                 const Node* adjusted_offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, address, field_offset));
                 loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
             }
@@ -128,7 +128,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 components[i] = gen_deserialisation(ctx, bb, component_type, arr, offset);
-                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, prim_op_helper(a, size_of_op, shd_singleton(component_type), shd_empty(a))));
+                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return composite_helper(a, element_type, shd_nodes(a, components_count, components));
         }
@@ -206,7 +206,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             Nodes member_types = element_type->payload.record_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, value, shd_int32_literal(a, i)), .type_arguments = shd_empty(a) });
-                const Node* field_offset = prim_op_helper(a, offset_of_op, shd_singleton(element_type), shd_singleton(size_t_literal(a, i)));
+                const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
                 const Node* adjusted_offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, address, field_offset));
                 gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
             }
@@ -229,7 +229,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 gen_serialisation(ctx, bb, component_type, arr, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
-                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, prim_op_helper(a, size_of_op, shd_singleton(component_type), shd_empty(a))));
+                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return;
         }
@@ -394,7 +394,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         // we need to compute the actual pointer by getting the offset and dividing it
         // after lower_memory_layout, optimisations will eliminate this and resolve to a value
         BodyBuilder* bb = shd_bld_begin_pure(a);
-        const Node* offset = prim_op_helper(a, offset_of_op, shd_singleton(global_struct_t), shd_singleton(size_t_literal(a, i)));
+        const Node* offset = offset_of_helper(a, global_struct_t, size_t_literal(a, i));
         new_address->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(offset));
 
         shd_register_processed(r, decl, new_address);
@@ -448,7 +448,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 
     // compute the size
     BodyBuilder* bb = shd_bld_begin_pure(a);
-    const Node* size_of = prim_op_helper(a, size_of_op, shd_singleton(global_struct_t), shd_empty(a));
+    const Node* size_of = size_of_helper(a, global_struct_t);
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
     Node* constant_decl = constant_helper(m, ptr_size_type);

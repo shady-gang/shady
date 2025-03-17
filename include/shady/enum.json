@@ -16,9 +16,6 @@
       "name": "math"
     },
     {
-      "name": "memory_layout"
-    },
-    {
       "name": "mask"
     }
   ],
@@ -170,18 +167,6 @@
     {
       "name": "cos",
       "class": "math"
-    },
-    {
-      "name": "size_of",
-      "class": "memory_layout"
-    },
-    {
-      "name": "align_of",
-      "class": "memory_layout"
-    },
-    {
-      "name": "offset_of",
-      "class": "memory_layout"
     },
     {
       "name": "select"
