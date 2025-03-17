@@ -44,6 +44,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
                 shd_error_print(".\n");
                 shd_error_die();
             }
+            shd_register_processed(shd_get_top_rewriter(r), node, existing);
             bool weak = shd_lookup_annotation(existing, "Weak");
             switch (node->tag) {
                 default: shd_error("TODO");
