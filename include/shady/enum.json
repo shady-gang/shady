@@ -198,7 +198,6 @@
       "class": ["instruction", "value"],
       "ops": [
         { "name": "op", "type": "Op" },
-        { "name": "type_arguments", "class": "type", "list": true },
         { "name": "operands", "class": "value", "list": true }
       ]
     },

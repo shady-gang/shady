@@ -176,10 +176,10 @@ static const Node* process(Context* ctx, const Node* old) {
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, old->payload.join.args));
-            const Node* jp_payload = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 2)));
+            const Node* jp_payload = prim_op_helper(a, extract_op, mk_nodes(a, jp, shd_int32_literal(a, 2)));
             shd_bld_stack_push_value(bb, jp_payload);
-            const Node* dst = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 1)));
-            const Node* tree_node = prim_op_helper(a, extract_op, shd_empty(a), mk_nodes(a, jp, shd_int32_literal(a, 0)));
+            const Node* dst = prim_op_helper(a, extract_op, mk_nodes(a, jp, shd_int32_literal(a, 1)));
+            const Node* tree_node = prim_op_helper(a, extract_op, mk_nodes(a, jp, shd_int32_literal(a, 0)));
 
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {

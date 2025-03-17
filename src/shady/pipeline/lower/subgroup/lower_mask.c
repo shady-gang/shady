@@ -29,11 +29,11 @@ static const Node* process(Context* ctx, const Node* node) {
                     index = shd_bld_conversion(bb, shd_get_actual_mask_type(ctx->rewriter.dst_arena), index);
                     const Node* acc = mask;
                     // acc >>= index
-                    acc = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, acc, index));
+                    acc = prim_op_helper(a, rshift_logical_op, mk_nodes(a, acc, index));
                     // acc &= 0x1
-                    acc = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, acc, ctx->one));
+                    acc = prim_op_helper(a, and_op, mk_nodes(a, acc, ctx->one));
                     // acc == 1
-                    acc = prim_op_helper(a, eq_op, shd_empty(a), mk_nodes(a, acc, ctx->one));
+                    acc = prim_op_helper(a, eq_op, mk_nodes(a, acc, ctx->one));
                     return shd_bld_to_instr_yield_value(bb, acc);
                 }
                 default: break;

@@ -105,7 +105,7 @@ static const Node* process(Context* ctx, const Node* node) {
                             payload.operands = shd_change_node_at_index(oa, payload.operands, 1, shd_uint32_literal(a, SpvGroupOperationExclusiveScan));
                             const Node* new = shd_recreate_node(r, ext_instr(oa, payload));
                             // new = prim_op_helper(a, group_operations[i].scalar, shd_empty(a), mk_nodes(a, new, group_operations[i].I(a, new->type) ));
-                            new = prim_op_helper(a, group_operations[i].scalar, shd_empty(a), mk_nodes(a, new, shd_recreate_node(r, payload.operands.nodes[2]) ));
+                            new = prim_op_helper(a, group_operations[i].scalar, mk_nodes(a, new, shd_recreate_node(r, payload.operands.nodes[2]) ));
                             new = mem_and_value_helper(a, shd_rewrite_node(r, payload.mem), new);
                             return new;
                         }

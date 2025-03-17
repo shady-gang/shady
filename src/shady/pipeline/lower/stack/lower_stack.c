@@ -60,7 +60,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     const Node* stack_size = shd_bld_load(bb, stack_pointer);
 
     if (!push) // for pop, we decrease the stack size first
-        stack_size = prim_op_helper(a, sub_op, shd_empty(a), mk_nodes(a, stack_size, element_size));
+        stack_size = prim_op_helper(a, sub_op, mk_nodes(a, stack_size, element_size));
 
     const Node* addr = lea_helper(a, ctx->stack, shd_int32_literal(a, 0), shd_singleton(stack_size));
     assert(shd_get_unqualified_type(addr->type)->tag == PtrType_TAG);
@@ -75,7 +75,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
         popped_value = shd_bld_load(bb, addr);
 
     if (push) // for push, we increase the stack size after the store
-        stack_size = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, stack_size, element_size));
+        stack_size = prim_op_helper(a, add_op, mk_nodes(a, stack_size, element_size));
 
     // store updated stack size
     shd_bld_store(bb, stack_pointer, stack_size);

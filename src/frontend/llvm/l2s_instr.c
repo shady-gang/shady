@@ -199,44 +199,44 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
-            return prim_op_helper(a, neg_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, neg_op, convert_operands(p, num_ops, instr));
         case LLVMFAdd:
         case LLVMAdd:
-            return prim_op_helper(a, add_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, add_op, convert_operands(p, num_ops, instr));
         case LLVMSub:
         case LLVMFSub:
-            return prim_op_helper(a, sub_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, sub_op, convert_operands(p, num_ops, instr));
         case LLVMMul:
         case LLVMFMul:
-            return prim_op_helper(a, mul_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, mul_op, convert_operands(p, num_ops, instr));
         case LLVMUDiv:
         case LLVMFDiv:
-            return prim_op_helper(a, div_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, div_op, convert_operands(p, num_ops, instr));
         case LLVMSDiv: {
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
-            const Node* r = prim_op_helper(a, div_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            const Node* r = prim_op_helper(a, div_op, reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
             r = bit_cast_helper(a, int_t, r);
         } case LLVMURem:
         case LLVMFRem:
-            return prim_op_helper(a, mod_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, mod_op, convert_operands(p, num_ops, instr));
         case LLVMSRem: {
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
-            const Node* r = prim_op_helper(a, mod_op, shd_empty(a), reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
+            const Node* r = prim_op_helper(a, mod_op, reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
             r = bit_cast_helper(a, int_t, r);
         } case LLVMShl:
-            return prim_op_helper(a, lshift_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, lshift_op, convert_operands(p, num_ops, instr));
         case LLVMLShr:
-            return prim_op_helper(a, rshift_logical_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, rshift_logical_op, convert_operands(p, num_ops, instr));
         case LLVMAShr:
-            return prim_op_helper(a, rshift_arithm_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, rshift_arithm_op, convert_operands(p, num_ops, instr));
         case LLVMAnd:
-            return prim_op_helper(a, and_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, and_op, convert_operands(p, num_ops, instr));
         case LLVMOr:
-            return prim_op_helper(a, or_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, or_op, convert_operands(p, num_ops, instr));
         case LLVMXor:
-            return prim_op_helper(a, xor_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, xor_op, convert_operands(p, num_ops, instr));
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = l2s_convert_type(p, LLVMGetAllocatedType(instr));
@@ -303,12 +303,12 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 assert(t->tag == Int_TAG);
                 const Node* zero = int_literal(a, (IntLiteral) { .value = 0, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
                 const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
-                r = prim_op_helper(a, select_op, shd_empty(a), mk_nodes(a, shd_first(ops), one, zero));
+                r = prim_op_helper(a, select_op, mk_nodes(a, shd_first(ops), one, zero));
             } else if (t->tag == Bool_TAG) {
                 assert(src_t->tag == Int_TAG);
                 const Node* one  = int_literal(a, (IntLiteral) { .value = 1, .width = src_t->payload.int_type.width, .is_signed = false });
-                r = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, shd_first(ops), one));
-                r = prim_op_helper(a, eq_op, shd_empty(a), mk_nodes(a, r, one));
+                r = prim_op_helper(a, and_op, mk_nodes(a, shd_first(ops), one));
+                r = prim_op_helper(a, eq_op, mk_nodes(a, r, one));
             } else {
                 // reinterpret as unsigned, convert to change size, reinterpret back to target T
                 const Type* unsigned_src_t = change_int_t_sign(src_t, false);
@@ -327,7 +327,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Node* zero = int_literal(a, (IntLiteral) { .value = 0, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
                 uint64_t i = UINT64_MAX >> (64 - int_size_in_bytes(t->payload.int_type.width) * 8);
                 const Node* ones = int_literal(a, (IntLiteral) { .value = i, .width = t->payload.int_type.width, .is_signed = t->payload.int_type.is_signed });
-                r = prim_op_helper(a, select_op, shd_empty(a), mk_nodes(a, shd_first(ops), ones, zero));
+                r = prim_op_helper(a, select_op, mk_nodes(a, shd_first(ops), ones, zero));
             } else {
                 const Type* signed_src_t = change_int_t_sign(src_t, true);
                 const Type* signed_dst_t = change_int_t_sign(t, true);
@@ -413,7 +413,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* signed_t = change_int_t_sign(unsigned_t, true);
                 ops = reinterpret_operands(b, ops, signed_t);
             }
-            return prim_op_helper(a, op, shd_empty(a), ops);
+            return prim_op_helper(a, op, ops);
         }
         case LLVMFCmp: {
             Op op;
@@ -446,7 +446,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 default: goto unimplemented;
             }
             Nodes ops = convert_operands(p, num_ops, instr);
-            return prim_op_helper(a, op, shd_empty(a), ops);
+            return prim_op_helper(a, op, ops);
             break;
         }
         case LLVMPHI:
@@ -507,13 +507,13 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     return shd_bld_add_instruction(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = shd_bld_mem(b) }));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, fma_op, shd_empty(a), shd_nodes(a, 3, ops.nodes));
+                    return prim_op_helper(a, fma_op, shd_nodes(a, 3, ops.nodes));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, abs_op, shd_empty(a), shd_nodes(a, 1, ops.nodes));
+                    return prim_op_helper(a, abs_op, shd_nodes(a, 1, ops.nodes));
                 } else if (shd_string_starts_with(intrinsic, "llvm.floor")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, floor_op, shd_empty(a), shd_nodes(a, 1, ops.nodes));
+                    return prim_op_helper(a, floor_op, shd_nodes(a, 1, ops.nodes));
                 }
 
                 typedef struct {
@@ -557,7 +557,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                             else
                                 processed_ops[i] = ops.nodes[i];
                         }
-                        r = prim_op_helper(a, op, shd_empty(a), shd_nodes(a, num_args, processed_ops));
+                        r = prim_op_helper(a, op, shd_nodes(a, num_args, processed_ops));
                         free(str);
                         goto finish;
                     } else if (strcmp(keyword, "instruction") == 0) {
@@ -616,7 +616,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             return r;
         }
         case LLVMSelect:
-            return prim_op_helper(a, select_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, select_op, convert_operands(p, num_ops, instr));
         case LLVMUserOp1:
             goto unimplemented;
         case LLVMUserOp2:
@@ -624,9 +624,9 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMVAArg:
             goto unimplemented;
         case LLVMExtractElement:
-            return prim_op_helper(a, extract_dynamic_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, extract_dynamic_op, convert_operands(p, num_ops, instr));
         case LLVMInsertElement:
-            return prim_op_helper(a, insert_op, shd_empty(a), convert_operands(p, num_ops, instr));
+            return prim_op_helper(a, insert_op, convert_operands(p, num_ops, instr));
         case LLVMShuffleVector: {
             Nodes ops = convert_operands(p, num_ops, instr);
             unsigned num_indices = LLVMGetNumMaskElements(instr);
@@ -637,7 +637,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     cindices[i] = shd_uint32_literal(a, 0);
             }
             ops = shd_concat_nodes(a, ops, shd_nodes(a, num_indices, cindices));
-            return prim_op_helper(a, shuffle_op, shd_empty(a), ops);
+            return prim_op_helper(a, shuffle_op, ops);
         }
         case LLVMExtractValue:
             goto unimplemented;

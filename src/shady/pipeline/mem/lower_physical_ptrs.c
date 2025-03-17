@@ -56,7 +56,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
         case Bool_TAG: {
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
             const Node* value = shd_bld_load(bb, logical_ptr);
-            return prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
+            return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
         }
         case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
             case AsGlobal: {
@@ -78,11 +78,11 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
                 const Node* word = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
                             word = shd_bld_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
-                word = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, word, shift)); // shift it
-                acc = prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, acc, word));
+                word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
+                acc = prim_op_helper(a, or_op, mk_nodes(a, acc, word));
 
-                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1)));
-                shift = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth));
+                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1)));
+                shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
@@ -109,7 +109,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
-                const Node* adjusted_offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, address, field_offset));
+                const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
             }
             return composite_helper(a, element_type, shd_nodes(a, member_types.count, loaded));
@@ -128,7 +128,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 components[i] = gen_deserialisation(ctx, bb, component_type, arr, offset);
-                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_of_helper(a, component_type)));
+                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return composite_helper(a, element_type, shd_nodes(a, components_count, components));
         }
@@ -145,7 +145,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
             const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
             const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
-            const Node* int_value = prim_op_helper(a, select_op, shd_empty(a), mk_nodes(a, value, one_b, zero_b));
+            const Node* int_value = prim_op_helper(a, select_op, mk_nodes(a, value, one_b, zero_b));
             shd_bld_store(bb, logical_ptr, int_value);
             return;
         }
@@ -180,12 +180,12 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                     // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 }*/
                 const Node* word = value;
-                word = (prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, word, shift))); // shift it
+                word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
                 word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
 
-                offset = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_t_literal(a, 1))));
-                shift = (prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, shift, word_bitwidth)));
+                offset = (prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1))));
+                shift = (prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth)));
             }
             if (config->printf_trace.memory_accesses) {
                 AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
@@ -205,9 +205,9 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* extracted_value = prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, value, shd_int32_literal(a, i)), .type_arguments = shd_empty(a) });
+                const Node* extracted_value = prim_op_helper(a, extract_op, mk_nodes(a, value, shd_int32_literal(a, i)));
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
-                const Node* adjusted_offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, address, field_offset));
+                const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
             }
             return;
@@ -229,7 +229,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 gen_serialisation(ctx, bb, component_type, arr, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
-                offset = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, offset, size_of_helper(a, component_type)));
+                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return;
         }

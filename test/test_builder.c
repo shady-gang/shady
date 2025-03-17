@@ -14,7 +14,7 @@
 
 static void test_body_builder_constants(IrArena* a) {
     BodyBuilder* bb = shd_bld_begin_pure(a);
-    const Node* sum = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, shd_int32_literal(a, 4), shd_int32_literal(a, 38)));
+    const Node* sum = prim_op_helper(a, add_op, mk_nodes(a, shd_int32_literal(a, 4), shd_int32_literal(a, 38)));
     const Node* result = shd_bld_to_instr_yield_value(bb, sum);
     CHECK(sum == result, exit(-1));
     CHECK(result->tag == IntLiteral_TAG, exit(-1));
@@ -45,11 +45,11 @@ static void test_body_builder_fun_body(IrArena* a) {
     BodyBuilder* tc_builder = shd_bld_begin(a, shd_get_abstraction_mem(true_case));
     shd_bld_store(tc_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(true_case, shd_bld_selection_merge(tc_builder, shd_empty(a)));
-    shd_bld_if(bb, shd_empty(a), prim_op_helper(a, gt_op, shd_empty(a), mk_nodes(a, p1_value, shd_uint32_literal(a, 0))), true_case, NULL);
+    shd_bld_if(bb, shd_empty(a), prim_op_helper(a, gt_op, mk_nodes(a, p1_value, shd_uint32_literal(a, 0))), true_case, NULL);
 
     const Node* p2_value = shd_bld_load(bb, p2);
 
-    const Node* sum = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, p1_value, p2_value));
+    const Node* sum = prim_op_helper(a, add_op, mk_nodes(a, p1_value, p2_value));
     const Node* return_terminator = fn_ret(a, (Return) {
         .mem = shd_bld_mem(bb),
         .args = shd_singleton(sum)
@@ -105,7 +105,7 @@ static void test_body_builder_impure_block(IrArena* a) {
 
     const Node* second_load = shd_bld_load(bb, p1);
 
-    const Node* sum = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, first_load, second_load));
+    const Node* sum = prim_op_helper(a, add_op, mk_nodes(a, first_load, second_load));
     const Node* return_terminator = fn_ret(a, (Return) {
         .mem = shd_bld_mem(bb),
         .args = shd_singleton(sum)
@@ -145,12 +145,12 @@ static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     BodyBuilder* if_true_builder = shd_bld_begin(a, shd_get_abstraction_mem(if_true_case));
     shd_bld_store(if_true_builder, p1, shd_uint32_literal(a, 0));
     shd_set_abstraction_body(if_true_case, shd_bld_selection_merge(if_true_builder, shd_empty(a)));
-    shd_bld_if(block_builder, shd_empty(a), prim_op_helper(a, neq_op, shd_empty(a), mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
+    shd_bld_if(block_builder, shd_empty(a), prim_op_helper(a, neq_op, mk_nodes(a, first_load, shd_uint32_literal(a, 0))), if_true_case, NULL);
     shd_bld_add_instruction(bb, shd_bld_to_instr_yield_values(block_builder, shd_empty(a)));
 
     const Node* second_load = shd_bld_load(bb, p1);
 
-    const Node* sum = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, first_load, second_load));
+    const Node* sum = prim_op_helper(a, add_op, mk_nodes(a, first_load, second_load));
     const Node* return_terminator = fn_ret(a, (Return) {
         .mem = shd_bld_mem(bb),
         .args = shd_singleton(sum)

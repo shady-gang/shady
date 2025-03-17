@@ -102,7 +102,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
                 return quote_single(arena, payload.operands.nodes[0]);
             // if first operand is zero, invert the second one
             if (is_zero(payload.operands.nodes[0]))
-                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = shd_singleton(payload.operands.nodes[1]), .type_arguments = shd_empty(arena) });
+                return prim_op(arena, (PrimOp) { .op = neg_op, .operands = shd_singleton(payload.operands.nodes[1]) });
             break;
         }
         case mul_op: {
@@ -307,7 +307,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             if (nptr->tag == PtrCompositeElement_TAG) {
                 PtrCompositeElement other_offset = nptr->payload.ptr_composite_element;
                 payload.ptr = other_offset.ptr;
-                other_offset.index = prim_op_helper(arena, add_op, shd_empty(arena), mk_nodes(arena, to_ptr_size(other_offset.index), to_ptr_size(payload.offset)));
+                other_offset.index = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.index), to_ptr_size(payload.offset)));
                 r = ptr_composite_element(arena, other_offset);
                 maybe_convert_to_generic(node, &r);
                 break;

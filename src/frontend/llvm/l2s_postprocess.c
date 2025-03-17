@@ -73,7 +73,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
             if (primop_intrinsic != PRIMOPS_COUNT) {
                 shd_set_abstraction_body(nfun, fn_ret(a, (Return) {
-                    .args = shd_singleton(prim_op_helper(a, primop_intrinsic, shd_empty(a), get_abstraction_params(nfun))),
+                    .args = shd_singleton(prim_op_helper(a, primop_intrinsic, get_abstraction_params(nfun))),
                     .mem = shd_get_abstraction_mem(nfun),
                 }));
             } else if (get_abstraction_body(node)) {

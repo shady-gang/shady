@@ -214,10 +214,6 @@ const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
 }
 
 const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
-    for (size_t i = 0; i < prim_op.type_arguments.count; i++) {
-        const Node* ta = prim_op.type_arguments.nodes[i];
-        assert(ta && is_type(ta));
-    }
     for (size_t i = 0; i < prim_op.operands.count; i++) {
         const Node* operand = prim_op.operands.nodes[i];
         assert(operand && is_value(operand));
@@ -228,7 +224,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
     AddressSpace as;
     switch (prim_op.op) {
         case neg_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
@@ -238,7 +233,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case rshift_arithm_op:
         case rshift_logical_op:
         case lshift_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_first(prim_op.operands)->type;
             const Type* second_operand_type = prim_op.operands.nodes[1]->type;
@@ -265,7 +259,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case mul_op:
         case div_op:
         case mod_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
@@ -290,7 +283,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
 
         case not_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
@@ -300,7 +292,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case or_op:
         case xor_op:
         case and_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
@@ -324,7 +315,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case gte_op: ordered = true; SHADY_FALLTHROUGH
         case eq_op:
         case neq_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
             size_t first_operand_width = shd_get_maybe_packed_type_width(first_operand_type);
@@ -353,7 +343,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case cos_op:
         case exp_op:
         {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             ShdScope scope = shd_deconstruct_qualified_type(&src_type);
@@ -362,7 +351,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case pow_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
@@ -381,7 +369,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type_helper(arena, result_scope, first_operand_type);
         }
         case fma_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
 
@@ -402,7 +389,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case abs_op:
         case sign_op:
         {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             ShdScope scope = shd_deconstruct_qualified_type(&src_type);
@@ -411,7 +397,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case select_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
             ShdScope scope = shd_deconstruct_qualified_type(&condition_type);
@@ -434,7 +419,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case insert_op:
         case extract_dynamic_op:
         case extract_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count >= 2);
             const Node* source = shd_first(prim_op.operands);
 
@@ -460,7 +444,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);
-            assert(prim_op.type_arguments.count == 0);
             const Node* lhs = prim_op.operands.nodes[0];
             const Node* rhs = prim_op.operands.nodes[1];
             const Type* lhs_t = lhs->type;
@@ -484,11 +467,10 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         }
         // Mask management
         case empty_mask_op: {
-            assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
+            assert(prim_op.operands.count == 0);
             return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, shd_get_actual_mask_type(arena));
         }
         case mask_is_thread_active_op: {
-            assert(prim_op.type_arguments.count == 0);
             assert(prim_op.operands.count == 2);
             return qualified_type(arena, (QualifiedType) {
                 .scope = shd_combine_scopes(shd_get_qualified_type_scope(prim_op.operands.nodes[0]->type), shd_get_qualified_type_scope(prim_op.operands.nodes[1]->type)),

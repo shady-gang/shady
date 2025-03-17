@@ -458,7 +458,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         int results_count = has_result ? 1 : 0;
         Nodes results = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
             .op = shd_op.op,
-            .type_arguments = shd_empty(parser->arena),
             .operands = shd_nodes(parser->arena, num_ops, ops)
         }), results_count);
         if (has_result) {
@@ -996,7 +995,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Value;
             parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = extract_op,
-                .type_arguments = shd_empty(parser->arena),
                 .operands = shd_nodes(parser->arena, 1 + num_indices, ops)
             }));
             break;
@@ -1011,7 +1009,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Value;
             parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                 .op = insert_op,
-                .type_arguments = shd_empty(parser->arena),
                 .operands = shd_nodes(parser->arena, 2 + num_indices, ops)
             }));
             break;
@@ -1036,7 +1033,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 }
                 components[i] = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                     .op = extract_op,
-                    .type_arguments = shd_empty(parser->arena),
                     .operands = mk_nodes(parser->arena, src, shd_int32_literal(parser->arena, index))
                 }));
             }
@@ -1117,7 +1113,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     //assert(false && intrinsic);
                     Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
                         .op = op,
-                        .type_arguments = shd_empty(parser->arena),
                         .operands = shd_nodes(parser->arena, num_args, args)
                     }), rslts_count);
 

@@ -331,7 +331,6 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                     syntax_error("primops cannot be used outside of a function");
                 return shd_bld_add_instruction(bb, prim_op(arena, (PrimOp) {
                     .op = op,
-                    .type_arguments = accept_type_arguments(ctx),
                     .operands = expect_operands(ctx, bb)
                 }));
             } else if (strcmp(id, "ext_instr") == 0) {

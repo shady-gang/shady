@@ -178,7 +178,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* builtin_get_active_threads_mask_fn = shd_find_or_process_decl(r, "builtin_get_active_threads_mask");
     const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, builtin_get_active_threads_mask_fn, shd_empty(a)));
     const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
-    const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, shd_empty(a), mk_nodes(a, next_mask, local_id));
+    const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, mk_nodes(a, next_mask, local_id));
 
     const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
     if (ctx->config->printf_trace.top_function) {
@@ -191,11 +191,11 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 
     const Node* iteration_count_plus_one = NULL;
     if (count_iterations)
-        iteration_count_plus_one = prim_op_helper(a, add_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, 1)));
+        iteration_count_plus_one = prim_op_helper(a, add_op, mk_nodes(a, iterations_count_param, shd_int32_literal(a, 1)));
 
     if (ctx->config->shader_diagnostics.max_top_iterations > 0) {
         begin_control_t c = shd_bld_begin_control(loop_body_builder, shd_empty(a));
-        const Node* bail_condition = prim_op_helper(a, gt_op, shd_empty(a), mk_nodes(a, iterations_count_param, shd_int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
+        const Node* bail_condition = prim_op_helper(a, gt_op, mk_nodes(a, iterations_count_param, shd_int32_literal(a, ctx->config->shader_diagnostics.max_top_iterations)));
         Node* bail_case = basic_block_helper(a, shd_empty(a));
         const Node* break_terminator = join(a, (Join) { .args = shd_empty(a), .join_point = l.break_jp, .mem = shd_get_abstraction_mem(bail_case) });
         shd_set_abstraction_body(bail_case, break_terminator);

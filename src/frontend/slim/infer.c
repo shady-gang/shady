@@ -332,13 +332,9 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     assert(node->tag == PrimOp_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
 
-    for (size_t i = 0; i < node->payload.prim_op.type_arguments.count; i++)
-        assert(node->payload.prim_op.type_arguments.nodes[i] && is_type(node->payload.prim_op.type_arguments.nodes[i]));
     for (size_t i = 0; i < node->payload.prim_op.operands.count; i++)
         assert(node->payload.prim_op.operands.nodes[i] && is_value(node->payload.prim_op.operands.nodes[i]));
 
-    Nodes old_type_args = node->payload.prim_op.type_arguments;
-    Nodes type_args = infer_nodes(ctx, old_type_args);
     Nodes old_operands = node->payload.prim_op.operands;
 
     BodyBuilder* bb = shd_bld_begin_pure(a);
@@ -366,7 +362,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     rebuild: {
         const Node* new_instruction = prim_op(a, (PrimOp) {
             .op = op,
-            .type_arguments = type_args,
             .operands = shd_nodes(a, old_operands.count, new_operands)
         });
         return shd_bld_to_instr_with_last_instr(bb, new_instruction);

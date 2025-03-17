@@ -102,7 +102,7 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
         }
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
-                const Node* hi = prim_op_helper(a, rshift_logical_op, shd_empty(a), mk_nodes(a, param, shd_int32_literal(a, 32)));
+                const Node* hi = prim_op_helper(a, rshift_logical_op, mk_nodes(a, param, shd_int32_literal(a, 32)));
                 hi = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), hi);
                 const Node* lo = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), param);
                 hi = rebuild_op(ctx, bb, op, hi, false);
@@ -110,8 +110,8 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
                 hi = shd_bld_convert_int_zero_extend(bb, it, hi);
                 lo = shd_bld_convert_int_zero_extend(bb, it, lo);
-                hi = prim_op_helper(a, lshift_op, shd_empty(a), mk_nodes(a, hi, shd_int32_literal(a, 32)));
-                return prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, lo, hi));
+                hi = prim_op_helper(a, lshift_op, mk_nodes(a, hi, shd_int32_literal(a, 32)));
+                return prim_op_helper(a, or_op, mk_nodes(a, lo, hi));
             }
             break;
         }
@@ -135,7 +135,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
 
     if (is_supported_natively(ctx, op, src_t)) {
         if (strcmp("shady.primop", op.iset) == 0)
-            return prim_op_helper(a, op.opcode, shd_empty(a), shd_singleton(src));
+            return prim_op_helper(a, op.opcode, shd_singleton(src));
         if (strcmp("shady.scope_cast", op.iset) == 0)
             return scope_cast_helper(a, shd_resolve_to_int_literal(shd_first(op.params))->value, src);
         return shd_bld_ext_instruction(bb, op.iset, op.opcode, qualified_type_helper(a, ShdScopeSubgroup, src_t), shd_nodes_append(a, op.params, src));
