@@ -50,7 +50,7 @@ if (BUILD_TESTING)
     function(spv_outputting_test)
         cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME;COMPILER" "FILES;ARGS" )
         list(TRANSFORM F_FILES PREPEND ${PROJECT_SOURCE_DIR}/)
-        add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=$<TARGET_FILE:${F_COMPILER}> "-DFILES=${F_FILES}" "-DTARGS=${F_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
+        add_test(NAME ${F_NAME} COMMAND ${CMAKE_COMMAND} -DCOMPILER=$<TARGET_FILE:${F_COMPILER}> -DNAME=${F_NAME} "-DFILES=${F_FILES}" "-DTARGS=${F_ARGS}" -DSRC=${PROJECT_SOURCE_DIR} -DDST=${PROJECT_BINARY_DIR} -P ${PROJECT_SOURCE_DIR}/test/test_with_val.cmake)
     endfunction()
 
     spv_outputting_test(COMPILER slim NAME fibonacci FILES samples/fib.slim ARGS --entry-point fib_main)
