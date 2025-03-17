@@ -301,9 +301,6 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
                 assert(operands.count == 1);
                 break;
-                // SpvId result_t = spv_emit_type(emitter, bool_type(emitter->arena));
-                // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
-                // return spvb_group_elect(bb_builder, result_t, scope_subgroup);
             }
             default: break;
         }
@@ -429,7 +426,6 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         }
         case Instruction_ScopeCast_TAG: {
             SpvId new = spv_emit_value(emitter, fn_builder, instruction->payload.scope_cast.src);
-            //if (emitter->spirv_tgt.target_version.minor > 4)
             new = spvb_op(bb_builder, SpvOpCopyObject, spv_emit_type(emitter, instruction->type), 1, &new);
             return new;
         }
