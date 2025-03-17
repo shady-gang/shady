@@ -77,35 +77,6 @@ break;
                     return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = is_signed, .width = int_width, .value = int_literals[0]->value % int_literals[1]->value }));
                 else
                     return quote_single(arena, shd_fp_literal_helper(arena, float_width, fmod(shd_get_float_literal_value(*float_literals[0]), shd_get_float_literal_value(*float_literals[1]))));
-            case convert_op: {
-                const Type* dst_t = shd_first(payload.type_arguments);
-                uint64_t bitmask = 0;
-                if (shd_get_type_bitwidth(dst_t) == 64)
-                    bitmask = UINT64_MAX;
-                else
-                    bitmask = ~(UINT64_MAX << shd_get_type_bitwidth(dst_t));
-                if (dst_t->tag == Int_TAG) {
-                    if (all_int_literals) {
-                        uint64_t old_value = shd_get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);
-                        uint64_t value = old_value & bitmask;
-                        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
-                    } else if (all_float_literals) {
-                        double old_value = shd_get_float_literal_value(*float_literals[0]);
-                        int64_t value = old_value;
-                        return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
-                    }
-                } else if (dst_t->tag == Float_TAG) {
-                    if (all_int_literals) {
-                        uint64_t old_value = shd_get_int_literal_value(*int_literals[0], int_literals[0]->is_signed);
-                        double value = old_value;
-                        return quote_single(arena, shd_fp_literal_helper(arena, dst_t->payload.float_type.width, value));
-                    } else if (all_float_literals) {
-                        double old_value = shd_get_float_literal_value(*float_literals[0]);
-                        return quote_single(arena, float_literal(arena, (FloatLiteral) { .width = dst_t->payload.float_type.width, .value = old_value }));
-                    }
-                }
-                break;
-            }
             default: break;
         }
     }
@@ -194,29 +165,21 @@ static inline const Node* resolve_ptr_source0(const Node* ptr, bool ensure_compa
         assert(ptr_type->tag == PtrType_TAG);
         PtrType ptr_type_payload = ptr_type->payload.ptr_type;
         switch (ptr->tag) {
-            case PrimOp_TAG: {
-                PrimOp instruction = ptr->payload.prim_op;
-                // casts starting from non-ptrs are not elligible
-                const Node* src = shd_first(instruction.operands);
-                if (shd_get_unqualified_type(src->type)->tag != PtrType_TAG)
-                    break;
-                switch (instruction.op) {
-                    case convert_op: {
-                        // only ptr-to-generic pointers are acceptable
-                        if (shd_first(instruction.type_arguments)->tag != PtrType_TAG)
-                            break;
-                        ptr = src;
-                        continue;
-                    }
-                    default: break;
-                }
-                break;
-            }
             case BitCast_TAG: {
                 BitCast payload = ptr->payload.bit_cast;
                 if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
                     break;
                 if (ensure_compatible_pointee)
+                    break;
+                ptr = payload.src;
+                continue;
+            }
+            case Conversion_TAG: {
+                Conversion payload = ptr->payload.conversion;
+                if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
+                    break;
+                // only ptr-to-generic pointers are acceptable
+                if (payload.type->tag != PtrType_TAG)
                     break;
                 ptr = payload.src;
                 continue;
@@ -283,35 +246,29 @@ static void maybe_convert_to_generic(const Node* old, const Node** new) {
     const Type* old_t = shd_get_unqualified_type(old->type);
     assert(old_t->tag == PtrType_TAG);
     if (old_t->payload.ptr_type.address_space == AsGeneric)
-        *new = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type((*new)->type))),shd_singleton(*new));
+        *new = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type((*new)->type)), *new);
 }
 
 static const Node* to_ptr_size(const Node* n) {
     IrArena* a = n->arena;
-    return prim_op_helper(a, convert_op, shd_singleton(shd_uint64_type(a)), shd_singleton(n));
+    return conversion_helper(a, shd_uint64_type(a), n);
 }
 
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
     const Node* r = NULL;
     switch (node->tag) {
-        case PrimOp_TAG: {
-            PrimOp payload = node->payload.prim_op;
-            switch (payload.op) {
-                case convert_op: {
-                    const Type* dst_t = payload.type_arguments.nodes[0];
-                    if (dst_t->tag != PtrType_TAG || dst_t->payload.ptr_type.address_space != AsGeneric)
-                        break;
-                    // only bother with Generic casts
-                    const Node* src = resolve_ptr_source(shd_first(payload.operands), true);
-                    const Node* nptr = src;
-                    if (nptr) {
-                        r = prim_op_helper(arena, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(nptr->type))),shd_singleton(nptr));
-                        //r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
-                    }
-                    break;
-                }
-                default: break;
+        case Conversion_TAG: {
+            Conversion payload = node->payload.conversion;
+            const Type* dst_t = payload.type;
+            if (dst_t->tag != PtrType_TAG || dst_t->payload.ptr_type.address_space != AsGeneric)
+                break;
+            // only bother with Generic casts
+            const Node* src = resolve_ptr_source(payload.src, true);
+            const Node* nptr = src;
+            if (nptr) {
+                r = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type(nptr->type)), nptr);
+                //r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
             }
             break;
         }
@@ -391,17 +348,6 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
 static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     APPLY_FOLD(fold_constant_math)
     APPLY_FOLD(fold_simplify_math)
-
-    PrimOp payload = node->payload.prim_op;
-    switch (payload.op) {
-        // TODO: case subgroup_broadcast_first_op:
-        case convert_op: {
-            if (payload.type_arguments.nodes[0] == shd_get_unqualified_type(payload.operands.nodes[0]->type))
-                return quote_single(arena, payload.operands.nodes[0]);
-            break;
-        }
-        default: break;
-    }
     return node;
 }
 
@@ -430,18 +376,6 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
             PtrCompositeElement payload = node->payload.ptr_composite_element;
             if (payload.ptr->tag == Undef_TAG)
                 return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
-            break;
-        }
-        case PrimOp_TAG: {
-            PrimOp payload = node->payload.prim_op;
-            switch (payload.op) {
-                case convert_op: {
-                    if (shd_first(payload.operands)->tag == Undef_TAG)
-                        return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
-                    break;
-                }
-                default: break;
-            }
             break;
         }
         default: break;
@@ -518,6 +452,45 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
                 const IntLiteral* lit = shd_resolve_to_int_literal(payload.src);
                 if (lit)
                     return float_literal(arena, (FloatLiteral) { .width = payload.type->payload.float_type.width, .value = lit->value });
+            }
+            break;
+        }
+        case Conversion_TAG: {
+            Conversion payload = node->payload.conversion;
+            // get rid of identity casts
+            if (shd_get_unqualified_type(payload.src->type) == payload.type)
+                return payload.src;
+            switch (payload.src->tag) {
+                case Undef_TAG: return undef_helper(arena, payload.type);
+                default: break;
+            }
+            const Type* dst_t = payload.type;
+            uint64_t bitmask = 0;
+            if (shd_get_type_bitwidth(dst_t) == 64)
+                bitmask = UINT64_MAX;
+            else
+                bitmask = ~(UINT64_MAX << shd_get_type_bitwidth(dst_t));
+            const IntLiteral* int_literals = shd_resolve_to_int_literal(payload.src);
+            const FloatLiteral* float_literals = shd_resolve_to_float_literal(payload.src);
+            if (dst_t->tag == Int_TAG) {
+                if (int_literals) {
+                    uint64_t old_value = shd_get_int_literal_value(*int_literals, int_literals->is_signed);
+                    uint64_t value = old_value & bitmask;
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
+                } else if (float_literals) {
+                    double old_value = shd_get_float_literal_value(*float_literals);
+                    int64_t value = old_value;
+                    return quote_single(arena, int_literal(arena, (IntLiteral) { .is_signed = dst_t->payload.int_type.is_signed, .width = dst_t->payload.int_type.width, .value = value }));
+                }
+            } else if (dst_t->tag == Float_TAG) {
+                if (int_literals) {
+                    uint64_t old_value = shd_get_int_literal_value(*int_literals, int_literals->is_signed);
+                    double value = old_value;
+                    return quote_single(arena, shd_fp_literal_helper(arena, dst_t->payload.float_type.width, value));
+                } else if (float_literals) {
+                    double old_value = shd_get_float_literal_value(*float_literals);
+                    return quote_single(arena, float_literal(arena, (FloatLiteral) { .width = dst_t->payload.float_type.width, .value = old_value }));
+                }
             }
             break;
         }

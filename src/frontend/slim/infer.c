@@ -293,6 +293,19 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             const Type* src = infer(ctx, payload.src, dst_t);
             return bit_cast_helper(a, dst_t, src);
         }
+        /*case Value_Conversion_TAG: {
+            Conversion payload = node->payload.conversion;
+            const Node* src = infer(ctx, payload.src, NULL);
+            const Type* src_pointer_type = shd_get_unqualified_type(new_operands[0]->type);
+            const Type* old_dst_pointer_type = shd_first(old_type_args);
+            const Type* dst_pointer_type = shd_first(type_args);
+
+            // TODO: this is vestigial (reinterpret_op), was it still needed ?
+            if (shd_is_generic_ptr_type(src_pointer_type) != shd_is_generic_ptr_type(dst_pointer_type))
+                op = convert_op;
+
+            goto rebuild;
+        }*/
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, node);
@@ -333,18 +346,6 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     LARRAY(const Node*, new_operands, old_operands.count);
     Nodes input_types = shd_empty(a);
     switch (node->payload.prim_op.op) {
-        case convert_op: {
-            new_operands[0] = infer(ctx, old_operands.nodes[0], NULL);
-            const Type* src_pointer_type = shd_get_unqualified_type(new_operands[0]->type);
-            const Type* old_dst_pointer_type = shd_first(old_type_args);
-            const Type* dst_pointer_type = shd_first(type_args);
-
-            // TODO: this is vestigial (reinterpret_op), was it still needed ?
-            if (shd_is_generic_ptr_type(src_pointer_type) != shd_is_generic_ptr_type(dst_pointer_type))
-                op = convert_op;
-
-            goto rebuild;
-        }
         case empty_mask_op:
         case mask_is_thread_active_op: {
             input_types = mk_nodes(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, mask_type(a)), qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));

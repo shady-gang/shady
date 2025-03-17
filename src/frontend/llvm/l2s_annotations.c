@@ -36,11 +36,8 @@ static const Node* look_past_stuff(const Node* thing) {
         assert(instr->tag == PrimOp_TAG);
         thing = instr;
     }
-    if (thing->tag == PrimOp_TAG) {
-        switch (thing->payload.prim_op.op) {
-            case convert_op: thing = shd_first(thing->payload.prim_op.operands); break;
-            default: assert(false);
-        }
+    if (thing->tag == Conversion_TAG) {
+        thing = thing->payload.conversion.src;
     }
     if (thing->tag == BitCast_TAG) {
         thing = thing->payload.bit_cast.src;

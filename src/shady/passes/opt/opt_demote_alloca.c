@@ -62,27 +62,15 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             if (ptr_value == use->user->payload.store.value)
                 k->leaks = true;
             continue;
-        } else if (use->user->tag == PrimOp_TAG) {
-            PrimOp payload = use->user->payload.prim_op;
-            switch (payload.op) {
-                /*case reinterpret_op: {
-                    k->non_logical_use = true;
-                    visit_ptr_uses(use->user, slice_type, k, map);
-                    continue;
-                }*/
-                case convert_op: {
-                    if (shd_first(payload.type_arguments)->tag == PtrType_TAG) {
-                        k->non_logical_use = true;
-                        visit_ptr_uses(use->user, slice_type, k, map);
-                    } else {
-                        k->leaks = true;
-                    }
-                    continue;
-                }
-                default: break;
-            }
-            if (shd_has_primop_got_side_effects(payload.op))
+        } else if (use->user->tag == Conversion_TAG) {
+            Conversion payload = use->user->payload.conversion;
+            if (payload.type->tag == PtrType_TAG) {
+                k->non_logical_use = true;
+                visit_ptr_uses(use->user, slice_type, k, map);
+            } else {
                 k->leaks = true;
+            }
+            continue;
         } else if (use->user->tag == BitCast_TAG) {
             BitCast payload = use->user->payload.bit_cast;
             if (payload.type->tag == PtrType_TAG) {
@@ -118,17 +106,10 @@ static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr
                 ptr = payload.src;
                 continue;
             }
-            case PrimOp_TAG: {
-                PrimOp payload = instr->payload.prim_op;
-                switch (payload.op) {
-                    case convert_op: {
-                        ptr = shd_first(payload.operands);
-                        continue;
-                    }
-                    // TODO: lea and co
-                    default:
-                        break;
-                }
+            case Conversion_TAG: {
+                Conversion payload = instr->payload.conversion;
+                ptr = payload.src;
+                continue;
             }
             default: break;
         }

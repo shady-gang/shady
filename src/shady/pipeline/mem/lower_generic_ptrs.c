@@ -234,38 +234,34 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
-        case PrimOp_TAG: {
-            switch (old->payload.prim_op.op) {
-                case convert_op: {
-                    const Node* old_src = shd_first(old->payload.prim_op.operands);
-                    const Type* old_src_t = old_src->type;
-                    shd_deconstruct_qualified_type(&old_src_t);
-                    const Type* old_dst_t = shd_first(old->payload.prim_op.type_arguments);
-                    if (old_dst_t->tag == PtrType_TAG && old_dst_t->payload.ptr_type.address_space == AsGeneric) {
-                        // cast _into_ generic
-                        AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
-                        size_t tag = get_tag_for_addr_space(src_as);
-                        BodyBuilder* bb = shd_bld_begin_pure(a);
-                        // TODO: find another way to annotate this ?
-                        // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
-                        // gen_comment(bb, x);
-                        const Node* src_ptr = shd_rewrite_node(&ctx->rewriter, old_src);
-                        const Node* generic_ptr = shd_bld_bitcast(bb, ctx->generic_ptr_type, src_ptr);
-                        const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
-                        //          generic_ptr = generic_ptr & 0x001111 ... 111
-                                    generic_ptr = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));
-                        const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
-                        //          generic_ptr = generic_ptr | 01000000 ... 000
-                                    generic_ptr = prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
-                        return shd_bld_to_instr_yield_values(bb, shd_singleton(generic_ptr));
-                    } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
-                        // cast _from_ generic
-                        shd_error("TODO");
-                    }
-                    break;
-                }
-                default: break;
+        case Conversion_TAG: {
+            Conversion payload = old->payload.conversion;
+            const Node* old_src = payload.src;
+            const Type* old_src_t = old_src->type;
+            shd_deconstruct_qualified_type(&old_src_t);
+            const Type* old_dst_t = payload.type;
+            if (old_dst_t->tag == PtrType_TAG && old_dst_t->payload.ptr_type.address_space == AsGeneric) {
+                // cast _into_ generic
+                AddressSpace src_as = old_src_t->payload.ptr_type.address_space;
+                size_t tag = get_tag_for_addr_space(src_as);
+                BodyBuilder* bb = shd_bld_begin_pure(a);
+                // TODO: find another way to annotate this ?
+                // String x = format_string_arena(a->arena, "Generated generic ptr convert src %d tag %d", src_as, tag);
+                // gen_comment(bb, x);
+                const Node* src_ptr = shd_rewrite_node(&ctx->rewriter, old_src);
+                const Node* generic_ptr = shd_bld_bitcast(bb, ctx->generic_ptr_type, src_ptr);
+                const Node* ptr_mask = size_t_literal(a, (UINT64_MAX >> (uint64_t) (generic_ptr_tag_bitwidth)));
+                //          generic_ptr = generic_ptr & 0x001111 ... 111
+                generic_ptr = prim_op_helper(a, and_op, shd_empty(a), mk_nodes(a, generic_ptr, ptr_mask));
+                const Node* shifted_tag = size_t_literal(a, (tag << (uint64_t) (shd_get_type_bitwidth(ctx->generic_ptr_type) - generic_ptr_tag_bitwidth)));
+                //          generic_ptr = generic_ptr | 01000000 ... 000
+                generic_ptr = prim_op_helper(a, or_op, shd_empty(a), mk_nodes(a, generic_ptr, shifted_tag));
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(generic_ptr));
+            } else if (old_src_t->tag == PtrType_TAG && old_src_t->payload.ptr_type.address_space == AsGeneric) {
+                // cast _from_ generic
+                shd_error("TODO");
             }
+            break;
         }
         default: break;
     }

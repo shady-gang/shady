@@ -47,7 +47,7 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
     }
 
     const Type* tgt_ptr_t = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = ptr_payload.pointed_type });
-    return prim_op_helper(a, convert_op, shd_singleton(tgt_ptr_t), shd_singleton(phy));
+    return conversion_helper(a, tgt_ptr_t, phy);
 }
 
 static const Type* make_ptr_generic(const Type* old) {
@@ -93,7 +93,7 @@ static const Node* process(Context* ctx, const Node* node) {
             if (can_be_physical) {
                 io = promote_to_physical(ctx, as, io);
             } else {
-                io = prim_op_helper(a, convert_op, shd_singleton(make_ptr_generic(shd_get_unqualified_type(io->type))), shd_singleton(io));
+                io = conversion_helper(a, make_ptr_generic(shd_get_unqualified_type(io->type)), io);
             }
 
             shd_register_processed(r, node, io);

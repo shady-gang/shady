@@ -100,14 +100,6 @@ static const IselTableEntry isel_table[] = {
     [rshift_arithm_op]  = {Plain, FirstOp, Same, .fo = {SpvOpShiftRightArithmetic, SpvOpShiftRightArithmetic, ISEL_ILLEGAL, ISEL_ILLEGAL }},
     [rshift_logical_op] = {Plain, FirstOp, Same, .fo = {SpvOpShiftRightLogical, SpvOpShiftRightLogical, ISEL_ILLEGAL, ISEL_ILLEGAL }},
 
-    [convert_op] = {Plain, FirstAndResult, TyOperand, .foar = {
-        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_LOWERME,  ISEL_LOWERME  },
-        { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_LOWERME,  ISEL_LOWERME  },
-        { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEGAL,  ISEL_ILLEGAL  },
-        { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_IDENTITY, ISEL_ILLEGAL  },
-        { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_ILLEGAL,  ISEL_IDENTITY }
-    }},
-
     [sqrt_op] =     { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Sqrt },
     [inv_sqrt_op] = { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450InverseSqrt},
     [floor_op] =    { Plain, Monomorphic, Same, .extended_set = "GLSL.std.450", .op = (SpvOp) GLSLstd450Floor },
@@ -142,7 +134,7 @@ static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes ar
     }
 }
 
-static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
+static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nodes args, const Type* unqualified_result_t) {
     switch (entry.isel_mechanism) {
         case None:        return SpvOpMax;
         case Monomorphic: return entry.op;
@@ -153,50 +145,51 @@ static SpvOp get_opcode(SHADY_UNUSED Emitter* emitter, IselTableEntry entry, Nod
         }
         case FirstAndResult: {
             assert(args.count >= 1);
-            assert(type_arguments.count == 1);
             OperandClass op_class = classify_operand_type(shd_get_unqualified_type(shd_first(args)->type));
-            OperandClass return_t_class = classify_operand_type(shd_first(type_arguments));
+            OperandClass return_t_class = classify_operand_type(unqualified_result_t);
             return entry.foar[op_class][return_t_class];
         }
     }
 }
 
+static SpvId emit_using_entry(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, IselTableEntry entry, const Type* type, Nodes args) {
+    LARRAY(SpvId, emitted_args, args.count);
+    for (size_t i = 0; i < args.count; i++)
+        emitted_args[i] = spv_emit_value(emitter, fn_builder, args.nodes[i]);
+
+    switch (entry.class) {
+        case Plain: {
+            SpvOp opcode = get_opcode(emitter, entry, args, shd_get_unqualified_type(type));
+            if (opcode == SpvOpNop) {
+                assert(args.count == 1);
+                return emitted_args[0];
+            }
+
+            if (opcode == SpvOpMax)
+                return 0;
+
+            SpvId result_t = type == empty_multiple_return_type(emitter->arena) ? emitter->void_t : spv_emit_type(emitter, type);
+            if (entry.extended_set) {
+                SpvId set_id = spv_get_extended_instruction_set(emitter, entry.extended_set);
+                return spvb_ext_instruction(bb_builder, result_t, set_id, opcode, args.count, emitted_args);
+            } else {
+                return spvb_op(bb_builder, opcode, result_t, args.count, emitted_args);
+            }
+        }
+        case Custom: break;
+    }
+    return 0;
+}
+
 static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instr) {
     PrimOp the_op = instr->payload.prim_op;
     Nodes args = the_op.operands;
-    Nodes type_arguments = the_op.type_arguments;
 
     IselTableEntry entry = isel_table[the_op.op];
-    if (entry.class != Custom) {
-        LARRAY(SpvId, emitted_args, args.count);
-        for (size_t i = 0; i < args.count; i++)
-            emitted_args[i] = spv_emit_value(emitter, fn_builder, args.nodes[i]);
+    SpvId emitted = emit_using_entry(emitter, fn_builder, bb_builder, entry, instr->type, args);
+    if (emitted)
+        return emitted;
 
-        switch (entry.class) {
-            case Plain: {
-                SpvOp opcode = get_opcode(emitter, entry, args, type_arguments);
-                if (opcode == SpvOpNop) {
-                    assert(args.count == 1);
-                    return emitted_args[0];
-                }
-
-                if (opcode == SpvOpMax)
-                    goto custom;
-
-                SpvId result_t = instr->type == empty_multiple_return_type(emitter->arena) ? emitter->void_t : spv_emit_type(emitter, instr->type);
-                if (entry.extended_set) {
-                    SpvId set_id = spv_get_extended_instruction_set(emitter, entry.extended_set);
-                    return spvb_ext_instruction(bb_builder, result_t, set_id, opcode, args.count, emitted_args);
-                } else {
-                    return spvb_op(bb_builder, opcode, result_t, args.count, emitted_args);
-                }
-            }
-            case Custom: SHADY_UNREACHABLE;
-        }
-        SHADY_UNREACHABLE;
-    }
-
-    custom:
     switch (the_op.op) {
         case insert_op:
         case extract_dynamic_op:
@@ -421,6 +414,17 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
                 op = SpvOpConvertUToPtr;
             SpvId src = spv_emit_value(emitter, fn_builder, payload.src);
             return spvb_op(bb_builder, op, spv_emit_type(emitter, instruction->type), 1, &src);
+        }
+        case Instruction_Conversion_TAG: {
+            Conversion payload = instruction->payload.conversion;
+            IselTableEntry entry = {Plain, FirstAndResult, TyOperand, .foar = {
+                    { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertSToF, ISEL_LOWERME,  ISEL_LOWERME  },
+                    { SpvOpSConvert,    SpvOpUConvert,    SpvOpConvertUToF, ISEL_LOWERME,  ISEL_LOWERME  },
+                    { SpvOpConvertFToS, SpvOpConvertFToU, SpvOpFConvert,    ISEL_ILLEGAL,  ISEL_ILLEGAL  },
+                    { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_IDENTITY, ISEL_ILLEGAL  },
+                    { ISEL_LOWERME,     ISEL_LOWERME,     ISEL_ILLEGAL,     ISEL_ILLEGAL,  ISEL_IDENTITY }
+                }};
+            return emit_using_entry(emitter, fn_builder, bb_builder, entry, instruction->type, shd_singleton(payload.src));
         }
         case Instruction_ScopeCast_TAG: {
             SpvId new = spv_emit_value(emitter, fn_builder, instruction->payload.scope_cast.src);

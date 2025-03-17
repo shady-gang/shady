@@ -366,6 +366,11 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 1, "one operands");
                 return bit_cast_helper(arena, type, shd_first(ops));
+            } else if (strcmp(id, "convert") == 0) {
+                const Node* type = shd_first(accept_type_arguments(ctx));
+                Nodes ops = expect_operands(ctx, bb);
+                expect(ops.count == 1, "one operands");
+                return conversion_helper(arena, type, shd_first(ops));
             } else if (strcmp(id, "debug_printf") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
                 return shd_bld_add_instruction(bb, debug_printf(arena, (DebugPrintf) {

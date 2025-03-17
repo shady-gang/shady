@@ -12,7 +12,7 @@ const Node* shd_bld_bitcast(BodyBuilder* bb, const Type* dst, const Node* src) {
 
 const Node* shd_bld_conversion(BodyBuilder* bb, const Type* dst, const Node* src) {
     assert(is_type(dst));
-    return prim_op(shd_get_bb_arena(bb), (PrimOp) { .op = convert_op, .operands = shd_singleton(src), .type_arguments = shd_singleton(dst)});
+    return conversion_helper(shd_get_bb_arena(bb), dst, src);
 }
 
 bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {

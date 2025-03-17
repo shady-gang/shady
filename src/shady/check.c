@@ -502,23 +502,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             }
             return qualified_type_helper(arena, scope, pack_type(arena, (PackType) {.element_type = element_t, .width = indices_count}));
         }
-        case convert_op: {
-            assert(prim_op.type_arguments.count == 1);
-            assert(prim_op.operands.count == 1);
-            const Node* source = shd_first(prim_op.operands);
-            const Type* src_type = source->type;
-            ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
-
-            const Type* dst_type = shd_first(prim_op.type_arguments);
-            assert(shd_is_data_type(dst_type));
-            assert(shd_is_conversion_legal(src_type, dst_type));
-
-            // TODO check the conversion is legal
-            return qualified_type(arena, (QualifiedType) {
-                .scope = src_scope,
-                .type = dst_type
-            });
-        }
         // Mask management
         case empty_mask_op: {
             assert(prim_op.type_arguments.count == 0 && prim_op.operands.count == 0);
@@ -555,6 +538,20 @@ const Type* _shd_check_type_bit_cast(IrArena* a, BitCast cast) {
     return qualified_type(a, (QualifiedType) {
         .scope = src_scope,
         .type = cast.type
+    });
+}
+
+const Type* _shd_check_type_conversion(IrArena* a, Conversion conversion) {
+    const Type* src_type = conversion.src->type;
+    ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
+
+    const Type* dst_type = conversion.type;
+    assert(shd_is_data_type(dst_type));
+    assert(shd_is_conversion_legal(src_type, dst_type));
+
+    return qualified_type(a, (QualifiedType) {
+        .scope = src_scope,
+        .type = dst_type
     });
 }
 

@@ -89,19 +89,13 @@ static const Node* process(Context* ctx, const Node* old) {
                 return src;
             break;
         }
-        case PrimOp_TAG: {
-            PrimOp payload = old->payload.prim_op;
-            switch (payload.op) {
-                case convert_op: {
-                    const Node* src = shd_rewrite_node(r, shd_first(payload.operands));
-                    const Type* src_t = src->type;
-                    shd_deconstruct_qualified_type(&src_t);
-                    if (src_t->tag == PtrType_TAG && !ctx->target.address_spaces[src_t->payload.ptr_type.address_space].physical)
-                        return src;
-                    break;
-                }
-                default: break;
-            }
+        case Conversion_TAG: {
+            Conversion payload = old->payload.conversion;
+            const Node* src = shd_rewrite_node(r, payload.src);
+            const Type* src_t = src->type;
+            shd_deconstruct_qualified_type(&src_t);
+            if (src_t->tag == PtrType_TAG && !ctx->target.address_spaces[src_t->payload.ptr_type.address_space].physical)
+                return src;
             break;
         }
         case Load_TAG: {

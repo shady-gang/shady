@@ -523,6 +523,24 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     SHADY_UNREACHABLE;
 }
 
+static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
+    IrArena* arena = emitter->arena;
+    Conversion payload = node->payload.conversion;
+    CTerm src = shd_c_emit_value(emitter, fn, payload.src);
+    const Type* src_type = shd_get_unqualified_type(payload.src->type);
+    const Type* dst_type = payload.type;
+    if (emitter->config.dialect == CDialect_GLSL) {
+        if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
+            CType t = shd_c_emit_type(emitter, dst_type, NULL);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, src)));
+        } else
+            assert(false);
+    } else {
+        CType t = shd_c_emit_type(emitter, dst_type, NULL);
+        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src)));
+    }
+}
+
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
     assert(node->tag == PrimOp_TAG);
     IrArena* arena = emitter->arena;
@@ -615,22 +633,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             CValue l = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             CValue r = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
             term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(%s) ? (%s) : (%s)", condition, l, r));
-            break;
-        }
-        case convert_op: {
-            CTerm src = shd_c_emit_value(emitter, fn, shd_first(prim_op->operands));
-            const Type* src_type = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
-            const Type* dst_type = shd_first(prim_op->type_arguments);
-            if (emitter->config.dialect == CDialect_GLSL) {
-                if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-                    CType t = shd_c_emit_type(emitter, dst_type, NULL);
-                    term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, src)));
-                } else
-                    assert(false);
-            } else {
-                CType t = shd_c_emit_type(emitter, dst_type, NULL);
-                term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src)));
-            }
             break;
         }
         case insert_op:
@@ -1102,6 +1104,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             return empty_term();
         }
         case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
+        case Instruction_Conversion_TAG: return emit_conversion(emitter, fn, p, instruction);
         case Value_ScopeCast_TAG: {
             ScopeCast payload = instruction->payload.scope_cast;
             if (payload.scope <= ShdScopeSubgroup) {

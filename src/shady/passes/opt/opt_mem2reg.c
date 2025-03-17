@@ -39,18 +39,11 @@ static const Node* get_ptr_source(const Node* ptr) {
                 }
                 break;
             }
-            case PrimOp_TAG: {
-                PrimOp payload = ptr->payload.prim_op;
-                switch (payload.op) {
-                    case convert_op: {
-                        const Node* src = shd_first(payload.operands);
-                        if (shd_get_unqualified_type(src->type)->tag == PtrType_TAG) {
-                            ptr = src;
-                            continue;
-                        }
-                        break;
-                    }
-                    default: break;
+            case Conversion_TAG: {
+                Conversion payload = ptr->payload.conversion;
+                if (shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG) {
+                    ptr = payload.src;
+                    continue;
                 }
                 break;
             }

@@ -246,7 +246,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
                 r = bit_cast_helper(a, untyped_ptr_t, r);
             }
-            return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(r));
+            return conversion_helper(a, t, r);
         }
         case LLVMLoad: {
             Nodes ops = convert_operands(p, num_ops, instr);
@@ -313,7 +313,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 // reinterpret as unsigned, convert to change size, reinterpret back to target T
                 const Type* unsigned_src_t = change_int_t_sign(src_t, false);
                 const Type* unsigned_dst_t = change_int_t_sign(t, false);
-                r = prim_op_helper(a, convert_op, shd_singleton(unsigned_dst_t), reinterpret_operands(b, ops, unsigned_src_t));
+                r = conversion_helper(a, unsigned_dst_t, bit_cast_helper(a, unsigned_src_t, shd_first(ops)));
                 r = bit_cast_helper(a, t, r);
             }
             return r;
@@ -331,7 +331,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             } else {
                 const Type* signed_src_t = change_int_t_sign(src_t, true);
                 const Type* signed_dst_t = change_int_t_sign(t, true);
-                r = prim_op_helper(a, convert_op, shd_singleton(signed_dst_t), reinterpret_operands(b, ops, signed_src_t));
+                r = conversion_helper(a, signed_dst_t, bit_cast_helper(a, signed_src_t, shd_first(ops)));
                 r = bit_cast_helper(a, t, r);
             }
             return r;
@@ -339,7 +339,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMFPToSI:
         case LLVMUIToFP:
         case LLVMSIToFP:
-            return prim_op_helper(a, convert_op, shd_singleton(t), convert_operands(p, num_ops, instr));
+            return conversion_helper(a, t, shd_first(convert_operands(p, num_ops, instr)));
         case LLVMFPTrunc:
             goto unimplemented;
         case LLVMFPExt:
@@ -358,7 +358,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         case AsGeneric: // generic-to-generic isn't a conversion.
                             break;
                         default: {
-                            return prim_op_helper(a, convert_op, shd_singleton(t), shd_singleton(src));
+                            return conversion_helper(a, t, src);
                         }
                     }
                 }

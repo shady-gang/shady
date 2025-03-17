@@ -35,17 +35,12 @@ const Node* shd_chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
                 }
                 break;
             }
-            case PrimOp_TAG: {
-                switch (ptr->payload.prim_op.op) {
-                    case convert_op: {
-                        // chase generic pointers to their source
-                        if (shd_first(ptr->payload.prim_op.type_arguments)->tag == PtrType_TAG) {
-                            ptr = shd_first(ptr->payload.prim_op.operands);
-                            continue;
-                        }
-                        break;
-                    }
-                    default: break;
+            case Conversion_TAG: {
+                Conversion payload = ptr->payload.conversion;
+                // chase generic pointers to their source
+                if (payload.type->tag == PtrType_TAG) {
+                    ptr = payload.src;
+                    continue;
                 }
                 break;
             }
@@ -60,14 +55,9 @@ const Node* shd_resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) 
     while (ptr) {
         ptr = shd_resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
-            case PrimOp_TAG: {
-                switch (ptr->payload.prim_op.op) {
-                    case convert_op: { // allow address space conversions
-                        ptr = shd_first(ptr->payload.prim_op.operands);
-                        continue;
-                    }
-                    default: break;
-                }
+            case Conversion_TAG: {
+                // allow address space conversions
+                ptr = ptr->payload.conversion.src;
             }
             case GlobalVariable_TAG:
                 if (config.assume_globals_immutability)
@@ -112,15 +102,11 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
                 }
                 break;
             }
-            case PrimOp_TAG: {
-                switch (node->payload.prim_op.op) {
-                    case convert_op: {
-                        if (config.allow_incompatible_types) {
-                            node = shd_first(node->payload.prim_op.operands);
-                            continue;
-                        }
-                    }
-                    default: break;
+            case Conversion_TAG: {
+                Conversion payload = node->payload.conversion;
+                if (config.allow_incompatible_types) {
+                    node = payload.src;
+                    continue;
                 }
                 break;
             }

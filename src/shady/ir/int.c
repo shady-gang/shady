@@ -73,7 +73,7 @@ const Node* shd_bld_convert_int_extend_according_to_src_t(BodyBuilder* bb, const
     // first convert to final bitsize then bitcast
     const Type* extended_src_t = int_type(shd_get_bb_arena(bb), (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
     const Node* val = src;
-    val = prim_op_helper(a, convert_op, shd_singleton(extended_src_t), shd_singleton(val));
+    val = conversion_helper(a, extended_src_t, val);
     val = bit_cast_helper(a, dst_type, val);
     return val;
 }
@@ -88,7 +88,7 @@ const Node* shd_bld_convert_int_extend_according_to_dst_t(BodyBuilder* bb, const
     const Type* reinterpreted_src_t = int_type(shd_get_bb_arena(bb), (Int) { .width = src_type->payload.int_type.width, .is_signed = dst_type->payload.int_type.is_signed });
     const Node* val = src;
     val = bit_cast_helper(a, reinterpreted_src_t, val);
-    val = prim_op_helper(a, convert_op, shd_singleton(dst_type), shd_singleton(val));
+    val = conversion_helper(a, dst_type, val);
     return val;
 }
 
@@ -100,8 +100,7 @@ const Node* shd_bld_convert_int_zero_extend(BodyBuilder* bb, const Type* dst_typ
 
     const Node* val = src;
     val = bit_cast_helper(a, int_type(a, (Int) { .width = src_type->payload.int_type.width, .is_signed = false }), val);
-    val = prim_op_helper(a, convert_op, shd_singleton(
-        int_type(a, (Int) { .width = dst_type->payload.int_type.width, .is_signed = false })), shd_singleton(val));
+    val = conversion_helper(a, int_type(a, (Int) { .width = dst_type->payload.int_type.width, .is_signed = false }), val);
     val = bit_cast_helper(a, dst_type, val);
     return val;
 }
@@ -114,8 +113,7 @@ const Node* shd_bld_convert_int_sign_extend(BodyBuilder* bb, const Type* dst_typ
 
     const Node* val = src;
     val = bit_cast_helper(a, int_type(a, (Int) { .width = src_type->payload.int_type.width, .is_signed = true }), val);
-    val = prim_op_helper(a, convert_op, shd_singleton(
-        int_type(a, (Int) { .width = dst_type->payload.int_type.width, .is_signed = true })), shd_singleton(val));
+    val = conversion_helper(a, int_type(a, (Int) { .width = dst_type->payload.int_type.width, .is_signed = true }), val);
     val = bit_cast_helper(a, dst_type, val);
     return val;
 }
