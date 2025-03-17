@@ -582,6 +582,15 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         uint32_t op = strtol(opcode_str, NULL, 10);
 
                         return ext_value_helper(a, qualified_type_helper(a, shd_scope, t), set, op, ops);
+                    } else if (strcmp(keyword, "impure_op") == 0) {
+                        char* set = strtok(NULL, "::");
+                        char* opcode_str = strtok(NULL, "::");
+                        char* scope_str = strtok(NULL, "::");
+                        ShdScope shd_scope = parse_scope(scope_str);
+                        Nodes ops = convert_operands(p, num_args, instr);
+                        uint32_t op = strtol(opcode_str, NULL, 10);
+
+                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();
