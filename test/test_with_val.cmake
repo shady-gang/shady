@@ -1,7 +1,4 @@
-#message("src:${PROJECT_SOURCE_DIR}")
-#message("src:${SRC}")
-message("dst:${DST}")
-execute_process(COMMAND ${COMPILER} ${SRC}/${T} ${TARGS} -o ${DST}/${T}.spv COMMAND_ERROR_IS_FATAL ANY COMMAND_ECHO STDOUT)
+execute_process(COMMAND ${COMPILER} ${FILES} ${TARGS} -o ${DST}/${T}.spv COMMAND_ERROR_IS_FATAL ANY COMMAND_ECHO STDOUT)
 
 find_program(SPIRV_VALIDATOR "spirv-val")
 if (SPIRV_VALIDATOR)
