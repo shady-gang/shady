@@ -227,7 +227,6 @@
     {
       "name": "StackAlloc",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "type", "class": "type" }
@@ -236,7 +235,6 @@
     {
       "name": "LocalAlloc",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "type", "class": "type" }
@@ -245,7 +243,6 @@
     {
       "name": "Load",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "ptr", "class": "value" }
@@ -254,7 +251,6 @@
     {
       "name": "Store",
       "class": ["instruction", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "ptr", "class": "value" },
@@ -280,7 +276,6 @@
     {
       "name": "CopyBytes",
       "class": ["instruction", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "dst", "class": "value" },
@@ -291,7 +286,6 @@
     {
       "name": "FillBytes",
       "class": ["instruction", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "dst", "class": "value" },
@@ -302,7 +296,6 @@
     {
       "name": "PushStack",
       "class": ["instruction", "mem", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "value", "class": "value" }
@@ -311,7 +304,6 @@
     {
       "name": "PopStack",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "type", "class": "type" }
@@ -320,7 +312,6 @@
     {
       "name": "GetStackSize",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" }
       ]
@@ -328,7 +319,6 @@
     {
       "name": "SetStackSize",
       "class": ["instruction", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "value", "class": "value" }
@@ -337,7 +327,6 @@
     {
       "name": "GetStackBaseAddr",
       "class": ["instruction", "value"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" }
       ]
@@ -345,7 +334,6 @@
     {
       "name": "DebugPrintf",
       "class": ["instruction", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "string", "class": "string" },

@@ -376,7 +376,6 @@
     {
       "name": "IndirectCall",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "callee", "class": "value" },
@@ -386,7 +385,6 @@
     {
       "name": "Call",
       "class": ["instruction", "value", "mem"],
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "callee", "class": "function" },
@@ -521,7 +519,6 @@
     {
       "name": "MergeContinue",
       "class": "terminator",
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
@@ -530,7 +527,6 @@
     {
       "name": "MergeBreak",
       "class": "terminator",
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
@@ -539,7 +535,6 @@
     {
       "name": "MergeSelection",
       "class": "terminator",
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
@@ -549,7 +544,6 @@
       "name": "Return",
       "snake_name": "fn_ret",
       "class": "terminator",
-      "nominal": true,
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "args", "class": "value", "list": true }
