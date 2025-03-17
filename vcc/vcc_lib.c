@@ -34,12 +34,14 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv) {
             if (options->include_path)
                 free((void*) options->include_path);
             options->include_path = shd_format_string_new("%s", argv[i]);
-            continue;
         } else if (strcmp(argv[i], "--only-run-clang") == 0) {
             argv[i] = NULL;
             options->only_run_clang = true;
             continue;
+        } else {
+            continue;
         }
+        argv[i] = NULL;
     }
 
     shd_pack_remaining_args(pargc, argv);
@@ -54,6 +56,7 @@ void vcc_check_clang(void) {
 VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     VccConfig vcc_config = {
         .only_run_clang = false,
+        .clang_options = shd_new_list(const char*),
     };
 
     // magic!
@@ -76,9 +79,10 @@ void destroy_vcc_options(VccConfig vcc_options) {
         free((void*) vcc_options.include_path);
     if (vcc_options.tmp_filename)
         free((void*) vcc_options.tmp_filename);
+    shd_destroy_list(vcc_options.clang_options);
 }
 
-void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* input_filenames) {
+void vcc_run_clang(VccConfig* vcc_options, String filename) {
     Growy* g = shd_new_growy();
     shd_growy_append_string(g, VCC_CLANG);
     String self_path = shd_get_executable_location();
@@ -95,23 +99,24 @@ void vcc_run_clang(VccConfig* vcc_options, size_t num_source_files, String* inpu
         char* tmp_alloc;
         vcc_options->tmp_filename = tmp_alloc = malloc(33);
         tmp_alloc[32] = '\0';
-        uint32_t hash = 0;
-        for (size_t i = 0; i < num_source_files; i++) {
-            String filename = input_filenames[i];
-            hash ^= shd_hash(filename, strlen(filename));
-        }
+        uint32_t hash = shd_hash(filename, strlen(filename));
         srand(hash);
         for (size_t i = 0; i < 32; i++) {
             tmp_alloc[i] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[rand() % (10 + 26 * 2)];
         }
+        printf("file=%s tmpfile=%s\n", filename, tmp_alloc);
     }
     shd_growy_append_formatted(g, " -o %s", vcc_options->tmp_filename);
 
-    for (size_t i = 0; i < num_source_files; i++) {
-        String filename = input_filenames[i];
+    shd_growy_append_string(g, " \"");
+    shd_growy_append_bytes(g, strlen(filename), filename);
+    shd_growy_append_string(g, "\"");
+
+    for (size_t i = 0; i < shd_list_count(vcc_options->clang_options); i++) {
+        String option = shd_read_list(const char*, vcc_options->clang_options)[i];
 
         shd_growy_append_string(g, " \"");
-        shd_growy_append_bytes(g, strlen(filename), filename);
+        shd_growy_append_bytes(g, strlen(option), option);
         shd_growy_append_string(g, "\"");
     }
 

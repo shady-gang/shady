@@ -49,6 +49,8 @@ void shd_pack_remaining_args(int* pargc, char** argv);
 void shd_parse_common_args(int* pargc, char** argv);
 // parses compiler pipeline options
 void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv);
+// parses whatever starts with '-'
+void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv);
 // parses the remaining arguments into a list of files
 void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 

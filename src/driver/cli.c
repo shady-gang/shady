@@ -218,6 +218,21 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
     shd_pack_remaining_args(pargc, argv);
 }
 
+void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv) {
+    int argc = *pargc;
+
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
+        if (argv[i][0] != '-')
+            continue;
+        shd_list_append(const char*, list, argv[i]);
+        argv[i] = NULL;
+    }
+
+    shd_pack_remaining_args(pargc, argv);
+}
+
 void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
     int argc = *pargc;
 
