@@ -28,7 +28,7 @@ set(SHADY_IMPORTED_JSON_PATH ${CMAKE_CURRENT_BINARY_DIR}/imported.json CACHE INT
 function(add_generated_file)
     cmake_parse_arguments(PARSE_ARGV 0 F "" "FILE_NAME;TARGET_NAME" "SOURCES" )
     set(GENERATOR_NAME generator_${F_FILE_NAME})
-    add_executable(${GENERATOR_NAME} ${F_SOURCES} ${PROJECT_SOURCE_DIR}/src/shady/generator/generator_main.c)
+    add_executable(${GENERATOR_NAME} ${F_SOURCES} ${PROJECT_SOURCE_DIR}/src/generator/generator_main.c)
     target_link_libraries(${GENERATOR_NAME} generator_common)
 
     get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)

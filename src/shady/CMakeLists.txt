@@ -1,12 +1,4 @@
-add_subdirectory(generator)
-
-# :( see https://gitlab.kitware.com/cmake/cmake/-/issues/18399
-# set_source_files_properties(${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTIES GENERATED TRUE)
-#set_property(SOURCE ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTY GENERATED TRUE)
-
-add_subdirectory(api)
-
-get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
+add_library(shady STATIC)
 
 add_generated_file(FILE_NAME type_generated.c         TARGET_NAME type_generated         SOURCES generator_type.c)
 add_generated_file(FILE_NAME node_generated.c         TARGET_NAME node_generated         SOURCES generator_node.c)
@@ -16,12 +8,8 @@ add_generated_file(FILE_NAME visit_generated.c        TARGET_NAME visit_generate
 add_generated_file(FILE_NAME rewrite_generated.c      TARGET_NAME rewrite_generated      SOURCES generator_rewrite.c)
 add_generated_file(FILE_NAME print_generated.c        TARGET_NAME print_generated        SOURCES generator_print.c)
 
-add_library(shady_generated INTERFACE)
-add_dependencies(shady_generated node_generated primops_generated type_generated constructors_generated visit_generated rewrite_generated print_generated)
-target_include_directories(shady_generated INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
-target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:shady_generated>")
-
-add_library(shady STATIC)
+add_dependencies(shady node_generated primops_generated type_generated constructors_generated visit_generated rewrite_generated print_generated)
+target_include_directories(shady PRIVATE "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>")
 
 target_sources(shady PRIVATE
     ir.c
@@ -43,7 +31,7 @@ add_subdirectory(passes)
 add_subdirectory(ir)
 add_subdirectory(pipeline)
 
-target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+#target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
 if (WIN32)
     if (MSVC)

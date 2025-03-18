@@ -9,8 +9,6 @@
 #include "log.h"
 #include "util.h"
 
-#include "ir_private.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -210,7 +208,7 @@ static const Node* accept_numerical_literal(ctxparams) {
     }
 
     if (negate) // add back the - in front
-        str = shd_format_string_arena(arena->arena, "-%s", str);
+        str = shd_fmt_string_irarena(arena, "-%s", str);
 
     if (num_type) {
         // TODO: share this logic in infer.c

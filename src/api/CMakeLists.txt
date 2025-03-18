@@ -1,6 +1,11 @@
+# :( see https://gitlab.kitware.com/cmake/cmake/-/issues/18399
+# set_source_files_properties(${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTIES GENERATED TRUE)
+#set_property(SOURCE ${CMAKE_SOURCE_DIR}/include/shady/generated_grammar.h PROPERTY GENERATED TRUE)
+
 add_library(api INTERFACE)
 target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>" "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>" "$<INSTALL_INTERFACE:include>")
-target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>")
+# TODO: remove this once we are clean with private interfaces
+target_include_directories(api INTERFACE "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/shady/>")
 target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Headers>")
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
@@ -29,3 +34,5 @@ function(generate_extinst_headers NAME SRC)
     add_dependencies(${NAME} "${NAME}_h")
     target_include_directories(${NAME} INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
+
+get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)

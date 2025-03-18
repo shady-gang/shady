@@ -1,4 +1,6 @@
 add_subdirectory(common)
+add_subdirectory(generator)
+add_subdirectory(api)
 add_subdirectory(shady)
 add_subdirectory(runtime)
 add_subdirectory(runner)
