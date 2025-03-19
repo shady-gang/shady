@@ -10,15 +10,15 @@ target_link_libraries(api INTERFACE "$<BUILD_INTERFACE:SPIRV-Headers::SPIRV-Head
 
 get_target_property(SPIRV_HEADERS_INCLUDE_DIRS SPIRV-Headers::SPIRV-Headers INTERFACE_INCLUDE_DIRECTORIES)
 
-add_generated_file(FILE_NAME grammar_generated.h TARGET_NAME generate-grammar-headers SOURCES generator_grammar.c)
+add_generated_file_python(FILE_NAME grammar_generated.h TARGET_NAME generate-grammar-headers GENERATOR src.api.generator_grammar)
 add_dependencies(api INTERFACE generate-grammar-headers)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/grammar_generated.h DESTINATION include)
 
-add_generated_file(FILE_NAME enum_generated.h TARGET_NAME generate-enum-headers SOURCES generator_enum.c)
+add_generated_file_python(FILE_NAME enum_generated.h TARGET_NAME generate-enum-headers GENERATOR src.api.generator_enum)
 add_dependencies(api INTERFACE generate-enum-headers)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/enum_generated.h DESTINATION include)
 
-add_generated_file(FILE_NAME type_generated.h TARGET_NAME generate-type-headers SOURCES generator_type.c)
+add_generated_file_python(FILE_NAME type_generated.h TARGET_NAME generate-type-headers GENERATOR src.api.generator_type)
 add_dependencies(api INTERFACE generate-type-headers)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/type_generated.h DESTINATION include)
 
