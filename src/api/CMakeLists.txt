@@ -24,7 +24,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/type_generated.h DESTINATION include)
 
 install(TARGETS api EXPORT shady_export_set)
 
-find_package(Python COMPONENTS Interpreter REQUIRED)
 function(generate_extinst_headers NAME SRC)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/SPIRV-Headers/tools/buildHeaders/bin/generate_language_headers.py --extinst-name=${NAME} --extinst-grammar=${CMAKE_CURRENT_SOURCE_DIR}/${SRC} --extinst-output-base=${NAME} DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${SRC} VERBATIM)
     set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${NAME}.h PROPERTIES GENERATED TRUE)
