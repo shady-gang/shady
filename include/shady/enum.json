@@ -272,7 +272,7 @@
     },
     {
       "name": "PushStack",
-      "class": ["instruction", "mem", "mem"],
+      "class": ["instruction", "mem"],
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "value", "class": "value" }
