@@ -16,14 +16,20 @@ def generate_node_has_payload_array(g, nodes):
     g.g += "\tfalse,\n"
     for node in nodes:
         ops = node.get("ops")
-        g.g += f"\t{"true" if ops is not None else "false"},\n"
+        if ops is not None:
+            g.g += "true,"
+        else:
+            g.g += "false,"
     g.g += "};\n\n"
 
 def generate_node_is_recursive_array(g, nodes):
     g.g += "const bool node_type_is_recursive[]  = {\n"
     g.g += "\tfalse,\n"
     for node in nodes:
-        g.g += f"\t{"true" if is_recursive_node(node) else "false"},\n"
+        if is_recursive_node(node):
+            g.g += "true,"
+        else:
+            g.g += "false,"
     g.g += "};\n\n"
 
 def generate_node_payload_hash_fn(g, src, nodes):
