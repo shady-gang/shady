@@ -49,6 +49,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
             switch (node->tag) {
                 default: shd_error("TODO");
                 case Function_TAG:
+                    shd_register_processed_list(shd_get_top_rewriter(r), get_abstraction_params(node), get_abstraction_params(existing));
                     replace_or_compare(weak, &existing->payload.fun.body, shd_rewrite_node(r, node->payload.fun.body));
                     break;
                 case Constant_TAG:
