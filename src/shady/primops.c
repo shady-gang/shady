@@ -10,6 +10,3 @@ String shd_get_primop_name(Op op) {
     return primop_names[op];
 }
 
-bool shd_has_primop_got_side_effects(Op op) {
-    return primop_side_effects[op];
-}
