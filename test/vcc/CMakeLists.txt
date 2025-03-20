@@ -24,5 +24,6 @@ spv_outputting_test(COMPILER vcc NAME vcc_checker_frag FILES test/vcc/checkerboa
 spv_outputting_test(COMPILER vcc NAME vcc_textured_frag FILES test/vcc/textured.frag.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
 
 spv_outputting_test(COMPILER vcc NAME vcc_linkage FILES test/vcc/linkage.frag.c test/vcc/lib.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
+spv_outputting_test(COMPILER vcc NAME vcc_linkage_type FILES test/vcc/linkage2.frag.c test/vcc/lib2.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment)
 
 add_subdirectory(cpp)
