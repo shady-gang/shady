@@ -159,7 +159,7 @@ const Type* l2s_get_param_byval_attr(Parser* p, LLVMValueRef fn, size_t param_in
             //printf("p = %zu, i = %zu, k = %zu, e = %zu\n", param_index, i, k, e);
             // printf("p = %zu, value = %zu\n", param_index, value);
             LLVMTypeRef tr = (LLVMTypeRef) value;
-            LLVMDumpType(tr);
+            //LLVMDumpType(tr);
             const Type* t = l2s_convert_type(p, tr);
             // shd_dump(t);
             return t;
