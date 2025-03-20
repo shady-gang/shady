@@ -66,7 +66,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsShared:
             case AsGlobal:
             case AsGeneric: {
-                size_t size_in_bytes = shd_get_type_bitwidth(type);
+                size_t size_in_bytes = int_size_in_bytes(shd_get_arena_config(a)->target.memory.ptr_size);
                 return (TypeMemLayout) {
                     .type = type,
                     .alignment_in_bytes = size_in_bytes,
