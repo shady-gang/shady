@@ -463,7 +463,7 @@ const Node* shd_recreate_node(Rewriter* r, const Node* old) {
 
     assert(old->arena == r->src_arena);
     IrArena* arena = r->dst_arena;
-    if (can_be_default_rewritten(old->tag)) {
+    if (old->tag != Param_TAG && can_be_default_rewritten(old->tag)) {
         Node* new = (Node*) recreate_node_identity_generated(r, old);
         shd_rewrite_annotations(r, old, new);
         return new;
