@@ -796,7 +796,7 @@ const Type* _shd_check_type_fill_bytes(IrArena* a, FillBytes fill_bytes) {
     assert(dst_t->tag == PtrType_TAG);
     const Type* src_t = fill_bytes.src->type;
     shd_deconstruct_qualified_type(&src_t);
-    assert(src_t);
+    assert(src_t && src_t->tag == Int_TAG && src_t->payload.int_type.width <= a->config.target.memory.word_size);
     const Type* cnt_t = fill_bytes.count->type;
     shd_deconstruct_qualified_type(&cnt_t);
     assert(cnt_t->tag == Int_TAG);
