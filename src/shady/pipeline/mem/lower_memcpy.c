@@ -79,9 +79,20 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* src_type = src_value->type;
             shd_deconstruct_qualified_type(&src_type);
             assert(src_type->tag == Int_TAG);
-            const Type* word_type = src_type;// int_type(a, (Int) { .is_signed = false, .width = a->config.memory.word_size });
+            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.target.memory.word_size });
 
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
+
+            // widen convert the pattern to match the word size...
+            size_t value_size = int_size_in_bytes(src_type->payload.int_type.width);
+            size_t req_value__size = int_size_in_bytes(a->config.target.memory.word_size);
+            src_value = shd_bld_convert_int_zero_extend(bb, word_type, src_value);
+            assert(value_size <= req_value__size);
+            while (value_size < req_value__size) {
+                const Node* shifted = prim_op_helper(a, lshift_op, mk_nodes(a, src_value, int_literal_helper(a, a->config.target.memory.word_size, false, value_size * 8)));
+                src_value = prim_op_helper(a, or_op, mk_nodes(a, shifted, src_value));
+                value_size *= 2;
+            }
 
             const Node* dst_addr = shd_rewrite_node(&ctx->rewriter, payload.dst);
             const Type* dst_addr_type = dst_addr->type;
