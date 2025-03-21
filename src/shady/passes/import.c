@@ -10,6 +10,8 @@ typedef struct {
 } Context;
 
 static void replace_or_compare(bool weak, const Node** dst, const Node* with) {
+    if (!with)
+        return;
     if (!*dst)
         *dst = with;
     else if (!weak) {
