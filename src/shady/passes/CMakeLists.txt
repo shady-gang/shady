@@ -1,44 +1,15 @@
+add_subdirectory(abi)
+add_subdirectory(cf)
+add_subdirectory(fncalls)
+add_subdirectory(group)
+add_subdirectory(io)
+add_subdirectory(mem)
+add_subdirectory(opt)
+add_subdirectory(polyfill)
+add_subdirectory(ptr)
+add_subdirectory(stack)
+add_subdirectory(structure)
+
 target_sources(shady PRIVATE
     import.c
-    opt/cleanup.c
-        ../pipeline/cf/lower_cf_instrs.c
-        ../pipeline/lower/fncalls/lift_indirect_targets.c
-        ../pipeline/lower/fncalls/lower_callf.c
-        ../pipeline/lower/stack/lower_alloca.c
-        ../pipeline/lower/stack/lower_stack.c
-        ../pipeline/mem/lower_lea.c
-        ../pipeline/mem/lower_physical_ptrs.c
-        ../pipeline/mem/lower_generic_ptrs.c
-        ../pipeline/mem/lower_memory_layout.c
-        ../pipeline/mem/lower_memcpy.c
-        ../pipeline/mem/lower_decay_ptrs.c
-        normalize/call_init_fini.c
-        ../pipeline/lower/fncalls/lower_tailcalls.c
-        ../pipeline/lower/subgroup/lower_mask.c
-        ../pipeline/polyfill/lower_fill.c
-        ../pipeline/mem/lower_nullptr.c
-        ../pipeline/cf/lower_switch_btree.c
-        ../pipeline/lower/stack/setup_stack_frames.c
-    opt/eliminate_constants.c
-        ../pipeline/lower/subgroup/lower_subgroup_ops.c
-        ../pipeline/lower/subgroup/lower_subgroup_vars.c
-        ../pipeline/polyfill/lower_int64.c
-        ../pipeline/polyfill/lower_vec_arr.c
-        ../pipeline/lower/abi/lower_workgroups.c
-        ../pipeline/lower/abi/lower_generic_globals.c
-        ../pipeline/lower/fncalls/mark_leaf_functions.c
-    opt/opt_inline.c
-        ../pipeline/cf/restructure.c
-    opt/opt_demote_alloca.c
-    opt/opt_mem2reg.c
-        ../pipeline/shader/specialize_entry_point.c
-        ../pipeline/mem/lower_logical_pointers.c
-        ../pipeline/cf/scope2control.c
-        ../pipeline/cf/lift_everything.c
-        ../pipeline/cf/scope_heuristic.c
-        ../pipeline/cf/reconvergence_heuristics.c
-        ../pipeline/cf/lcssa.c
-        ../pipeline/cf/remove_critical_edges.c
-        ../pipeline/lower/subgroup/lower_inclusive_scan.c
-        ../pipeline/mem/promote_io_variables.c
 )

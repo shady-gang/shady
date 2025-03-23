@@ -23,7 +23,7 @@ void shd_pipeline_add_remove_indirect_calls(ShdPipeline pipeline) {
     shd_pipeline_add_step(pipeline, remove_indirect_calls, NULL, 0);
 }
 
-#include "../frontend/slim/parser.h"
+#include "../../../frontend/slim/parser.h"
 #include "shady_scheduler_src.h"
 
 #include "printer.h"

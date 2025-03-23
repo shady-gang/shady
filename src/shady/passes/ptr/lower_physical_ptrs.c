@@ -4,8 +4,6 @@
 #include "ir_private.h"
 
 #include "log.h"
-#include "portability.h"
-#include "shady/ir.h"
 
 #include <assert.h>
 
