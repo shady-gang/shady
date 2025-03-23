@@ -57,4 +57,4 @@ Node* _shd_create_node_helper(IrArena* arena, Node node, bool* pfresh) {
     return alloc;
 }
 
-#include "../constructors_generated.c"
+#include "constructors_generated.c"
