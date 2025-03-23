@@ -41,8 +41,6 @@ if (WIN32)
     endif()
 endif()
 
-add_subdirectory(internal)
-
 target_link_libraries(shady PRIVATE "api")
 target_link_libraries(shady PRIVATE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
