@@ -1,6 +1,6 @@
 #include <shady.h>
 
-location(0) output vec4 fragColor;
+location(0) output native_vec4 fragColor;
 
 typedef struct {
     float r, g, b;

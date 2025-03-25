@@ -107,13 +107,9 @@ if (BUILD_TESTING)
 endif()
 
 add_subdirectory(samples)
+add_subdirectory(nasl)
 
 include(CMakePackageConfigHelpers)
-
-if (TARGET vcc)
-  add_subdirectory(vcc-std)
-endif ()
-
 install(EXPORT shady_export_set DESTINATION share/cmake/shady/ NAMESPACE shady:: FILE shady-targets.cmake)
 
 configure_file(cmake/shady-config.cmake.in shady-config.cmake @ONLY)

@@ -1,5 +1,3 @@
-#include <shady.h>
-
 typedef struct {
     float r, g, b;
 } RGB;

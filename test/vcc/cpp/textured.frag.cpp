@@ -13,7 +13,7 @@ location(0) output native_vec4 outColor;
 extern "C" {
 
 fragment_shader void main() {
-    outColor = texture2D(texSampler, fragTexCoord) * (vec4) { fragColor.x * 2.5f, fragColor.y * 2.5f, fragColor.z * 2.5f, 1.0f };
+    outColor = texture(texSampler, fragTexCoord) * (native_vec4) { fragColor.x * 2.5f, fragColor.y * 2.5f, fragColor.z * 2.5f, 1.0f };
 }
 
 }

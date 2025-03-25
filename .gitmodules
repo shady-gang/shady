@@ -2,3 +2,6 @@
 	path = SPIRV-Headers
 	url = https://github.com/shady-gang/SPIRV-Headers.git
 	branch = main
+[submodule "nasl"]
+	path = nasl
+	url = https://github.com/shady-gang/nasl.git

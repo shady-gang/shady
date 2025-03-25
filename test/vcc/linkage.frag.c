@@ -1,8 +1,8 @@
 #include <shady.h>
 
-location(0) output vec4 fragColor;
+location(0) output native_vec4 fragColor;
 
-vec4 red(void);
+native_vec4 red(void);
 
 fragment_shader void main() {
     fragColor = red();
