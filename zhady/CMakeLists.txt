@@ -9,7 +9,7 @@ elseif (NOT SWIG_FOUND)
 elseif (NOT SWIG_FOUND)
     message("Java not found. Skipping Java bindings.")
 else()
-    option(SHADY_ENABLE_JAVA_BINDINGS "Allows using shady (and if enabled, Vcc) in JVM applications" ON)
+    option(SHADY_ENABLE_JAVA_BINDINGS "Allows using shady (and if enabled, Vcc) in JVM applications" OFF)
 endif()
 
 if (SHADY_ENABLE_JAVA_BINDINGS)

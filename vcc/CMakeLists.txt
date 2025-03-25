@@ -22,4 +22,13 @@ if (SHADY_ENABLE_VCC)
         )
     endif ()
     #message("Vcc will be built together with shady")
+
+    add_custom_target(copy-vcc-files ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/share/vcc/include/)
+    add_dependencies(shady copy-vcc-files)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/share/vcc/ DESTINATION share/vcc)
+
+    # add_library(vcc-guest-headers INTERFACE)
+    # set_target_properties(vcc-guest-headers PROPERTIES PUBLIC_HEADER include/shady.h)
+    # install(TARGETS vcc-guest-headers)
+
 endif ()
