@@ -796,8 +796,25 @@ ExtISelEntry ext_isel_glsl_entries[] = {
 
 };
 
+#include "spirv/unified1/GLSL.std.450.h"
+
 ExtISelEntry ext_isel_entries[] = {
     {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
+
+    {{ "GLSL.std.450", GLSLstd450Round, mk_prefix() }, { IsMono, OsCall, .op = "round" }},
+    {{ "GLSL.std.450", GLSLstd450Trunc, mk_prefix() }, { IsMono, OsCall, .op = "trunc" }},
+    {{ "GLSL.std.450", GLSLstd450FAbs, mk_prefix() }, { IsMono, OsCall, .op = "fabs" }},
+    {{ "GLSL.std.450", GLSLstd450FSign, mk_prefix() }, { IsMono, OsCall, .op = "sign" }},
+    {{ "GLSL.std.450", GLSLstd450Floor, mk_prefix() }, { IsMono, OsCall, .op = "floor" }},
+    {{ "GLSL.std.450", GLSLstd450Ceil, mk_prefix() }, { IsMono, OsCall, .op = "ceil" }},
+    {{ "GLSL.std.450", GLSLstd450Fract, mk_prefix() }, { IsMono, OsCall, .op = "fract" }},
+    {{ "GLSL.std.450", GLSLstd450Sin, mk_prefix() }, { IsMono, OsCall, .op = "sinf" }},
+    {{ "GLSL.std.450", GLSLstd450Cos, mk_prefix() }, { IsMono, OsCall, .op = "cosf" }},
+    {{ "GLSL.std.450", GLSLstd450Tan, mk_prefix() }, { IsMono, OsCall, .op = "tanf" }},
+    {{ "GLSL.std.450", GLSLstd450Sqrt, mk_prefix() }, { IsMono, OsCall, .op = "sqrtf" }},
+    {{ "GLSL.std.450", GLSLstd450FMin, mk_prefix() }, { IsMono, OsCall, .op = "fminf" }},
+    {{ "GLSL.std.450", GLSLstd450FMax, mk_prefix() }, { IsMono, OsCall, .op = "fmaxf" }},
+    {{ "GLSL.std.450", GLSLstd450Fma, mk_prefix() }, { IsMono, OsCall, .op = "fmaf" }},
 };
 
 static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {
@@ -892,7 +909,21 @@ static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValu
         }
     }
 
-    shd_error("Unsupported extended value: (set = %s, opcode = %d )", value.set, value.opcode);
+    ExtInstr instr = {
+        .set = value.set,
+        .opcode = value.opcode,
+        .result_t = value.result_t,
+        .operands = value.operands
+    };
+    const ExtISelEntry* entry = find_ext_entry(emitter, instr);
+    if (entry) {
+        Nodes operands = value.operands;
+        if (entry->match.prefix_len > 0)
+            operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
+        return emit_using_entry(emitter, fn, p, &entry->payload, operands);
+    } else {
+        shd_error("Unsupported extended value: (set = %s, opcode = %d )", value.set, value.opcode);
+    }
 }
 
 static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* callee, Nodes args, const Type* result_type) {

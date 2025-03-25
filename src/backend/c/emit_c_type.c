@@ -213,8 +213,8 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                     break;
                 }
                 case CDialect_CUDA:
-                    emitted = cuda_int_type(emitter->arena, type->payload.int_type, 1);
-                    break;
+                //    emitted = cuda_int_type(emitter->arena, type->payload.int_type, 1);
+                //    break;
                 case CDialect_C11: {
                     const char* c_classic_int_types[4][2] = {
                             { "unsigned char" , "char"  },
