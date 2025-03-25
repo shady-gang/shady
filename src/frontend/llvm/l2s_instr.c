@@ -335,11 +335,23 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 r = bit_cast_helper(a, t, r);
             }
             return r;
-        } case LLVMFPToUI:
+        }
+        case LLVMFPToUI:
         case LLVMFPToSI:
         case LLVMUIToFP:
-        case LLVMSIToFP:
-            return conversion_helper(a, t, shd_first(convert_operands(p, num_ops, instr)));
+        case LLVMSIToFP: {
+            const Node* src = shd_first(convert_operands(p, num_ops, instr));
+            if (opcode == LLVMSIToFP) {
+                const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                src = bit_cast_helper(a, change_int_t_sign(src_t, true), src);
+            }
+            const Type* conv_t = t;
+            if (opcode == LLVMFPToSI)
+                conv_t = change_int_t_sign(conv_t, true);
+            const Node* result = conversion_helper(a, conv_t, src);
+            result = bit_cast_helper(a, t, result);
+            return result;
+        }
         case LLVMFPTrunc:
             goto unimplemented;
         case LLVMFPExt:
