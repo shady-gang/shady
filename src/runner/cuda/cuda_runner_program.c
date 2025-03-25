@@ -22,6 +22,7 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig 
 
 static bool emit_cuda_c_code(CudaKernel* spec) {
     CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
+    config.specialization.execution_model = EmCompute;
     config.specialization.entry_point = spec->key.entry_point;
 
     spec->final_module = shd_import(&config, spec->key.base->module);
