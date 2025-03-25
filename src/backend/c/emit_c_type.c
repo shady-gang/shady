@@ -148,6 +148,16 @@ String shd_c_emit_dim(SpvDim dim_id) {
     return dim;
 }
 
+static String cuda_int_type(IrArena* a, Int type, int vector_width) {
+    const char* ispc_int_types[4][2] = {
+        { "uchar" , "char"  },
+        { "ushort", "short" },
+        { "uint", "int" },
+        { "ulong", "long" },
+    };
+    return shd_fmt_string_irarena(a, "%s%d", ispc_int_types[type.width][type.is_signed], vector_width);
+}
+
 String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
     if (center == NULL)
         center = "";
@@ -203,6 +213,8 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                     break;
                 }
                 case CDialect_CUDA:
+                    emitted = cuda_int_type(emitter->arena, type->payload.int_type, 1);
+                    break;
                 case CDialect_C11: {
                     const char* c_classic_int_types[4][2] = {
                             { "unsigned char" , "char"  },
@@ -336,7 +348,10 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
             switch (emitter->config.dialect) {
-                case CDialect_CUDA: shd_error("TODO")
+                case CDialect_CUDA:
+                    assert(element_type->tag == Int_TAG);
+                    emitted = cuda_int_type(emitter->arena, element_type->payload.int_type, width);
+                    break;
                 case CDialect_GLSL: {
                     assert(is_glsl_scalar_type(element_type));
                     assert(width > 1);

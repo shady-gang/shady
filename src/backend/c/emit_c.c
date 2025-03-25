@@ -382,7 +382,7 @@ static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const 
     if (econfig->dialect == CDialect_CUDA) {
         RUN_PASS(shd_pass_lower_top_level_globals, config)
     }
-    if (econfig->dialect != CDialect_GLSL) {
+    if (econfig->dialect != CDialect_GLSL && econfig->dialect != CDialect_CUDA) {
         RUN_PASS(shd_pass_lower_vec_arr, config)
     }
 
