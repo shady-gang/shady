@@ -263,6 +263,7 @@ static bool prepare_resources(VkrSpecProgram* program) {
                 }
 
                 void* materialized_constant_data = calloc(size, 1);
+                shd_rt_materialize_constant(item->interface_item.src_details.lifted_constant.constant, &size, materialized_constant_data);
                 shd_rn_copy_to_buffer((Buffer*) item->buffer, 0, materialized_constant_data, size);
 
                 break;
