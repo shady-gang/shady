@@ -304,11 +304,11 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             const Node* nptr = resolve_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
-            if (nptr->tag == PtrCompositeElement_TAG) {
-                PtrCompositeElement other_offset = nptr->payload.ptr_composite_element;
+            if (nptr->tag == PtrArrayElementOffset_TAG) {
+                PtrArrayElementOffset other_offset = nptr->payload.ptr_array_element_offset;
                 payload.ptr = other_offset.ptr;
-                other_offset.index = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.index), to_ptr_size(payload.offset)));
-                r = ptr_composite_element(arena, other_offset);
+                other_offset.offset = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.offset), to_ptr_size(payload.offset)));
+                r = ptr_array_element_offset(arena, other_offset);
                 maybe_convert_to_generic(node, &r);
                 break;
             }
