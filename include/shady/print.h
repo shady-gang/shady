@@ -7,7 +7,6 @@
 #include "printer.h"
 
 typedef struct {
-    bool print_builtin;
     bool print_internal;
     bool print_generated;
     bool print_ptrs;
@@ -16,8 +15,11 @@ typedef struct {
     bool in_cfg;
     int max_depth;
     bool only_immediate;
-    bool no_scheduling;
+    bool scheduled;
+    bool function_bodies;
 } NodePrintConfig;
+
+NodePrintConfig* shd_default_node_print_config(void);
 
 void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size);
 void shd_print_node_into_str(const Node* node, char** str_ptr, size_t* size);

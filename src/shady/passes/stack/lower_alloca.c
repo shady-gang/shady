@@ -134,7 +134,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     shd_error_print("lower_alloca: failed to find a stack offset for ");
                     shd_log_node(ERROR, node);
                     shd_error_print(", most likely this means this alloca was not found in the shd_first block of a function.\n");
-                    shd_log_module(DEBUG, ctx->config, ctx->rewriter.src_module);
+                    shd_log_module(DEBUG, ctx->rewriter.src_module);
                     shd_error_die();
                 }
 

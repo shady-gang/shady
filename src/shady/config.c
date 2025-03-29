@@ -14,13 +14,6 @@ CompilerConfig shd_default_compiler_config(void) {
             .emulate_generic_ptrs = true,
         },
 
-        .logging = {
-            // most of the time, we are not interested in seeing generated & internal code in the debug output
-            //.print_internal = true,
-            //.print_generated = true,
-            .print_builtin = true,
-        },
-
         .optimisations = {
             .cleanup = {
                 .after_every_pass = true,

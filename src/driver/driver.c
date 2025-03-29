@@ -168,7 +168,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     mod = shd_import(&args->config, mod);
 
     shd_debugv_print("Parsed program successfully: \n");
-    shd_log_module(DEBUGV, &args->config, mod);
+    shd_log_module(DEBUGV, mod);
 
     if (args->output_filename) {
         if (args->target == TgtAuto)
@@ -184,7 +184,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
         exit(result);
     }
     shd_debug_print("Ran all passes successfully\n");
-    shd_log_module(DEBUG, &args->config, mod);
+    shd_log_module(DEBUG, mod);
 
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");

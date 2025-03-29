@@ -138,7 +138,6 @@ static Node* make_init_fini_fn(Module* m, String name) {
     Node* fn = function_helper(m, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));
     shd_set_debug_name(fn, name);
     shd_add_annotation_named(fn, "Generated");
-    shd_add_annotation_named(fn, "Internal");
     shd_add_annotation_named(fn, "Leaf");
     shd_set_abstraction_body(fn, fn_ret(a, (Return) { .args = shd_empty(a), .mem = shd_get_abstraction_mem(fn) }));
     shd_module_add_export(m, name, fn);

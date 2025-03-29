@@ -86,12 +86,71 @@ void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) 
     destroy_printer_ctx(ctx);
 }
 
+static NodePrintConfig default_config;
+static NodePrintConfig* default_config_ptr = NULL;
+
+static bool safe_check(const char* str, size_t start, size_t end, const char* needle) {
+    size_t needle_len = strlen(needle);
+    return end - start >= needle_len && memcmp(&str[start], needle, needle_len) == 0;
+}
+
+typedef enum {
+    Default,
+    Yes,
+    No,
+} EnvFlag;
+
+static void configure_flag(const char* str, const char* flag_name, bool* flag_value) {
+    if (!str)
+        return;
+    // if (strcmp(str, "1") == 0)
+    //     *flag_value = ;
+    size_t len = strlen(str);
+    size_t start = 0;
+    for (size_t i = 0; i <= len; i++) {
+        if (i == len || str[i] == ',') {
+            EnvFlag e = Default;
+            size_t sublen = i - start;
+            if (safe_check(str, start, i, flag_name)) {
+                if (strlen(flag_name) + 1 < sublen) {
+                    // eat the '='
+                    if (safe_check(str, start + strlen(flag_name) + 1, i, "1"))
+                        *flag_value = true;
+                    if (safe_check(str, start + strlen(flag_name) + 1, i, "0"))
+                        *flag_value = false;
+                }
+            }
+            start = i + 1;
+        }
+    }
+    // return false;
+}
+
+NodePrintConfig* shd_default_node_print_config(void) {
+    if (!default_config_ptr) {
+        default_config_ptr = &default_config;
+        memset(default_config_ptr, 0, sizeof(default_config));
+        default_config.function_bodies = true;
+        default_config.scheduled = true;
+        default_config.color = true;
+        String shady_log_flags = getenv("SHADY_NODE_DUMP");
+        if (shady_log_flags) {
+            configure_flag(shady_log_flags, "function-body",&default_config.function_bodies);
+            configure_flag(shady_log_flags, "generated",&default_config.print_generated);
+            configure_flag(shady_log_flags, "internal",&default_config.print_internal);
+            configure_flag(shady_log_flags, "color",&default_config.color);
+            configure_flag(shady_log_flags, "scheduled",&default_config.scheduled);
+        }
+    }
+    return default_config_ptr;
+}
+
 void shd_print_node_into_str(const Node* node, char** str_ptr, size_t* size) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
     if (node)
         shd_print(p, "%%%d ", node->id);
-    shd_print_node(p, (NodePrintConfig) {.reparseable = true}, node);
+    shd_print_node(p, (NodePrintConfig) { .reparseable = true }, node);
     shd_destroy_printer(p);
     *size = shd_growy_size(g);
     *str_ptr = shd_growy_deconstruct(g);
@@ -108,14 +167,7 @@ void shd_print_module_into_str(Module* mod, char** str_ptr, size_t* size) {
 
 void shd_dump_module(Module* mod) {
     Printer* p = shd_new_printer_from_file(stdout);
-    shd_print_module(p, (NodePrintConfig) { .color = true, .print_internal = true }, mod);
-    shd_destroy_printer(p);
-    printf("\n");
-}
-
-void shd_dump_module_unscheduled(Module* mod) {
-    Printer* p = shd_new_printer_from_file(stdout);
-    shd_print_module(p, (NodePrintConfig) { .color = true, .print_internal = true, .no_scheduling = true }, mod);
+    shd_print_module(p, *shd_default_node_print_config(), mod);
     shd_destroy_printer(p);
     printf("\n");
 }
@@ -124,33 +176,23 @@ void shd_dump(const Node* node) {
     Printer* p = shd_new_printer_from_file(stdout);
     if (node)
         shd_print(p, "%%%d ", node->id);
-    shd_print_node(p, (NodePrintConfig) { .color = true }, node);
-    printf("\n");
-}
-
-void shd_dump_unscheduled(const Node* node) {
-    Printer* p = shd_new_printer_from_file(stdout);
-    if (node)
-        shd_print(p, "%%%d ", node->id);
-    shd_print_node(p, (NodePrintConfig) { .color = true, .no_scheduling = true }, node);
+    shd_print_node(p, *shd_default_node_print_config(), node);
     printf("\n");
 }
 
 void shd_log_node(LogLevel level, const Node* node) {
+    NodePrintConfig config = *shd_default_node_print_config();
+    config.max_depth = 1;
+    config.only_immediate = true;
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
-        shd_print_node(p, (NodePrintConfig) { .color = true, .max_depth = 1, .only_immediate = true }, node);
+        shd_print_node(p, config, node);
         shd_destroy_printer(p);
     }
 }
 
-void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod) {
-    NodePrintConfig config = { .color = true };
-    if (compiler_cfg) {
-        config.print_generated = compiler_cfg->logging.print_generated;
-        config.print_builtin = compiler_cfg->logging.print_builtin;
-        config.print_internal = compiler_cfg->logging.print_internal;
-    }
+void shd_log_module(LogLevel level, Module* mod) {
+    NodePrintConfig config = *shd_default_node_print_config();
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
         shd_print_module(p, config, mod);
@@ -288,7 +330,7 @@ static void print_terminator_op(PrinterCtx* ctx, const Node* term) {
 static void print_function_body(PrinterCtx* ctx, const Node* node) {
     PrinterCtx sub_ctx = *ctx;
     sub_ctx.fn = node;
-    if (node->arena->config.name_bound && !ctx->config.no_scheduling) {
+    if (node->arena->config.name_bound && ctx->config.scheduled) {
         CFGBuildConfig cfg_config = structured_scope_cfg_build();
         CFG* cfg = shd_new_cfg(node, node, cfg_config);
         sub_ctx.cfg = cfg;
@@ -792,8 +834,6 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         skip = true;
     if (!ctx->config.print_internal && shd_lookup_annotation(node, "Internal"))
         skip = true;
-    if (!ctx->config.print_builtin && node->tag == BuiltinRef_TAG)
-        skip = true;
 
     if (!printed_node_name) {
         printed_node_name = shd_get_node_name_safe(node);
@@ -852,11 +892,14 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
     shd_print(destination_printer, RESET);
     if (node->type && is_value(node)) {
         String t = emit_node(ctx, node->type);
-        shd_print(destination_printer, ": %s = %s", t, printed_node);
-    } else {
-        shd_print(destination_printer, " = ");
-        shd_print(destination_printer, "%s", printed_node);
+        shd_print(destination_printer, ": %s", t);
     }
+    if (node->tag != Function_TAG || ctx->config.function_bodies) {
+        shd_print(destination_printer, " = %s", printed_node);
+    } else {
+        shd_print(destination_printer, ";");
+    }
+
     free((void*) printed_node);
     shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
     return printed_node_name;

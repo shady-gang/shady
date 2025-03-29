@@ -130,10 +130,6 @@ struct CompilerConfig_ {
     } shader_diagnostics;
 
     struct {
-        bool print_generated, print_builtin, print_internal;
-    } logging;
-
-    struct {
         String entry_point;
         ExecutionModel execution_model;
     } specialization;

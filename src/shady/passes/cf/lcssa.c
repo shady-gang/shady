@@ -90,7 +90,7 @@ static const Node* process_abstraction_body(Context* ctx, const Node* old, const
 
     if (!ctx->cfg) {
         shd_error_print("LCSSA: Trying to process an abstraction that's not part of a function ('%s')!", shd_get_node_name_safe(old));
-        shd_log_module(ERROR, ctx->config, ctx->rewriter.src_module);
+        shd_log_module(ERROR, ctx->rewriter.src_module);
         shd_error_die();
     }
     const CFNode* n = shd_cfg_lookup(ctx->cfg, old);

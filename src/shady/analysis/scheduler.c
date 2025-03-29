@@ -1,7 +1,7 @@
 #include "scheduler.h"
 
 #include "shady/visit.h"
-#include "shady/be/dump.h"
+#include "shady/print.h"
 
 #include "log.h"
 #include "dict.h"
@@ -30,7 +30,11 @@ static void schedule_after(Scheduler* scheduler, const Node* op, CFNode** schedu
         // TODO: validate that old post-dominates req
         if (req->rpo_index > old->rpo_index) {
             CHECK(shd_cfg_is_dominated(req, old), {
-                shd_dump_unscheduled(op);
+                Printer* p = shd_new_printer_from_file(stderr);
+                NodePrintConfig config = *shd_default_node_print_config();
+                config.scheduled = false;
+                shd_print_node(p, config, op);
+                shd_destroy_printer(p);
                 shd_log_fmt(ERROR, "Scheduling failure: operand ");
                 shd_log_node(ERROR, op);
                 shd_log_fmt(ERROR, " needs to be scheduled at/after ");
@@ -43,7 +47,11 @@ static void schedule_after(Scheduler* scheduler, const Node* op, CFNode** schedu
             *scheduled = req;
         } else {
             CHECK(shd_cfg_is_dominated(old, req), {
-                shd_dump_unscheduled(op);
+                Printer* p = shd_new_printer_from_file(stderr);
+                NodePrintConfig config = *shd_default_node_print_config();
+                config.scheduled = false;
+                shd_print_node(p, config, op);
+                shd_destroy_printer(p);
                 shd_log_fmt(ERROR, "Scheduling failure: operand ");
                 shd_log_node(ERROR, op);
                 shd_log_fmt(ERROR, " needs to be scheduled after ");

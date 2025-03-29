@@ -351,7 +351,7 @@ bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, 
         global = LLVMGetNextGlobal(global);
     }
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM:\n");
-    shd_log_module(DEBUGVV, config, dirty);
+    shd_log_module(DEBUGVV, dirty);
 
     aconfig.check_types = true;
     aconfig.allow_fold = true;
@@ -359,7 +359,7 @@ bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, 
     *pmod = shd_new_module(arena2, name);
     l2s_postprocess(&p, dirty, *pmod);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:\n");
-    shd_log_module(DEBUGVV, config, *pmod);
+    shd_log_module(DEBUGVV, *pmod);
     shd_verify_module(config, *pmod);
     shd_destroy_ir_arena(arena);
 

@@ -7,9 +7,7 @@
 #include <stdio.h>
 
 void shd_dump_module(Module* mod);
-void shd_dump_module_unscheduled(Module* mod);
 void shd_dump(const Node* node);
-void shd_dump_unscheduled(const Node* node);
 
 void shd_dump_cfgs(FILE* output, Module* mod);
 void shd_dump_loop_trees(FILE* output, Module* mod);

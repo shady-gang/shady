@@ -25,7 +25,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
         *pmod = shd_cleanup(config, *pmod);
-    shd_log_module(DEBUGVV, config, *pmod);
+    shd_log_module(DEBUGVV, *pmod);
     if (SHADY_RUN_VERIFY)
         shd_verify_module(config, *pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
@@ -38,6 +38,6 @@ void shd_apply_opt_impl(const CompilerConfig* config, bool* todo, Module** m, Op
 
     if (getenv("SHADY_DUMP_CLEAN_ROUNDS") && changed) {
         shd_log_fmt(DEBUGVV, "%s changed something:\n", pass_name);
-        shd_log_module(DEBUGVV, config, *m);
+        shd_log_module(DEBUGVV, *m);
     }
 }

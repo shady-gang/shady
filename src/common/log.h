@@ -22,7 +22,7 @@ void shd_log_fmt_va_list(LogLevel level, const char* format, va_list args);
 void shd_log_fmt(LogLevel level, const char* format, ...);
 void shd_log_node(LogLevel level, const Node* node);
 typedef struct CompilerConfig_ CompilerConfig;
-void shd_log_module(LogLevel level, const CompilerConfig* compiler_cfg, Module* mod);
+void shd_log_module(LogLevel level, Module* mod);
 
 #define shd_debugvv_print(...) shd_log_fmt(DEBUGVV, __VA_ARGS__)
 #define shd_debugv_print(...)  shd_log_fmt(DEBUGV, __VA_ARGS__)
