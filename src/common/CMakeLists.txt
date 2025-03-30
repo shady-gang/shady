@@ -20,6 +20,18 @@ function(embed_file TYPE NAME SRC)
     target_include_directories(${NAME} INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 endfunction()
 
+# This hacky job is required for being able to run built targets in-place when generating the code
+# This is also required for the various drivers but since they're built in the same directory it will work for now
+# TODO: review this on Windows
+function(copy_windows_dlls TARGET)
+    message("copying DLLs for target ${TARGET}")
+    add_custom_target(copy_dlls
+            DEPENDS ${TARGET}
+            COMMAND ${CMAKE_COMMAND} -E copy -t "$<TARGET_FILE_DIR:${TARGET}>" "$<TARGET_RUNTIME_DLLS:${TARGET}>"
+            COMMAND_EXPAND_LISTS
+    )
+endfunction()
+
 if (BUILD_TESTING)
     add_executable(test_dict test_dict.c)
     target_link_libraries(test_dict PRIVATE common)
