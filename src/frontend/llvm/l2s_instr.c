@@ -544,11 +544,10 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     param_index++;
                 }
 
-                String ostr = intrinsic;
-                char* str = calloc(strlen(ostr) + 1, 1);
-                memcpy(str, ostr, strlen(ostr) + 1);
+                // just intern the string immediately to be safe
+                String safe_str = shd_string(a, intrinsic);
 
-                if (strcmp(strtok(str, "::"), "shady") == 0) {
+                if (strcmp(strtok(safe_str, "::"), "shady") == 0) {
                     char* keyword = strtok(NULL, "::");
                     if (strcmp(keyword, "prim_op") == 0) {
                         char* opname = strtok(NULL, "::");
@@ -570,7 +569,6 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                                 processed_ops[i] = ops.nodes[i];
                         }
                         r = prim_op_helper(a, op, shd_nodes(a, num_args, processed_ops));
-                        free(str);
                         goto finish;
                     } else if (strcmp(keyword, "instruction") == 0) {
                         char* instructionname = strtok(NULL, "::");
