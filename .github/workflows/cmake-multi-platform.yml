@@ -86,7 +86,7 @@ jobs:
     - name: Force LLVM14 (ubuntu)
       if: startsWith(matrix.os,'ubuntu')
       run: |
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-14/cmake" >> $GITHUB_ENV
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-18/cmake" >> $GITHUB_ENV
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
