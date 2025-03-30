@@ -544,10 +544,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     param_index++;
                 }
 
-                // just intern the string immediately to be safe
-                String safe_str = shd_string(a, intrinsic);
-
-                if (strcmp(strtok(safe_str, "::"), "shady") == 0) {
+                char* duped = strdup(intrinsic);
+                if (strcmp(strtok(duped, "::"), "shady") == 0) {
                     char* keyword = strtok(NULL, "::");
                     if (strcmp(keyword, "prim_op") == 0) {
                         char* opname = strtok(NULL, "::");
@@ -569,6 +567,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                                 processed_ops[i] = ops.nodes[i];
                         }
                         r = prim_op_helper(a, op, shd_nodes(a, num_args, processed_ops));
+                        free(duped);
                         goto finish;
                     } else if (strcmp(keyword, "instruction") == 0) {
                         char* instructionname = strtok(NULL, "::");
@@ -578,28 +577,31 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                                 shd_error("DebugPrintf called without arguments");
                             size_t whocares;
                             shd_bld_debug_printf(b, LLVMGetAsString(LLVMGetInitializer(LLVMGetOperand(instr, 0)), &whocares), shd_nodes(a, ops.count - 1, &ops.nodes[1]));
+                            free(duped);
                             return shd_tuple_helper(a, shd_empty(a));
                         }
 
                         shd_error_print("Unrecognised shady instruction '%s'\n", instructionname);
                         shd_error_die();
                     } else if (strcmp(keyword, "pure_op") == 0) {
-                        char* set = strtok(NULL, "::");
-                        char* opcode_str = strtok(NULL, "::");
+                        const char* set = shd_string(a, strtok(NULL, "::"));
+                        const char* opcode_str = shd_string(a, strtok(NULL, "::"));
                         char* scope_str = strtok(NULL, "::");
                         ShdScope shd_scope = parse_scope(scope_str);
                         Nodes ops = convert_operands(p, num_args, instr);
                         uint32_t op = strtol(opcode_str, NULL, 10);
 
+                        free(duped);
                         return ext_value_helper(a, qualified_type_helper(a, shd_scope, t), set, op, ops);
                     } else if (strcmp(keyword, "impure_op") == 0) {
-                        char* set = strtok(NULL, "::");
-                        char* opcode_str = strtok(NULL, "::");
+                        const char* set = shd_string(a, strtok(NULL, "::"));
+                        const char* opcode_str = shd_string(a, strtok(NULL, "::"));
                         char* scope_str = strtok(NULL, "::");
                         ShdScope shd_scope = parse_scope(scope_str);
                         Nodes ops = convert_operands(p, num_args, instr);
                         uint32_t op = strtol(opcode_str, NULL, 10);
 
+                        free(duped);
                         return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
