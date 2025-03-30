@@ -13,7 +13,7 @@ spv_outputting_test(COMPILER vcc NAME vcc_loop FILES loop.c ARGS ${VCC_TEST_ARGS
 spv_outputting_test(COMPILER vcc NAME vcc_goto FILES goto.c ARGS ${VCC_TEST_ARGS})
 spv_outputting_test(COMPILER vcc NAME vcc_ternary_expr FILES ternary.c ARGS ${VCC_TEST_ARGS})
 spv_outputting_test(COMPILER vcc NAME vcc_string FILES string.c ARGS ${VCC_TEST_ARGS})
-spv_outputting_test(COMPILER vcc NAME vcc_pass_struct_by_val FILES byval_struct.c ARGS ${VCC_TEST_ARGS})
+spv_outputting_test(COMPILER vcc NAME vcc_pass_struct_by_val FILES byval_struct.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Compute)
 
 spv_outputting_test(COMPILER vcc NAME vcc_native_swizzle FILES native_vec_swizzle.c ARGS ${VCC_TEST_ARGS} --entry-point test --execution-model Fragment)
 
