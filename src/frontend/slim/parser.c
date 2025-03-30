@@ -1316,6 +1316,9 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
         if (!decl)  decl = accept_global_var_decl(ctx, annotations);
         if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
 
+        if (!decl)
+            syntax_error("expected a declaration");
+
         const Node* oea = shd_lookup_annotation(decl, "Exported");
         String exported_name = NULL;
         if (oea) {
@@ -1333,14 +1336,10 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
         if (exported_name)
             shd_module_add_export(mod, exported_name, decl);
 
-        if (decl) {
             shd_log_fmt(DEBUGVV, "decl parsed: ");
             shd_log_node(DEBUGVV, decl);
             shd_log_fmt(DEBUGVV, "\n");
             continue;
-        }
-
-        syntax_error("expected a declaration");
     }
 
     shd_destroy_tokenizer(tokenizer);
