@@ -18,4 +18,7 @@ bool shd_string_ends_with(const char* string, const char* suffix);
 
 char* shd_strip_path(const char*);
 
+void shd_configure_int_flag_in_list(const char* str, const char* flag_name, int* flag_value);
+void shd_configure_bool_flag_in_list(const char* str, const char* flag_name, bool* flag_value);
+
 #endif

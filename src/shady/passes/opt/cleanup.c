@@ -145,7 +145,7 @@ Module* shd_cleanup(const CompilerConfig* config, Module* const src) {
     bool changed_at_all = false;
     do {
         todo = false;
-        shd_debugv_print("Cleanup round %d\n", r);
+        shd_log_fmt(DEBUGV, "Cleanup round %d\n", r);
 
         APPLY_OPT(shd_opt_demote_alloca);
         APPLY_OPT(shd_opt_mem2reg);

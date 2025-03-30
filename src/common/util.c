@@ -269,6 +269,56 @@ char* shd_strip_path(const char* path) {
     return new;
 }
 
+
+static bool safe_substr(const char* str, size_t start, size_t end, const char* needle) {
+    size_t needle_len = strlen(needle);
+    return end - start >= needle_len && memcmp(&str[start], needle, needle_len) == 0;
+}
+
+void shd_configure_bool_flag_in_list(const char* str, const char* flag_name, bool* flag_value) {
+    if (!str)
+        return;
+    size_t len = strlen(str);
+    size_t start = 0;
+    for (size_t i = 0; i <= len; i++) {
+        if (i == len || str[i] == ',') {
+            size_t sublen = i - start;
+            if (safe_substr(str, start, i, flag_name)) {
+                if (strlen(flag_name) + 1 < sublen) {
+                    // eat the '='
+                    if (safe_substr(str, start + strlen(flag_name) + 1, i, "1"))
+                        *flag_value = true;
+                    if (safe_substr(str, start + strlen(flag_name) + 1, i, "0"))
+                        *flag_value = false;
+                } else {
+                    *flag_value = true;
+                }
+            }
+            start = i + 1;
+        }
+    }
+}
+
+void shd_configure_int_flag_in_list(const char* str, const char* flag_name, int* flag_value) {
+    if (!str)
+        return;
+    size_t len = strlen(str);
+    size_t start = 0;
+    for (size_t i = 0; i <= len; i++) {
+        if (i == len || str[i] == ',') {
+            size_t sublen = i - start;
+            if (safe_substr(str, start, i, flag_name)) {
+                size_t flag_len = strlen(flag_name);
+                if (flag_len + 1 < sublen) {
+                    // eat the '='
+                    *flag_value = strtol(&str[1 + flag_len], NULL, 10);
+                }
+            }
+            start = i + 1;
+        }
+    }
+}
+
 void shd_error_die(void) {
     abort();
 }

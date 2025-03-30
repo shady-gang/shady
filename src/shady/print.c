@@ -6,11 +6,11 @@
 
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
-#include "analysis/leak.h"
 
 #include "log.h"
 #include "list.h"
 #include "dict.h"
+#include "util.h"
 #include "growy.h"
 #include "printer.h"
 
@@ -89,43 +89,6 @@ void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) 
 static NodePrintConfig default_config;
 static NodePrintConfig* default_config_ptr = NULL;
 
-static bool safe_check(const char* str, size_t start, size_t end, const char* needle) {
-    size_t needle_len = strlen(needle);
-    return end - start >= needle_len && memcmp(&str[start], needle, needle_len) == 0;
-}
-
-typedef enum {
-    Default,
-    Yes,
-    No,
-} EnvFlag;
-
-static void configure_flag(const char* str, const char* flag_name, bool* flag_value) {
-    if (!str)
-        return;
-    // if (strcmp(str, "1") == 0)
-    //     *flag_value = ;
-    size_t len = strlen(str);
-    size_t start = 0;
-    for (size_t i = 0; i <= len; i++) {
-        if (i == len || str[i] == ',') {
-            EnvFlag e = Default;
-            size_t sublen = i - start;
-            if (safe_check(str, start, i, flag_name)) {
-                if (strlen(flag_name) + 1 < sublen) {
-                    // eat the '='
-                    if (safe_check(str, start + strlen(flag_name) + 1, i, "1"))
-                        *flag_value = true;
-                    if (safe_check(str, start + strlen(flag_name) + 1, i, "0"))
-                        *flag_value = false;
-                }
-            }
-            start = i + 1;
-        }
-    }
-    // return false;
-}
-
 NodePrintConfig* shd_default_node_print_config(void) {
     if (!default_config_ptr) {
         default_config_ptr = &default_config;
@@ -135,11 +98,11 @@ NodePrintConfig* shd_default_node_print_config(void) {
         default_config.color = true;
         String shady_log_flags = getenv("SHADY_NODE_DUMP");
         if (shady_log_flags) {
-            configure_flag(shady_log_flags, "function-body",&default_config.function_bodies);
-            configure_flag(shady_log_flags, "generated",&default_config.print_generated);
-            configure_flag(shady_log_flags, "internal",&default_config.print_internal);
-            configure_flag(shady_log_flags, "color",&default_config.color);
-            configure_flag(shady_log_flags, "scheduled",&default_config.scheduled);
+            shd_configure_bool_flag_in_list(shady_log_flags, "function-body", &default_config.function_bodies);
+            shd_configure_bool_flag_in_list(shady_log_flags, "generated", &default_config.print_generated);
+            shd_configure_bool_flag_in_list(shady_log_flags, "internal", &default_config.print_internal);
+            shd_configure_bool_flag_in_list(shady_log_flags, "color", &default_config.color);
+            shd_configure_bool_flag_in_list(shady_log_flags, "scheduled", &default_config.scheduled);
         }
     }
     return default_config_ptr;

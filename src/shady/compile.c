@@ -5,6 +5,7 @@
 #include "analysis/verify.h"
 
 #include "log.h"
+#include "util.h"
 
 #ifdef NDEBUG
 #define SHADY_RUN_VERIFY 0
@@ -17,7 +18,12 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
     old_mod = *pmod;
     *pmod = pass(payload, *pmod);
     (*pmod)->sealed = true;
-    shd_debugvv_print("After pass %s: \n", pass_name);
+    String log_pass_e = getenv("SHADY_LOG_PASS");
+    bool log_pass = log_pass_e && (shd_string_starts_with(log_pass_e, "1"));
+    if (log_pass_e)
+        shd_configure_bool_flag_in_list(log_pass_e, &pass_name[strlen("shd_pass_")], &log_pass);
+    if (log_pass)
+        shd_log_fmt(INFO, "After pass %s: \n", pass_name);
     if (SHADY_RUN_VERIFY)
         shd_verify_module(config, *pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
@@ -25,7 +31,8 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
         *pmod = shd_cleanup(config, *pmod);
-    shd_log_module(DEBUGVV, *pmod);
+    if (log_pass)
+        shd_log_module(INFO, *pmod);
     if (SHADY_RUN_VERIFY)
         shd_verify_module(config, *pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))

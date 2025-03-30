@@ -15,6 +15,7 @@
    * `generated=<1|0>`: Print 'generated' nodes
  * `SHADY_SUPER_VERBOSE_NODE_DEBUG`: Prints the ID of every node everywhere
  * `SHADY_DUMP_CLEAN_ROUNDS`: Prints the module for each optimization loop iteration
+ * `SHADY_LOG_PASS=<1|pass_name1,pass_name2,...>`: Logs the module after each pass or the pass names provided
 
 ## Dumping
 
