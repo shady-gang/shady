@@ -74,8 +74,12 @@ const char* shd_get_executable_location(void) {
 void shd_breakpoint(const char* s) {
     raise(SIGTRAP);
 }
+#elif WIN32
+void shd_breakpoint(const char* s) {
+    __debugbreak();
+}
 #else
 void shd_breakpoint(const char* s) {
-    1 / 0;
+    exit(666);
 }
 #endif
