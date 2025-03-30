@@ -83,7 +83,7 @@ static void specialize_arena_config(String entry_point, const CompilerConfig* co
     }
 }
 
-static Module* specialize_entry_point_pass(PassConfig* cfg, Module* src) {
+static Module* specialize_entry_point(PassConfig* cfg, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(cfg->entry_pt, cfg->config, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -113,12 +113,11 @@ static Module* specialize_entry_point_pass(PassConfig* cfg, Module* src) {
     return dst;
 }
 
-static void specialize_entry_point(String* entry_point, const CompilerConfig* config, Module** pmod) {
-    //*pmod = specialize_entry_point_pass(*entry_point, config, *pmod);
+static void specialize_entry_point_f(String* entry_point, const CompilerConfig* config, Module** pmod) {
     PassConfig specialize_config = { .config = config, .entry_pt = *entry_point };
-    RUN_PASS(((RewritePass*) &specialize_entry_point_pass), &specialize_config)
+    RUN_PASS(specialize_entry_point, &specialize_config)
 }
 
 void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point, &entry_point, sizeof(entry_point));
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point_f, &entry_point, sizeof(entry_point));
 }

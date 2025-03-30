@@ -42,7 +42,7 @@ static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
     }
 }
 
-static Module* specialize_execution_model_pass(PassConfig* cfg, Module* src) {
+static Module* specialize_execution_model(PassConfig* cfg, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(cfg->em, &aconfig.target);
 
@@ -59,11 +59,11 @@ static Module* specialize_execution_model_pass(PassConfig* cfg, Module* src) {
     return dst;
 }
 
-static void specialize_execution_model(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
+static void specialize_execution_model_f(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
     PassConfig cfg = { .config = config, .em = *em };
-    RUN_PASS((RewritePass*) specialize_execution_model_pass, &cfg);
+    RUN_PASS(specialize_execution_model, &cfg);
 }
 
 void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ExecutionModel em) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_execution_model, &em, sizeof(ExecutionModel));
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_execution_model_f, &em, sizeof(ExecutionModel));
 }

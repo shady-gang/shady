@@ -57,7 +57,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(r, old);
 }
 
-static Module* run_pass(const CompilerConfig* config, Module* src) {
+static Module* call_init_fini(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -75,7 +75,7 @@ static Module* run_pass(const CompilerConfig* config, Module* src) {
 #include "shady/pipeline/pipeline.h"
 
 static void step_fn(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS((RewritePass*) run_pass, config)
+    RUN_PASS(call_init_fini, config)
 }
 
 void shd_pipeline_add_init_fini(ShdPipeline pipeline) {
