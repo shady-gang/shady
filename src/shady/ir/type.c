@@ -163,7 +163,6 @@ bool shd_is_value_type(const Type* type) {
 
 bool shd_is_physical_data_type(const Type* type) {
     switch (is_type(type)) {
-        case Type_MaskType_TAG:
         case Type_JoinPointType_TAG:
         case Type_Int_TAG:
         case Type_Float_TAG:
@@ -224,11 +223,11 @@ bool shd_is_arithm_type(const Type* t) {
 }
 
 bool shd_is_shiftable_type(const Type* t) {
-    return t->tag == Int_TAG || t->tag == MaskType_TAG;
+    return t->tag == Int_TAG;
 }
 
 bool shd_has_boolean_ops(const Type* t) {
-    return t->tag == Int_TAG || t->tag == Bool_TAG || t->tag == MaskType_TAG;
+    return t->tag == Int_TAG || t->tag == Bool_TAG;
 }
 
 bool shd_is_comparable_type(const Type* t) {
@@ -273,18 +272,13 @@ bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
     return shd_get_addr_space_scope(as) <= ShdScopeWorkgroup;
 }
 
-const Type* shd_get_actual_mask_type(IrArena* arena) {
-    switch (shd_get_arena_config(arena)->target.subgroup_mask_representation) {
-        case SubgroupMaskAbstract: return mask_type(arena);
-        case SubgroupMaskInt64: return shd_uint64_type(arena);
-        default: assert(false);
-    }
+const Type* shd_get_exec_mask_type(IrArena* arena) {
+    return int_type_helper(arena, arena->config.target.memory.exec_mask_size, false);
 }
 
 String shd_get_type_name(IrArena* arena, const Type* t) {
     switch (is_type(t)) {
         case NotAType: assert(false);
-        case Type_MaskType_TAG: return "mask_t";
         case Type_JoinPointType_TAG: return "join_type_t";
         case Type_NoRet_TAG: return "no_ret";
         case Type_Int_TAG: {

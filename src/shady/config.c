@@ -32,6 +32,7 @@ TargetConfig shd_default_target_config(void) {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
             .fn_ptr_size = IntTy32,
+            .exec_mask_size = IntTy64
         },
 
         .subgroup_size = 8,

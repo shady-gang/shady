@@ -15,7 +15,6 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (node->tag) {
-        case MaskType_TAG: return shd_get_actual_mask_type(ctx->rewriter.dst_arena);
         case PrimOp_TAG: {
             Op op = node->payload.prim_op.op;
             Nodes old_nodes = node->payload.prim_op.operands;
@@ -26,7 +25,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     BodyBuilder* bb = shd_bld_begin_pure(a);
                     const Node* mask = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[0]);
                     const Node* index = shd_rewrite_node(&ctx->rewriter, old_nodes.nodes[1]);
-                    index = shd_bld_conversion(bb, shd_get_actual_mask_type(ctx->rewriter.dst_arena), index);
+                    index = shd_bld_conversion(bb, shd_get_exec_mask_type(ctx->rewriter.dst_arena), index);
                     const Node* acc = mask;
                     // acc >>= index
                     acc = prim_op_helper(a, rshift_logical_op, mk_nodes(a, acc, index));
@@ -52,7 +51,7 @@ Module* shd_pass_lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* s
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
-    const Type* mask_type = shd_get_actual_mask_type(a);
+    const Type* mask_type = shd_get_exec_mask_type(a);
     assert(mask_type->tag == Int_TAG);
 
     Context ctx = {

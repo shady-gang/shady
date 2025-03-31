@@ -19,6 +19,7 @@ typedef struct {
     IntSizes word_size;
 
     IntSizes fn_ptr_size;
+    IntSizes exec_mask_size;
 
     struct {
         bool physical;

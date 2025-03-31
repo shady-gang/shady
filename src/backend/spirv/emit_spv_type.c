@@ -216,7 +216,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_image_type(emitter->file_builder, spv_emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
             break;
         }
-        case Type_MaskType_TAG:
         case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
     }
 

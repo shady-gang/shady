@@ -268,18 +268,17 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 assert(operands.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
-                if (shd_get_unqualified_type(result_t) == shd_get_actual_mask_type(emitter->arena)) {
-                    const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
-                    SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(operands)));
-                    // TODO: why are we doing this in SPIR-V and not the IR ?
-                    SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
-                    SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
-                    SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &low32);
-                    SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &hi32);
-                    hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, shd_int64_literal(emitter->arena, 32)) });
-                    SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
-                    return final_result;
-                }
+                assert(shd_get_arena_config(emitter->arena)->target.memory.exec_mask_size == IntTy64);
+                const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
+                SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(operands)));
+                // TODO: why are we doing this in SPIR-V and not the IR ?
+                SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });
+                SpvId hi32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 1 });
+                SpvId low64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &low32);
+                SpvId hi64 = spvb_op(bb_builder, SpvOpUConvert, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 1, &hi32);
+                hi64 = spvb_op(bb_builder, SpvOpShiftLeftLogical, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { hi64, spv_emit_value(emitter, fn_builder, shd_int64_literal(emitter->arena, 32)) });
+                SpvId final_result = spvb_op(bb_builder, SpvOpBitwiseOr, spv_emit_type(emitter, shd_uint64_type(emitter->arena)), 2, (SpvId []) { low64, hi64 });
+                return final_result;
                 break;
             }
             case SpvOpGroupNonUniformIAdd: {

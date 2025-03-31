@@ -46,7 +46,6 @@ TEXT_TOKEN(u64) \
 TEXT_TOKEN(f16) \
 TEXT_TOKEN(f32) \
 TEXT_TOKEN(f64) \
-TEXT_TOKEN(mask_t) \
 TEXT_TOKEN(composite) \
 TEXT_TOKEN(pack) \
 TOKEN(const, "const") \

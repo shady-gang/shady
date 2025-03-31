@@ -19,7 +19,7 @@ static inline Node* nominal_type_helper(Module* m) {
     return n;
 }
 
-const Type* shd_get_actual_mask_type(IrArena* arena);
+const Type* shd_get_exec_mask_type(IrArena* arena);
 const Node* shd_get_default_value(IrArena* a, const Type* t);
 
 bool shd_is_subtype(const Type* supertype, const Type* type);

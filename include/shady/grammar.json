@@ -135,11 +135,6 @@
   ],
   "nodes": [
     {
-      "name": "MaskType",
-      "class": "type",
-      "type": false
-    },
-    {
       "name": "JoinPointType",
       "class": "type",
       "ops": [

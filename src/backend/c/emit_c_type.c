@@ -173,7 +173,6 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case NotAType: assert(false); break;
         case LamType_TAG:
         case BBType_TAG: shd_error("these types do not exist in C");
-        case MaskType_TAG: shd_error("should be lowered away");
         case Type_SampledImageType_TAG: {
             if (emitter->config.dialect != CDialect_GLSL) {
                 shd_error("TODO: implement textures on non-glsl backends");

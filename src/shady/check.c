@@ -468,7 +468,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         // Mask management
         case empty_mask_op: {
             assert(prim_op.operands.count == 0);
-            return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, shd_get_actual_mask_type(arena));
+            return qualified_type_helper(arena, shd_get_arena_config(arena)->target.scopes.constants, shd_get_exec_mask_type(arena));
         }
         case mask_is_thread_active_op: {
             assert(prim_op.operands.count == 2);

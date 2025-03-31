@@ -464,8 +464,6 @@ static const Type* accept_unqualified_type(ctxparams) {
     if (prim_type) return prim_type;
     else if (accept_token(ctx, bool_tok)) {
         return bool_type(arena);
-    } else if (accept_token(ctx, mask_t_tok)) {
-        return mask_type(arena);
     } else if (accept_token(ctx, ptr_tok)) {
         AddressSpace as = accept_address_space(ctx);
         expect(as != NumAddressSpaces, "address space");

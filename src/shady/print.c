@@ -356,7 +356,6 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 default: shd_error("Not a known valid float width")
             }
             break;
-        case MaskType_TAG: printf("mask"); break;
         case QualifiedType_TAG:
             printf(SCOPE_COLOR);
             print_scope(ctx, node->payload.qualified_type.scope);

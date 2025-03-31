@@ -19,9 +19,9 @@ bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {
     assert(shd_is_data_type(src_type) && shd_is_data_type(dst_type));
     if (src_type == dst_type)
         return true; // folding will eliminate those, but we need to pass type-checking first :)
-    if (!(shd_is_arithm_type(src_type) || src_type->tag == MaskType_TAG || shd_is_physical_ptr_type(src_type)))
+    if (!(shd_is_arithm_type(src_type) || shd_is_physical_ptr_type(src_type)))
         return false;
-    if (!(shd_is_arithm_type(dst_type) || dst_type->tag == MaskType_TAG || shd_is_physical_ptr_type(dst_type)))
+    if (!(shd_is_arithm_type(dst_type) || shd_is_physical_ptr_type(dst_type)))
         return false;
     assert(shd_get_type_bitwidth(src_type) == shd_get_type_bitwidth(dst_type));
     // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be

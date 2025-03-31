@@ -344,7 +344,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     switch (node->payload.prim_op.op) {
         case empty_mask_op:
         case mask_is_thread_active_op: {
-            input_types = mk_nodes(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, mask_type(a)), qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
+            input_types = mk_nodes(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_get_exec_mask_type(a)), qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
             break;
         }
         default: {
