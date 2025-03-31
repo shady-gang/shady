@@ -47,7 +47,6 @@ static const Node* process(Context* ctx, const Node* node) {
 
 Module* shd_pass_lower_mask(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.subgroup_mask_representation = SubgroupMaskInt64;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 

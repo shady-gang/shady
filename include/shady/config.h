@@ -27,13 +27,6 @@ typedef struct {
     } address_spaces[NumAddressSpaces];
 } MemoryModel;
 
-typedef enum {
-    /// Uses the MaskType
-    SubgroupMaskAbstract,
-    /// Uses a 64-bit integer
-    SubgroupMaskInt64
-} SubgroupMaskRepresentation;
-
 typedef struct {
     MemoryModel memory;
 
@@ -46,9 +39,6 @@ typedef struct {
     struct {
         bool native_tailcalls;
     } capabilities;
-
-    /// Selects which type the subgroup intrinsic primops use to manipulate masks
-    SubgroupMaskRepresentation subgroup_mask_representation;
 
     ExecutionModel execution_model;
     uint32_t subgroup_size;

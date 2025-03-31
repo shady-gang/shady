@@ -36,7 +36,6 @@ TargetConfig shd_default_target_config(void) {
         },
 
         .subgroup_size = 8,
-        .subgroup_mask_representation = SubgroupMaskAbstract,
 
         .scopes = {
             .constants = ShdScopeTop,
