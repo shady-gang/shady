@@ -9,6 +9,7 @@
 #include "portability.h"
 #include "dict.h"
 #include "util.h"
+#include "list.h"
 
 static CompilerConfig get_compiler_config_for_device(CudaDevice* device, const CompilerConfig* base_config) {
     CompilerConfig config = *base_config;
@@ -58,8 +59,18 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
         return true;
     }
 
+    struct List* nvrtc_args = shd_new_list(String);
+
     nvrtcProgram program;
-    CHECK_NVRTC(nvrtcCreateProgram(&program, kernel->cuda_code, kernel->key.entry_point, 0, NULL, NULL), return false);
+    String program_code = kernel->cuda_code;
+    char* override_cu_file_contents = NULL;
+    String override_cu_file = getenv("SHADY_OVERRIDE_CU");
+    if (override_cu_file) {
+        shd_read_file(override_cu_file, NULL, &override_cu_file_contents);
+        program_code = override_cu_file_contents;
+        shd_log_fmt(INFO, "Overriden program code:\n%s\n", program_code);
+    }
+    CHECK_NVRTC(nvrtcCreateProgram(&program, program_code, kernel->key.entry_point, 0, NULL, NULL), return false);
 
     assert(kernel->device->cc_major < 10 && kernel->device->cc_minor < 10);
 
@@ -67,16 +78,30 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     arch_flag[14] = '0' + kernel->device->cc_major;
     arch_flag[15] = '0' + kernel->device->cc_minor;
 
-    const char* options[] = {
-        arch_flag,
-        "--use_fast_math"
-    };
+    char* parch_flag = &arch_flag;
+    shd_list_append(String, nvrtc_args, parch_flag);
+    char* pfast_math = &"--use_fast_math";
+    shd_list_append(String, nvrtc_args, pfast_math);
 
-    nvrtcResult compile_result = nvrtcCompileProgram(program, sizeof(options)/sizeof(*options), options);
+    char* override_nvrtc_params_file_contents = NULL;
+    String override_nvrtc_params = getenv("SHADY_NVRTC_PARAMS");
+    if (override_nvrtc_params) {
+        shd_read_file(override_nvrtc_params, NULL, &override_nvrtc_params_file_contents);
+        String arg = strtok(override_nvrtc_params_file_contents, "\n");
+        while (arg) {
+            shd_list_append(String, nvrtc_args, arg);
+            arg = strtok(NULL, "\n");
+        }
+    }
+
+    const char** nvrtc_params = shd_read_list(String, nvrtc_args);
+    nvrtcResult compile_result = nvrtcCompileProgram(program, shd_list_count(nvrtc_args), nvrtc_params);
     if (compile_result != NVRTC_SUCCESS) {
         shd_error_print("NVRTC compilation failed: %s\n", nvrtcGetErrorString(compile_result));
-        shd_debug_print("Dumping source:\n%s", kernel->cuda_code);
+        shd_debug_print("Dumping source:\n%s", program_code);
     }
+
+    shd_destroy_list(nvrtc_args);
 
     size_t log_size;
     CHECK_NVRTC(nvrtcGetProgramLogSize(program, &log_size), return false);
@@ -92,6 +117,9 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
 
     if (shd_log_get_level() <= DEBUG)
         shd_write_file("cuda_dump.ptx", kernel->ptx_size - 1, kernel->ptx);
+
+    free(override_cu_file_contents);
+    free(override_nvrtc_params_file_contents);
 
     return true;
 }
