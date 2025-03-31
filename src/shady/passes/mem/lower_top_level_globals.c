@@ -104,6 +104,7 @@ static const Node* process(Context* ctx, const Node* node) {
             PtrType payload = node->payload.ptr_type;
             if (payload.address_space == ctx->as) {
                 payload.address_space = ctx->new_as;
+                payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
                 return ptr_type(a, payload);
             }
             break;
