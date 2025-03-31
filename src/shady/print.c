@@ -143,24 +143,32 @@ void shd_dump(const Node* node) {
     printf("\n");
 }
 
-void shd_log_node(LogLevel level, const Node* node) {
-    NodePrintConfig config = *shd_default_node_print_config();
-    config.max_depth = 1;
-    config.only_immediate = true;
+void shd_log_node_config(LogLevel level, const Node* node, const NodePrintConfig* config) {
     if (level <= shd_log_get_level()) {
         Printer* p = shd_new_printer_from_file(stderr);
-        shd_print_node(p, config, node);
+        shd_print_node(p, *config, node);
+        shd_destroy_printer(p);
+    }
+}
+
+void shd_log_node(LogLevel level, const Node* node) {
+    NodePrintConfig config = *shd_default_node_print_config();
+    config.max_depth = 10;
+    config.only_immediate = true;
+    shd_log_node_config(level, node, &config);
+}
+
+void shd_log_module_config(LogLevel level, Module* mod, const NodePrintConfig* config) {
+    if (level <= shd_log_get_level()) {
+        Printer* p = shd_new_printer_from_file(stderr);
+        shd_print_module(p, *config, mod);
         shd_destroy_printer(p);
     }
 }
 
 void shd_log_module(LogLevel level, Module* mod) {
     NodePrintConfig config = *shd_default_node_print_config();
-    if (level <= shd_log_get_level()) {
-        Printer* p = shd_new_printer_from_file(stderr);
-        shd_print_module(p, config, mod);
-        shd_destroy_printer(p);
-    }
+    shd_log_module_config(level, mod, &config);
 }
 
 #define COLOR(x) (ctx->config.color ? (x) : "")

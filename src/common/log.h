@@ -6,6 +6,7 @@
 
 typedef struct Node_ Node;
 typedef struct Module_ Module;
+typedef struct NodePrintConfig_ NodePrintConfig;
 
 typedef enum LogLevel_ {
     ERROR,
@@ -21,8 +22,10 @@ void shd_log_set_level(LogLevel l);
 void shd_log_fmt_va_list(LogLevel level, const char* format, va_list args);
 void shd_log_fmt(LogLevel level, const char* format, ...);
 void shd_log_node(LogLevel level, const Node* node);
+void shd_log_node_config(LogLevel level, const Node* node, const NodePrintConfig*);
 typedef struct CompilerConfig_ CompilerConfig;
 void shd_log_module(LogLevel level, Module* mod);
+void shd_log_module_config(LogLevel level, Module* mod, const NodePrintConfig*);
 
 #define shd_debugvv_print(...) shd_log_fmt(DEBUGVV, __VA_ARGS__)
 #define shd_debugv_print(...)  shd_log_fmt(DEBUGV, __VA_ARGS__)

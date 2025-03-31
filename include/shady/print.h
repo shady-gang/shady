@@ -6,7 +6,7 @@
 
 #include "printer.h"
 
-typedef struct {
+typedef struct NodePrintConfig_ {
     bool print_internal;
     bool print_generated;
     bool print_ptrs;
