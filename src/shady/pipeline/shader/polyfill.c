@@ -13,6 +13,7 @@ RewritePass shd_pass_lower_nullptr;
 static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_lower_int, config)
 
+    RUN_PASS(shd_pass_lower_mask, config)
     RUN_PASS(shd_pass_lower_fill, config)
     RUN_PASS(shd_pass_lower_nullptr, config)
     RUN_PASS(shd_pass_lower_subgroup_ops, config)

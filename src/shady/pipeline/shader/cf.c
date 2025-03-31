@@ -7,6 +7,9 @@
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
 RewritePass shd_pass_lower_callf;
 
+/// Extracts unstructured basic blocks into separate functions (including spilling)
+RewritePass shd_pass_lift_indirect_targets;
+
 static CompilationResult remove_indirect_calls(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_setup_stack_frames, config)
     if (!config->hacks.force_join_point_lifting)
@@ -39,7 +42,6 @@ static CompilationResult emulate_tailcalls(SHADY_UNUSED void* unused, const Comp
     RUN_PASS(shd_pass_mark_leaf_functions, config)
     RUN_PASS(shd_pass_lower_dynamic_control, config)
     RUN_PASS(shd_pass_lower_tailcalls, config)
-    RUN_PASS(shd_pass_lower_mask, config)
 
     return CompilationNoError;
 }
