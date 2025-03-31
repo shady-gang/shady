@@ -78,6 +78,7 @@ struct ArenaConfig_ {
         bool delete_unreachable_structured_cases;
         bool weaken_non_leaking_allocas;
         bool weaken_bitcast_to_lea;
+        bool assume_fixed_memory_layout;
     } optimisations;
 };
 

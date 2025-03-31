@@ -5,6 +5,7 @@
 #include "check.h"
 
 #include "portability.h"
+#include "log.h"
 
 #include <assert.h>
 #include <math.h>
@@ -157,7 +158,7 @@ static inline const Node* fold_simplify_math(const Node* node) {
  * For "Access" (Load,Store,Copy,Fill) ops, we just need to ensure compatible pointers for well-defined results
  * For "Convert" op we can move any reinterpret ops we encounter on the outer level
  */
-static inline const Node* resolve_ptr_source0(const Node* ptr, bool ensure_compatible_pointee) {
+static inline const Node* simplify_ptr_source0(const Node* ptr, bool ensure_compatible_pointee) {
     const Node* original_ptr = ptr;
 
     while (true) {
@@ -220,12 +221,12 @@ static const Type* change_pointee(const Type* old, const Type* pointee) {
     return ptr_type(old->arena, payload);
 }
 
-static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
+static inline const Node* simplify_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
     IrArena* arena = ptr->arena;
     if (!ensure_compatible_pointee)
-        return resolve_ptr_source0(ptr, false);
-    const Node* ptr_non_compatible = resolve_ptr_source0(ptr, false);
-    const Node* ptr_compatible = resolve_ptr_source0(ptr, true);
+        return simplify_ptr_source0(ptr, false);
+    const Node* ptr_non_compatible = simplify_ptr_source0(ptr, false);
+    const Node* ptr_compatible = simplify_ptr_source0(ptr, true);
     // if going for an incompatible pointer doesn't simplify anything
     if (!ptr_non_compatible || ptr_non_compatible == ptr_compatible)
         return ptr_compatible;
@@ -254,6 +255,11 @@ static const Node* to_ptr_size(const Node* n) {
     return conversion_helper(a, shd_uint64_type(a), n);
 }
 
+static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
+    const Node* simplified = simplify_ptr_source(ptr, ensure_compatible_pointee);
+    return simplified ? simplified : ptr;
+}
+
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
     IrArena* arena = node->arena;
     const Node* r = NULL;
@@ -264,7 +270,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             if (dst_t->tag != PtrType_TAG || dst_t->payload.ptr_type.address_space != AsGeneric)
                 break;
             // only bother with Generic casts
-            const Node* src = resolve_ptr_source(payload.src, true);
+            const Node* src = simplify_ptr_source(payload.src, true);
             const Node* nptr = src;
             if (nptr) {
                 r = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type(nptr->type)), nptr);
@@ -274,7 +280,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case Load_TAG: {
             Load payload = node->payload.load;
-            const Node* nptr = resolve_ptr_source(payload.ptr, true);
+            const Node* nptr = simplify_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = load(arena, payload);
@@ -282,15 +288,49 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case Store_TAG: {
             Store payload = node->payload.store;
-            const Node* nptr = resolve_ptr_source(payload.ptr, true);
+            const Node* nptr = simplify_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = store(arena, payload);
             break;
         }
+        case CopyBytes_TAG: {
+            if (!arena->config.optimisations.assume_fixed_memory_layout)
+                break;
+            CopyBytes payload = node->payload.copy_bytes;
+            NodeResolveConfig config = shd_default_node_resolve_config();
+            const Node* copied_value = shd_resolve_ptr_to_value(payload.src, config);
+            const IntLiteral* count = shd_resolve_to_int_literal(payload.count);
+            if (copied_value && count) {
+                TypeMemLayout layout = shd_get_mem_layout(arena, copied_value->type);
+                if (layout.size_in_bytes == shd_get_int_literal_value(*count, false)) {
+                    const Node* dst_ptr = payload.dst;
+                    dst_ptr = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(dst_ptr->type), shd_get_unqualified_type(copied_value->type)), dst_ptr);
+                    r = store_helper(arena, payload.mem, dst_ptr, copied_value);
+                    break;
+                }
+            }
+            const Node* src = resolve_ptr_source(payload.src, false);
+            const Node* dst = resolve_ptr_source(payload.dst, false);
+
+            if (count && shd_get_pointer_type_element(shd_get_unqualified_type(src->type)) == shd_get_pointer_type_element(shd_get_unqualified_type(dst->type))) {
+                const Type* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(src->type));
+                TypeMemLayout layout = shd_get_mem_layout(arena, element_t);
+                if (layout.size_in_bytes == shd_get_int_literal_value(*count, false)) {
+                    const Node* loaded = load_helper(arena, payload.mem, src);
+                    const Node* stored = store_helper(arena, loaded, dst, loaded);
+                    r = stored;
+                    break;
+                }
+            }
+
+            // const Type* element_type = shd_get_pointer_type_element(shd_get_unqualified_type(payload.dst->type));
+            //
+            break;
+        }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement payload = node->payload.ptr_composite_element;
-            const Node* nptr = resolve_ptr_source(payload.ptr, true);
+            const Node* nptr = simplify_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             r = ptr_composite_element(arena, payload);
@@ -301,7 +341,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
             if (is_zero(payload.offset))
                 return payload.ptr;
-            const Node* nptr = resolve_ptr_source(payload.ptr, true);
+            const Node* nptr = simplify_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
             if (nptr->tag == PtrArrayElementOffset_TAG) {
@@ -320,7 +360,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             IndirectCall payload = node->payload.indirect_call;
             if (payload.callee->tag == FnAddr_TAG)
                 return call_helper(arena, payload.mem, payload.callee->payload.fn_addr.fn, payload.args);
-            const Node* nptr = resolve_ptr_source(payload.callee, true);
+            const Node* nptr = simplify_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
             r = indirect_call(arena, payload);
@@ -328,7 +368,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
         }
         case IndirectTailCall_TAG: {
             IndirectTailCall payload = node->payload.indirect_tail_call;
-            const Node* nptr = resolve_ptr_source(payload.callee, true);
+            const Node* nptr = simplify_ptr_source(payload.callee, true);
             if (!nptr) break;
             payload.callee = nptr;
             r = indirect_tail_call(arena, payload);
