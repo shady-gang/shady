@@ -162,7 +162,7 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         } else if (strcmp(argv[i], "--no-bda") == 0) {
             config->target.address_spaces[AsGlobal].allowed = false;
         } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
-            config->target.native_tailcalls = true;
+            config->target.capabilities.native_tailcalls = true;
             config->target.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--printf-trace") == 0) {
             argv[i++] = NULL;

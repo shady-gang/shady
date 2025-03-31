@@ -105,7 +105,7 @@ static const Node* process(Context* ctx, const Node* old) {
             return fun;
         }
         case FnAddr_TAG:
-            if (ctx->config->target.native_tailcalls)
+            if (ctx->config->target.capabilities.native_tailcalls)
                 break;
             return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case ExtInstr_TAG: {
@@ -129,7 +129,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
             target = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), target);
 
-            if (ctx->config->target.native_tailcalls)
+            if (ctx->config->target.capabilities.native_tailcalls)
                 break;
 
             // fast-path
@@ -140,7 +140,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
-            if (pointee->tag == FnType_TAG && !ctx->config->target.native_tailcalls)
+            if (pointee->tag == FnType_TAG && !ctx->config->target.capabilities.native_tailcalls)
                 return int_type_helper(a, ctx->config->target.fn_ptr_size, false);
             break;
         }

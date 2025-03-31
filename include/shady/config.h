@@ -46,13 +46,16 @@ typedef struct {
 
     IntSizes fn_ptr_size;
 
+    struct {
+        bool native_tailcalls;
+    } capabilities;
+
     /// Selects which type the subgroup intrinsic primops use to manipulate masks
     SubgroupMaskRepresentation subgroup_mask_representation;
 
     ExecutionModel execution_model;
     uint32_t subgroup_size;
 
-    bool native_tailcalls;
 } TargetConfig;
 
 TargetConfig shd_default_target_config(void);
