@@ -1,6 +1,5 @@
 #include "pipeline/pipeline_private.h"
 
-#include "passes/passes.h"
 #include "portability.h"
 
 /// Emulates unsupported subgroup operations using subgroup memory
@@ -9,6 +8,9 @@ RewritePass shd_pass_lower_subgroup_ops;
 RewritePass shd_pass_lower_int;
 RewritePass shd_pass_lower_fill;
 RewritePass shd_pass_lower_nullptr;
+
+/// Lowers the abstract mask type to whatever the configured target mask representation is
+RewritePass shd_pass_lower_mask;
 
 static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_lower_int, config)

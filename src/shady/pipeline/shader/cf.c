@@ -4,6 +4,12 @@
 #include "portability.h"
 #include "log.h"
 
+/// Implements stack frames: saves the stack size on function entry and restores it upon exit
+RewritePass shd_pass_setup_stack_frames;
+
+/// Tags all functions that don't need special handling
+RewritePass shd_pass_mark_leaf_functions;
+
 /// Lowers calls to stack saves and forks, lowers returns to stack pops and joins
 RewritePass shd_pass_lower_callf;
 
