@@ -11,6 +11,8 @@
 #include "util.h"
 #include "list.h"
 
+#include <stdlib.h>
+
 static CompilerConfig get_compiler_config_for_device(CudaDevice* device, const CompilerConfig* base_config) {
     CompilerConfig config = *base_config;
     config.target.subgroup_size = 32;
@@ -46,7 +48,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 
     shd_emit_c(&config, emitter_config, spec->final_module, &spec->cuda_code_size, &spec->cuda_code);
 
-    if (shd_log_get_level() <= DEBUG)
+    if (getenv("SHADY_CUDA_RUNNER_DUMP"))
         shd_write_file("cuda_dump.cu", spec->cuda_code_size - 1, spec->cuda_code);
 
     return true;
@@ -115,7 +117,7 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     CHECK_NVRTC(nvrtcGetPTX(program, kernel->ptx), return false);
     CHECK_NVRTC(nvrtcDestroyProgram(&program), return false);
 
-    if (shd_log_get_level() <= DEBUG)
+    if (getenv("SHADY_CUDA_RUNNER_DUMP"))
         shd_write_file("cuda_dump.ptx", kernel->ptx_size - 1, kernel->ptx);
 
     free(override_cu_file_contents);
@@ -151,7 +153,7 @@ static bool load_ptx_into_cuda_program(CudaKernel* kernel) {
     if (*info_log)
         shd_info_print("CUDA JIT info: %s\n", info_log);
 
-    if (shd_log_get_level() <= DEBUG)
+    if (getenv("SHADY_CUDA_RUNNER_DUMP"))
         shd_write_file("cuda_dump.cubin", binary_size, binary);
 
     CHECK_CUDA(cuModuleLoadData(&kernel->cuda_module, binary), goto err_post_linker_create);

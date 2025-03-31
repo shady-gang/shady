@@ -28,18 +28,20 @@ static CompilationResult remove_indirect_calls(SHADY_UNUSED void* unused, const 
     if (!config->hacks.force_join_point_lifting)
         RUN_PASS(shd_pass_mark_leaf_functions, config)
 
-    RUN_PASS(shd_pass_lower_callf, config)
-    RUN_PASS(shd_pass_inline, config)
-    RUN_PASS(shd_pass_lift_indirect_targets, config)
+    if (!config->target.capabilities.native_fncalls) {
+        RUN_PASS(shd_pass_lower_callf, config)
+        RUN_PASS(shd_pass_inline, config)
+        RUN_PASS(shd_pass_lift_indirect_targets, config)
 
-    if (config->dynamic_scheduling) {
-        shd_add_scheduler_source(config, *pmod);
+        if (config->dynamic_scheduling) {
+            shd_add_scheduler_source(config, *pmod);
+        }
+
+        // run this again so the scheduler source is left alone
+        RUN_PASS(shd_pass_mark_leaf_functions, config)
+        RUN_PASS(shd_pass_lower_dynamic_control, config)
+        RUN_PASS(shd_pass_lower_tailcalls, config)
     }
-
-    // run this again so the scheduler source is left alone
-    RUN_PASS(shd_pass_mark_leaf_functions, config)
-    RUN_PASS(shd_pass_lower_dynamic_control, config)
-    RUN_PASS(shd_pass_lower_tailcalls, config)
 
     return CompilationNoError;
 }

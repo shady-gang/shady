@@ -164,6 +164,9 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
             config->target.capabilities.native_tailcalls = true;
             config->target.memory.fn_ptr_size = IntTy64;
+        } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
+            config->target.capabilities.native_fncalls = true;
+            config->target.memory.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--printf-trace") == 0) {
             argv[i++] = NULL;
             char* s = argv[i];

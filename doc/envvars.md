@@ -21,7 +21,13 @@
 
  * `SHADY_CFG_SCOPE_ONLY`: Do not print basic block contents when generating a CFG.
 
-## Runner
+## Vulkan Runner
 
  * `SHADY_OVERRIDE_SPV`: For the Vulkan runner, load that file instead of what the JIT pipeline produced
- * `SHADY_OVERRIDE_PTX`: For the CUDA runner, load that file instead of what the JIT pipeline produced
+
+## CUDA runner
+
+ * `SHADY_OVERRIDE_CU`: Load that file instead of what the JIT pipeline produced
+ * `SHADY_OVERRIDE_PTX`: Load that file instead of what the JIT pipeline produced
+ * `SHADY_NVRTC_PARAMS`: Load additional arguments for nvrtc from that file 
+ * `SHADY_CUDA_RUNNER_DUMP`: Dumps the .cu, .ptx and .cubin files generated during compilation
