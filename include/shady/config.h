@@ -35,10 +35,6 @@ typedef struct {
     } address_spaces[NumAddressSpaces];
 
     struct {
-        bool physical;
-    } builtins[BuiltinsCount];
-
-    struct {
         ShdScope constants;
         ShdScope gang;
         ShdScope bottom;
