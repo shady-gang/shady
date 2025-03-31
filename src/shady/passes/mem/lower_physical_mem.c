@@ -48,6 +48,16 @@ static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
     }
 }
 
+static IntSizes bytes_to_int_size(int bytes) {
+    switch (bytes) {
+        case 1: return IntTy8;
+        case 2: return IntTy16;
+        case 4: return IntTy32;
+        case 8: return IntTy64;
+        default: shd_error("TODO");
+    }
+}
+
 static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* address) {
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
@@ -58,14 +68,12 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* value = shd_bld_load(bb, logical_ptr);
             return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
         }
-        case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
-            case AsGlobal: {
-                // TODO: add a per-as size configuration
-                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
-                const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
-                return shd_bld_bitcast(bb, element_type, unsigned_int);
-            }
-            default: shd_error("TODO")
+        case PtrType_TAG: {
+            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
+            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
+            const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
+            return shd_bld_bitcast(bb, element_type, unsigned_int);
         }
         case Int_TAG: ser_int: {
             assert(element_type->tag == Int_TAG);
@@ -149,13 +157,12 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             shd_bld_store(bb, logical_ptr, int_value);
             return;
         }
-        case PtrType_TAG: switch (element_type->payload.ptr_type.address_space) {
-            case AsGlobal: {
-                const Type* ptr_int_t = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false });
-                const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
-                return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
-            }
-            default: shd_error("TODO")
+        case PtrType_TAG: {
+            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
+            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
+            const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
+            return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
         }
         case Int_TAG: des_int: {
             assert(element_type->tag == Int_TAG);
