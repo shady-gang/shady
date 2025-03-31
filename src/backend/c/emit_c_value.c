@@ -1,5 +1,7 @@
 #include "emit_c.h"
 
+#include "shady/print.h"
+
 #include "portability.h"
 #include "log.h"
 #include "dict.h"
@@ -1077,7 +1079,12 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_ExtInstr_TAG: return emit_ext_instruction(emitter, fn, p, instruction->payload.ext_instr);
-        case Instruction_PrimOp_TAG: return shd_c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
+        case Instruction_PrimOp_TAG: {
+            if (p) // in a block, name the result so we avoid duplicating computations
+                return shd_c_bind_intermediary_result(emitter, p, instruction->type, emit_primop(emitter, fn, p, instruction));
+            // emit primops directly as expressions as a fallback
+            return emit_primop(emitter, fn, p, instruction);
+        }
         case Instruction_Call_TAG: {
             Call payload = instruction->payload.call;
             shd_c_emit_mem(emitter, fn, payload.mem);
@@ -1208,9 +1215,11 @@ CTerm shd_c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node
         CTerm emitted = c_emit_value_(emitter, fn_builder, fn_builder->instruction_printers[where->rpo_index], node);
         shd_c_register_emitted(emitter, fn_builder, node, emitted);
         return emitted;
-    } else if (!can_appear_at_top_level(emitter, node)) {
+    } else if (!can_appear_at_top_level(emitter, node) && fn_builder) {
         if (!fn_builder) {
-            shd_log_node(ERROR, node);
+            NodePrintConfig node_config = *shd_default_node_print_config();
+            node_config.max_depth = 10;
+            shd_log_node_config(ERROR, node, &node_config);
             shd_log_fmt(ERROR, "cannot appear at top-level");
             exit(-1);
         }
@@ -1220,6 +1229,9 @@ CTerm shd_c_emit_value(Emitter* emitter, FnEmitter* fn_builder, const Node* node
         return emitted;
     } else {
         assert(!is_mem(node));
+        if (!can_appear_at_top_level(emitter, node)) {
+            shd_log_fmt(WARN, "Emitting a %s node at the top level.\n", shd_get_node_tag_string(node->tag));
+        }
         CTerm emitted = c_emit_value_(emitter, NULL, NULL, node);
         shd_c_register_emitted(emitter, NULL, node, emitted);
         return emitted;
