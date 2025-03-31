@@ -196,6 +196,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMInvoke:
             goto unimplemented;
         case LLVMUnreachable: return unreachable(a, (Unreachable) { .mem = shd_bld_mem(b) });
+        case LLVMFreeze:
+            return shd_first(convert_operands(p, num_ops, instr));
         case LLVMCallBr:
             goto unimplemented;
         case LLVMFNeg:
@@ -654,8 +656,6 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMExtractValue:
             goto unimplemented;
         case LLVMInsertValue:
-            goto unimplemented;
-        case LLVMFreeze:
             goto unimplemented;
         case LLVMFence:
             goto unimplemented;
