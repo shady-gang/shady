@@ -46,7 +46,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case PtrType_TAG: {
             PtrType payload = old->payload.ptr_type;
-            if (!ctx->target.address_spaces[payload.address_space].physical)
+            if (!ctx->target.memory.address_spaces[payload.address_space].physical)
                 payload.is_reference = true;
             payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
@@ -83,7 +83,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* src = shd_rewrite_node(r, payload.src);
             const Type* src_t = src->type;
             shd_deconstruct_qualified_type(&src_t);
-            if (src_t->tag == PtrType_TAG && !ctx->target.address_spaces[src_t->payload.ptr_type.address_space].physical)
+            if (src_t->tag == PtrType_TAG && !ctx->target.memory.address_spaces[src_t->payload.ptr_type.address_space].physical)
                 return src;
             break;
         }
@@ -92,7 +92,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* src = shd_rewrite_node(r, payload.src);
             const Type* src_t = src->type;
             shd_deconstruct_qualified_type(&src_t);
-            if (src_t->tag == PtrType_TAG && !ctx->target.address_spaces[src_t->payload.ptr_type.address_space].physical)
+            if (src_t->tag == PtrType_TAG && !ctx->target.memory.address_spaces[src_t->payload.ptr_type.address_space].physical)
                 return src;
             break;
         }
@@ -140,9 +140,9 @@ static const Node* process(Context* ctx, const Node* old) {
 Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     TargetConfig target = aconfig.target;
-    target.address_spaces[AsInput].physical = false;
-    target.address_spaces[AsOutput].physical = false;
-    target.address_spaces[AsUniformConstant].physical = false;
+    target.memory.address_spaces[AsInput].physical = false;
+    target.memory.address_spaces[AsOutput].physical = false;
+    target.memory.address_spaces[AsUniformConstant].physical = false;
     aconfig.target = target;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

@@ -145,8 +145,8 @@ size_t shd_get_type_bitwidth(const Type* t) {
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
             if (t->payload.ptr_type.address_space == AsCode)
-                return int_size_in_bytes(aconfig->target.fn_ptr_size) * 8;
-            if (aconfig->target.address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->target.memory.fn_ptr_size) * 8;
+            if (aconfig->target.memory.address_spaces[t->payload.ptr_type.address_space].physical)
                 return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
             break;
         }

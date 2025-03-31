@@ -17,7 +17,14 @@ typedef struct {
     IntSizes ptr_size;
     /// The base type for emulated memory
     IntSizes word_size;
-} PointerModel;
+
+    IntSizes fn_ptr_size;
+
+    struct {
+        bool physical;
+        bool allowed;
+    } address_spaces[NumAddressSpaces];
+} MemoryModel;
 
 typedef enum {
     /// Uses the MaskType
@@ -27,20 +34,13 @@ typedef enum {
 } SubgroupMaskRepresentation;
 
 typedef struct {
-    PointerModel memory;
-
-    struct {
-        bool physical;
-        bool allowed;
-    } address_spaces[NumAddressSpaces];
+    MemoryModel memory;
 
     struct {
         ShdScope constants;
         ShdScope gang;
         ShdScope bottom;
     } scopes;
-
-    IntSizes fn_ptr_size;
 
     struct {
         bool native_tailcalls;

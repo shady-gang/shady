@@ -473,9 +473,9 @@ bool shd_compare_string(const char** a, const char** b);
 
 Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.address_spaces[AsPrivate].physical = false;
-    aconfig.target.address_spaces[AsShared].physical = false;
-    aconfig.target.address_spaces[AsSubgroup].physical = false;
+    aconfig.target.memory.address_spaces[AsPrivate].physical = false;
+    aconfig.target.memory.address_spaces[AsShared].physical = false;
+    aconfig.target.memory.address_spaces[AsSubgroup].physical = false;
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -486,9 +486,9 @@ Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) 
     };
 
     construct_emulated_memory_array(&ctx, AsPrivate);
-    if (dst->arena->config.target.address_spaces[AsSubgroup].allowed)
+    if (dst->arena->config.target.memory.address_spaces[AsSubgroup].allowed)
         construct_emulated_memory_array(&ctx, AsSubgroup);
-    if (dst->arena->config.target.address_spaces[AsShared].allowed)
+    if (dst->arena->config.target.memory.address_spaces[AsShared].allowed)
         construct_emulated_memory_array(&ctx, AsShared);
 
     ctx.fns = shd_new_dict(String, Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);

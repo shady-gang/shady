@@ -31,9 +31,8 @@ TargetConfig shd_default_target_config(void) {
         .memory = {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
+            .fn_ptr_size = IntTy32,
         },
-
-        .fn_ptr_size = IntTy32,
 
         .subgroup_size = 8,
         .subgroup_mask_representation = SubgroupMaskAbstract,
@@ -47,8 +46,8 @@ TargetConfig shd_default_target_config(void) {
 
     for (size_t i = 0; i < NumAddressSpaces; i++) {
         // by default, all address spaces are physical !
-        config.address_spaces[i].physical = true;
-        config.address_spaces[i].allowed = true;
+        config.memory.address_spaces[i].physical = true;
+        config.memory.address_spaces[i].allowed = true;
     }
 
     return config;

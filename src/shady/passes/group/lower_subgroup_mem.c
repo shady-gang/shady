@@ -96,7 +96,7 @@ static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
 
 Module* shd_pass_lower_subgroup_vars(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.address_spaces[AsSubgroup].allowed = false;
+    aconfig.target.memory.address_spaces[AsSubgroup].allowed = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {

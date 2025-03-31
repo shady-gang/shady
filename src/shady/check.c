@@ -59,7 +59,7 @@ const Type* _shd_check_type_pack_type(IrArena* arena, PackType pack_type) {
 }
 
 const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
-    if (!arena->config.target.address_spaces[ptr_type.address_space].allowed) {
+    if (!arena->config.target.memory.address_spaces[ptr_type.address_space].allowed) {
         shd_error_print("Address space %s is not allowed in this arena\n", shd_get_address_space_name(ptr_type.address_space));
         shd_error_die();
     }

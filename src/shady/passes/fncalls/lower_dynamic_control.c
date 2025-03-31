@@ -53,7 +53,7 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
 
     // Initialise next_fn/next_mask to the entry function
     const Node* entry_point_addr = fn_addr_helper(a, shd_rewrite_node(r, old));
-    entry_point_addr = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), entry_point_addr);
+    entry_point_addr = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.memory.fn_ptr_size, false), entry_point_addr);
     shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(entry_point_addr));
     shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
         .result_t = unit_type(a),
@@ -130,7 +130,7 @@ static const Node* process(Context* ctx, const Node* old) {
                         break;
                     case ShadyOpCreateJoinPoint:
                         callee_name = "builtin_create_control_point";
-                        const Node* dst = bit_cast_helper(a, int_type_helper(a, ctx->config->target.fn_ptr_size, false), args.nodes[0]);
+                        const Node* dst = bit_cast_helper(a, int_type_helper(a, ctx->config->target.memory.fn_ptr_size, false), args.nodes[0]);
                         args = shd_change_node_at_index(a, args, 0, dst);
                         break;
                     default: goto rebuild;
@@ -157,7 +157,7 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.fn_ptr_size, false), target);
+            target = shd_bld_bitcast(bb, int_type_helper(a, ctx->config->target.memory.fn_ptr_size, false), target);
 
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {

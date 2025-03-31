@@ -70,7 +70,7 @@ static bool allowed(Context* ctx, AddressSpace as) {
     if (as == AsGeneric)
         return false;
     // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
-    if (!ctx->rewriter.dst_arena->config.target.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.target.address_spaces[as].allowed)
+    if (!ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].allowed)
         return false;
     return true;
 }

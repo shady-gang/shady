@@ -35,8 +35,8 @@ static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
     switch (em) {
         case EmVertex:
         case EmFragment: {
-            target->address_spaces[AsShared].allowed = false;
-            target->address_spaces[AsSubgroup].allowed = false;
+            target->memory.address_spaces[AsShared].allowed = false;
+            target->memory.address_spaces[AsSubgroup].allowed = false;
         }
         default: break;
     }

@@ -160,10 +160,10 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             i++;
             config->target.memory.ptr_size = parse_int_size(argv[i]);
         } else if (strcmp(argv[i], "--no-bda") == 0) {
-            config->target.address_spaces[AsGlobal].allowed = false;
+            config->target.memory.address_spaces[AsGlobal].allowed = false;
         } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
             config->target.capabilities.native_tailcalls = true;
-            config->target.fn_ptr_size = IntTy64;
+            config->target.memory.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--printf-trace") == 0) {
             argv[i++] = NULL;
             char* s = argv[i];

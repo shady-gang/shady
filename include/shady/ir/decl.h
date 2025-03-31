@@ -21,7 +21,7 @@ static inline Node* global_variable_helper(Module* m, const Type* t, AddressSpac
     Node* g = shd_global_var(m, (GlobalVariable) {
         .type = t,
         .address_space = as,
-        .is_ref = !shd_ir_arena_get_config(shd_module_get_arena(m))->target.address_spaces[as].physical,
+        .is_ref = !shd_ir_arena_get_config(shd_module_get_arena(m))->target.memory.address_spaces[as].physical,
     });
     return g;
 }
