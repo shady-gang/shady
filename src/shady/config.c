@@ -1,6 +1,10 @@
 #include "shady/ir.h"
 #include "shady/config.h"
 
+#include "util.h"
+
+#include <stdlib.h>
+
 #define KiB * 1024
 #define MiB * 1024 KiB
 
@@ -23,6 +27,17 @@ CompilerConfig shd_default_compiler_config(void) {
 
         .target = shd_default_target_config(),
     };
+
+    String trace_opts = getenv("SHADY_PRINTF_TRACE");
+    if (trace_opts) {
+        shd_configure_bool_flag_in_list(trace_opts, "stack-size", &config.printf_trace.stack_size);
+        shd_configure_bool_flag_in_list(trace_opts, "stack-access", &config.printf_trace.stack_accesses);
+        shd_configure_bool_flag_in_list(trace_opts, "max-stack-size", &config.printf_trace.max_stack_size);
+        shd_configure_bool_flag_in_list(trace_opts, "memory-access", &config.printf_trace.memory_accesses);
+        shd_configure_bool_flag_in_list(trace_opts, "top-function", &config.printf_trace.top_function);
+        shd_configure_bool_flag_in_list(trace_opts, "subgroup-ops", &config.printf_trace.subgroup_ops);
+    }
+
     return config;
 }
 

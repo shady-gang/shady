@@ -9,6 +9,7 @@
 #include "portability.h"
 #include "list.h"
 #include "util.h"
+#include "shady/config.h"
 
 #include <assert.h>
 #include <string.h>
@@ -24,6 +25,7 @@ typedef struct Context_ {
 
     const Node* stack;
     const Node* stack_pointer;
+    const Node* max_stack_pointer;
 } Context;
 
 static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
@@ -77,6 +79,12 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (push) // for push, we increase the stack size after the store
         stack_size = prim_op_helper(a, add_op, mk_nodes(a, stack_size, element_size));
 
+    if (ctx->max_stack_pointer) {
+        const Node* old_max_stack_size = shd_bld_load(bb, ctx->max_stack_pointer);
+        const Node* new_max_stack_size = prim_op_helper(a, max_op, mk_nodes(a, old_max_stack_size, stack_size));
+        shd_bld_store(bb, ctx->max_stack_pointer, new_max_stack_size);
+    }
+
     // store updated stack size
     shd_bld_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
@@ -109,8 +117,15 @@ static const Node* process_node(Context* ctx, const Node* old) {
             assert(ctx->stack);
             SetStackSize payload = old->payload.set_stack_size;
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            const Node* val = shd_rewrite_node(r, old->payload.set_stack_size.value);
-            shd_bld_store(bb, ctx->stack_pointer, val);
+            const Node* new_stack_size = shd_rewrite_node(r, old->payload.set_stack_size.value);
+            shd_bld_store(bb, ctx->stack_pointer, new_stack_size);
+
+            if (ctx->max_stack_pointer) {
+                const Node* old_max_stack_size = shd_bld_load(bb, ctx->max_stack_pointer);
+                const Node* new_max_stack_size = prim_op_helper(a, max_op, mk_nodes(a, old_max_stack_size, new_stack_size));
+                shd_bld_store(bb, ctx->max_stack_pointer, new_max_stack_size);
+            }
+
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case GetStackBaseAddr_TAG: {
@@ -176,6 +191,7 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         Node* stack_decl = global_variable_helper(dst, stack_arr_type, AsPrivate);
         shd_set_debug_name(stack_decl, "stack");
         shd_add_annotation_named(stack_decl, "Generated");
+        ctx.stack = stack_decl;
 
         // Pointers into those arrays
         // Node* stack_ptr_decl = global_variable_helper(dst, annotations, stack_counter_t, "stack_ptr", AsPrivate);
@@ -187,9 +203,25 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         shd_set_debug_name(stack_ptr_decl, "stack_ptr");
         shd_add_annotation_named(stack_ptr_decl, "Generated");
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
-
-        ctx.stack = stack_decl;
         ctx.stack_pointer = stack_ptr_decl;
+
+        if (config->printf_trace.max_stack_size) {
+            Node* max_stack_size_var = shd_global_var(dst, (GlobalVariable) {
+                .type = stack_counter_t,
+                .address_space = AsPrivate,
+                .is_ref = true
+            });
+            shd_set_debug_name(stack_ptr_decl, "max_stack_ptr");
+            shd_add_annotation_named(max_stack_size_var, "Generated");
+            max_stack_size_var->payload.global_variable.init = shd_uint32_literal(a, 0);
+            ctx.max_stack_pointer = max_stack_size_var;
+
+            const Node* old = shd_module_get_fini_fn(src);
+            Node* new;
+            BodyBuilder* bb = shd_bld_begin_fn_rewrite(&ctx.rewriter, old, &new);
+            shd_bld_debug_printf(bb, "max_stack_size: %d\n", mk_nodes(a, shd_bld_load(bb, max_stack_size_var)));
+            shd_bld_finish_fn_rewrite(&ctx.rewriter, old, new, bb);
+        }
     }
 
     shd_rewrite_module(&ctx.rewriter);

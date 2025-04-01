@@ -115,6 +115,7 @@ struct CompilerConfig_ {
         bool top_function;
         bool stack_size;
         bool subgroup_ops;
+        bool max_stack_size;
     } printf_trace;
 
     struct {

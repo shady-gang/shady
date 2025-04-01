@@ -17,6 +17,15 @@
  * `SHADY_DUMP_CLEAN_ROUNDS`: Prints the module for each optimization loop iteration
  * `SHADY_LOG_PASS=<1|pass_name1,pass_name2,...>`: Logs the module after each pass or the pass names provided
 
+## DebugPrintf tracing
+
+ * `SHADY_PRINTF_TRACE=...`
+   * `stack-size`: prints the stack size everytime it changes
+   * `stack-access`: prints on stack access (push/pop)
+   * `max-stack-size`: prints the max stack size at the end of the program
+   * `memory-access`: prints on every emulated memory access
+   * `top-function`: prints on every iteration of the top function
+
 ## Dumping
 
  * `SHADY_CFG_SCOPE_ONLY`: Do not print basic block contents when generating a CFG.
