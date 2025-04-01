@@ -1,5 +1,6 @@
 #include "cuda_runner_private.h"
 #include "shady/config.h"
+#include "shady/ir/module.h"
 
 #include "log.h"
 #include "portability.h"

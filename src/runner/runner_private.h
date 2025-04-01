@@ -1,7 +1,7 @@
 #ifndef SHADY_RUNTIME_PRIVATE
 #define SHADY_RUNTIME_PRIVATE
-#include "shady/runner.h"
-#include "shady/ir.h"
+#include "shady/runner/runner.h"
+#include "shady/ir/base.h"
 
 struct Runner_ {
     RunnerConfig config;

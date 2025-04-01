@@ -1,5 +1,7 @@
 #include "runner_private.h"
 #include "shady/driver.h"
+#include "shady/ir/module.h"
+#include "shady/ir/arena.h"
 
 #include "log.h"
 #include "list.h"
