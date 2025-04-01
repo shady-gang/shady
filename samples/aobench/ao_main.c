@@ -3,7 +3,7 @@
 #include "ao.h"
 #include "../runner/runner_app_common.h"
 
-#include "shady/runner.h"
+#include "shady/runner/runner.h"
 #include "shady/driver.h"
 
 #include "portability.h"

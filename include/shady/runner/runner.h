@@ -1,5 +1,5 @@
-#ifndef SHADY_RUNTIME_H
-#define SHADY_RUNTIME_H
+#ifndef SHADY_RUNNER_H
+#define SHADY_RUNNER_H
 
 #include <stdbool.h>
 #include <stddef.h>
