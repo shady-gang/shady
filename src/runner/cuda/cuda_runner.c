@@ -75,6 +75,7 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
     CudaDevice* device = calloc(sizeof(CudaDevice), 1);
     *device = (CudaDevice) {
         .base = {
+            .backend = CUDARuntimeBackend,
             .get_name = (const char*(*)(Device*)) cuda_device_get_name,
             .cleanup = (void(*)(Device*)) cuda_device_cleanup,
             .allocate_buffer = (Buffer* (*)(Device*, size_t)) shd_cur_allocate_buffer,
@@ -114,6 +115,7 @@ Backend* shd_cur_init(Runner* base) {
     memset(backend, 0, sizeof(CudaBackend));
     backend->base = (Backend) {
         .runner = base,
+        .backend_type = CUDARuntimeBackend,
         .cleanup = (void(*)()) shutdown_cuda_runtime,
     };
 

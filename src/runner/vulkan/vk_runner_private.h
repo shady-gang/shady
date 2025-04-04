@@ -3,6 +3,7 @@
 
 #include "../runner_private.h"
 
+#include "shady/runner/vulkan.h"
 #include "shady/ir.h"
 #include "shady/runtime/vulkan.h"
 
@@ -15,53 +16,21 @@
 
 #define empty_fns(Y)
 
-#define debug_utils_fns(Y) \
+#define INSTANCE_FUNCTIONS(Y) \
 Y(vkCreateDebugUtilsMessengerEXT) \
 Y(vkDestroyDebugUtilsMessengerEXT) \
 
-#define external_memory_host_fns(Y) \
+#define DEVICE_FUNCTIONS(Y) \
 Y(vkGetMemoryHostPointerPropertiesEXT) \
 
-#define INSTANCE_EXTENSIONS(X) \
-X(0, EXT_debug_utils,                debug_utils_fns) \
-X(0, KHR_portability_enumeration,          empty_fns) \
-X(1, KHR_get_physical_device_properties2,  empty_fns) \
-
-#define DEVICE_EXTENSIONS(X) \
-X(0, EXT_descriptor_indexing,            empty_fns) \
-X(1, KHR_buffer_device_address,          empty_fns) \
-X(1, KHR_storage_buffer_storage_class,   empty_fns) \
-X(0, KHR_shader_non_semantic_info,       empty_fns) \
-X(0, KHR_spirv_1_4,                      empty_fns) \
-X(0, KHR_portability_subset,             empty_fns) \
-X(0, KHR_shader_subgroup_extended_types, empty_fns) \
-X(0, EXT_external_memory,                empty_fns) \
-X(0, EXT_external_memory_host,           external_memory_host_fns) \
-X(0, EXT_subgroup_size_control,          empty_fns) \
-X(0, KHR_shader_float16_int8,            empty_fns) \
-X(0, KHR_8bit_storage,                   empty_fns) \
-X(0, KHR_16bit_storage,                  empty_fns) \
-X(0, KHR_driver_properties,              empty_fns) \
-
-#define E(is_required, name, _) ShadySupports##name,
-typedef enum {
-    INSTANCE_EXTENSIONS(E)
-    ShadySupportedInstanceExtensionsCount
-} ShadySupportedInstanceExtensions;
-typedef enum {
-    DEVICE_EXTENSIONS(E)
-    ShadySupportedDeviceExtensionsCount
-} ShadySupportedDeviceExtensions;
-#undef E
-
-#define S(is_required, name, _) "VK_" #name,
-SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { INSTANCE_EXTENSIONS(S) };
-SHADY_UNUSED static const char* shady_supported_device_extensions_names[] = { DEVICE_EXTENSIONS(S) };
+#define S(is_required, name) "VK_" #name,
+SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { SHADY_SUPPORTED_INSTANCE_EXTENSIONS(S) };
+SHADY_UNUSED static const char* shady_supported_device_extensions_names[] = { SHADY_SUPPORTED_DEVICE_EXTENSIONS(S) };
 #undef S
 
-#define R(is_required, _, _2) is_required,
-SHADY_UNUSED static const bool is_instance_ext_required[] = { INSTANCE_EXTENSIONS(R) };
-SHADY_UNUSED static const bool is_device_ext_required[] = { DEVICE_EXTENSIONS(R) };
+#define R(is_required, _) is_required,
+SHADY_UNUSED static const bool shady_is_instance_ext_required[] = { SHADY_SUPPORTED_INSTANCE_EXTENSIONS(R) };
+SHADY_UNUSED static const bool shady_is_device_ext_required[] = { SHADY_SUPPORTED_DEVICE_EXTENSIONS(R) };
 #undef R
 
 #define CHECK_VK(x, failure_handler) { VkResult the_result_ = x; if (the_result_ != VK_SUCCESS) { shd_error_print(#x " failed (code %d)\n", the_result_); failure_handler; } }
@@ -79,54 +48,16 @@ typedef struct VkrBackend_ {
     } enabled_layers;
 
     struct {
-    #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(_, name, fns) \
-        struct S_##name { \
-        bool enabled; \
-        fns(Y)  \
-        } name;
-    INSTANCE_EXTENSIONS(X)
-    #undef Y
+    #define X(_, name)  bool name##_enabled;
+        SHADY_SUPPORTED_INSTANCE_EXTENSIONS(X)
     #undef X
+    #define Y(fn_name) PFN_##fn_name fn_name;
+        INSTANCE_FUNCTIONS(Y)
+    #undef F
     } instance_exts;
 
     VkDebugUtilsMessengerEXT debug_messenger;
 } VkrBackend;
-
-typedef struct {
-    VkPhysicalDevice physical_device;
-
-    bool supported_extensions[ShadySupportedDeviceExtensionsCount];
-
-    uint32_t compute_queue_family;
-
-    struct {
-        uint8_t major;
-        uint8_t minor;
-    } spirv_version;
-    struct {
-        uint32_t min, max;
-    } subgroup_size;
-    struct {
-        VkPhysicalDeviceFeatures2 base;
-        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR subgroup_extended_types;
-        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR buffer_device_address;
-        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroup_size_control;
-        VkPhysicalDeviceShaderFloat16Int8Features float_16_int8;
-        VkPhysicalDevice8BitStorageFeatures storage8;
-        VkPhysicalDevice16BitStorageFeatures storage16;
-    } features;
-    struct {
-        VkPhysicalDeviceProperties2 base;
-        VkPhysicalDeviceSubgroupProperties subgroup;
-        VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
-        VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
-        VkPhysicalDeviceDriverPropertiesKHR driver_properties;
-    } properties;
-    struct {
-        bool is_moltenvk;
-    } implementation;
-} VkrDeviceCaps;
 
 typedef struct {
     Program* base;
@@ -138,20 +69,18 @@ typedef struct VkrDevice_ VkrDevice;
 struct VkrDevice_ {
     Device base;
     VkrBackend* runtime;
-    VkrDeviceCaps caps;
+    ShadyVkrPhysicalDeviceCaps caps;
     VkDevice device;
+    bool owns_vkdevice;
     VkCommandPool cmd_pool;
     VkQueue compute_queue;
 
     struct {
-    #define Y(fn_name) PFN_##fn_name fn_name;
-    #define X(_, name, fns) \
-        struct S_##name { \
-        bool enabled; \
-        fns(Y)  \
-        } name;
-    DEVICE_EXTENSIONS(X)
-    #undef Y
+    #define X(_, name) bool name##_enabled;
+    SHADY_SUPPORTED_DEVICE_EXTENSIONS(X)
+#define Y(fn_name) PFN_##fn_name fn_name;
+        DEVICE_FUNCTIONS(Y)
+#undef F
     #undef X
     } extensions;
 

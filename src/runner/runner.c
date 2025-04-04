@@ -75,6 +75,8 @@ Device* shd_rn_get_an_device(Runner* r) {
 
 const char* shd_rn_get_device_name(Device* d) { return d->get_name(d); }
 
+RunnerBackend shd_rn_get_device_backend(Device* d) { return d->backend; }
+
 Command* shd_rn_launch_kernel(Program* p, Device* d, const char* entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* extra_options) {
     return d->launch_kernel(d, p, entry_point, dimx, dimy, dimz, args_count, args, extra_options);
 }

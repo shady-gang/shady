@@ -11,6 +11,11 @@ typedef struct {
     bool allow_no_devices;
 } RunnerConfig;
 
+typedef enum {
+    VulkanRuntimeBackend,
+    CUDARuntimeBackend,
+} RunnerBackend;
+
 RunnerConfig shd_rn_default_config(void);
 void shd_rn_cli_parse_config(RunnerConfig* config, int* pargc, char** argv);
 
@@ -27,6 +32,7 @@ size_t shd_rn_device_count(Runner* r);
 Device* shd_rn_get_device(Runner* r, size_t i);
 Device* shd_rn_get_an_device(Runner* r);
 const char* shd_rn_get_device_name(Device* d);
+RunnerBackend shd_rn_get_device_backend(Device* d);
 
 typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;

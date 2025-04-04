@@ -14,7 +14,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL the_callback(SHADY_UNUSED VkDebugUtilsMess
 }
 
 static bool setup_debug_callback(VkrBackend* runtime) {
-    CHECK_VK(runtime->instance_exts.EXT_debug_utils.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
+    CHECK_VK(runtime->instance_exts.vkCreateDebugUtilsMessengerEXT(runtime->instance, &(VkDebugUtilsMessengerCreateInfoEXT) {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
             .pNext = NULL,
             .flags = 0,
@@ -27,15 +27,17 @@ static bool setup_debug_callback(VkrBackend* runtime) {
 }
 
 static void obtain_instance_pointers(VkrBackend* runtime) {
-#define Y(fn_name) ext->fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name);
-#define X(_, name, fns) \
-        if (runtime->instance_exts.name.enabled) { \
-            SHADY_UNUSED struct S_##name* ext = &runtime->instance_exts.name; \
-            fns(Y) \
-        }
-    INSTANCE_EXTENSIONS(X)
+#define Y(fn_name) \
+    runtime->instance_exts.fn_name = (PFN_##fn_name) vkGetInstanceProcAddr(runtime->instance, #fn_name); \
+    assert(runtime->instance_exts.fn_name && "loading instance fn pointer "#fn_name" failed");
+    INSTANCE_FUNCTIONS(Y)
 #undef Y
-#undef X
+}
+
+static VkInstance provided_vkinstance = VK_NULL_HANDLE;
+
+void shd_rn_provide_vkinstance(VkInstance instance) {
+    provided_vkinstance = instance;
 }
 
 static bool initialize_vk_instance(VkrBackend* runtime) {
@@ -69,18 +71,18 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
     for (uint32_t i = 0; i < extensions_count; i++) {
         VkExtensionProperties* extension = &extensions[i];
 
-#define X(is_required,  name, _) \
+#define X(is_required,  name) \
         if (strcmp(extension->extensionName, "VK_"#name) == 0) { \
             shd_info_print("Enabling instance extension VK_"#name"\n"); \
-            runtime->instance_exts.name.enabled = true; \
+            runtime->instance_exts.name##_enabled = true; \
             enabled_extensions[enabled_extensions_count++] = extension->extensionName; \
         }
-        INSTANCE_EXTENSIONS(X)
+        SHADY_SUPPORTED_INSTANCE_EXTENSIONS(X)
 #undef X
     }
 
     VkImageCreateFlagBits instance_flags = 0;
-    if (runtime->instance_exts.KHR_portability_enumeration.enabled)
+    if (runtime->instance_exts.KHR_portability_enumeration_enabled)
         instance_flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
     VkResult err_create_instance = vkCreateInstance(&(VkInstanceCreateInfo) {
@@ -116,21 +118,19 @@ static bool initialize_vk_instance(VkrBackend* runtime) {
         }
     }
 
-    obtain_instance_pointers(runtime);
-
-    if (runtime->instance_exts.EXT_debug_utils.enabled)
-        assert(setup_debug_callback(runtime));
-
     return true;
 }
 
 static void shutdown_vulkan_runtime(VkrBackend* backend) {
     if (!backend) return;
 
-    if (backend->debug_messenger)
-        backend->instance_exts.EXT_debug_utils.vkDestroyDebugUtilsMessengerEXT(backend->instance, backend->debug_messenger, NULL);
+    // don't do that if we were provided the instance !
+    if (!provided_vkinstance) {
+        if (backend->debug_messenger)
+            backend->instance_exts.vkDestroyDebugUtilsMessengerEXT(backend->instance, backend->debug_messenger, NULL);
+        vkDestroyInstance(backend->instance, NULL);
+    }
 
-    vkDestroyInstance(backend->instance, NULL);
     free(backend);
 }
 
@@ -139,12 +139,24 @@ Backend* shd_vkr_init(Runner* base) {
     memset(backend, 0, sizeof(VkrBackend));
     backend->base = (Backend) {
         .runner = base,
+        .backend_type = VulkanRuntimeBackend,
         .cleanup = (void(*)()) shutdown_vulkan_runtime,
     };
 
-    CHECK(initialize_vk_instance(backend), goto init_fail_free)
-    shd_vkr_probe_devices(backend);
-    shd_info_print("Shady Vulkan backend successfully initialized !\n");
+    if (provided_vkinstance)
+        backend->instance = provided_vkinstance;
+    else
+        CHECK(initialize_vk_instance(backend), goto init_fail_free)
+    obtain_instance_pointers(backend);
+    if (!provided_vkinstance) {
+        if (backend->instance_exts.EXT_debug_utils_enabled)
+            assert(setup_debug_callback(backend));
+
+        shd_vkr_probe_devices(backend);
+        shd_info_print("Shady Vulkan runner backend successfully initialized, found %d devices.\n", base->devices->elements_count);
+    } else {
+        shd_info_print("Shady Vulkan runner backend successfully initialized, probing disabled.\n");
+    }
     return &backend->base;
 
     init_fail_free:

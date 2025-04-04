@@ -11,18 +11,16 @@ struct Runner_ {
     struct List* programs;
 };
 
-typedef enum {
-    VulkanRuntimeBackend,
-    CUDARuntimeBackend,
-} RunnerBackend;
-
 typedef struct Backend_ Backend;
 struct Backend_ {
     Runner* runner;
+    RunnerBackend backend_type;
     void (*cleanup)(Backend*);
 };
 
 struct Device_ {
+    RunnerBackend backend;
+
     void (*cleanup)(Device*);
     String (*get_name)(Device*);
 
