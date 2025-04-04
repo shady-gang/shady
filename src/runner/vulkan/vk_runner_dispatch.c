@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog, int args_count, void** args) {
+static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, int dimx, int dimy, int dimz, int args_count, void** args) {
     LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->interface_items_count);
     LARRAY(VkDescriptorBufferInfo, descriptor_buffer_info, prog->interface_items_count);
     size_t write_descriptor_sets_count = 0;
@@ -19,7 +19,8 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog, int ar
     void* push_constant_buffer = calloc(push_constant_size, 1);
 
     for (size_t i = 0; i < prog->interface_items_count; i++) {
-        RuntimeInterfaceItemEx* resource = &prog->interface_items[i];
+        VkrProgramInterfaceItem* resource = &prog->interface_items[i];
+        VkrDispatchInterfaceItem* dispatch_item = &cmd->launch_interface_items[i];
 
         switch (resource->interface_item.dst_kind) {
             case SHD_RII_Dst_PushConstant: {
@@ -35,6 +36,32 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog, int ar
                         memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
                             &bda,
                             resource->interface_item.dst_details.push_constant.size);
+                        assert(resource->interface_item.dst_details.push_constant.size == sizeof(VkDeviceAddress));
+                        break;
+                    }
+                    case SHD_RII_Src_ScratchBuffer: {
+                        size_t blocks = dimx * dimy * dimz;
+
+                        const Node* ep = shd_module_get_exported(prog->specialized_module, prog->specialized_config.specialization.entry_point);
+                        assert(ep);
+                        const Node* wgs = shd_lookup_annotation(ep, "WorkgroupSize");
+                        assert(wgs);
+                        Nodes values = shd_get_annotation_values(wgs);
+                        assert(values.count == 3);
+                        uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
+                        uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
+                        uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
+
+                        size_t threads_per_wg = wg_x_dim * wg_y_dim * wg_z_dim;
+                        size_t total_size = blocks * threads_per_wg * resource->per_invocation_size;
+
+                        printf("blocks: %zu wg: %zu, total: %zu\n", blocks, threads_per_wg, total_size);
+                        dispatch_item->scratch = shd_vkr_allocate_buffer_device(cmd->device, total_size);
+
+                        VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) dispatch_item->scratch);
+                        memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
+                               &bda,
+                               resource->interface_item.dst_details.push_constant.size);
                         assert(resource->interface_item.dst_details.push_constant.size == sizeof(VkDeviceAddress));
                         break;
                     }
@@ -78,6 +105,14 @@ static void bind_program_resources(VkrCommand* cmd, VkrSpecProgram* prog, int ar
     free(push_constant_buffer);
 }
 
+static void cleanup_resources_after_launch(VkrCommand* command) {
+    for (size_t i = 0; i < command->launched_program->interface_items_count; i++) {
+        VkrDispatchInterfaceItem* resource = &command->launch_interface_items[i];
+        if (resource->scratch)
+            shd_vkr_destroy_buffer(resource->scratch);
+    }
+}
+
 static Command make_command_base() {
     return (Command) {
         .wait_for_completion = (bool (*)(Command*)) shd_vkr_wait_completion,
@@ -95,8 +130,11 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
     if (!cmd)
         return NULL;
 
+    cmd->launched_program = prog;
+    cmd->launch_interface_items = calloc(sizeof(VkrDispatchInterfaceItem), prog->interface_items_count);
+
     vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
-    bind_program_resources(cmd, prog, args_count, args);
+    prepare_resources_for_launch(cmd, prog, dimx, dimy, dimz, args_count, args);
 
     if (options && options->profiled_gpu_time) {
         VkQueryPoolCreateInfo qpci = {
@@ -186,6 +224,8 @@ err_post_fence_create:
 bool shd_vkr_wait_completion(VkrCommand* cmd) {
     assert(cmd->submitted && "Command must be submitted before they can be waited on");
     CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
+    if (cmd->launch_interface_items)
+        cleanup_resources_after_launch(cmd);
     if (cmd->profiled_gpu_time) {
         uint64_t ts[2];
         CHECK_VK(vkGetQueryPoolResults(cmd->device->device, cmd->query_pool, 0, 2, sizeof(uint64_t) * 2, ts, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT), {});

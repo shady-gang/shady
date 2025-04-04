@@ -22,6 +22,7 @@ typedef struct {
     enum {
         SHD_RII_Src_Param,
         SHD_RII_Src_LiftedConstant,
+        SHD_RII_Src_ScratchBuffer
     } src_kind;
     union {
         struct {
@@ -30,6 +31,9 @@ typedef struct {
         struct {
             const Node* constant;
         } lifted_constant;
+        struct {
+            const Node* per_invocation_size;
+        } scratch_buffer;
     } src_details;
 } RuntimeInterfaceItem;
 

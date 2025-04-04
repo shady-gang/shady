@@ -95,6 +95,7 @@ struct CompilerConfig_ {
         bool emulate_subgroup_ops_extended_types;
         bool int64;
         bool decay_ptrs;
+        bool force_stack_in_scratch;
     } lower;
 
     struct {

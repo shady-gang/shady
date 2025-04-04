@@ -16,6 +16,8 @@ CompilerConfig shd_default_compiler_config(void) {
         .lower = {
             .emulate_physical_memory = true,
             .emulate_generic_ptrs = true,
+
+            .force_stack_in_scratch = true,
         },
 
         .optimisations = {

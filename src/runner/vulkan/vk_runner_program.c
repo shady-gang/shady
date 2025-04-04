@@ -41,7 +41,7 @@ static bool extract_resources_layout(VkrSpecProgram* program, size_t sets_count,
     memset(bindings_lists, 0, sizeof(Growy*) * sets_count);
 
     for (size_t i = 0; i < program->interface_items_count; i++) {
-        RuntimeInterfaceItemEx* item = &program->interface_items[i];
+        VkrProgramInterfaceItem* item = &program->interface_items[i];
         switch (item->interface_item.dst_kind) {
             case SHD_RII_Dst_Descriptor: break;
             default: continue;
@@ -234,19 +234,9 @@ static bool allocate_sets(VkrSpecProgram* program) {
     return true;
 }
 
-static void flush_staged_data(VkrSpecProgram* program) {
+static bool prepare_program_resources(VkrSpecProgram* program) {
     for (size_t i = 0; i < program->interface_items_count; i++) {
-        RuntimeInterfaceItemEx* item = &program->interface_items[i];
-        if (item->flushable_data) {
-            shd_rn_copy_to_buffer((Buffer*) item->buffer, 0, item->flushable_data, item->buffer->size);
-            free(item->flushable_data);
-        }
-    }
-}
-
-static bool prepare_resources(VkrSpecProgram* program) {
-    for (size_t i = 0; i < program->interface_items_count; i++) {
-        RuntimeInterfaceItemEx* item = &program->interface_items[i];
+        VkrProgramInterfaceItem* item = &program->interface_items[i];
 
         switch (item->interface_item.src_kind) {
             case SHD_RII_Src_Param:
@@ -268,10 +258,15 @@ static bool prepare_resources(VkrSpecProgram* program) {
 
                 break;
             }
+            case SHD_RII_Src_ScratchBuffer: {
+                // the exact computation has to happen at launch time
+                size_t per_invocation_size;
+                shd_rt_materialize_constant(item->interface_item.src_details.scratch_buffer.per_invocation_size, &per_invocation_size, NULL);
+                item->per_invocation_size = per_invocation_size;
+                break;
+            }
         }
     }
-
-    flush_staged_data(program);
 
     return true;
 }
@@ -289,7 +284,7 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     CHECK(extract_layout(spec_program),              return NULL);
     CHECK(create_vk_pipeline(spec_program),          return NULL);
     CHECK(allocate_sets(spec_program),               return NULL);
-    CHECK(prepare_resources(spec_program),           return NULL);
+    CHECK(prepare_program_resources(spec_program),   return NULL);
     return spec_program;
 }
 
@@ -314,7 +309,7 @@ void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
     if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
         shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->interface_items_count; i++) {
-        RuntimeInterfaceItemEx* item = &spec->interface_items[i];
+        VkrProgramInterfaceItem* item = &spec->interface_items[i];
         if (item->buffer)
             shd_vkr_destroy_buffer(item->buffer);
         if (item->host_owning_ptr)

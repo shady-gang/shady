@@ -191,6 +191,8 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, Module* 
         Node* stack_decl = global_variable_helper(dst, stack_arr_type, AsPrivate);
         shd_set_debug_name(stack_decl, "stack");
         shd_add_annotation_named(stack_decl, "Generated");
+        if (config->lower.force_stack_in_scratch)
+            shd_add_annotation_named(stack_decl, "AllocateInScratchMemory");
         ctx.stack = stack_decl;
 
         // Pointers into those arrays

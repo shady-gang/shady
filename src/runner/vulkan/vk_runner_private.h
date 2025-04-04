@@ -107,12 +107,21 @@ void shd_vkr_destroy_buffer(VkrBuffer* buffer);
 
 typedef struct VkrCommand_ VkrCommand;
 
+typedef struct {
+    RuntimeInterfaceItem interface_item;
+
+    VkrBuffer* scratch;
+} VkrDispatchInterfaceItem;
+
 struct VkrCommand_ {
     Command base;
     VkrDevice* device;
     VkCommandBuffer cmd_buf;
     VkFence done_fence;
     bool submitted;
+
+    VkrSpecProgram* launched_program;
+    VkrDispatchInterfaceItem* launch_interface_items;
 
     uint64_t* profiled_gpu_time;
     VkQueryPool query_pool;
@@ -129,9 +138,9 @@ typedef struct {
     RuntimeInterfaceItem interface_item;
 
     void* host_owning_ptr;
-    void* flushable_data;
     VkrBuffer* buffer;
-} RuntimeInterfaceItemEx;
+    size_t per_invocation_size;
+} VkrProgramInterfaceItem;
 
 void shd_vkr_populate_interface(VkrSpecProgram* spec);
 size_t shd_vkr_get_push_constant_size(VkrSpecProgram* program);
@@ -150,7 +159,7 @@ struct VkrSpecProgram_ {
     char* spirv_bytes;
 
     size_t interface_items_count;
-    RuntimeInterfaceItemEx* interface_items;
+    VkrProgramInterfaceItem* interface_items;
 
     VkPipeline pipeline;
     VkPipelineLayout layout;

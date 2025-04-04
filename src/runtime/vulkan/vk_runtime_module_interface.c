@@ -55,6 +55,28 @@ void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfa
                         }
                         (*count)++;
                         goto next;
+                    } else if (strcmp(get_annotation_name(an), "RuntimeProvideScratchInPushConstant") == 0) {
+                        Nodes arr = an->payload.annotation_values.values;
+                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
+                        if (member_idx != j)
+                            continue;
+                        const Node* contents = arr.nodes[1];
+                        if (out) {
+                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
+                            out[*count] = (RuntimeInterfaceItem) {
+                                .dst_kind = SHD_RII_Dst_PushConstant,
+                                .dst_details.push_constant = {
+                                    .offset = field_layouts[j].offset_in_bytes,
+                                    .size = layout.size_in_bytes,
+                                },
+                                .src_kind = SHD_RII_Src_ScratchBuffer,
+                                .src_details.scratch_buffer = {
+                                    .per_invocation_size = contents
+                                },
+                            };
+                        }
+                        (*count)++;
+                        goto next;
                     } else if (strcmp(get_annotation_name(an), "RuntimeParamInPushConstant") == 0) {
                         Nodes arr = an->payload.annotation_values.values;
                         size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);

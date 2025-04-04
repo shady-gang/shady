@@ -14,9 +14,37 @@ typedef struct {
     const CompilerConfig* config;
     BodyBuilder* bb;
     Node2Node lifted_globals;
+    Nodes extra_details;
     Nodes extra_params;
     Nodes extra_globals;
 } Context;
+
+static bool affected(const Node* n) {
+    if (n->tag != GlobalVariable_TAG)
+        return false;
+    if (n->payload.global_variable.address_space == AsGlobal)
+        return true;
+    return shd_lookup_annotation(n, "AllocateInScratchMemory");
+}
+
+static const Node* area(IrArena* a, const Node* composite) {
+    const Node* acc = prim_op_helper(a, extract_op, mk_nodes(a, composite, shd_uint32_literal(a, 0)));
+    for (size_t i = 1; i < 3; i++) {
+        const Node* e = prim_op_helper(a, extract_op, mk_nodes(a, composite, shd_uint32_literal(a, i)));
+        acc = prim_op_helper(a, mul_op, mk_nodes(a, acc, e));
+    }
+    return acc;
+}
+
+static const Node* add(const Node* a, const Node* b) {
+    IrArena* arena = a->arena;
+    return prim_op_helper(arena, add_op, mk_nodes(arena, a, b));
+}
+
+static const Node* mul(const Node* a, const Node* b) {
+    IrArena* arena = a->arena;
+    return prim_op_helper(arena, mul_op, mk_nodes(arena, a, b));
+}
 
 static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
@@ -40,7 +68,36 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
             if (shd_lookup_annotation(node, "EntryPoint")) {
                 // copy the params
                 for (size_t i = 0; i < ctx->extra_globals.count; i++) {
-                    shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], ctx->extra_params.nodes[i]);
+                    const Node* value = ctx->extra_params.nodes[i];
+                    const Node* old_global = ctx->extra_details.nodes[i];
+                    assert(affected(old_global));
+                    const Node* scratch = shd_lookup_annotation(old_global, "AllocateInScratchMemory");
+                    if (scratch) {
+                        // we need to map to the correct stack...
+                        const Node* workgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupId);
+                        //workgroup_id = area(a, workgroup_id);
+                        const Node* workgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupSize);
+                        const Node* total_workgroup_size = area(a, workgroup_size);
+                        // linear_workgroup_id = ((workgroup_id.x * workgroup_size.y) + workgroup_id.y) * workgroup_size.z + workgroup_id.z
+                        const Node* workgroup_size_x = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 0)));
+                        const Node* workgroup_size_y = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 1)));
+                        const Node* workgroup_size_z = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 2)));
+                        const Node* workgroup_id_x = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 0)));
+                        const Node* workgroup_id_y = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 1)));
+                        const Node* workgroup_id_z = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 2)));
+                        const Node* linear_workgroup_id = add(workgroup_id_z, mul(workgroup_size_z, add(workgroup_id_y, mul(workgroup_size_y, workgroup_id_x))));
+
+                        const Node* num_subgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinNumSubgroups);
+                        const Node* subgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupSize);
+                        const Node* subgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupId);
+
+                        const Node* subgroup_local_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupLocalInvocationId);
+                        const Node* thread_size = size_of_helper(a, shd_rewrite_op(r, NcType, "type", old_global->payload.global_variable.type));
+                        // global_thread_offset = thread_size * (linear_workgroup_id * total_workgroup_size + (subgroup_id * subgroup_size + subgroup_local_id))
+                        const Node* global_thread_offset = mul(thread_size, add(add(subgroup_local_id, mul(subgroup_id, subgroup_size)), mul(linear_workgroup_id, total_workgroup_size)));
+                        value = ptr_array_element_offset_helper(a, value, global_thread_offset);
+                    }
+                    shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], value);
                 }
             }
             Node* post_prelude = basic_block_helper(a, shd_empty(a));
@@ -53,7 +110,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
             return shd_new_rewrite_result(r, newfun);
         }
         case GlobalVariable_TAG: {
-            if (node->payload.global_variable.address_space != AsGlobal)
+            if (!affected(node))
                 break;
             assert(ctx->bb && "this Global isn't appearing in an abstraction - we cannot replace it with a load!");
             const Node* ptr_addr = shd_node2node_find(ctx->lifted_globals, node);
@@ -70,7 +127,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
 }
 
 static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
-    if (n->tag == GlobalVariable_TAG && n->payload.global_variable.address_space == AsGlobal)
+    if (affected(n))
         return r;
     return shd_default_rewriter_selector(r, n);
 }
@@ -90,7 +147,7 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
     Nodes oglobals = shd_module_collect_reachable_globals(src);
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* odecl = oglobals.nodes[i];
-        if (odecl->payload.global_variable.address_space != AsGlobal)
+        if (!affected(odecl))
             continue;
 
         const Type* t = shd_get_unqualified_type(shd_rewrite_op(&ctx.rewriter, NcType, "type", odecl->type));
@@ -108,6 +165,7 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
         }
 
         shd_node2node_insert(ctx.lifted_globals, odecl, g);
+        ctx.extra_details = shd_nodes_append(a, ctx.extra_details, odecl);
         ctx.extra_params = shd_nodes_append(a, ctx.extra_params, p);
         ctx.extra_globals = shd_nodes_append(a, ctx.extra_globals, g);
     }
@@ -117,13 +175,20 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
 
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* odecl = oglobals.nodes[i];
-        if (odecl->payload.global_variable.address_space != AsGlobal)
+        if (!affected(odecl))
             continue;
-        if (odecl->payload.global_variable.init) {
+        if (shd_lookup_annotation(odecl, "AllocateInScratchMemory")) {
+            shd_add_annotation(ctx.extra_params.nodes[i], annotation_values(a, (AnnotationValues) {
+                .name = "RuntimeProvideScratch",
+                .values = mk_nodes(a, size_of_helper(a, shd_rewrite_op(&ctx.rewriter, NcType, "type", odecl->payload.global_variable.type)))
+            }));
+        } else if (odecl->payload.global_variable.init) {
             shd_add_annotation(ctx.extra_params.nodes[i], annotation_values(a, (AnnotationValues) {
                     .name = "RuntimeProvideMem",
                     .values = mk_nodes(a, shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
             }));
+        } else {
+            shd_error("TODO: implement just reserving scratch space for unintialized constants");
         }
     }
 
