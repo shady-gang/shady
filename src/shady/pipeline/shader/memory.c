@@ -9,7 +9,7 @@ RewritePass shd_pass_lower_lea;
 /// Emulates generic pointers by replacing them with tagged integers and special load/store routines that look at those tags
 RewritePass shd_pass_lower_generic_ptrs;
 /// Emulates physical pointers to certain address spaces by using integer indices into global arrays
-RewritePass shd_pass_lower_physical_ptrs;
+RewritePass shd_pass_lower_physical_memory;
 /// Replaces size_of, offset_of etc with their exact values
 RewritePass shd_pass_lower_memory_layout;
 RewritePass shd_pass_lower_memcpy;
@@ -37,7 +37,7 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
         RUN_PASS(shd_pass_lower_generic_ptrs, config)
     }
     if (config->lower.emulate_physical_memory) {
-        RUN_PASS(shd_pass_lower_physical_ptrs, config)
+        RUN_PASS(shd_pass_lower_physical_memory, config)
     }
     RUN_PASS(shd_pass_lower_subgroup_vars, config)
     RUN_PASS(shd_pass_lower_memory_layout, config)

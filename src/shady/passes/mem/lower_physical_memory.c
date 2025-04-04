@@ -478,7 +478,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
-Module* shd_pass_lower_physical_ptrs(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_physical_memory(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.memory.address_spaces[AsPrivate].physical = false;
     aconfig.target.memory.address_spaces[AsShared].physical = false;
