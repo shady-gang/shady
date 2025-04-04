@@ -17,7 +17,7 @@ CompilerConfig shd_default_compiler_config(void) {
             .emulate_physical_memory = true,
             .emulate_generic_ptrs = true,
 
-            .force_stack_in_scratch = true,
+            .use_scratch_for_private = true,
         },
 
         .optimisations = {
@@ -38,6 +38,7 @@ CompilerConfig shd_default_compiler_config(void) {
         shd_configure_bool_flag_in_list(trace_opts, "memory-access", &config.printf_trace.memory_accesses);
         shd_configure_bool_flag_in_list(trace_opts, "top-function", &config.printf_trace.top_function);
         shd_configure_bool_flag_in_list(trace_opts, "subgroup-ops", &config.printf_trace.subgroup_ops);
+        shd_configure_bool_flag_in_list(trace_opts, "scratch-base-addr", &config.printf_trace.scratch_base_addr);
     }
 
     return config;

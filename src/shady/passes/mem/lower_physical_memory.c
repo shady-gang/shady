@@ -58,24 +58,68 @@ static IntSizes bytes_to_int_size(int bytes) {
     }
 }
 
-static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* address) {
+static const Node* add(const Node* a, const Node* b) {
+    IrArena* arena = a->arena;
+    return prim_op_helper(arena, add_op, mk_nodes(arena, a, b));
+}
+
+static const Node* mul(const Node* a, const Node* b) {
+    IrArena* arena = a->arena;
+    return prim_op_helper(arena, mul_op, mk_nodes(arena, a, b));
+}
+
+static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupSize);
+    subgroup_size = shd_bld_convert_int_zero_extend(bb, size_t_type(a), subgroup_size);
+    const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupLocalInvocationId);
+    subgroup_local_id = shd_bld_convert_int_zero_extend(bb, size_t_type(a), subgroup_local_id);
+    return add(mul(offset, subgroup_size), subgroup_local_id);
+}
+
+static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    // swizzle the address here !
+    if (ctx->config->lower.use_scratch_for_private)
+        offset = swizzle_offset(ctx, bb, offset);
+    const Node* zero = size_t_literal(a, 0);
+    const Node* arr = *get_emulated_as_word_array(ctx, as);
+    const Node* value = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
+    IntSizes width = a->config.target.memory.word_size;
+    if (ctx->config->printf_trace.memory_accesses) {
+        String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
+        const Node* widened = value;
+        if (width < IntTy32)
+            widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
+        shd_bld_debug_printf(bb, template, mk_nodes(a, widened, offset));
+    }
+    return value;
+}
+
+static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    // swizzle the address here !
+    if (ctx->config->lower.use_scratch_for_private)
+        offset = swizzle_offset(ctx, bb, offset);
+    IntSizes width = a->config.target.memory.word_size;
+    if (ctx->config->printf_trace.memory_accesses) {
+        String template = shd_fmt_string_irarena(a, "storing %s at %s:0x%s\n", width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
+        const Node* widened = value;
+        if (width < IntTy32)
+            widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
+        shd_bld_debug_printf(bb, template, mk_nodes(a, widened, offset));
+    }
+    const Node* zero = size_t_literal(a, 0);
+    const Node* arr = *get_emulated_as_word_array(ctx, as);
+    shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), value);
+}
+
+static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address) {
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
-    const Node* zero = size_t_literal(a, 0);
+    const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
     switch (element_type->tag) {
-        case Bool_TAG: {
-            const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
-            const Node* value = shd_bld_load(bb, logical_ptr);
-            return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
-        }
-        case PtrType_TAG: {
-            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
-            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
-            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
-            const Node* unsigned_int = gen_deserialisation(ctx, bb, ptr_int_t, arr, address);
-            return shd_bld_bitcast(bb, element_type, unsigned_int);
-        }
-        case Int_TAG: ser_int: {
+        case Int_TAG: {
             assert(element_type->tag == Int_TAG);
             const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
@@ -84,28 +128,31 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
             for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
-                const Node* word = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
-                            word = shd_bld_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
+                const Node* word = gen_load_base(ctx, bb, as, offset);
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
                 acc = prim_op_helper(a, or_op, mk_nodes(a, acc, word));
 
                 offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1)));
                 shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
             }
-            if (config->printf_trace.memory_accesses) {
-                AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
-                const Node* widened = acc;
-                if (element_type->payload.int_type.width < IntTy32)
-                    widened = shd_bld_conversion(bb, shd_uint32_type(a), acc);
-                shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
-            }
-            acc = shd_bld_bitcast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);\
+            acc = shd_bld_bitcast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);
             return acc;
+        }
+        case Bool_TAG: {
+            const Node* value = gen_load_for_type(ctx, bb, word_t, as, address);
+            return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
+        }
+        case PtrType_TAG: {
+            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
+            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
+            const Node* unsigned_int = gen_load_for_type(ctx, bb, ptr_int_t, as, address);
+            return shd_bld_bitcast(bb, element_type, unsigned_int);
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
-            const Node* unsigned_int = gen_deserialisation(ctx, bb, unsigned_int_t, arr, address);
+            const Node* unsigned_int = gen_load_for_type(ctx, bb, unsigned_int_t, as, address);
             return shd_bld_bitcast(bb, element_type, unsigned_int);
         }
         case NominalType_TAG:
@@ -118,7 +165,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
-                loaded[i] = gen_deserialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset);
+                loaded[i] = gen_load_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset);
             }
             return composite_helper(a, element_type, shd_nodes(a, member_types.count, loaded));
         }
@@ -135,7 +182,7 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
             LARRAY(const Node*, components, components_count);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
-                components[i] = gen_deserialisation(ctx, bb, component_type, arr, offset);
+                components[i] = gen_load_for_type(ctx, bb, component_type, as, offset);
                 offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return composite_helper(a, element_type, shd_nodes(a, components_count, components));
@@ -144,27 +191,12 @@ static const Node* gen_deserialisation(Context* ctx, BodyBuilder* bb, const Type
     }
 }
 
-static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element_type, const Node* arr, const Node* address, const Node* value) {
+static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address, const Node* value) {
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
-    const Node* zero = size_t_literal(a, 0);
+    const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
     switch (element_type->tag) {
-        case Bool_TAG: {
-            const Node* logical_ptr = lea_helper(a, arr, zero, shd_singleton(address));
-            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
-            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
-            const Node* int_value = prim_op_helper(a, select_op, mk_nodes(a, value, one_b, zero_b));
-            shd_bld_store(bb, logical_ptr, int_value);
-            return;
-        }
-        case PtrType_TAG: {
-            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
-            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
-            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
-            const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
-            return gen_serialisation(ctx, bb, ptr_int_t, arr, address, unsigned_value);
-        }
-        case Int_TAG: des_int: {
+        case Int_TAG: {
             assert(element_type->tag == Int_TAG);
             // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
             const Type* element_t_unsigned = int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
@@ -181,7 +213,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 /*bool needs_patch = is_last_word && word_size_in_bytes < length_in_bytes;
                 const Node* original_word = NULL;
                 if (needs_patch) {
-                    original_word = gen_load(bb, gen_lea(bb, arr, zero, singleton(base_offset)));
+                    original_word = gen_load_base(ctx, bb, arr, base_offset));
                     shd_error_print("TODO");
                     shd_error_die();
                     // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
@@ -189,25 +221,31 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* word = value;
                 word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
                 word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
-                shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), word);
+                gen_store_base(ctx, bb, as, offset, word);
 
                 offset = (prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1))));
                 shift = (prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth)));
             }
-            if (config->printf_trace.memory_accesses) {
-                AddressSpace as = shd_get_unqualified_type(arr->type)->payload.ptr_type.address_space;
-                String template = shd_fmt_string_irarena(a, "stored %s at %s:0x%s\n", element_type->payload.int_type.width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
-                const Node* widened = value;
-                if (element_type->payload.int_type.width < IntTy32)
-                    widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
-                shd_bld_debug_printf(bb, template, mk_nodes(a, widened, address));
-            }
             return;
+        }
+        case Bool_TAG: {
+            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
+            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
+            const Node* int_value = prim_op_helper(a, select_op, mk_nodes(a, value, one_b, zero_b));
+            gen_store_for_type(ctx, bb, word_t, as, address, int_value);
+            return;
+        }
+        case PtrType_TAG: {
+            TypeMemLayout layout = shd_get_mem_layout(a, element_type);
+            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
+            const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
+            return gen_store_for_type(ctx, bb, ptr_int_t, as, address, unsigned_value);
         }
         case Float_TAG: {
             const Type* unsigned_int_t = int_type(a, (Int) {.width = shd_float_to_int_width(element_type->payload.float_type.width), .is_signed = false });
             const Node* unsigned_value = bit_cast_helper(a, unsigned_int_t, value);
-            return gen_serialisation(ctx, bb, unsigned_int_t, arr, address, unsigned_value);
+            return gen_store_for_type(ctx, bb, unsigned_int_t, as, address, unsigned_value);
         }
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
@@ -215,12 +253,12 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
                 const Node* extracted_value = prim_op_helper(a, extract_op, mk_nodes(a, value, shd_int32_literal(a, i)));
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
-                gen_serialisation(ctx, bb, member_types.nodes[i], arr, adjusted_offset, extracted_value);
+                gen_store_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset, extracted_value);
             }
             return;
         }
         case NominalType_TAG: {
-            gen_serialisation(ctx, bb, element_type->payload.nom_type.body, arr, address, value);
+            gen_store_for_type(ctx, bb, element_type->payload.nom_type.body, as, address, value);
             return;
         }
         case ArrType_TAG:
@@ -235,7 +273,7 @@ static void gen_serialisation(Context* ctx, BodyBuilder* bb, const Type* element
             const Type* component_type = shd_get_fill_type_element_type(element_type);
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
-                gen_serialisation(ctx, bb, component_type, arr, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
+                gen_store_for_type(ctx, bb, component_type, as, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
                 offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
             }
             return;
@@ -279,10 +317,10 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScop
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
     const Node* base = *get_emulated_as_word_array(ctx, as);
     if (ser) {
-        gen_serialisation(ctx, bb, element_type, base, address_param, value_param);
+        gen_store_for_type(ctx, bb, element_type, as, address_param, value_param);
         shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
     } else {
-        const Node* loaded_value = gen_deserialisation(ctx, bb, element_type, base, address_param);
+        const Node* loaded_value = gen_load_for_type(ctx, bb, element_type, as, address_param);
         assert(loaded_value);
         shd_set_abstraction_body(fun, shd_bld_return(bb, shd_singleton(loaded_value)));
     }
@@ -468,9 +506,16 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .size = constant_decl
     });
 
-    Node* words_array = global_variable_helper(m, words_array_type, as);
+    AddressSpace ass = as;
+    if (ctx->config->lower.use_scratch_for_private && as == AsPrivate) {
+        ass = AsGlobal;
+    }
+    Node* words_array = global_variable_helper(m, words_array_type, ass);
     shd_set_debug_name(words_array, shd_format_string_arena(a->arena, "memory_%s", as_name));
     shd_add_annotation_named(words_array, "Generated");
+
+    if (ctx->config->lower.use_scratch_for_private && as == AsPrivate)
+        shd_add_annotation_named(words_array, "AllocateInScratchMemory");
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }

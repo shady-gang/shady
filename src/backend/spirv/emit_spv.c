@@ -333,8 +333,8 @@ RewritePass shd_spvbe_pass_remove_bda_params;
 
 static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig** p_spv_config, const CompilerConfig* config, Module** pmod) {
     const SPIRVTargetConfig* spv_config = *p_spv_config;
-    RUN_PASS(shd_pass_globals_to_locals, config)
     RUN_PASS(shd_pass_globals_to_params, config)
+    RUN_PASS(shd_pass_globals_to_locals, config)
     RUN_PASS(shd_spv_lower_entrypoint_args, config)
     if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
@@ -360,6 +360,7 @@ void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_confi
         .module = mod,
         .arena = arena,
         .configuration = config,
+        .target = &arena->config.target,
         .spirv_tgt = target_config,
         .file_builder = file_builder,
         .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

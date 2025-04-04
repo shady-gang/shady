@@ -48,7 +48,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
                 synthetic_args_count++;
                 assert(!finished_with_synethic_args);
             } else if (provide_scratch) {
-                Nodes arr = provide_mem->payload.annotation_values.values;
+                Nodes arr = provide_scratch->payload.annotation_values.values;
                 const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
 
                 annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {

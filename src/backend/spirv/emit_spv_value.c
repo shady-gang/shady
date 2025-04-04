@@ -460,6 +460,8 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
 }
 
 static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* node) {
+    IrArena* a = emitter->arena;
+
     if (is_instruction(node))
         return spv_emit_instruction(emitter, fn_builder, bb_builder, node);
 
@@ -549,10 +551,27 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         case Value_Constant_TAG: return spv_emit_decl(emitter, node);
         case Value_BuiltinRef_TAG: {
             BuiltinRef payload = node->payload.builtin_ref;
+
+            //if (payload.builtin == BuiltinWorkgroupSize) {
+            //    const Node* entry_point = shd_module_get_exported(emitter->module, emitter->configuration->specialization.entry_point);
+            //    assert(entry_point && "Can't use builtin subgroup size without an entry point");
+            //    const Node* workgroup_size = shd_lookup_annotation(entry_point, "WorkgroupSize");
+            //    assert(workgroup_size && "Can't use builtin subgroup size without it being provided on the entry point");
+            //    if (workgroup_size) {
+            //        Nodes values = shd_get_annotation_values(workgroup_size);
+            //        assert(values.count == 3);
+            //        const Node* composite = composite_helper(a, shd_get_unqualified_type(node->type), mk_nodes(a, values.nodes[0], values.nodes[1], values.nodes[2]));
+            //        return spv_emit_value(emitter, fn_builder, composite);
+            //    }
+            //}
+
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             AddressSpace as = shd_get_builtin_address_space(payload.builtin);
             SpvStorageClass storage_class = spv_emit_addr_space(emitter, as);
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, node->type), storage_class, false, 0);
+
+            if (payload.builtin == BuiltinSubgroupSize || payload.builtin == BuiltinSubgroupId || payload.builtin == BuiltinSubgroupLocalInvocationId)
+                spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
 
             SpvBuiltIn d = shd_get_builtin_spv_id(payload.builtin);
             uint32_t decoration_payload[] = { d };

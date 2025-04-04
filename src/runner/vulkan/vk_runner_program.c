@@ -173,24 +173,24 @@ void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
 
 static bool compile_specialized_program(VkrSpecProgram* spec) {
-    CompilerConfig config = *spec->key.base->base_config;
-    spec->specialized_module = shd_import(&config, spec->key.base->module);
+    spec->specialized_config = *spec->key.base->base_config;
+    spec->specialized_module = shd_import(&spec->specialized_config, spec->key.base->module);
 
     SPIRVTargetConfig spv_cfg = shd_default_spirv_target_config();
-    get_compiler_config_for_device(spec->device, &config, &spv_cfg);
-    config.specialization.execution_model = EmCompute;
-    config.specialization.entry_point = spec->key.entry_point;
+    get_compiler_config_for_device(spec->device, &spec->specialized_config, &spv_cfg);
+    spec->specialized_config.specialization.execution_model = EmCompute;
+    spec->specialized_config.specialization.entry_point = spec->key.entry_point;
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
-    shd_pipeline_add_shader_target_lowering(pipeline, config.target, config.specialization.execution_model, config.specialization.entry_point);
+    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_config.target, spec->specialized_config.specialization.execution_model, spec->specialized_config.specialization.entry_point);
     shd_pipeline_add_spirv_target_passes(pipeline, &spv_cfg);
-    CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->specialized_module);
+    CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);
 
     CHECK(result == CompilationNoError, return false);
 
-    shd_emit_spirv(&config, spv_cfg, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes);
+    shd_emit_spirv(&spec->specialized_config, spv_cfg, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes);
     shd_vkr_populate_interface(spec);
 
     if (spec->key.base->runtime->config.dump_spv) {
@@ -260,9 +260,7 @@ static bool prepare_program_resources(VkrSpecProgram* program) {
             }
             case SHD_RII_Src_ScratchBuffer: {
                 // the exact computation has to happen at launch time
-                size_t per_invocation_size;
-                shd_rt_materialize_constant(item->interface_item.src_details.scratch_buffer.per_invocation_size, &per_invocation_size, NULL);
-                item->per_invocation_size = per_invocation_size;
+                item->per_invocation_size = shd_get_int_value(item->interface_item.src_details.scratch_buffer.per_invocation_size, false);
                 break;
             }
         }

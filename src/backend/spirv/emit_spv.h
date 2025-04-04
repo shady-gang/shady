@@ -27,6 +27,7 @@ typedef struct Emitter_ {
     Module* module;
     IrArena* arena;
     const CompilerConfig* configuration;
+    const TargetConfig* target;
     const SPIRVTargetConfig spirv_tgt;
     FileBuilder file_builder;
     SpvId void_t;

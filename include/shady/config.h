@@ -95,7 +95,7 @@ struct CompilerConfig_ {
         bool emulate_subgroup_ops_extended_types;
         bool int64;
         bool decay_ptrs;
-        bool force_stack_in_scratch;
+        bool use_scratch_for_private;
     } lower;
 
     struct {
@@ -117,6 +117,7 @@ struct CompilerConfig_ {
         bool stack_size;
         bool subgroup_ops;
         bool max_stack_size;
+        bool scratch_base_addr;
     } printf_trace;
 
     struct {

@@ -4,6 +4,7 @@
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/decl.h"
+#include "shady/ir/memory_layout.h"
 #include "shady/dict.h"
 
 #include "portability.h"
@@ -76,25 +77,41 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
                         // we need to map to the correct stack...
                         const Node* workgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupId);
                         //workgroup_id = area(a, workgroup_id);
-                        const Node* workgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupSize);
-                        const Node* total_workgroup_size = area(a, workgroup_size);
+                        // const Node* workgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupSize);
+                        // const Node* total_workgroup_size = area(a, workgroup_size);
+                        const Node* total_workgroup_size = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[0] * shd_get_arena_config(a)->specializations.workgroup_size[1] * shd_get_arena_config(a)->specializations.workgroup_size[2]);
                         // linear_workgroup_id = ((workgroup_id.x * workgroup_size.y) + workgroup_id.y) * workgroup_size.z + workgroup_id.z
-                        const Node* workgroup_size_x = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 0)));
-                        const Node* workgroup_size_y = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 1)));
-                        const Node* workgroup_size_z = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_size, shd_uint32_literal(a, 2)));
+                        const Node* num_workgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinNumWorkgroups);
+                        const Node* num_workgroups_x = prim_op_helper(a, extract_op, mk_nodes(a, num_workgroups, shd_uint32_literal(a, 0)));
+                        const Node* num_workgroups_y = prim_op_helper(a, extract_op, mk_nodes(a, num_workgroups, shd_uint32_literal(a, 1)));
+                        const Node* num_workgroups_z = prim_op_helper(a, extract_op, mk_nodes(a, num_workgroups, shd_uint32_literal(a, 2)));
+                        //const Node* num_workgroups_x = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[0]);
+                        //const Node* num_workgroups_y = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[1]);
+                        //const Node* num_workgroups_z = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[2]);
+
                         const Node* workgroup_id_x = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 0)));
                         const Node* workgroup_id_y = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 1)));
                         const Node* workgroup_id_z = prim_op_helper(a, extract_op, mk_nodes(a, workgroup_id, shd_uint32_literal(a, 2)));
-                        const Node* linear_workgroup_id = add(workgroup_id_z, mul(workgroup_size_z, add(workgroup_id_y, mul(workgroup_size_y, workgroup_id_x))));
+                        const Node* linear_workgroup_id = add(workgroup_id_z, mul(num_workgroups_z, add(workgroup_id_y, mul(num_workgroups_y, workgroup_id_x))));
+                        //linear_workgroup_id = shd_uint32_literal(a, 0);
 
-                        const Node* num_subgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinNumSubgroups);
+                        //const Node* num_subgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinNumSubgroups);
                         const Node* subgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupSize);
                         const Node* subgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupId);
 
-                        const Node* subgroup_local_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupLocalInvocationId);
-                        const Node* thread_size = size_of_helper(a, shd_rewrite_op(r, NcType, "type", old_global->payload.global_variable.type));
-                        // global_thread_offset = thread_size * (linear_workgroup_id * total_workgroup_size + (subgroup_id * subgroup_size + subgroup_local_id))
-                        const Node* global_thread_offset = mul(thread_size, add(add(subgroup_local_id, mul(subgroup_id, subgroup_size)), mul(linear_workgroup_id, total_workgroup_size)));
+                        // const Node* thread_size = size_of_helper(a, shd_rewrite_op(r, NcType, "type", old_global->payload.global_variable.type));
+                        // thread_size = shd_bld_convert_int_zero_extend(fn_ctx.bb, shd_get_unqualified_type(linear_workgroup_id->type), thread_size);
+                        // const Node* thread_size = shd_get_annotation_value(scratch);
+                        // TODO: make this more robust wrt builtin sizes
+                        TypeMemLayout layout = shd_get_mem_layout(a, old_global->payload.global_variable.type);
+                        const Node* thread_size = shd_uint32_literal(a, shd_bytes_to_words_static(a, layout.size_in_bytes));
+                        // global_thread_offset = thread_size * (linear_workgroup_id * total_workgroup_size + (subgroup_id * subgroup_size))
+                        //const Node* global_thread_offset = mul(thread_size, add(mul(subgroup_id, subgroup_size), mul(linear_workgroup_id, total_workgroup_size)));
+                        const Node* global_thread_offset = add(mul(subgroup_id, subgroup_size), mul(linear_workgroup_id, total_workgroup_size));
+                        //const Node* global_thread_offset = mul(thread_size, linear_workgroup_id);
+                        //global_thread_offset = shd_uint32_literal(a, 48);
+                        if (ctx->config->printf_trace.scratch_base_addr)
+                            shd_bld_debug_printf(fn_ctx.bb, "GTO=%d\n", mk_nodes(a, global_thread_offset));
                         value = ptr_array_element_offset_helper(a, value, global_thread_offset);
                     }
                     shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], value);
@@ -173,23 +190,28 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_node2node(ctx.lifted_globals);
 
+    size_t j = 0;
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* odecl = oglobals.nodes[i];
         if (!affected(odecl))
             continue;
+        assert(j < ctx.extra_params.count);
         if (shd_lookup_annotation(odecl, "AllocateInScratchMemory")) {
-            shd_add_annotation(ctx.extra_params.nodes[i], annotation_values(a, (AnnotationValues) {
+            TypeMemLayout layout = shd_get_mem_layout(a, odecl->payload.global_variable.type);
+            const Node* thread_size = shd_uint32_literal(a, layout.size_in_bytes);
+            shd_add_annotation(ctx.extra_params.nodes[j], annotation_values(a, (AnnotationValues) {
                 .name = "RuntimeProvideScratch",
-                .values = mk_nodes(a, size_of_helper(a, shd_rewrite_op(&ctx.rewriter, NcType, "type", odecl->payload.global_variable.type)))
+                .values = mk_nodes(a, thread_size)
             }));
         } else if (odecl->payload.global_variable.init) {
-            shd_add_annotation(ctx.extra_params.nodes[i], annotation_values(a, (AnnotationValues) {
+            shd_add_annotation(ctx.extra_params.nodes[j], annotation_values(a, (AnnotationValues) {
                     .name = "RuntimeProvideMem",
                     .values = mk_nodes(a, shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
             }));
         } else {
             shd_error("TODO: implement just reserving scratch space for unintialized constants");
         }
+        j++;
     }
 
     shd_destroy_rewriter(&ctx.rewriter);

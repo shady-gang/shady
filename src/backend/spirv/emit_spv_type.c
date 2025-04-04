@@ -155,10 +155,10 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             SpvId pointee = spv_emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
 
-            //if (is_physical_as(type->payload.ptr_type.address_space) && type->payload.ptr_type.pointed_type->tag == ArrType_TAG) {
-            //    TypeMemLayout elem_mem_layout = get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
-            //    spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
-            //}
+            if (emitter->target->memory.address_spaces[type->payload.ptr_type.address_space].physical && type->payload.ptr_type.pointed_type->tag == ArrType_TAG && type->payload.ptr_type.pointed_type->payload.arr_type.size) {
+                TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
+                spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
+            }
             break;
         }
         case NoRet_TAG:

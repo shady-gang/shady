@@ -57,6 +57,8 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
 
                         printf("blocks: %zu wg: %zu, total: %zu\n", blocks, threads_per_wg, total_size);
                         dispatch_item->scratch = shd_vkr_allocate_buffer_device(cmd->device, total_size);
+                        char* zeroes = calloc(total_size, 1);
+                        shd_rn_copy_to_buffer((Buffer*) dispatch_item->scratch, 0, zeroes, total_size);
 
                         VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) dispatch_item->scratch);
                         memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,

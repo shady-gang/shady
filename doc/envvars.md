@@ -25,6 +25,7 @@
    * `max-stack-size`: prints the max stack size at the end of the program
    * `memory-access`: prints on every emulated memory access
    * `top-function`: prints on every iteration of the top function
+   * `scratch-base-addr`: prints the computed base address for the subgroup in scratch
 
 ## Dumping
 

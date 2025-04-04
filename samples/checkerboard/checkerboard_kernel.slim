@@ -4,10 +4,10 @@ const i32 HEIGHT = 256;
 @Builtin("GlobalInvocationId")
 var uniform input pack[u32; 3] global_id;
 
-@EntryPoint("Compute") @Exported @WorkgroupSize(16, 16, 1) fn checkerboard(uniform ptr global [u8] p) {
+@EntryPoint("Compute") @Exported @WorkgroupSize(16, 16, 1) fn checkerboard(ptr global [u8] p) {
     val thread_id = global_id;
-    val x = reinterpret[i32](thread_id#0);
-    val y = reinterpret[i32](thread_id#1);
+    val x = bitcast[i32](thread_id#0);
+    val y = bitcast[i32](thread_id#1);
     if (((x / 16) % 2) == ((y / 16) % 2)) {
         *p#(((y * HEIGHT) + x) * 3 + 0) = 0;
         *p#(((y * HEIGHT) + x) * 3 + 1) = 0;
