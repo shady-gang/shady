@@ -4,4 +4,6 @@ target_sources(shady PRIVATE
         lower_workgroups.c
         specialize_entry_point.c
         specialize_execution_model.c
+        globals_to_locals.c
+        globals_to_params.c
 )

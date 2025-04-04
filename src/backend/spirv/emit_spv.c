@@ -323,18 +323,18 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
 
 #include "shady/pipeline/pipeline.h"
 
+/// Moves all Private allocations to Function
+RewritePass shd_pass_globals_to_locals;
 /// Rewrites globals as kernel parameters
-RewritePass shd_spvbe_pass_lift_globals_ssbo;
+RewritePass shd_pass_globals_to_params;
 RewritePass shd_spv_lower_entrypoint_args;
 /// Avoids some implementation bugs
 RewritePass shd_spvbe_pass_remove_bda_params;
-/// Moves all Private allocations to Function
-RewritePass shd_pass_lower_top_level_globals;
 
 static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig** p_spv_config, const CompilerConfig* config, Module** pmod) {
     const SPIRVTargetConfig* spv_config = *p_spv_config;
-    RUN_PASS(shd_pass_lower_top_level_globals, config)
-    RUN_PASS(shd_spvbe_pass_lift_globals_ssbo, config)
+    RUN_PASS(shd_pass_globals_to_locals, config)
+    RUN_PASS(shd_pass_globals_to_params, config)
     RUN_PASS(shd_spv_lower_entrypoint_args, config)
     if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)

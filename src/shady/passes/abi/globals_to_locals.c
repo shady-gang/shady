@@ -135,7 +135,7 @@ static Rewriter* rewrite_globals_in_local_ctx(Context* ctx, const Node* n) {
     return shd_default_rewriter_selector(&ctx->rewriter, n);
 }
 
-Module* shd_pass_lower_top_level_globals(const CompilerConfig* config, Module* src) {
+Module* shd_pass_globals_to_locals(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
