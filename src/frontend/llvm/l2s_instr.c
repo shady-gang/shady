@@ -528,6 +528,18 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 } else if (shd_string_starts_with(intrinsic, "llvm.floor")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return prim_op_helper(a, floor_op, shd_nodes(a, 1, ops.nodes));
+                } else if (shd_string_starts_with(intrinsic, "llvm.umax")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    return prim_op_helper(a, max_op, shd_nodes(a, 2, ops.nodes));
+                } else if (shd_string_starts_with(intrinsic, "llvm.umin")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
+                } else if (shd_string_starts_with(intrinsic, "llvm.smax")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    return prim_op_helper(a, max_op, shd_nodes(a, 2, ops.nodes));
+                } else if (shd_string_starts_with(intrinsic, "llvm.smin")) {
+                    Nodes ops = convert_operands(p, num_ops, instr);
+                    return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
                 }
 
                 typedef struct {
