@@ -4,6 +4,7 @@
 #include "shady/visit.h"
 #include "shady/ir/cast.h"
 #include "shady/analysis/uses.h"
+#include "shady/print.h"
 
 #include "log.h"
 #include "portability.h"
@@ -94,20 +95,25 @@ static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr
     PtrSourceKnowledge k = { 0 };
     while (ptr) {
         assert(is_value(ptr));
-        const Node* instr = ptr;
-        switch (instr->tag) {
+        switch (ptr->tag) {
             case StackAlloc_TAG:
             case LocalAlloc_TAG: {
-                k.src_alloca = *shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, instr);
+                k.src_alloca = *shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, ptr);
+                return k;
+            }
+            case GlobalVariable_TAG: {
+                // if it's a global variable we gotta make sure to rewrite it first
+                shd_rewrite_node(&ctx->rewriter, ptr);
+                k.src_alloca = *shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, ptr);
                 return k;
             }
             case BitCast_TAG: {
-                BitCast payload = instr->payload.bit_cast;
+                BitCast payload = ptr->payload.bit_cast;
                 ptr = payload.src;
                 continue;
             }
             case Conversion_TAG: {
-                Conversion payload = instr->payload.conversion;
+                Conversion payload = ptr->payload.conversion;
                 ptr = payload.src;
                 continue;
             }
@@ -123,19 +129,38 @@ static AllocaInfo* analyze_alloc(Context* ctx, const Node* old, const Type* old_
     Rewriter* r = &ctx->rewriter;
     AllocaInfo* k = shd_arena_alloc(ctx->arena, sizeof(AllocaInfo));
     *k = (AllocaInfo) { .type = shd_rewrite_node(r, old_type) };
+
+    switch (old->tag) {
+        case GlobalVariable_TAG: {
+            // GlobalVariable payload = old->payload.global_variable;
+            if (shd_lookup_annotation(old, "Exported")) {
+               k->leaks = true;
+            }
+            break;
+        }
+        default: break;
+    }
+
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
     shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
 
-    // debugv_print("demote_alloca: uses analysis results for ");
-    // log_node(DEBUGV, old);
-    // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
+    // shd_debugv_print("demote_alloca: uses analysis results for ");
+    // NodePrintConfig config = *shd_default_node_print_config();
+    // config.max_depth = 3;
+    // shd_log_node_config(DEBUGV, old, &config);
+    // shd_debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
     return k;
 }
 
-static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_type) {
+static const Node* handle_alloc(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     Rewriter* r = &ctx->rewriter;
+
+    const Type* old_ptr_type = shd_get_unqualified_type(old->type);
+    assert(old_ptr_type->tag == PtrType_TAG);
+    bool was_ref = old_ptr_type->payload.ptr_type.is_reference;
+    const Type* old_type = old_ptr_type->payload.ptr_type.pointed_type;
 
     const Node* omem = is_mem(old) ? shd_get_parent_mem(old) : NULL;
     AllocaInfo* k = analyze_alloc(ctx, old, old_type);
@@ -149,8 +174,28 @@ static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_t
             k->new = new;
             return new;
         } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-            *ctx->todo |= true;
-            const Node* new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
+            const Node* new;
+            switch (old->tag) {
+                case LocalAlloc_TAG: {
+                    new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
+                    break;
+                }
+                case StackAlloc_TAG: {
+                    *ctx->todo |= true;
+                    new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
+                    break;
+                }
+                case GlobalVariable_TAG: {
+                    GlobalVariable payload = shd_rewrite_global_head_payload(r, old->payload.global_variable);
+                    *ctx->todo |= !payload.is_ref;
+                    payload.is_ref = true;
+                    Node* g = shd_global_var(r->dst_module, payload);
+                    shd_recreate_node_body(r, old, g);
+                    new = g;
+                    break;
+                }
+                default: shd_error("Unreachable");
+            }
             k->new = new;
             return new;
         }
@@ -169,11 +214,9 @@ static const Node* process(Context* ctx, const Node* old) {
             Node* fun = shd_recreate_node_head(&ctx->rewriter, old);
             Context fun_ctx = *ctx;
             fun_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
-            fun_ctx.uses = shd_new_uses_map_fn(old, (NcFunction | NcType));
             fun_ctx.disable_lowering = shd_lookup_annotation_with_string_payload(old, "DisableOpt", "demote_alloca");
             if (old->payload.fun.body)
                 shd_set_abstraction_body(fun, shd_rewrite_node(&fun_ctx.rewriter, old->payload.fun.body));
-            shd_destroy_uses_map(fun_ctx.uses);
             shd_destroy_rewriter(&fun_ctx.rewriter);
             return fun;
         }
@@ -218,12 +261,9 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
-        case LocalAlloc_TAG: {
-            AllocaInfo* info = analyze_alloc(ctx, old, old->payload.local_alloc.type);
-            info->new = shd_recreate_node(r, old);
-            return info->new;
-        }
-        case StackAlloc_TAG: return handle_alloc(ctx, old, old->payload.stack_alloc.type);
+        case GlobalVariable_TAG:
+        case LocalAlloc_TAG:
+        case StackAlloc_TAG: return handle_alloc(ctx, old);
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, old);
@@ -244,10 +284,12 @@ bool shd_opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m
         .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .todo = &todo
     };
+    ctx.uses = shd_new_uses_map_module(src, NcType);
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_dict(ctx.alloca_info);
     shd_destroy_arena(ctx.arena);
+    shd_destroy_uses_map(ctx.uses);
     *m = dst;
     return todo;
 }
