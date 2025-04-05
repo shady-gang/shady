@@ -119,30 +119,38 @@ static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr
     return k;
 }
 
-static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_type) {
-    IrArena* a = ctx->rewriter.dst_arena;
+static AllocaInfo* analyze_alloc(Context* ctx, const Node* old, const Type* old_type) {
     Rewriter* r = &ctx->rewriter;
-
-    const Node* nmem = shd_rewrite_node(r, old->tag == StackAlloc_TAG ? old->payload.stack_alloc.mem : old->payload.local_alloc.mem);
-
     AllocaInfo* k = shd_arena_alloc(ctx->arena, sizeof(AllocaInfo));
     *k = (AllocaInfo) { .type = shd_rewrite_node(r, old_type) };
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
     shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
+
     // debugv_print("demote_alloca: uses analysis results for ");
     // log_node(DEBUGV, old);
     // debugv_print(": leaks=%d read_from=%d non_logical_use=%d\n", k->leaks, k->read_from, k->non_logical_use);
+    return k;
+}
+
+static const Node* handle_alloc(Context* ctx, const Node* old, const Type* old_type) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    Rewriter* r = &ctx->rewriter;
+
+    const Node* omem = is_mem(old) ? shd_get_parent_mem(old) : NULL;
+    AllocaInfo* k = analyze_alloc(ctx, old, old_type);
     if (!k->leaks && !k->non_logical_use) {
         if (!k->read_from/* this should include killing dead stores! */) {
             *ctx->todo |= true;
             const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
+
+            const Node* nmem = shd_rewrite_node(r, omem);
             new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
         } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-            *ctx->todo |= old->tag != LocalAlloc_TAG;
-            const Node* new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = nmem });
+            *ctx->todo |= true;
+            const Node* new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
             k->new = new;
             return new;
         }
@@ -210,7 +218,11 @@ static const Node* process(Context* ctx, const Node* old) {
             }
             break;
         }
-        case LocalAlloc_TAG: return handle_alloc(ctx, old, old->payload.local_alloc.type);
+        case LocalAlloc_TAG: {
+            AllocaInfo* info = analyze_alloc(ctx, old, old->payload.local_alloc.type);
+            info->new = shd_recreate_node(r, old);
+            return info->new;
+        }
         case StackAlloc_TAG: return handle_alloc(ctx, old, old->payload.stack_alloc.type);
         default: break;
     }
