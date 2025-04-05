@@ -39,6 +39,20 @@ static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
     }
 }
 
+/// The emulated memory arrays are not realistically going to be bigger than 4GiB, therefore all the address computations
+/// should be done on 32-bit for improved performance. Emulated ptr size for ABI purposes is still dictated by the target
+static IntSizes get_shortptr_type_size(Context* ctx, AddressSpace as) {
+    return IntTy32;
+}
+
+static const Type* get_shortptr_type(Context* ctx, AddressSpace as) {
+    return int_type_helper(ctx->rewriter.dst_arena, get_shortptr_type_size(ctx, as), false);
+}
+
+static const Node* shortptr_literal(Context* ctx, AddressSpace as, uint64_t value) {
+    return int_literal_helper(ctx->rewriter.dst_arena, get_shortptr_type_size(ctx, as), false, value);
+}
+
 static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
     switch (as) {
         case AsPrivate:  return &ctx->fake_private_memory;
@@ -71,20 +85,20 @@ static const Node* mul(const Node* a, const Node* b) {
 static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupSize);
-    subgroup_size = shd_bld_convert_int_zero_extend(bb, size_t_type(a), subgroup_size);
+    subgroup_size = shd_bld_convert_int_zero_extend(bb, shd_get_unqualified_type(offset->type), subgroup_size);
     const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupLocalInvocationId);
-    subgroup_local_id = shd_bld_convert_int_zero_extend(bb, size_t_type(a), subgroup_local_id);
+    subgroup_local_id = shd_bld_convert_int_zero_extend(bb, shd_get_unqualified_type(offset->type), subgroup_local_id);
     return add(mul(offset, subgroup_size), subgroup_local_id);
 }
 
 static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset) {
+    assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     // swizzle the address here !
     if (ctx->config->lower.use_scratch_for_private)
         offset = swizzle_offset(ctx, bb, offset);
-    const Node* zero = size_t_literal(a, 0);
     const Node* arr = *get_emulated_as_word_array(ctx, as);
-    const Node* value = shd_bld_load(bb, lea_helper(a, arr, zero, shd_singleton(offset)));
+    const Node* value = shd_bld_load(bb, ptr_composite_element_helper(a, arr, offset));
     IntSizes width = a->config.target.memory.word_size;
     if (ctx->config->printf_trace.memory_accesses) {
         String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
@@ -97,6 +111,7 @@ static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as,
 }
 
 static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
+    assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     // swizzle the address here !
     if (ctx->config->lower.use_scratch_for_private)
@@ -109,12 +124,12 @@ static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const
             widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
         shd_bld_debug_printf(bb, template, mk_nodes(a, widened, offset));
     }
-    const Node* zero = size_t_literal(a, 0);
     const Node* arr = *get_emulated_as_word_array(ctx, as);
-    shd_bld_store(bb, lea_helper(a, arr, zero, shd_singleton(offset)), value);
+    shd_bld_store(bb, ptr_composite_element_helper(a, arr, offset), value);
 }
 
 static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address) {
+    assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
     const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
@@ -133,7 +148,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
                 word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
                 acc = prim_op_helper(a, or_op, mk_nodes(a, acc, word));
 
-                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1)));
+                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, shortptr_literal(ctx, as, 1)));
                 shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
             }
             acc = shd_bld_bitcast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);
@@ -164,6 +179,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
+                field_offset = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), field_offset);
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 loaded[i] = gen_load_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset);
             }
@@ -183,7 +199,9 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 components[i] = gen_load_for_type(ctx, bb, component_type, as, offset);
-                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
+                const Node* component_type_width = size_of_helper(a, component_type);
+                component_type_width = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), component_type_width);
+                offset = add(offset, component_type_width);
             }
             return composite_helper(a, element_type, shd_nodes(a, components_count, components));
         }
@@ -192,6 +210,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
 }
 
 static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address, const Node* value) {
+    assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     const CompilerConfig* config = ctx->config;
     const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
@@ -223,8 +242,8 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
                 word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 gen_store_base(ctx, bb, as, offset, word);
 
-                offset = (prim_op_helper(a, add_op, mk_nodes(a, offset, size_t_literal(a, 1))));
-                shift = (prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth)));
+                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, shortptr_literal(ctx, as, 1)));
+                shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
             }
             return;
         }
@@ -252,6 +271,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = prim_op_helper(a, extract_op, mk_nodes(a, value, shd_int32_literal(a, i)));
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
+                field_offset = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), field_offset);
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 gen_store_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset, extracted_value);
             }
@@ -274,7 +294,9 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             const Node* offset = address;
             for (size_t i = 0; i < components_count; i++) {
                 gen_store_for_type(ctx, bb, component_type, as, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
-                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, size_of_helper(a, component_type)));
+                const Node* component_type_width = size_of_helper(a, component_type);
+                component_type_width = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), component_type_width);
+                offset = add(offset, component_type_width);
             }
             return;
         }
@@ -315,7 +337,9 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScop
     shd_dict_insert(String, Node*, ctx->fns, fn_name, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
-    const Node* base = *get_emulated_as_word_array(ctx, as);
+    // convert the pointer to the internal size here
+    const Type* shortptr_t = get_shortptr_type(ctx, as);
+    address_param = shd_bld_convert_int_zero_extend(bb, shortptr_t, address_param);
     if (ser) {
         gen_store_for_type(ctx, bb, element_type, as, address_param, value_param);
         shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
@@ -496,14 +520,14 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     const Node* size_of = size_of_helper(a, global_struct_t);
     const Node* size_in_words = shd_bytes_to_words(bb, size_of);
 
-    Node* constant_decl = constant_helper(m, ptr_size_type);
-    shd_set_debug_name(constant_decl, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
-    shd_add_annotation_named(constant_decl, "Generated");
-    constant_decl->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
+    Node* memory_size_constant = constant_helper(m, ptr_size_type);
+    shd_set_debug_name(memory_size_constant, shd_fmt_string_irarena(a, "memory_%s_size", as_name));
+    shd_add_annotation_named(memory_size_constant, "Generated");
+    memory_size_constant->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(size_in_words));
 
     const Type* words_array_type = arr_type(a, (ArrType) {
         .element_type = word_type,
-        .size = constant_decl
+        .size = memory_size_constant
     });
 
     AddressSpace ass = as;

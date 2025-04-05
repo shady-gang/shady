@@ -121,7 +121,9 @@ const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bytes->arena;
     const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.word_size, .is_signed = false });
     size_t word_width = shd_get_type_bitwidth(word_type);
-    const Node* bytes_per_word = size_t_literal(a, word_width / 8);
+    const Type* bytes_t = shd_get_unqualified_type(bytes->type);
+    assert(bytes_t->tag == Int_TAG);
+    const Node* bytes_per_word = int_literal_helper(a, bytes_t->payload.int_type.width, bytes_t->payload.int_type.is_signed, word_width / 8);
     return prim_op_helper(a, div_op, mk_nodes(a, bytes, bytes_per_word));
 }
 
