@@ -819,6 +819,8 @@ ExtISelEntry ext_isel_entries[] = {
     {{ "GLSL.std.450", GLSLstd450Fma, mk_prefix() }, { IsMono, OsCall, .op = "fmaf" }},
     {{ "GLSL.std.450", GLSLstd450Log2, mk_prefix() }, { IsMono, OsCall, .op = "log2f" }},
     {{ "GLSL.std.450", GLSLstd450Log, mk_prefix() }, { IsMono, OsCall, .op = "logf" }},
+    {{ "GLSL.std.450", GLSLstd450Exp, mk_prefix() }, { IsMono, OsCall, .op = "expf" }},
+    {{ "GLSL.std.450", GLSLstd450Pow, mk_prefix() }, { IsMono, OsCall, .op = "powf" }},
 };
 
 static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {
