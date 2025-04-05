@@ -141,6 +141,9 @@ static AllocaInfo* analyze_alloc(Context* ctx, const Node* old, const Type* old_
         default: break;
     }
 
+    if (shd_lookup_annotation(old, "DoNotDemoteToReference"))
+        k->leaks = true;
+
     assert(ctx->uses);
     visit_ptr_uses(old, old_type, k, ctx->uses);
     shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);
@@ -174,29 +177,29 @@ static const Node* handle_alloc(Context* ctx, const Node* old) {
             k->new = new;
             return new;
         } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-            const Node* new;
+            Node* new;
             switch (old->tag) {
                 case LocalAlloc_TAG: {
-                    new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
+                    new = (Node*) local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
                     break;
                 }
                 case StackAlloc_TAG: {
                     *ctx->todo |= true;
-                    new = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
+                    new = (Node*) local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_type), .mem = shd_rewrite_node(r, omem) });
                     break;
                 }
                 case GlobalVariable_TAG: {
                     GlobalVariable payload = shd_rewrite_global_head_payload(r, old->payload.global_variable);
                     *ctx->todo |= !payload.is_ref;
                     payload.is_ref = true;
-                    Node* g = shd_global_var(r->dst_module, payload);
-                    shd_recreate_node_body(r, old, g);
-                    new = g;
+                    new = shd_global_var(r->dst_module, payload);
+                    shd_recreate_node_body(r, old, new);
                     break;
                 }
                 default: shd_error("Unreachable");
             }
             k->new = new;
+            shd_rewrite_annotations(r, old, new);
             return new;
         }
     }

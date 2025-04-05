@@ -511,11 +511,15 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         ass = AsGlobal;
     }
     Node* words_array = global_variable_helper(m, words_array_type, ass);
-    shd_set_debug_name(words_array, shd_format_string_arena(a->arena, "memory_%s", as_name));
+    String name = shd_format_string_arena(a->arena, "memory_%s", as_name);
+    shd_set_debug_name(words_array, name);
     shd_add_annotation_named(words_array, "Generated");
 
-    if (ctx->config->lower.use_scratch_for_private && as == AsPrivate)
+    if (ctx->config->lower.use_scratch_for_private && as == AsPrivate) {
         shd_add_annotation_named(words_array, "AllocateInScratchMemory");
+        shd_add_annotation_named(words_array, "DoNotDemoteToReference");
+        //shd_module_add_export(m, name, words_array);
+    }
 
     *get_emulated_as_word_array(ctx, as) = words_array;
 }
