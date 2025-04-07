@@ -254,12 +254,12 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
         switch (opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
-                SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, shd_int32_literal(emitter->arena, SpvScopeSubgroup));
                 if (emitter->spirv_tgt.hacks.shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId);
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
-                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, result_t), scope_subgroup, spv_emit_value(emitter, fn_builder, shd_first(operands)), local_id);
+                    assert(shd_get_int_value(shd_first(operands), false) == SpvScopeSubgroup);
+                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, shd_first(operands)), spv_emit_value(emitter, fn_builder, operands.nodes[1]), local_id);
                 }
                 break;
             }
