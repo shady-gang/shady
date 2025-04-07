@@ -1149,7 +1149,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             if (payload.scope <= ShdScopeSubgroup) {
                 if (emitter->config.dialect == CDialect_ISPC) {
                     CValue vvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src));
-                    return broadcast_first(emitter, vvalue, payload.src);
+                    return broadcast_first(emitter, vvalue, payload.src->type);
                 }
             }
             return shd_c_emit_value(emitter, fn, payload.src);
