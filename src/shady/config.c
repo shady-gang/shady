@@ -17,7 +17,7 @@ CompilerConfig shd_default_compiler_config(void) {
             .emulate_physical_memory = true,
             .emulate_generic_ptrs = true,
 
-            .use_scratch_for_private = true,
+            //.use_scratch_for_private = true,
         },
 
         .optimisations = {
