@@ -178,12 +178,10 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     SPIRVTargetConfig spv_cfg = shd_default_spirv_target_config();
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spv_cfg);
-    spec->specialized_config.specialization.execution_model = EmCompute;
-    spec->specialized_config.specialization.entry_point = spec->key.entry_point;
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
-    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_config.target, spec->specialized_config.specialization.execution_model, spec->specialized_config.specialization.entry_point);
+    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_config.target, spec->key.em, spec->key.entry_point);
     shd_pipeline_add_spirv_target_passes(pipeline, &spv_cfg);
     CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);

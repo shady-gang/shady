@@ -42,7 +42,7 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
                     case SHD_RII_Src_ScratchBuffer: {
                         size_t blocks = dimx * dimy * dimz;
 
-                        const Node* ep = shd_module_get_exported(prog->specialized_module, prog->specialized_config.specialization.entry_point);
+                        const Node* ep = shd_module_get_exported(prog->specialized_module, prog->key.entry_point);
                         assert(ep);
                         const Node* wgs = shd_lookup_annotation(ep, "WorkgroupSize");
                         assert(wgs);

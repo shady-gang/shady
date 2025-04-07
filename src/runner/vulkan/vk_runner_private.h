@@ -62,6 +62,7 @@ typedef struct VkrBackend_ {
 typedef struct {
     Program* base;
     String entry_point;
+    ExecutionModel em;
 } SpecProgramKey;
 
 typedef struct VkrDevice_ VkrDevice;

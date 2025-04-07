@@ -66,6 +66,11 @@ typedef struct {
     const char* shd_output_filename;
     const char* cfg_output_filename;
     const char* loop_tree_output_filename;
+
+    struct {
+        String entry_point;
+        ExecutionModel execution_model;
+    } specialization;
 } DriverConfig;
 
 DriverConfig shd_default_driver_config(void);

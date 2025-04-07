@@ -14,5 +14,6 @@ typedef enum {
 } ExecutionModel;
 
 ExecutionModel shd_execution_model_from_string(const char*);
+ExecutionModel shd_execution_model_from_entry_point(const Node* decl);
 
 #endif

@@ -118,47 +118,57 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     return NoError;
 }
 
-void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+void shd_pipeline_add_normalize_input_cf(ShdPipeline);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+void shd_pipeline_add_feature_lowering(ShdPipeline, TargetConfig);
 
-static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
-    const Node* old_entry_point_decl = shd_module_get_exported(mod, entry_point);
-    if (!old_entry_point_decl)
-        shd_error("Cannot specialize: No function named '%s'", entry_point)
-    if (old_entry_point_decl->tag != Function_TAG)
-        shd_error("Cannot specialize: '%s' is not a function.", entry_point)
-    const Node* ep = shd_lookup_annotation(old_entry_point_decl, "EntryPoint");
+ExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
+    String name = shd_get_node_name_safe(decl);
+    if (decl->tag != Function_TAG)
+        shd_error("Cannot specialize: '%s' is not a function.", name)
+    const Node* ep = shd_lookup_annotation(decl, "EntryPoint");
     if (!ep)
-        shd_error("%s is not annotated with @EntryPoint", entry_point);
+        shd_error("%s is not annotated with @EntryPoint", name);
     return shd_execution_model_from_string(shd_get_annotation_string_payload(ep));
 }
 
-static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* config, const Module* mod) {
-    if (config->config.specialization.entry_point && config->config.specialization.execution_model == EmNone) {
-        config->config.specialization.execution_model = get_execution_model_for_entry_point(config->config.specialization.entry_point, mod);
+static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
+    const Node* decl = shd_module_get_exported(mod, entry_point);
+    if (!decl)
+        shd_error("Cannot specialize: No function named '%s'", entry_point)
+    return shd_execution_model_from_entry_point(decl);
+}
+
+static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* driver_config, const Module* mod) {
+    if (driver_config->specialization.entry_point && driver_config->specialization.execution_model == EmNone) {
+        driver_config->specialization.execution_model = get_execution_model_for_entry_point(driver_config->specialization.entry_point, mod);
     }
 
     shd_pipeline_add_normalize_input_cf(pipeline);
-    shd_pipeline_add_shader_target_lowering(pipeline, config->config.target, config->config.specialization.execution_model, config->config.specialization.entry_point);
 
-    switch (config->target) {
-        case TgtAuto: break;
-        case TgtSPV:
-            shd_pipeline_add_spirv_target_passes(pipeline, &config->target_config.spirv);
-            break;
+    switch (driver_config->target) {
+        case TgtAuto: /* no target */ break;
         case TgtC: {
-            config->target_config.c.dialect = CDialect_C11;
-            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
+            shd_pipeline_add_feature_lowering(pipeline, driver_config->config.target);
+            driver_config->target_config.c.dialect = CDialect_C11;
+            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
+            break;
+        }
+        case TgtSPV: {
+            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
+            shd_pipeline_add_spirv_target_passes(pipeline, &driver_config->target_config.spirv);
             break;
         }
         case TgtGLSL: {
-            config->target_config.c.dialect = CDialect_GLSL;
-            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
+            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
+            driver_config->target_config.c.dialect = CDialect_GLSL;
+            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
             break;
         }
         case TgtISPC: {
-            config->target_config.c.dialect = CDialect_ISPC;
-            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
+            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
+            driver_config->target_config.c.dialect = CDialect_ISPC;
+            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
             break;
         }
     }

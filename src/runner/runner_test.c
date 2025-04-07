@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
 
     int32_t a0 = 42;
     uint64_t a1 = shd_rn_get_buffer_device_pointer(buffer);
-    shd_rn_wait_completion(shd_rn_launch_kernel(program, device, args.driver_config.config.specialization.entry_point ? args.driver_config.config.specialization.entry_point : "my_kernel", 1, 1, 1, 2, (void* []) { &a0, &a1 }, NULL));
+    shd_rn_wait_completion(shd_rn_launch_kernel(program, device, args.driver_config.specialization.entry_point ? args.driver_config.specialization.entry_point : "my_kernel", 1, 1, 1, 2, (void* []) { &a0, &a1 }, NULL));
 
     shd_rn_destroy_buffer(buffer);
 

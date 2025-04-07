@@ -124,11 +124,6 @@ struct CompilerConfig_ {
         int max_top_iterations;
     } shader_diagnostics;
 
-    struct {
-        String entry_point;
-        ExecutionModel execution_model;
-    } specialization;
-
     TargetConfig target;
 
     // struct {
