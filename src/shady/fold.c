@@ -484,14 +484,16 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
                     }
                 }
             }
+            const FloatLiteral* float_lit = shd_resolve_to_float_literal(payload.src);
+            const IntLiteral* int_lit = shd_resolve_to_int_literal(payload.src);
             if (payload.type->tag == Int_TAG) {
-                const FloatLiteral* lit = shd_resolve_to_float_literal(payload.src);
-                if (lit)
-                    return int_literal(arena, (IntLiteral) { .is_signed = payload.type->payload.int_type.is_signed, .width = payload.type->payload.int_type.width, .value = lit->value });
+                if (float_lit)
+                    return int_literal(arena, (IntLiteral) { .is_signed = payload.type->payload.int_type.is_signed, .width = payload.type->payload.int_type.width, .value = float_lit->value });
+                if (int_lit)
+                    return int_literal(arena, (IntLiteral) { .is_signed = payload.type->payload.int_type.is_signed, .width = payload.type->payload.int_type.width, .value = int_lit->value });
             } else if (payload.type->tag == Float_TAG) {
-                const IntLiteral* lit = shd_resolve_to_int_literal(payload.src);
-                if (lit)
-                    return float_literal(arena, (FloatLiteral) { .width = payload.type->payload.float_type.width, .value = lit->value });
+                if (int_lit)
+                    return float_literal(arena, (FloatLiteral) { .width = payload.type->payload.float_type.width, .value = int_lit->value });
             }
             break;
         }
