@@ -38,8 +38,6 @@ typedef struct {
     bool* todo;
 } Context;
 
-static const Node* process_node(Context* ctx, const Node* node);
-
 typedef struct {
     const Node* old_cont;
     const Node* lifted_fn;
@@ -73,14 +71,16 @@ static Nodes set2nodes(IrArena* a, NodeSet set) {
     return shd_nodes(a, count, tmp);
 }
 
-static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
+static LiftedCont* lambda_lift(Context* callsite_context, const Node* liftee) {
     assert(is_basic_block(liftee));
-    LiftedCont** found = shd_dict_find_value(const Node*, LiftedCont*, ctx->lifted, liftee);
+    LiftedCont** found = shd_dict_find_value(const Node*, LiftedCont*, callsite_context->lifted, liftee);
     if (found)
         return *found;
 
-    IrArena* a = ctx->rewriter.dst_arena;
+    IrArena* a = callsite_context->rewriter.dst_arena;
     const Node* obody = get_abstraction_body(liftee);
+
+    CFG* cfg = callsite_context->cfg;
 
     Scheduler* scheduler = shd_new_scheduler(cfg);
     NodeSet frontier_set = shd_free_frontier(scheduler, cfg, liftee);
@@ -91,8 +91,9 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
 
     shd_destroy_scheduler(scheduler);
 
-    Context lifting_ctx = *ctx;
-    lifting_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+    Context lifting_ctx = *callsite_context;
+    // we don't want to reuse anything rewritten from the callsite
+    lifting_ctx.rewriter = shd_create_children_rewriter(shd_get_top_rewriter(&callsite_context->rewriter));
     Rewriter* r = &lifting_ctx.rewriter;
 
     Nodes ovariables = get_abstraction_params(liftee);
@@ -112,7 +113,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
     lifted_cont->old_cont = liftee;
     lifted_cont->save_values = frontier;
-    shd_dict_insert(const Node*, LiftedCont*, ctx->lifted, liftee, lifted_cont);
+    shd_dict_insert(const Node*, LiftedCont*, callsite_context->lifted, liftee, lifted_cont);
 
     Nodes new_params = shd_recreate_params(r, ovariables);
     shd_register_processed_list(r, ovariables, new_params);
@@ -121,7 +122,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_set_debug_name(payload, "sp");
     new_params = shd_nodes_prepend(a, new_params, payload);
 
-    Node* new_fn = function_helper(ctx->rewriter.dst_module, new_params, shd_nodes(a, 0, NULL));
+    Node* new_fn = function_helper(callsite_context->rewriter.dst_module, new_params, shd_nodes(a, 0, NULL));
     lifted_cont->lifted_fn = new_fn;
 
     // Recover that stuff inside the new body
@@ -146,7 +147,7 @@ static LiftedCont* lambda_lift(Context* ctx, CFG* cfg, const Node* liftee) {
     shd_register_processed(r, shd_get_abstraction_mem(liftee), shd_bld_mem(bb));
     shd_register_processed(r, liftee, new_fn);
     const Node* substituted = shd_rewrite_node(r, obody);
-    shd_destroy_rewriter(r);
+    shd_destroy_rewriter(&lifting_ctx.rewriter);
 
     assert(is_terminator(substituted));
     shd_set_abstraction_body(new_fn, shd_bld_finish(bb, substituted));
@@ -164,13 +165,15 @@ static const Node* process_node(Context* ctx, const Node* node) {
             fn_ctx.cfg = build_fn_cfg(node);
             fn_ctx.uses = shd_new_uses_map_fn(node, (NcFunction | NcType));
             fn_ctx.disable_lowering = shd_lookup_annotation(node, "Internal");
-            ctx = &fn_ctx;
+            fn_ctx.rewriter = shd_create_children_rewriter(&ctx->rewriter);
+            assert(&ctx->rewriter == shd_get_top_rewriter(&ctx->rewriter));
 
             Node* new = shd_recreate_node_head(&ctx->rewriter, node);
-            shd_recreate_node_body(&ctx->rewriter, node, new);
+            shd_recreate_node_body(&fn_ctx.rewriter, node, new);
 
-            shd_destroy_uses_map(ctx->uses);
-            shd_destroy_cfg(ctx->cfg);
+            shd_destroy_uses_map(fn_ctx.uses);
+            shd_destroy_cfg(fn_ctx.cfg);
+            shd_destroy_rewriter(&fn_ctx.rewriter);
             return new;
         }
         default:
@@ -188,13 +191,11 @@ static const Node* process_node(Context* ctx, const Node* node) {
 
                 const Node* otail = get_structured_construct_tail(node);
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, node->payload.control.mem));
-                LiftedCont* lifted_tail = lambda_lift((Context*) shd_get_top_rewriter(&ctx->rewriter), ctx->cfg, otail);
+                LiftedCont* lifted_tail = lambda_lift(ctx, otail);
                 const Node* sp = add_spill_instrs(ctx, bb, lifted_tail->save_values);
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
-                const Type* jp_type = join_point_type(a, (JoinPointType) {
-                    .yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types),
-                });
+                const Type* jp_type = join_point_type_helper(a, shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types));
                 const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, jp_type), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
                 jp = scope_cast_helper(a, ctx->config->target.scopes.gang, jp);
