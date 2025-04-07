@@ -255,9 +255,6 @@ static void print_terminator_op(PrinterCtx* ctx, const Node* term) {
     if (!term) {
         printf("null");
     } else {
-        printf("{");
-        shd_printer_indent(ctx->printer);
-        printf("\n");
 
         Growy* g = shd_new_growy();
         Printer* p = shd_new_printer_from_growy(g);
@@ -289,12 +286,18 @@ static void print_terminator_op(PrinterCtx* ctx, const Node* term) {
         String s = shd_printer_growy_unwrap(p);
         if (cfnode)
             ctx->bb_printers[cfnode->rpo_index] = NULL;
-        printf("%s", s);
+        if (ctx->config.function_bodies) {
+            printf("{");
+            shd_printer_indent(ctx->printer);
+            printf("\n");
+            printf("%s", s);
+            printf("\n%s", t);
+            shd_printer_deindent(ctx->printer);
+            printf("\n}");
+        } else {
+            printf("{ ... }");
+        }
         free((void*) s);
-        printf("\n%s", t);
-
-        shd_printer_deindent(ctx->printer);
-        printf("\n}");
     }
 }
 
@@ -864,11 +867,7 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         String t = emit_node(ctx, node->type);
         shd_print(destination_printer, ": %s", t);
     }
-    if (node->tag != Function_TAG || ctx->config.function_bodies) {
-        shd_print(destination_printer, " = %s", printed_node);
-    } else {
-        shd_print(destination_printer, ";");
-    }
+    shd_print(destination_printer, " = %s", printed_node);
 
     free((void*) printed_node);
     shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
