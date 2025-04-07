@@ -82,16 +82,6 @@ void shd_parse_common_args(int* pargc, char** argv) {
     shd_pack_remaining_args(pargc, argv);
 }
 
-#define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
-F(config->lower.emulate_physical_memory, emulate-physical-memory) \
-F(config->lower.emulate_generic_ptrs, emulate-generic-pointers) \
-F(config->dynamic_scheduling, dynamic-scheduling) \
-F(config->hacks.force_join_point_lifting, lift-join-points) \
-F(config->optimisations.inline_everything, inline-everything) \
-F(config->input_cf.restructure_with_heuristics, restructure-everything) \
-F(config->input_cf.add_scope_annotations, add-scope-annotations) \
-F(config->input_cf.has_scope_annotations, has-scope-annotations) \
-
 static IntSizes parse_int_size(String argv) {
     if (strcmp(argv, "8") == 0)
         return IntTy8;
@@ -104,6 +94,64 @@ static IntSizes parse_int_size(String argv) {
     shd_error("Valid pointer sizes are 8, 16, 32 or 64.");
 }
 
+void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
+    int argc = *pargc;
+
+    bool help = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--subgroup-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                shd_error("Missing subgroup size");
+            target->subgroup_size = atoi(argv[i]);
+        } else if (strcmp(argv[i], "--word-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            target->memory.word_size = parse_int_size(argv[i]);
+        } else if (strcmp(argv[i], "--pointer-size") == 0) {
+            argv[i] = NULL;
+            i++;
+            target->memory.ptr_size = parse_int_size(argv[i]);
+        } else if (strcmp(argv[i], "--no-bda") == 0) {
+            target->memory.address_spaces[AsGlobal].allowed = false;
+        } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
+            target->capabilities.native_tailcalls = true;
+            target->memory.fn_ptr_size = IntTy64;
+        } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
+            target->capabilities.native_fncalls = true;
+            target->memory.fn_ptr_size = IntTy64;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            help = true;
+            continue;
+        } else {
+            continue;
+        }
+        argv[i] = NULL;
+    }
+
+    if (help) {
+        shd_error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
+        shd_error_print("  --word-size <8|16|32|64>                  Sets the word size for physical memory emulation (default=32)\n");
+        shd_error_print("  --pointer-size <8|16|32|64>               Sets the pointer size for physical pointers (default=64)\n");
+        shd_error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
+        shd_error_print("  --use-native-tailcalls                    Sets the subgroup size the program will be specialized for.\n");
+        shd_error_print("  --use-native-fncalls                      Sets the subgroup size the program will be specialized for.\n");
+    }
+
+    shd_pack_remaining_args(pargc, argv);
+}
+
+#define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
+F(config->lower.emulate_physical_memory, emulate-physical-memory) \
+F(config->lower.emulate_generic_ptrs, emulate-generic-pointers) \
+F(config->dynamic_scheduling, dynamic-scheduling) \
+F(config->hacks.force_join_point_lifting, lift-join-points) \
+F(config->optimisations.inline_everything, inline-everything) \
+F(config->input_cf.restructure_with_heuristics, restructure-everything) \
+F(config->input_cf.add_scope_annotations, add-scope-annotations) \
+F(config->input_cf.has_scope_annotations, has-scope-annotations) \
+
 void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
@@ -114,59 +162,12 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
 
         COMPILER_CONFIG_TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
 
-        if (strcmp(argv[i], "--entry-point") == 0) {
-            argv[i] = NULL;
-            i++;
-            if (i == argc)
-                shd_error("Missing entry point name");
-            config->specialization.entry_point = argv[i];
-        } else if (strcmp(argv[i], "--subgroup-size") == 0) {
-            argv[i] = NULL;
-            i++;
-            if (i == argc)
-                shd_error("Missing subgroup size");
-            config->target.subgroup_size = atoi(argv[i]);
-        } else if (strcmp(argv[i], "--stack-size") == 0) {
+        if (strcmp(argv[i], "--stack-size") == 0) {
             argv[i] = NULL;
             i++;
             if (i == argc)
                 shd_error("Missing stack size");
             config->per_thread_stack_size = atoi(argv[i]);
-        } else if (strcmp(argv[i], "--execution-model") == 0) {
-            argv[i] = NULL;
-            i++;
-            if (i == argc)
-                shd_error("Missing execution model name");
-            ExecutionModel em = EmNone;
-#define EM(n, _) if (strcmp(argv[i], #n) == 0) em = Em##n;
-            EXECUTION_MODELS(EM)
-#undef EM
-            if (em == EmNone)
-                shd_error("Unknown execution model: %s", argv[i]);
-            switch (em) {
-                case EmFragment:
-                case EmVertex:
-                    config->dynamic_scheduling = false;
-                    break;
-                default: break;
-            }
-            config->specialization.execution_model = em;
-        } else if (strcmp(argv[i], "--word-size") == 0) {
-            argv[i] = NULL;
-            i++;
-            config->target.memory.word_size = parse_int_size(argv[i]);
-        } else if (strcmp(argv[i], "--pointer-size") == 0) {
-            argv[i] = NULL;
-            i++;
-            config->target.memory.ptr_size = parse_int_size(argv[i]);
-        } else if (strcmp(argv[i], "--no-bda") == 0) {
-            config->target.memory.address_spaces[AsGlobal].allowed = false;
-        } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
-            config->target.capabilities.native_tailcalls = true;
-            config->target.memory.fn_ptr_size = IntTy64;
-        } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
-            config->target.capabilities.native_fncalls = true;
-            config->target.memory.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--printf-trace") == 0) {
             argv[i++] = NULL;
             char* s = argv[i];
@@ -205,17 +206,12 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
         shd_error_print("  --shd_print-internal                          Includes internal functions in the debug output\n");
         shd_error_print("  --shd_print-generated                         Includes generated functions in the debug output\n");
         shd_error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
-        shd_error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
-        shd_error_print("  --word-size <8|16|32|64>                  Sets the word size for physical memory emulation (default=32)\n");
-        shd_error_print("  --pointer-size <8|16|32|64>               Sets the pointer size for physical pointers (default=64)\n");
-#define EM(name, _) #name", "
-        shd_error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM) "\n");
-#undef EM
-        shd_error_print("  --subgroup-size N                         Sets the subgroup size the program will be specialized for.\n");
         shd_error_print("  --lift-join-points                        Forcefully lambda-lifts all join points. Can help with reconvergence issues.\n");
     }
 
     shd_pack_remaining_args(pargc, argv);
+
+    shd_parse_target_args(&config->target, pargc, argv);
 }
 
 void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv) {
@@ -301,6 +297,31 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
                 exit(MissingDumpIrArg);
             }
             args->shd_output_filename = argv[i];
+        } else if (strcmp(argv[i], "--entry-point") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                shd_error("Missing entry point name");
+            args->specialization.entry_point = argv[i];
+        } else if (strcmp(argv[i], "--execution-model") == 0) {
+            argv[i] = NULL;
+            i++;
+            if (i == argc)
+                shd_error("Missing execution model name");
+            ExecutionModel em = EmNone;
+#define EM(n, _) if (strcmp(argv[i], #n) == 0) em = Em##n;
+            EXECUTION_MODELS(EM)
+#undef EM
+            if (em == EmNone)
+                shd_error("Unknown execution model: %s", argv[i]);
+            switch (em) {
+                case EmFragment:
+                case EmVertex:
+                    args->config.dynamic_scheduling = false;
+                break;
+                default: break;
+            }
+            args->specialization.execution_model = em;
         } else if (strcmp(argv[i], "--glsl-version") == 0) {
             argv[i] = NULL;
             i++;
@@ -327,6 +348,9 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             exit(InvalidTarget);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
+#define EM(name, _) #name", "
+            shd_error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM) "\n");
+#undef EM
             continue;
         } else {
             continue;
@@ -345,4 +369,6 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     }
 
     shd_pack_remaining_args(pargc, argv);
+
+    //shd_parse_compiler_config_args(&args->config, pargc, argv);
 }
