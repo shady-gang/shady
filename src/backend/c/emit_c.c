@@ -372,7 +372,11 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 /// Moves all Private allocations to Function
 RewritePass shd_pass_globals_to_locals;
 
+/// Adds calls to init and fini arrounds the entry points
+Module* shd_pass_call_init_fini(void*, Module* src);
+
 static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
+    RUN_PASS(shd_pass_call_init_fini, NULL)
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
     RUN_PASS(shd_pass_eliminate_constants, config)
     if (econfig->dialect == CDialect_ISPC) {

@@ -5,6 +5,7 @@
 void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, TargetConfig tgt) {
     shd_pipeline_add_memory_lowering(pipeline, tgt);
     shd_pipeline_add_polyfills(pipeline, tgt);
+    shd_pipeline_add_restructure_cf(pipeline);
 }
 
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline);
@@ -20,9 +21,4 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig 
 
     shd_pipeline_add_fncall_emulation(pipeline);
     shd_pipeline_add_feature_lowering(pipeline, tgt);
-    shd_pipeline_add_restructure_cf(pipeline);
-
-    if (entry_point) {
-        shd_pipeline_add_init_fini(pipeline);
-    }
 }
