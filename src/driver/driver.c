@@ -144,21 +144,21 @@ static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* confi
     switch (config->target) {
         case TgtAuto: break;
         case TgtSPV:
-            shd_pipeline_add_spirv_target_passes(pipeline, &config->spirv_target_config);
+            shd_pipeline_add_spirv_target_passes(pipeline, &config->target_config.spirv);
             break;
         case TgtC: {
-            config->c_target_config.dialect = CDialect_C11;
-            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            config->target_config.c.dialect = CDialect_C11;
+            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
             break;
         }
         case TgtGLSL: {
-            config->c_target_config.dialect = CDialect_GLSL;
-            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            config->target_config.c.dialect = CDialect_GLSL;
+            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
             break;
         }
         case TgtISPC: {
-            config->c_target_config.dialect = CDialect_ISPC;
-            shd_pipeline_add_c_target_passes(pipeline, &config->c_target_config);
+            config->target_config.c.dialect = CDialect_ISPC;
+            shd_pipeline_add_c_target_passes(pipeline, &config->target_config.c);
             break;
         }
     }
@@ -220,11 +220,11 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
         char* output_buffer;
         switch (args->target) {
             case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: shd_emit_spirv(&args->config, args->spirv_target_config, mod, &output_size, &output_buffer); break;
+            case TgtSPV: shd_emit_spirv(&args->config, args->target_config.spirv, mod, &output_size, &output_buffer); break;
             case TgtC:
             case TgtGLSL:
             case TgtISPC:
-                shd_emit_c(&args->config, args->c_target_config, mod, &output_size, &output_buffer);
+                shd_emit_c(&args->config, args->target_config.c, mod, &output_size, &output_buffer);
                 break;
         }
         shd_debug_print("Wrote result to %s\n", args->output_filename);

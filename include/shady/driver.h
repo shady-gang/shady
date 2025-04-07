@@ -56,10 +56,12 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
-    CTargetConfig c_target_config;
-    SPIRVTargetConfig spirv_target_config;
-    struct List* input_filenames;
     CodegenTarget target;
+    struct {
+        CTargetConfig c;
+        SPIRVTargetConfig spirv;
+    } target_config;
+    struct List* input_filenames;
     const char*     output_filename;
     const char* shd_output_filename;
     const char* cfg_output_filename;

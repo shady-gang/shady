@@ -255,8 +255,8 @@ DriverConfig shd_default_driver_config(void) {
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
-        .c_target_config = shd_default_c_target_config(),
-        .spirv_target_config = shd_default_spirv_target_config(),
+        .target_config.c = shd_default_c_target_config(),
+        .target_config.spirv = shd_default_spirv_target_config(),
     };
 }
 
@@ -304,7 +304,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
         } else if (strcmp(argv[i], "--glsl-version") == 0) {
             argv[i] = NULL;
             i++;
-            args->c_target_config.glsl_version = strtol(argv[i], NULL, 10);
+            args->target_config.c.glsl_version = strtol(argv[i], NULL, 10);
         } else if (strcmp(argv[i], "--target") == 0) {
             argv[i] = NULL;
             i++;
