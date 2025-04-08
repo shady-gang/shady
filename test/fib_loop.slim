@@ -1,0 +1,29 @@
+// recursive fib!
+fn fib varying u32(varying u32 n) {
+  val a = loop u32 (varying u32 acc = 0, varying u32 i = n) {
+    val r = lt(i, u32 2);
+    val accp1 = add(acc, u32 1);
+    if (r) {
+      break(accp1);
+    } else {
+      val n1 = sub(acc, u32 1);
+      val n2 = sub(acc, u32 2);
+      val acc2 = acc + bitcast[u32](fib(n1));
+      continue(acc2, n2);
+    }
+    unreachable ();
+  }
+  return (a);
+}
+
+@Builtin("SubgroupLocalInvocationId")
+var input u32 subgroup_local_id;
+
+@Builtin("SubgroupId")
+var uniform input u32 subgroup_id;
+
+@EntryPoint("Compute") @Exported @WorkgroupSize(SUBGROUP_SIZE, 1, 1) fn fib_main() {
+    val n = subgroup_local_id % u32 16;
+    debug_printf("fib(%d) = %d from thread %d:%d\n", n, fib(n), subgroup_id, subgroup_local_id);
+    return ();
+}
