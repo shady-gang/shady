@@ -194,6 +194,7 @@ static const Node* handle_alloc(Context* ctx, const Node* old) {
                     *ctx->todo |= !payload.is_ref;
                     payload.is_ref = true;
                     new = shd_global_var(r->dst_module, payload);
+                    shd_register_processed(r, old, new);
                     shd_recreate_node_body(r, old, new);
                     break;
                 }
