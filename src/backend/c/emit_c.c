@@ -375,7 +375,7 @@ RewritePass shd_pass_globals_to_locals;
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);
 
-static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
+static CompilationResult run_c_backend_transforms(const CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_call_init_fini, NULL)
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
     RUN_PASS(shd_pass_eliminate_constants, config)
@@ -393,7 +393,7 @@ static CompilationResult run_c_backend_transforms(CTargetConfig* econfig, const 
     return CompilationNoError;
 }
 
-void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, CTargetConfig* econfig) {
+void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CTargetConfig* econfig) {
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CTargetConfig));
 }
 

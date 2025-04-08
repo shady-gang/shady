@@ -21,7 +21,7 @@ typedef struct {
 
 SPIRVTargetConfig shd_default_spirv_target_config(void);
 
-void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, SPIRVTargetConfig* econfig);
+void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const SPIRVTargetConfig* econfig);
 void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_config, Module* mod, size_t* output_size, char** output);
 
 #endif
