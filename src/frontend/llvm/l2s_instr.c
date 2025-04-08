@@ -218,7 +218,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
             const Node* r = prim_op_helper(a, div_op, reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
-            r = bit_cast_helper(a, int_t, r);
+            return bit_cast_helper(a, int_t, r);
         } case LLVMURem:
         case LLVMFRem:
             return prim_op_helper(a, mod_op, convert_operands(p, num_ops, instr));
@@ -226,7 +226,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
             const Type* signed_t = change_int_t_sign(int_t, true);
             const Node* r = prim_op_helper(a, mod_op, reinterpret_operands(b, convert_operands(p, num_ops, instr), signed_t));
-            r = bit_cast_helper(a, int_t, r);
+            return bit_cast_helper(a, int_t, r);
         } case LLVMShl:
             return prim_op_helper(a, lshift_op, convert_operands(p, num_ops, instr));
         case LLVMLShr:
