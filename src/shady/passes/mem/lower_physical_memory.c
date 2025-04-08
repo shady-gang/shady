@@ -502,7 +502,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
             .element_type = word_type,
             .size = NULL
         });
-        *get_emulated_as_word_array(ctx, as) = undef(a, (Undef) { .type = ptr_type(a, (PtrType) { .address_space = as, .pointed_type = words_array_type }) });
+        *get_emulated_as_word_array(ctx, as) = undef(a, (Undef) { .type = ptr_type(a, (PtrType) { .address_space = as, .pointed_type = words_array_type, .is_reference = true }) });
         return;
     }
 
@@ -527,7 +527,11 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     if (ctx->config->lower.use_scratch_for_private && as == AsPrivate) {
         ass = AsGlobal;
     }
-    Node* words_array = global_variable_helper(m, words_array_type, ass);
+    Node* words_array = shd_global_var(m, (GlobalVariable) {
+        .address_space = ass,
+        .type = words_array_type,
+        .is_ref = true
+    });
     String name = shd_format_string_arena(a->arena, "memory_%s", as_name);
     shd_set_debug_name(words_array, name);
     shd_add_annotation_named(words_array, "Generated");

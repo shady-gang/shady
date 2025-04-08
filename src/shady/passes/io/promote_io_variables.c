@@ -78,6 +78,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 io = shd_get_or_create_builtin(m, b);
                 scope = shd_get_builtin_scope(b);
             } else if (io_annotation) {
+                payload.is_ref = true;
                 io = shd_global_var(r->dst_module, payload);
                 shd_rewrite_annotations(r, node, (Node*) io);
             } else break;

@@ -63,6 +63,10 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         shd_error_print("Address space %s is not allowed in this arena\n", shd_get_address_space_name(ptr_type.address_space));
         shd_error_die();
     }
+    if (!ptr_type.is_reference && !arena->config.target.memory.address_spaces[ptr_type.address_space].physical) {
+        shd_error_print("Address space %s is not physical in this arena\n", shd_get_address_space_name(ptr_type.address_space));
+        shd_error_die();
+    }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     if (ptr_type.pointed_type) {
         const Node* maybe_record_type = ptr_type.pointed_type;
