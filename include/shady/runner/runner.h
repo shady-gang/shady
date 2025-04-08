@@ -1,6 +1,8 @@
 #ifndef SHADY_RUNNER_H
 #define SHADY_RUNNER_H
 
+#include "shady/config.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -33,6 +35,8 @@ Device* shd_rn_get_device(Runner* r, size_t i);
 Device* shd_rn_get_an_device(Runner* r);
 const char* shd_rn_get_device_name(Device* d);
 RunnerBackend shd_rn_get_device_backend(Device* d);
+
+TargetConfig shd_rn_get_device_target_config(Device*);
 
 typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;

@@ -4,12 +4,12 @@
 #include "ir_private.h"
 
 #include "log.h"
+#include "portability.h"
 
 #include <assert.h>
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
     TargetConfig target;
 } Context;
 
@@ -137,7 +137,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     TargetConfig target = aconfig.target;
     target.memory.address_spaces[AsInput].physical = false;
@@ -148,8 +148,6 @@ Module* shd_pass_lower_logical_pointers(const CompilerConfig* config, Module* sr
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
-
         .target = target,
     };
     shd_rewrite_module(&ctx.rewriter);

@@ -133,9 +133,8 @@ bool shd_opt_simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
 
 OptPass shd_opt_demote_alloca;
 OptPass shd_opt_mem2reg;
-RewritePass shd_import;
 
-Module* shd_cleanup(const CompilerConfig* config, Module* const src) {
+Module* shd_cleanup(const CompilerConfig* config, SHADY_UNUSED void* unused, Module* const src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     if (!aconfig.check_types)
         return src;

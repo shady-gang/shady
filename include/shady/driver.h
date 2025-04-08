@@ -30,18 +30,22 @@ typedef enum {
 } SourceLanguage;
 
 SourceLanguage shd_driver_guess_source_language(const char* filename);
-ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod);
-ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod);
+ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig*, const TargetConfig*, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod);
+ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig*, const TargetConfig*, const char* filename, String name, Module** mod);
 
 typedef enum {
     TgtAuto,
-    TgtC,
     TgtSPV,
+    TgtC,
     TgtGLSL,
     TgtISPC,
 } CodegenTarget;
 
-CodegenTarget shd_guess_target(const char* filename);
+typedef enum {
+    BackendNone,
+    BackendC,
+    BackendSPV,
+} BackendType;
 
 void shd_pack_remaining_args(int* pargc, char** argv);
 
@@ -56,11 +60,13 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
-    CodegenTarget target;
+    TargetConfig target;
+    CodegenTarget target_type;
+    BackendType backend_type;
     struct {
         CTargetConfig c;
         SPIRVTargetConfig spirv;
-    } target_config;
+    } backend_config;
     struct List* input_filenames;
     const char*     output_filename;
     const char* shd_output_filename;
@@ -84,7 +90,5 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod);
 typedef enum CompilationResult_ {
     CompilationNoError
 } CompilationResult;
-
-// CompilationResult shd_run_compiler_passes(CompilerConfig* config, Module** pmod);
 
 #endif

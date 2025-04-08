@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&args.target);
 
     vcc_check_clang();
 
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
         String filename = shd_read_list(String, args.input_filenames)[i];
 
         vcc_run_clang(&vcc_options, filename);
-        Module* mod = vcc_parse_back_into_module(&args.config, &vcc_options, filename);
+        Module* mod = vcc_parse_back_into_module(&args.config, &args.target, &vcc_options, filename);
         shd_module_link(m, mod);
         shd_destroy_ir_arena(shd_module_get_arena(mod));
     }

@@ -575,7 +575,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
     assert(false);
 }
 
-Module* slim_pass_infer(const CompilerConfig* config, Module* src) {
+Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;
@@ -585,7 +585,7 @@ Module* slim_pass_infer(const CompilerConfig* config, Module* src) {
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .target = &config->target,
+        .target = &aconfig.target,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

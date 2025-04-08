@@ -306,7 +306,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
 
 RewritePass l2s_promote_byval_params;
 
-bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, String name, Module** pmod) {
+bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -318,7 +318,7 @@ bool shd_parse_llvm(const CompilerConfig* config, size_t len, const char* data, 
     }
     shd_info_print("LLVM IR parsed successfully\n");
 
-    ArenaConfig aconfig = shd_default_arena_config(&config->target);
+    ArenaConfig aconfig = shd_default_arena_config(target_config);
     aconfig.check_types = false;
     aconfig.allow_fold = false;
     aconfig.optimisations.inline_single_use_bbs = false;

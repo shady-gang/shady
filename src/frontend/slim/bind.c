@@ -347,7 +347,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* compiler_config, Module* src) {
+Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     assert(!src->arena->config.name_bound);
     aconfig.name_bound = true;

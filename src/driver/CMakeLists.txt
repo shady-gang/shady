@@ -1,4 +1,4 @@
-add_library(driver driver.c cli.c)
+add_library(driver driver.c cli.c targets.c)
 target_link_libraries(driver PUBLIC "api" common)
 target_link_libraries(driver PRIVATE "$<BUILD_INTERFACE:shady>")
 set_target_properties(driver PROPERTIES OUTPUT_NAME "shady_driver")

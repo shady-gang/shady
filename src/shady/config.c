@@ -13,21 +13,12 @@ CompilerConfig shd_default_compiler_config(void) {
         .dynamic_scheduling = true,
         .per_thread_stack_size = 4 KiB,
 
-        .lower = {
-            .emulate_physical_memory = true,
-            .emulate_generic_ptrs = true,
-
-            //.use_scratch_for_private = true,
-        },
-
         .optimisations = {
             .cleanup = {
                 .after_every_pass = true,
                 .delete_unused_instructions = true,
             }
         },
-
-        .target = shd_default_target_config(),
     };
 
     String trace_opts = getenv("SHADY_PRINTF_TRACE");
@@ -89,6 +80,14 @@ ArenaConfig shd_default_arena_config(const TargetConfig* target) {
 
         .target = *target
     };
+
+    TargetConfig default_target = shd_default_target_config();
+
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        // by default, all address spaces are physical !
+        config.target.memory.address_spaces[i].physical = true;
+        config.target.memory.address_spaces[i].allowed = true;
+    }
 
     return config;
 }

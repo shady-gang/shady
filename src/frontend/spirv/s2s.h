@@ -9,6 +9,6 @@ typedef enum {
 } S2SError;
 
 typedef struct CompilerConfig_ CompilerConfig;
-S2SError shd_parse_spirv(const CompilerConfig* config, size_t len, const char* data, String name, Module** dst);
+S2SError shd_parse_spirv(const CompilerConfig*, const TargetConfig*, size_t len, const char* data, String name, Module** dst);
 
 #endif

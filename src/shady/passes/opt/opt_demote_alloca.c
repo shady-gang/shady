@@ -275,7 +275,7 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-bool shd_opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+bool shd_opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module** m) {
     bool todo = false;
     Module* src = *m;
     IrArena* a = shd_module_get_arena(src);

@@ -11,19 +11,6 @@
 #include "list.h"
 #include "util.h"
 
-CodegenTarget shd_guess_target(const char* filename) {
-    if (shd_string_ends_with(filename, ".c"))
-        return TgtC;
-    else if (shd_string_ends_with(filename, "glsl"))
-        return TgtGLSL;
-    else if (shd_string_ends_with(filename, "spirv") || shd_string_ends_with(filename, "spv"))
-        return TgtSPV;
-    else if (shd_string_ends_with(filename, "ispc"))
-        return TgtISPC;
-    shd_error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
-    exit(InvalidTarget);
-}
-
 void shd_pack_remaining_args(int* pargc, char** argv) {
     LARRAY(char*, nargv, *pargc);
     int nargc = 0;
@@ -94,11 +81,17 @@ static IntSizes parse_int_size(String argv) {
     shd_error("Valid pointer sizes are 8, 16, 32 or 64.");
 }
 
+#define TARGET_CONFIG_TOGGLE_OPTIONS(F) \
+F(target->memory.address_spaces[AsGeneric].allowed, native-generic-pointers) \
+
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
     int argc = *pargc;
 
     bool help = false;
     for (int i = 1; i < argc; i++) {
+
+        TARGET_CONFIG_TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
+
         if (strcmp(argv[i], "--subgroup-size") == 0) {
             argv[i] = NULL;
             i++;
@@ -121,6 +114,10 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
         } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
             target->capabilities.native_fncalls = true;
             target->memory.fn_ptr_size = IntTy64;
+        } else if (strcmp(argv[i], "--force-memory-emulation") == 0) {
+            target->memory.address_spaces[AsPrivate].physical = false;
+            target->memory.address_spaces[AsSubgroup].physical = false;
+            target->memory.address_spaces[AsShared].physical = false;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;
@@ -143,8 +140,6 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
 }
 
 #define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
-F(config->lower.emulate_physical_memory, emulate-physical-memory) \
-F(config->lower.emulate_generic_ptrs, emulate-generic-pointers) \
 F(config->dynamic_scheduling, dynamic-scheduling) \
 F(config->hacks.force_join_point_lifting, lift-join-points) \
 F(config->optimisations.inline_everything, inline-everything) \
@@ -210,8 +205,6 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
     }
 
     shd_pack_remaining_args(pargc, argv);
-
-    shd_parse_target_args(&config->target, pargc, argv);
 }
 
 void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv) {
@@ -246,19 +239,22 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
 DriverConfig shd_default_driver_config(void) {
     return (DriverConfig) {
         .config = shd_default_compiler_config(),
-        .target = TgtAuto,
+        .target = shd_default_target_config(),
+        .target_type = TgtAuto,
         .input_filenames = shd_new_list(const char*),
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
-        .target_config.c = shd_default_c_target_config(),
-        .target_config.spirv = shd_default_spirv_target_config(),
+        .backend_config.c = shd_default_c_target_config(),
+        .backend_config.spirv = shd_default_spirv_target_config(),
     };
 }
 
 void shd_destroy_driver_config(DriverConfig* config) {
     shd_destroy_list(config->input_filenames);
 }
+
+void shd_driver_configure_target(DriverConfig* driver_config);
 
 void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     int argc = *pargc;
@@ -325,20 +321,20 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
         } else if (strcmp(argv[i], "--glsl-version") == 0) {
             argv[i] = NULL;
             i++;
-            args->target_config.c.glsl_version = strtol(argv[i], NULL, 10);
+            args->backend_config.c.glsl_version = strtol(argv[i], NULL, 10);
         } else if (strcmp(argv[i], "--target") == 0) {
             argv[i] = NULL;
             i++;
             if (i == argc)
                 goto invalid_target;
             else if (strcmp(argv[i], "c") == 0)
-                args->target = TgtC;
+                args->target_type = TgtC;
             else if (strcmp(argv[i], "spirv") == 0)
-                args->target = TgtSPV;
+                args->target_type = TgtSPV;
             else if (strcmp(argv[i], "glsl") == 0)
-                args->target = TgtGLSL;
+                args->target_type = TgtGLSL;
             else if (strcmp(argv[i], "ispc") == 0)
-                args->target = TgtISPC;
+                args->target_type = TgtISPC;
             else
                 goto invalid_target;
             argv[i] = NULL;
@@ -370,5 +366,6 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
 
     shd_pack_remaining_args(pargc, argv);
 
-    //shd_parse_compiler_config_args(&args->config, pargc, argv);
+    shd_driver_configure_target(args);
+    shd_parse_target_args(&args->target, pargc, argv);
 }

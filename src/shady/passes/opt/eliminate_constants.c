@@ -45,10 +45,10 @@ static Module* eliminate_constants_(SHADY_UNUSED const CompilerConfig* config, M
     return dst;
 }
 
-Module* shd_pass_eliminate_constants(const CompilerConfig* config, Module* src) {
+Module* shd_pass_eliminate_constants(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     return eliminate_constants_(config, src, true);
 }
 
-Module* shd_pass_eliminate_inlineable_constants(const CompilerConfig* config, Module* src) {
+Module* shd_pass_eliminate_inlineable_constants(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     return eliminate_constants_(config, src, false);
 }

@@ -124,7 +124,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_spv_lower_entrypoint_args(const CompilerConfig* config, Module* src) {
+Module* shd_spv_lower_entrypoint_args(const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

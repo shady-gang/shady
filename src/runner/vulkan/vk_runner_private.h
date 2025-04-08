@@ -154,6 +154,7 @@ struct VkrSpecProgram_ {
     Arena* arena;
 
     CompilerConfig specialized_config;
+    TargetConfig specialized_target;
     Module* specialized_module;
 
     size_t spirv_size;

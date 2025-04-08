@@ -88,9 +88,6 @@ struct CompilerConfig_ {
     } input_cf;
 
     struct {
-        bool emulate_generic_ptrs;
-        bool emulate_physical_memory;
-
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;
         bool int64;
@@ -123,8 +120,6 @@ struct CompilerConfig_ {
     struct {
         int max_top_iterations;
     } shader_diagnostics;
-
-    TargetConfig target;
 
     // struct {
     //     struct { void* uptr; void (*fn)(void*, String, Module*); } after_pass;

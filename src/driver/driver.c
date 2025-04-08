@@ -42,11 +42,11 @@ SourceLanguage shd_driver_guess_source_language(const char* filename) {
     return SrcSlim;
 }
 
-ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod) {
+ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, const TargetConfig* target_config, SourceLanguage lang, size_t len, const char* file_contents, String name, Module** mod) {
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
-            bool ok = shd_parse_llvm(config, len, file_contents, name, mod);
+            bool ok = shd_parse_llvm(config, target_config, len, file_contents, name, mod);
             assert(ok);
 #else
             assert(false && "LLVM front-end missing in this version");
@@ -55,7 +55,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, Source
         }
         case SrcSPIRV: {
 #ifdef SPV_PARSER_PRESENT
-            shd_parse_spirv(config, len, file_contents, name, mod);
+            shd_parse_spirv(config, target_config, len, file_contents, name, mod);
 #else
             assert(false && "SPIR-V front-end missing in this version");
 #endif
@@ -65,7 +65,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, Source
         case SrcSlim: {
             SlimParserConfig pconfig = {
                 .front_end = lang == SrcSlim,
-                .target_config = &config->target,
+                .target_config = target_config,
             };
             shd_debugvv_print("Parsing: \n%s\n", file_contents);
             *mod = shd_parse_slim_module(config, &pconfig, (const char*) file_contents, name);
@@ -74,7 +74,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, Source
     return NoError;
 }
 
-ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const char* filename, String name, Module** mod) {
+ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const TargetConfig* target_config, const char* filename, String name, Module** mod) {
     ShadyErrorCodes err;
     SourceLanguage lang = shd_driver_guess_source_language(filename);
     size_t len;
@@ -91,7 +91,7 @@ ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* 
         err = InputFileDoesNotExist;
         goto exit;
     }
-    err = shd_driver_load_source_file(config, lang, len, contents, name, mod);
+    err = shd_driver_load_source_file(config, target_config, lang, len, contents, name, mod);
     free((void*) contents);
     exit:
     return err;
@@ -106,7 +106,7 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     size_t num_source_files = shd_list_count(args->input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
         Module* m;
-        int err = shd_driver_load_source_file_from_filename(&args->config,
+        int err = shd_driver_load_source_file_from_filename(&args->config, &args->target,
                                                             shd_read_list(const char*, args->input_filenames)[i],
                                                             shd_read_list(const char*, args->input_filenames)[i], &m);
         if (err)
@@ -118,61 +118,7 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     return NoError;
 }
 
-void shd_pipeline_add_normalize_input_cf(ShdPipeline);
-void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
-void shd_pipeline_add_feature_lowering(ShdPipeline, TargetConfig);
-
-ExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
-    String name = shd_get_node_name_safe(decl);
-    if (decl->tag != Function_TAG)
-        shd_error("Cannot specialize: '%s' is not a function.", name)
-    const Node* ep = shd_lookup_annotation(decl, "EntryPoint");
-    if (!ep)
-        shd_error("%s is not annotated with @EntryPoint", name);
-    return shd_execution_model_from_string(shd_get_annotation_string_payload(ep));
-}
-
-static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
-    const Node* decl = shd_module_get_exported(mod, entry_point);
-    if (!decl)
-        shd_error("Cannot specialize: No function named '%s'", entry_point)
-    return shd_execution_model_from_entry_point(decl);
-}
-
-static void create_pipeline_for_config(ShdPipeline pipeline, DriverConfig* driver_config, const Module* mod) {
-    if (driver_config->specialization.entry_point && driver_config->specialization.execution_model == EmNone) {
-        driver_config->specialization.execution_model = get_execution_model_for_entry_point(driver_config->specialization.entry_point, mod);
-    }
-
-    shd_pipeline_add_normalize_input_cf(pipeline);
-
-    switch (driver_config->target) {
-        case TgtAuto: /* no target */ break;
-        case TgtC: {
-            shd_pipeline_add_feature_lowering(pipeline, driver_config->config.target);
-            driver_config->target_config.c.dialect = CDialect_C11;
-            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
-            break;
-        }
-        case TgtSPV: {
-            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
-            shd_pipeline_add_spirv_target_passes(pipeline, &driver_config->target_config.spirv);
-            break;
-        }
-        case TgtGLSL: {
-            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
-            driver_config->target_config.c.dialect = CDialect_GLSL;
-            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
-            break;
-        }
-        case TgtISPC: {
-            shd_pipeline_add_shader_target_lowering(pipeline, driver_config->config.target, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
-            driver_config->target_config.c.dialect = CDialect_ISPC;
-            shd_pipeline_add_c_target_passes(pipeline, &driver_config->target_config.c);
-            break;
-        }
-    }
-}
+void shd_driver_fill_pipeline(ShdPipeline pipeline, DriverConfig* driver_config, const Module* mod);
 
 ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     mod = shd_import(&args->config, mod);
@@ -180,13 +126,8 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, mod);
 
-    if (args->output_filename) {
-        if (args->target == TgtAuto)
-            args->target = shd_guess_target(args->output_filename);
-    }
-
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    create_pipeline_for_config(pipeline, args, mod);
+    shd_driver_fill_pipeline(pipeline, args, mod);
     CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
     shd_destroy_pipeline(pipeline);
     if (result != CompilationNoError) {
@@ -228,13 +169,13 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
         FILE* f = fopen(args->output_filename, "wb");
         size_t output_size;
         char* output_buffer;
-        switch (args->target) {
-            case TgtAuto: SHADY_UNREACHABLE;
-            case TgtSPV: shd_emit_spirv(&args->config, args->target_config.spirv, mod, &output_size, &output_buffer); break;
-            case TgtC:
-            case TgtGLSL:
-            case TgtISPC:
-                shd_emit_c(&args->config, args->target_config.c, mod, &output_size, &output_buffer);
+        switch (args->backend_type) {
+            case BackendNone: SHADY_UNREACHABLE;
+            case BackendSPV:
+                shd_emit_spirv(&args->config, args->backend_config.spirv, mod, &output_size, &output_buffer);
+                break;
+            case BackendC:
+                shd_emit_c(&args->config, args->backend_config.c, mod, &output_size, &output_buffer);
                 break;
         }
         shd_debug_print("Wrote result to %s\n", args->output_filename);

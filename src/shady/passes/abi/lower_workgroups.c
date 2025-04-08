@@ -4,6 +4,7 @@
 #include "ir_private.h"
 
 #include "util.h"
+#include "portability.h"
 
 #include <stdlib.h>
 #include <assert.h>
@@ -11,6 +12,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    const TargetConfig* target_config;
     const CompilerConfig* config;
     Node** globals;
     bool is_entry_point;
@@ -90,9 +92,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* subgroup_id[3];
                 uint32_t num_subgroups[3];
                 const Node* num_subgroups_literals[3];
-                assert(ctx->config->target.subgroup_size);
+                assert(ctx->target_config->subgroup_size);
                 assert(a->config.specializations.workgroup_size[0] && a->config.specializations.workgroup_size[1] && a->config.specializations.workgroup_size[2]);
-                num_subgroups[0] = a->config.specializations.workgroup_size[0] / ctx->config->target.subgroup_size;
+                num_subgroups[0] = a->config.specializations.workgroup_size[0] / ctx->target_config->subgroup_size;
                 num_subgroups[1] = a->config.specializations.workgroup_size[1];
                 num_subgroups[2] = a->config.specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
@@ -131,7 +133,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // write the local ID
                 const Node* local_id[3];
                 // local_id[0] = SUBGROUP_SIZE * subgroup_id[0] + subgroup_local_id
-                local_id[0] = prim_op_helper(a, add_op, mk_nodes(a, prim_op_helper(a, mul_op, mk_nodes(a, shd_uint32_literal(a, ctx->config->target.subgroup_size), subgroup_id[0])), shd_bld_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
+                local_id[0] = prim_op_helper(a, add_op, mk_nodes(a, prim_op_helper(a, mul_op, mk_nodes(a, shd_uint32_literal(a, ctx->target_config->subgroup_size), subgroup_id[0])), shd_bld_builtin_load(m, bb, BuiltinSubgroupLocalInvocationId)));
                 local_id[1] = subgroup_id[1];
                 local_id[2] = subgroup_id[2];
                 shd_bld_store(bb2, shd_rewrite_node(&ctx->rewriter, shd_get_or_create_builtin(ctx->rewriter.src_module, BuiltinLocalInvocationId)), composite_helper(a, pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, local_id[0], local_id[1], local_id[2])));
@@ -187,12 +189,13 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_workgroups(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_workgroups(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .target_config = &aconfig.target,
         .config = config,
         .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };

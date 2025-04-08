@@ -10,18 +10,11 @@
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
+    const TargetConfig* target_config;
 } Context;
 
-// TODO: make this configuration-dependant
-static bool is_as_emulated(SHADY_UNUSED Context* ctx, AddressSpace as) {
-    switch (as) {
-        case AsPrivate:  return true; // TODO have a config option to do this with swizzled global memory
-        case AsSubgroup: return true;
-        case AsShared:   return true;
-        case AsGlobal:  return true; // TODO have a config option to do this with SSBOs
-        default: return false;
-    }
+static bool is_as_emulated(Context* ctx, AddressSpace as) {
+    return !shd_get_arena_config(ctx->rewriter.dst_arena)->target.memory.address_spaces[as].physical;
 }
 
 static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* index) {
@@ -102,9 +95,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_result_t = old->type;
             shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
-            // we have to lower generic pointers if we emulate them using ints
-            must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
-            must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
+            must_lower |= !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
@@ -125,9 +116,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_result_t = old->type;
             shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
-            // we have to lower generic pointers if we emulate them using ints
-            must_lower |= ctx->config->lower.emulate_generic_ptrs && old_base_ptr_t->payload.ptr_type.address_space == AsGeneric;
-            must_lower |= ctx->config->lower.emulate_physical_memory && !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
+            must_lower |= !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
@@ -145,14 +134,14 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_lea(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_lea(const CompilerConfig* config, const TargetConfig* target_config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.weaken_bitcast_to_lea = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
+        .target_config = target_config,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

@@ -48,10 +48,10 @@ int main(int argc, char* argv[]) {
 
     Program* program;
     IrArena* arena = NULL;
-    ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.target);
     Module* module;
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
-        shd_driver_load_source_file(&args.driver_config.config, SrcSlim, strlen(default_shader), default_shader,
+        shd_driver_load_source_file(&args.driver_config.config, &args.driver_config.target, SrcSlim, strlen(default_shader), default_shader,
                                     "runtime_test", &module);
         program = shd_rn_new_program_from_module(runtime, &args.driver_config.config, module);
     } else {

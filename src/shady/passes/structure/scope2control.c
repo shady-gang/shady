@@ -20,7 +20,6 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
     Arena* arena;
     struct Dict* controls;
     struct Dict* jump2wrapper;
@@ -302,14 +301,13 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_scope2control(const CompilerConfig* config, Module* src) {
+Module* shd_pass_scope2control(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .config = config,
         .arena = shd_new_arena(),
         .controls = shd_new_dict(const Node*, Controls*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .jump2wrapper = shd_new_dict(const Node*, Wrapped, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

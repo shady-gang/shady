@@ -7,7 +7,6 @@
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
 } Context;
 
 static const Node* scalarify_primop(Context* ctx, const Node* old) {
@@ -53,14 +52,13 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_vec_arr(const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_vec_arr(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.validate_builtin_types = false; // TODO: hacky
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

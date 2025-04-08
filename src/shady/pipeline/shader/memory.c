@@ -26,19 +26,16 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
     RUN_PASS(shd_pass_promote_io_variables, config)
     RUN_PASS(shd_pass_lower_logical_pointers, config)
 
-    if (config->lower.emulate_physical_memory) {
+    if (!target->capabilities.alloca)
         RUN_PASS(shd_pass_lower_alloca, config)
-    }
     RUN_PASS(shd_pass_lower_stack, config)
     RUN_PASS(shd_pass_lower_memcpy, config)
-    RUN_PASS(shd_pass_lower_lea, config)
+    RUN_PASS(shd_pass_lower_lea, target)
     RUN_PASS(shd_pass_lower_generic_globals, config)
-    if (config->lower.emulate_generic_ptrs) {
+    if (!target->memory.address_spaces[AsGeneric].allowed) {
         RUN_PASS(shd_pass_lower_generic_ptrs, config)
     }
-    if (config->lower.emulate_physical_memory) {
-        RUN_PASS(shd_pass_lower_physical_memory, config)
-    }
+    RUN_PASS(shd_pass_lower_physical_memory, target)
     RUN_PASS(shd_pass_lower_subgroup_vars, config)
     RUN_PASS(shd_pass_lower_memory_layout, config)
     if (config->lower.decay_ptrs)

@@ -21,14 +21,14 @@ RewritePass shd_pass_lower_dynamic_control;
 /// Creates a top-level function
 RewritePass shd_pass_lower_tailcalls;
 
-RewritePass shd_add_scheduler_source;
+void shd_add_scheduler_source(const CompilerConfig* config, Module* dst);
 
-static CompilationResult remove_indirect_calls(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
+static CompilationResult remove_indirect_calls(const TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_setup_stack_frames, config)
     if (!config->hacks.force_join_point_lifting)
         RUN_PASS(shd_pass_mark_leaf_functions, config)
 
-    if (!config->target.capabilities.native_fncalls) {
+    if (!target_config->capabilities.native_fncalls) {
         RUN_PASS(shd_pass_lower_callf, config)
         RUN_PASS(shd_pass_inline, config)
         RUN_PASS(shd_pass_lift_indirect_targets, config)
@@ -46,8 +46,8 @@ static CompilationResult remove_indirect_calls(SHADY_UNUSED void* unused, const 
     return CompilationNoError;
 }
 
-void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline) {
-    shd_pipeline_add_step(pipeline, remove_indirect_calls, NULL, 0);
+void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, TargetConfig target_config) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, &target_config, sizeof(TargetConfig));
 }
 
 static CompilationResult restructure(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {

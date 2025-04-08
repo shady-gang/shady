@@ -19,6 +19,6 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig 
         shd_pipeline_add_specialize_entry_point(pipeline, entry_point);
     }
 
-    shd_pipeline_add_fncall_emulation(pipeline);
+    shd_pipeline_add_fncall_emulation(pipeline, tgt);
     shd_pipeline_add_feature_lowering(pipeline, tgt);
 }

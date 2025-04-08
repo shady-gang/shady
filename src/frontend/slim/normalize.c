@@ -30,7 +30,7 @@ static OpRewriteResult* process_op(Context* ctx, NodeClass op_class, SHADY_UNUSE
     return shd_new_rewrite_result(r, shd_recreate_node(r, old));
 }
 
-Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* slim_pass_normalize(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.check_op_classes = true;
     IrArena* a = shd_new_ir_arena(&aconfig);

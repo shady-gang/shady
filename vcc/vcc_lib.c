@@ -145,13 +145,13 @@ void vcc_run_clang(VccConfig* vcc_options, String filename) {
         exit(ClangInvocationFailed);
 }
 
-Module* vcc_parse_back_into_module(CompilerConfig* config, VccConfig* vcc_options, String module_name) {
+Module* vcc_parse_back_into_module(const CompilerConfig* config, const TargetConfig* target_config, VccConfig* vcc_options, String module_name) {
     size_t len;
     char* llvm_ir;
     if (!shd_read_file(vcc_options->tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
     Module* mod;
-    shd_driver_load_source_file(config, SrcLLVM, len, llvm_ir, module_name, &mod);
+    shd_driver_load_source_file(config, target_config, SrcLLVM, len, llvm_ir, module_name, &mod);
     free(llvm_ir);
 
     if (vcc_options->delete_tmp_file)

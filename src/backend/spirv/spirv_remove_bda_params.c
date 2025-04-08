@@ -87,7 +87,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_spvbe_pass_remove_bda_params(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_spvbe_pass_remove_bda_params(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

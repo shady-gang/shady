@@ -343,7 +343,7 @@ static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig** p_
     if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
     RUN_PASS(shd_pass_eliminate_constants, config)
-    RUN_PASS(shd_import, config)
+    RUN_PASS(shd_pass_import, config)
 
     return CompilationNoError;
 }

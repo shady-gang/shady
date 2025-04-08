@@ -66,11 +66,11 @@ int main(int argc, char **argv)
 
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
-    ArenaConfig aconfig = shd_default_arena_config(&compiler_config.target);
+    TargetConfig target_config = shd_default_target_config();
+    ArenaConfig aconfig = shd_default_arena_config(&target_config);
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* m;
-    if (shd_driver_load_source_file(&compiler_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src,
-                                    "checkerboard", &m) != NoError)
+    if (shd_driver_load_source_file(&compiler_config, &target_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)
         shd_error("Failed to load checkerboard module");
     Program* program = shd_rn_new_program_from_module(runtime, &compiler_config, m);
 

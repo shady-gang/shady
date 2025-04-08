@@ -71,7 +71,7 @@ static const Node* import_node(Rewriter* r, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_import(SHADY_UNUSED void* unused, Module* src) {
+Module* shd_import(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -82,6 +82,10 @@ Module* shd_import(SHADY_UNUSED void* unused, Module* src) {
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
+}
+
+Module* shd_pass_import(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+    return shd_import(config, src);
 }
 
 void shd_module_link(Module* dst, Module* src) {

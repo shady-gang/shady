@@ -240,7 +240,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-Module* shd_pass_lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

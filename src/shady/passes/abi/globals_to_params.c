@@ -149,7 +149,7 @@ static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
     return shd_default_rewriter_selector(r, n);
 }
 
-Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -175,7 +175,7 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
             .type = t,
             .is_ref = true,
         });
-        const Node* p = param_helper(a, qualified_type_helper(a, ctx.config->target.scopes.constants, t));
+        const Node* p = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, t));
         if (name) {
             shd_set_debug_name(p, name);
             shd_set_debug_name(g, name);

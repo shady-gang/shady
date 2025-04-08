@@ -18,6 +18,6 @@ void cli_parse_vcc_args(VccConfig* options, int* pargc, char** argv);
 void destroy_vcc_options(VccConfig vcc_options);
 
 void vcc_run_clang(VccConfig* vcc_options, String filename);
-Module* vcc_parse_back_into_module(CompilerConfig* config, VccConfig* vcc_options, String module_name);
+Module* vcc_parse_back_into_module(const CompilerConfig*, const TargetConfig*, VccConfig*, String module_name);
 
 #endif

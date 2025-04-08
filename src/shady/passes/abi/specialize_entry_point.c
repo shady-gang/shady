@@ -11,14 +11,8 @@
 #include <string.h>
 
 typedef struct {
-    const CompilerConfig* config;
-    String entry_pt;
-} PassConfig;
-
-typedef struct {
     Rewriter rewriter;
     const Node* old_entry_point_decl;
-    const CompilerConfig* config;
 } Context;
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -37,28 +31,12 @@ static const Node* process(Context* ctx, const Node* node) {
             }
             break;
         }
-        case Constant_TAG: {
-            Node* ncnst = (Node*) shd_recreate_node(&ctx->rewriter, node);
-            if (strcmp(shd_get_node_name_safe(ncnst), "SUBGROUPS_PER_WG") == 0) {
-                // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
-                // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
-                uint32_t wg_size[3];
-                wg_size[0] = a->config.specializations.workgroup_size[0];
-                wg_size[1] = a->config.specializations.workgroup_size[1];
-                wg_size[2] = a->config.specializations.workgroup_size[2];
-                uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / ctx->config->target.subgroup_size;
-                if (subgroups_per_wg == 0)
-                    subgroups_per_wg = 1; // uh-oh
-                ncnst->payload.constant.value = shd_uint32_literal(a, subgroups_per_wg);
-            }
-            return ncnst;
-        }
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-static void specialize_arena_config(String entry_point, const CompilerConfig* config, Module* src, ArenaConfig* target) {
+static void specialize_arena_config(String entry_point, Module* src, ArenaConfig* target) {
     const Node* old_entry_point_decl = shd_module_get_exported(src, entry_point);
     if (!old_entry_point_decl)
         shd_error("Entry point not found")
@@ -83,18 +61,17 @@ static void specialize_arena_config(String entry_point, const CompilerConfig* co
     }
 }
 
-static Module* specialize_entry_point(PassConfig* cfg, Module* src) {
+static Module* specialize_entry_point(const CompilerConfig* config, String entry_point_name, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    specialize_arena_config(cfg->entry_pt, cfg->config, src, &aconfig);
+    specialize_arena_config(entry_point_name, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = cfg->config,
     };
 
-    const Node* entry_pt = shd_module_get_exported(src, cfg->entry_pt);
+    const Node* entry_pt = shd_module_get_exported(src, entry_point_name);
     assert(entry_pt);
     shd_module_add_export(dst, shd_get_exported_name(entry_pt), shd_rewrite_node(&ctx.rewriter, entry_pt));
 
@@ -114,10 +91,9 @@ static Module* specialize_entry_point(PassConfig* cfg, Module* src) {
 }
 
 static void specialize_entry_point_f(String* entry_point, const CompilerConfig* config, Module** pmod) {
-    PassConfig specialize_config = { .config = config, .entry_pt = *entry_point };
-    RUN_PASS(specialize_entry_point, &specialize_config)
+    RUN_PASS(specialize_entry_point, entry_point)
 }
 
 void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point_f, &entry_point, sizeof(entry_point));
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point_f, entry_point, strlen(entry_point) + 1);
 }

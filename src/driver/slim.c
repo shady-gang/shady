@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     shd_parse_compiler_config_args(&args.config, &argc, argv);
     shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
-    ArenaConfig aconfig = shd_default_arena_config(&args.config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&args.target);
     IrArena* arena = shd_new_ir_arena(&aconfig);
     Module* mod = shd_new_module(arena, "my_module"); // TODO name module after first filename, or perhaps the last one
 
