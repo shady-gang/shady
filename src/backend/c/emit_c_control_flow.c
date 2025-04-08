@@ -229,7 +229,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
             break;
         }
         case Terminator_Unreachable_TAG: {
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_CUDA:
                 case CDialect_C11:
                     shd_print(block_printer, "\n__builtin_unreachable();");

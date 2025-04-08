@@ -20,7 +20,7 @@ static String glsl_builtins[BuiltinsCount] = {
 
 CTerm shd_c_emit_builtin(Emitter* emitter, Builtin b) {
     String name = NULL;
-    switch(emitter->config.dialect) {
+    switch(emitter->backend_config.dialect) {
         case CDialect_ISPC: name = ispc_builtins[b]; break;
         case CDialect_GLSL: name = glsl_builtins[b]; break;
         default: break;

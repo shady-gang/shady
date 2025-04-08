@@ -18,14 +18,14 @@ typedef struct {
     bool allow_compound_literals;
     bool decay_unsized_arrays;
     int glsl_version;
-} CTargetConfig;
+} CBackendConfig;
 
-CTargetConfig shd_default_c_target_config(void);
+CBackendConfig shd_default_c_backend_config(void);
 
 typedef struct CompilerConfig_ CompilerConfig;
 
-void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CTargetConfig* econfig);
-void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_config, Module* mod, size_t* output_size, char** output);
+void shd_pipeline_add_c_target_passes(ShdPipeline, const CBackendConfig*);
+void shd_emit_c(const CompilerConfig*, CBackendConfig, Module*, size_t* output_size, char** output);
 
 #endif
 

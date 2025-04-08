@@ -140,7 +140,7 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
-static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* config, SPIRVTargetConfig* spv_config) {
+static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* config, SPVBackendConfig* spv_config) {
     assert(device->caps.subgroup_size.max > 0);
     // config.per_thread_stack_size = ...
 
@@ -179,7 +179,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     spec->specialized_target = shd_vkr_get_device_target_config(spec->device);
 
-    SPIRVTargetConfig spv_cfg = shd_default_spirv_target_config();
+    SPVBackendConfig spv_cfg = shd_default_spirv_backend_config();
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spv_cfg);
 
     spec->specialized_target = shd_driver_specialize_target_config(spec->specialized_target, spec->key.base->module, spec->key.em, spec->key.entry_point);

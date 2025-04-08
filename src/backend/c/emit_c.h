@@ -38,7 +38,7 @@ typedef struct CompilerConfig_ CompilerConfig;
 typedef struct {
     const CompilerConfig* compiler_config;
     const TargetConfig* target_config;
-    CTargetConfig config;
+    CBackendConfig backend_config;
     IrArena* arena;
     Printer *type_decls, *fn_decls, *fn_defs;
     struct {

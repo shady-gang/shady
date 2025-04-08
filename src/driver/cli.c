@@ -244,8 +244,8 @@ DriverConfig shd_default_driver_config(void) {
         .output_filename = NULL,
         .cfg_output_filename = NULL,
         .shd_output_filename = NULL,
-        .backend_config.c = shd_default_c_target_config(),
-        .backend_config.spirv = shd_default_spirv_target_config(),
+        .backend_config.c = shd_default_c_backend_config(),
+        .backend_config.spirv = shd_default_spirv_backend_config(),
     };
 }
 

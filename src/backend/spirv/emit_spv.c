@@ -17,8 +17,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-SPIRVTargetConfig shd_default_spirv_target_config(void) {
-    SPIRVTargetConfig config = {
+SPVBackendConfig shd_default_spirv_backend_config(void) {
+    SPVBackendConfig config = {
         .target_version = {
             .major = 1,
             .minor = 4
@@ -334,7 +334,7 @@ RewritePass shd_spvbe_pass_remove_bda_params;
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);
 
-static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig* spv_config, const CompilerConfig* config, Module** pmod) {
+static CompilationResult run_spv_backend_transforms(const SPVBackendConfig* spv_config, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_call_init_fini, config)
     RUN_PASS(shd_pass_globals_to_params, config)
     RUN_PASS(shd_pass_globals_to_locals, config)
@@ -347,11 +347,11 @@ static CompilationResult run_spv_backend_transforms(const SPIRVTargetConfig* spv
     return CompilationNoError;
 }
 
-void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const SPIRVTargetConfig* econfig) {
+void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const SPVBackendConfig* econfig) {
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, econfig, sizeof(*econfig));
 }
 
-void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_config, Module* mod, size_t* output_size, char** output) {
+void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config, Module* mod, size_t* output_size, char** output) {
     mod = shd_import(config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 

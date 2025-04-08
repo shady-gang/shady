@@ -57,7 +57,7 @@ static enum { ObjectsList, StringLit, CharsLit } array_insides_helper(Emitter* e
 }
 
 static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_type) {
-    switch (emitter->config.dialect) {
+    switch (emitter->backend_config.dialect) {
         case CDialect_ISPC: {
             const Type* t = shd_get_unqualified_type(value_type);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", value));
@@ -94,7 +94,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
 
             bool is_long = value->payload.int_literal.width == IntTy64;
             bool is_signed = value->payload.int_literal.is_signed;
-            if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version >= 130) {
+            if (emitter->backend_config.dialect == CDialect_GLSL && emitter->backend_config.glsl_version >= 130) {
                 if (!is_signed)
                     emitted = shd_format_string_arena(emitter->arena->arena, "%sU", emitted);
                 if (is_long)
@@ -125,7 +125,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_True_TAG: return term_from_cvalue("true");
         case Value_False_TAG: return term_from_cvalue("false");
         case Value_Undef_TAG: {
-            if (emitter->config.dialect == CDialect_GLSL)
+            if (emitter->backend_config.dialect == CDialect_GLSL)
                 return shd_c_emit_value(emitter, fn, shd_get_default_value(emitter->arena, value->payload.undef.type));
             String name = shd_make_unique_name(emitter->arena, "undef");
             // c_emit_variable_declaration(emitter, block_printer, value->type, name, true, NULL);
@@ -164,7 +164,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             }
             shd_growy_append_bytes(g, 1, "\0");
 
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 no_compound_literals:
                 case CDialect_ISPC: {
                     // arrays need double the brackets
@@ -184,7 +184,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                 case CDialect_CUDA:
                 case CDialect_C11:
                     // If we're C89 (ew)
-                    if (!emitter->config.allow_compound_literals)
+                    if (!emitter->backend_config.allow_compound_literals)
                         goto no_compound_literals;
                     emitted = shd_format_string_arena(emitter->arena->arena, "((%s) { %s })", shd_c_emit_type(emitter, value->type, NULL), emitted);
                     break;
@@ -435,14 +435,14 @@ static CTerm emit_using_entry(Emitter* emitter, FnEmitter* fn, Printer* p, const
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
     const ISelTableEntry* isel_entry = &isel_dummy;
 
-    switch (emitter->config.dialect) {
+    switch (emitter->backend_config.dialect) {
         case CDialect_CUDA: /* TODO: do better than that */
         case CDialect_C11: isel_entry = &isel_table_c[op]; break;
         case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
         case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
     }
 
-    if (emitter->config.dialect == CDialect_GLSL && emitter->config.glsl_version <= 120)
+    if (emitter->backend_config.dialect == CDialect_GLSL && emitter->backend_config.glsl_version <= 120)
         isel_entry = &isel_table_glsl_120[op];
 
     if (isel_entry->isel_mechanism == IsNone)
@@ -453,8 +453,8 @@ static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
 static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm expr, CTerm index) {
     IrArena* arena = emitter->arena;
 
-    String index2 = emitter->config.dialect == CDialect_GLSL ? shd_format_string_arena(arena->arena, "int(%s)", shd_c_to_ssa(emitter, index)) : shd_c_to_ssa(emitter, index);
-    if (emitter->config.decay_unsized_arrays && !arr_type->payload.arr_type.size)
+    String index2 = emitter->backend_config.dialect == CDialect_GLSL ? shd_format_string_arena(arena->arena, "int(%s)", shd_c_to_ssa(emitter, index)) : shd_c_to_ssa(emitter, index);
+    if (emitter->backend_config.decay_unsized_arrays && !arr_type->payload.arr_type.size)
         return shd_format_string_arena(arena->arena, "((&%s)[%s])", shd_c_deref(emitter, expr), index2);
     else
         return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_deref(emitter, expr), index2);
@@ -466,7 +466,7 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     CTerm src_value = shd_c_emit_value(emitter, fn, payload.src);
     const Type* src_type = shd_get_unqualified_type(payload.src->type);
     const Type* dst_type = payload.type;
-    switch (emitter->config.dialect) {
+    switch (emitter->backend_config.dialect) {
         case CDialect_CUDA:
         case CDialect_C11: {
             String src = shd_make_unique_name(arena, "bitcast_src");
@@ -489,7 +489,7 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
                 }
             } else if (dst_type->tag == Int_TAG) {
                 if (src_type->tag == Int_TAG) {
-                    if (!emitter->config.explicitly_sized_types)
+                    if (!emitter->backend_config.explicitly_sized_types)
                         conv_fn = dst_type->payload.int_type.is_signed ? "int" : "uint";
                     else
                         conv_fn = shd_c_emit_type(emitter, dst_type, NULL);
@@ -544,7 +544,7 @@ static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const 
     CTerm src = shd_c_emit_value(emitter, fn, payload.src);
     const Type* src_type = shd_get_unqualified_type(payload.src->type);
     const Type* dst_type = payload.type;
-    if (emitter->config.dialect == CDialect_GLSL) {
+    if (emitter->backend_config.dialect == CDialect_GLSL) {
         if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
             CType t = shd_c_emit_type(emitter, dst_type, NULL);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, src)));
@@ -600,7 +600,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
             CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             CValue c = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_C11:
                 case CDialect_CUDA: {
                     term = term_from_cvalue(shd_format_string_arena(arena->arena, "fmaf(%s, %s, %s)", a, b, c));
@@ -619,7 +619,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             CValue src = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
             const Node* offset = prim_op->operands.nodes[1];
             CValue c_offset = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, offset));
-            if (emitter->config.dialect == CDialect_GLSL) {
+            if (emitter->backend_config.dialect == CDialect_GLSL) {
                 if (shd_get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
                     c_offset = shd_format_string_arena(arena->arena, "int(%s)", c_offset);
             }
@@ -849,7 +849,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 #define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), instr); if (f) return f; }
 
 static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
-    switch (e->config.dialect) {
+    switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
         default: break;
@@ -871,7 +871,7 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
                 assert(instr.operands.count == 1);
                 const IntLiteral* scope = shd_resolve_to_int_literal(shd_first(instr.operands));
                 assert(scope && scope->value == SpvScopeSubgroup);
-                switch (emitter->config.dialect) {
+                switch (emitter->backend_config.dialect) {
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))"));
                     default: break;
                 }
@@ -902,7 +902,7 @@ static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValu
 
                 String dst = shd_make_unique_name(a, "sampled");
                 String dim = "";
-                if (emitter->config.glsl_version < 130) {
+                if (emitter->backend_config.glsl_version < 130) {
                     const Type* t = value.operands.nodes[0]->type;
                     assert(t->tag == SampledImageType_TAG);
                     t = t->payload.sampled_image_type.image_type;
@@ -992,7 +992,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
             // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
             // See https://github.com/ispc/ispc/issues/2496
-            if (emitter->config.dialect == CDialect_ISPC) {
+            if (emitter->backend_config.dialect == CDialect_ISPC) {
                 String interm = shd_make_unique_name(arena, "lea_intermediary_ptr_value");
                 shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, qualified_type_helper(arena, scope, curr_ptr_type), interm), shd_c_to_ssa(emitter, acc));
                 acc = term_from_cvalue(interm);
@@ -1047,7 +1047,7 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
         scope = shd_combine_scopes(scope, shd_get_qualified_type_scope(lea.offset->type));
     }
 
-    if (emitter->config.dialect == CDialect_ISPC)
+    if (emitter->backend_config.dialect == CDialect_ISPC)
         acc = shd_c_bind_intermediary_result(emitter, p, qualified_type_helper(emitter->arena, scope, curr_ptr_type), acc);
 
     return acc;
@@ -1124,7 +1124,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             bool addr_uniform = addr_scope <= ShdScopeSubgroup;
             bool as_uniform = as_scope <= ShdScopeSubgroup;
             bool value_uniform = value_scope <= ShdScopeSubgroup;
-            if (emitter->config.dialect == CDialect_ISPC && addr_uniform && as_uniform && !value_uniform)
+            if (emitter->backend_config.dialect == CDialect_ISPC && addr_uniform && as_uniform && !value_uniform)
                 cvalue = shd_format_string_arena(emitter->arena->arena, "__shady_extract(%s, count_trailing_zeros(lanemask()))", cvalue);
 
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
@@ -1147,7 +1147,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         case Value_ScopeCast_TAG: {
             ScopeCast payload = instruction->payload.scope_cast;
             if (payload.scope <= ShdScopeSubgroup) {
-                if (emitter->config.dialect == CDialect_ISPC) {
+                if (emitter->backend_config.dialect == CDialect_ISPC) {
                     CValue vvalue = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src));
                     return broadcast_first(emitter, vvalue, payload.src->type);
                 }
@@ -1165,13 +1165,13 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                 CValue str = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instruction->payload.debug_printf.args.nodes[i]));
 
                 // special casing for the special child
-                if (emitter->config.dialect == CDialect_ISPC)
+                if (emitter->backend_config.dialect == CDialect_ISPC)
                     shd_print(args_printer, ", __shady_extract(%s, printf_thread_index)", str);
                 else
                     shd_print(args_printer, ", %s", str);
             }
             String args_list = shd_printer_growy_unwrap(args_printer);
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_ISPC:
                     shd_print(p, "\nforeach_active(printf_thread_index) { print(%s); }", args_list);
                     break;
@@ -1180,7 +1180,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
                     shd_print(p, "\nprintf(%s);", args_list);
                     break;
                 case CDialect_GLSL: {
-                    if (emitter->config.glsl_version < 460) {
+                    if (emitter->backend_config.glsl_version < 460) {
                         static bool flag = false;
                         shd_warn_print_once(flag, "Warning: printf is not supported in GLSL\n");
                     } else {

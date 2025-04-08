@@ -64,8 +64,8 @@ typedef struct {
     CodegenTarget target_type;
     BackendType backend_type;
     struct {
-        CTargetConfig c;
-        SPIRVTargetConfig spirv;
+        CBackendConfig c;
+        SPVBackendConfig spirv;
     } backend_config;
     struct List* input_filenames;
     const char*     output_filename;

@@ -31,7 +31,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 
     spec->final_module = shd_import(&config, spec->key.base->module);
 
-    CTargetConfig emitter_config = {
+    CBackendConfig emitter_config = {
         .dialect = CDialect_CUDA,
         .explicitly_sized_types = false,
         .allow_compound_literals = false,

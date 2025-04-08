@@ -17,12 +17,12 @@ typedef struct {
         bool shuffle_instead_of_broadcast_first;
         bool avoid_spirv_cross_broken_bda_pointers;
     } hacks;
-} SPIRVTargetConfig;
+} SPVBackendConfig;
 
-SPIRVTargetConfig shd_default_spirv_target_config(void);
+SPVBackendConfig shd_default_spirv_backend_config(void);
 
-void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const SPIRVTargetConfig* econfig);
-void shd_emit_spirv(const CompilerConfig* config, SPIRVTargetConfig target_config, Module* mod, size_t* output_size, char** output);
+void shd_pipeline_add_spirv_target_passes(ShdPipeline, const SPVBackendConfig*);
+void shd_emit_spirv(const CompilerConfig*, SPVBackendConfig, Module*, size_t* output_size, char** output);
 
 #endif
 

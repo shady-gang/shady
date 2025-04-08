@@ -52,7 +52,7 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     Growy* paramg = shd_new_growy();
     Printer* paramp = shd_new_printer_from_growy(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
-    if (dom.count == 0 && emitter->config.dialect == CDialect_C11)
+    if (dom.count == 0 && emitter->backend_config.dialect == CDialect_C11)
         shd_print(paramp, "void");
     else if (fn) {
         Nodes params = fn->payload.fun.params;
@@ -86,7 +86,7 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     }
     shd_growy_append_bytes(paramg, 1, (char[]) { 0 });
     const char* parameters = shd_printer_growy_unwrap(paramp);
-    switch (emitter->config.dialect) {
+    switch (emitter->backend_config.dialect) {
         default:
             center = shd_format_string_arena(emitter->arena->arena, "(%s)(%s)", center, parameters);
             break;
@@ -100,7 +100,7 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
 
     String c_decl = shd_c_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, codom), center);
     if (entry_point) {
-        switch (emitter->config.dialect) {
+        switch (emitter->backend_config.dialect) {
             case CDialect_C11:
                 break;
             case CDialect_GLSL:
@@ -112,7 +112,7 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
                 c_decl = shd_format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
                 break;
         }
-    } else if (emitter->config.dialect == CDialect_CUDA) {
+    } else if (emitter->backend_config.dialect == CDialect_CUDA) {
         c_decl = shd_format_string_arena(emitter->arena->arena, "__device__ %s", c_decl);
     }
 
@@ -174,7 +174,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case LamType_TAG:
         case BBType_TAG: shd_error("these types do not exist in C");
         case Type_SampledImageType_TAG: {
-            if (emitter->config.dialect != CDialect_GLSL) {
+            if (emitter->backend_config.dialect != CDialect_GLSL) {
                 shd_error("TODO: implement textures on non-glsl backends");
             }
 
@@ -200,7 +200,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Bool_TAG: emitted = "bool"; break;
         case Int_TAG: {
             bool sign = type->payload.int_type.is_signed;
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_ISPC: {
                     const char* ispc_int_types[4][2] = {
                         { "uint8" , "int8"  },
@@ -227,11 +227,11 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                             { "uint32_t", "int32_t" },
                             { "uint64_t", "int64_t" },
                     };
-                    emitted = (emitter->config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][sign];
+                    emitted = (emitter->backend_config.explicitly_sized_types ? c_explicit_int_sizes : c_classic_int_types)[type->payload.int_type.width][sign];
                     break;
                 }
                 case CDialect_GLSL:
-                    if (emitter->config.glsl_version <= 120) {
+                    if (emitter->backend_config.glsl_version <= 120) {
                         emitted = "int";
                         break;
                     }
@@ -277,7 +277,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             shd_c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
-            if (emitter->config.dialect == CDialect_C11)
+            if (emitter->backend_config.dialect == CDialect_C11)
                 emitted = prefixed;
 
             break;
@@ -287,7 +287,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 emitted = "void";
                 break;
             }
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 default:
                     return shd_c_emit_type(emitter, type->payload.qualified_type.type, center);
                 case CDialect_ISPC:
@@ -298,7 +298,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
         case Type_PtrType_TAG: {
             CType t = shd_c_emit_type(emitter, type->payload.ptr_type.pointed_type, shd_format_string_arena(emitter->arena->arena, "* %s", center));
-            if (emitter->config.dialect == CDialect_ISPC) {
+            if (emitter->backend_config.dialect == CDialect_ISPC) {
                 ShdScope scope = shd_get_addr_space_scope(type->payload.ptr_type.address_space);
                 t = shd_format_string_arena(emitter->arena->arena, "%s %s", scope > ShdScopeSubgroup ? "varying" : "uniform", t);
             }
@@ -314,7 +314,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             Growy* g = shd_new_growy();
             Printer* p = shd_new_printer_from_growy(g);
 
-            if (!size && emitter->config.decay_unsized_arrays)
+            if (!size && emitter->backend_config.decay_unsized_arrays)
                 return shd_c_emit_type(emitter, type->payload.arr_type.element_type, center);
 
             shd_print(p, "\n%s {", prefixed);
@@ -334,7 +334,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             free_tmp_str(subdecl);
 
             // ditto from RecordType
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 default:
                     emitted = prefixed;
                     break;
@@ -346,7 +346,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case Type_PackType_TAG: {
             int width = type->payload.pack_type.width;
             const Type* element_type = type->payload.pack_type.element_type;
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_CUDA:
                     assert(element_type->tag == Int_TAG);
                     emitted = cuda_int_type(emitter->arena, element_type->payload.int_type, width);

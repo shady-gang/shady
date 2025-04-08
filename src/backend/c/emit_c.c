@@ -111,7 +111,7 @@ void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, c
     String center = variable_name;
 
     // add extra qualifiers if immutable
-    if (!mut) switch (emitter->config.dialect) {
+    if (!mut) switch (emitter->backend_config.dialect) {
         case CDialect_ISPC:
             center = shd_format_string_arena(emitter->arena->arena, "const %s", center);
             break;
@@ -120,7 +120,7 @@ void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, c
             center = shd_format_string_arena(emitter->arena->arena, "const %s", center);
             break;
         case CDialect_GLSL:
-            if (emitter->config.glsl_version >= 130)
+            if (emitter->backend_config.glsl_version >= 130)
                 prefix = "const ";
             break;
     }
@@ -149,7 +149,7 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
 
     bool is_fs = emitter->target_config->execution_model == EmFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
-    switch (emitter->config.dialect) {
+    switch (emitter->backend_config.dialect) {
         case CDialect_C11: {
             if (as != AsGeneric) shd_warn_print_once(c11_non_generic_as, "warning: standard C does not have address spaces\n");
             prefix = "";
@@ -188,8 +188,8 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
             switch (as) {
                 case AsShared: prefix = "shared "; break;
                 case AsInput:
-                case AsUInput: prefix = emitter->config.glsl_version < 130 ? (is_fs ? "varying " : "attribute ") : "in "; break;
-                case AsOutput: prefix = emitter->config.glsl_version < 130 ? "varying " : "out "; break;
+                case AsUInput: prefix = emitter->backend_config.glsl_version < 130 ? (is_fs ? "varying " : "attribute ") : "in "; break;
+                case AsOutput: prefix = emitter->backend_config.glsl_version < 130 ? "varying " : "out "; break;
                 case AsPrivate: prefix = ""; break;
                 case AsUniformConstant: prefix = "uniform "; break;
                 case AsGlobal: {
@@ -209,7 +209,7 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
     assert(prefix);
 
     // ISPC wants uniform/varying annotations
-    if (emitter->config.dialect == CDialect_ISPC) {
+    if (emitter->backend_config.dialect == CDialect_ISPC) {
         bool uniform = shd_get_addr_space_scope(as) <= ShdScopeSubgroup;
         if (uniform)
             name = shd_format_string_arena(emitter->arena->arena, "uniform %s", name);
@@ -264,12 +264,12 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
         }
 
         String fn_body = shd_c_emit_body(emitter, &fn, decl);
-        if (emitter->config.dialect == CDialect_ISPC) {
+        if (emitter->backend_config.dialect == CDialect_ISPC) {
             // ISPC hack: This compiler (like seemingly all LLVM-based compilers) has broken handling of the execution mask - it fails to generated masked stores for the entry BB of a function that may be called non-uniformingly
             // therefore we must tell ISPC to please, pretty please, mask everything by branching on what the mask should be
             fn_body = shd_format_string_arena(emitter->arena->arena, "\nassert(lanemask() != 0);\nif ((lanemask() >> programIndex) & 1u) { %s}", fn_body);
             // I hate everything about this too.
-        } else if (emitter->config.dialect == CDialect_CUDA) {
+        } else if (emitter->backend_config.dialect == CDialect_CUDA) {
             if (shd_lookup_annotation(decl, "EntryPoint")) {
                 // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
                 if (emitter->use_private_globals) {
@@ -327,7 +327,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             const Type* decl_type = decl->payload.global_variable.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
-            if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->config.dialect == CDialect_CUDA) {
+            if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->backend_config.dialect == CDialect_CUDA) {
                 if (emitter->use_private_globals) {
                     shd_c_register_emitted(emitter, NULL, decl, term_from_cvar(shd_format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
                     // HACK
@@ -356,7 +356,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
         case NominalType_TAG: {
             CType emitted = name;
             shd_c_register_emitted_type(emitter, decl, emitted);
-            switch (emitter->config.dialect) {
+            switch (emitter->backend_config.dialect) {
                 case CDialect_ISPC:
                 default: shd_print(emitter->type_decls, "\ntypedef %s;", shd_c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
                 case CDialect_GLSL: shd_c_emit_nominal_type_body(emitter, shd_format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
@@ -375,7 +375,7 @@ RewritePass shd_pass_globals_to_locals;
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);
 
-static CompilationResult run_c_backend_transforms(const CTargetConfig* econfig, const CompilerConfig* config, Module** pmod) {
+static CompilationResult run_c_backend_transforms(const CBackendConfig* econfig, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_call_init_fini, NULL)
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
     RUN_PASS(shd_pass_eliminate_constants, config)
@@ -393,8 +393,8 @@ static CompilationResult run_c_backend_transforms(const CTargetConfig* econfig, 
     return CompilationNoError;
 }
 
-void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CTargetConfig* econfig) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CTargetConfig));
+void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CBackendConfig* econfig) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CBackendConfig));
 }
 
 static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
@@ -424,13 +424,13 @@ static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
     return shd_printer_growy_unwrap(p);
 }
 
-CTargetConfig shd_default_c_target_config(void) {
-    return (CTargetConfig) {
+CBackendConfig shd_default_c_backend_config(void) {
+    return (CBackendConfig) {
         .glsl_version = 420,
     };
 }
 
-void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_config, Module* mod, size_t* output_size, char** output) {
+void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_config, Module* mod, size_t* output_size, char** output) {
     mod = shd_import(compiler_config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 
@@ -441,7 +441,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_conf
     Emitter emitter = {
         .compiler_config = compiler_config,
         .target_config = &shd_get_arena_config(shd_module_get_arena(mod))->target,
-        .config = target_config,
+        .backend_config = backend_config,
         .arena = arena,
         .type_decls = shd_new_printer_from_growy(type_decls_g),
         .fn_decls = shd_new_printer_from_growy(fn_decls_g),
@@ -455,7 +455,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_conf
 
     shd_print(finalp, "/* file generated by shady */\n");
 
-    switch (emitter.config.dialect) {
+    switch (emitter.backend_config.dialect) {
         case CDialect_ISPC: {
             shd_print(emitter.fn_defs, shady_ispc_runtime_src);
             break;
@@ -468,13 +468,13 @@ void shd_emit_c(const CompilerConfig* compiler_config, CTargetConfig target_conf
             shd_print(finalp, "\n#include <math.h>");
             break;
         case CDialect_GLSL:
-            shd_print(finalp, "#version %d\n", emitter.config.glsl_version);
+            shd_print(finalp, "#version %d\n", emitter.backend_config.glsl_version);
             if (emitter.need_64b_ext)
                 shd_print(finalp, "#extension GL_ARB_gpu_shader_int64: require\n");
             shd_print(finalp, "#define ubyte uint\n");
             shd_print(finalp, "#define uchar uint\n");
             shd_print(finalp, "#define ulong uint\n");
-            if (emitter.config.glsl_version <= 120)
+            if (emitter.backend_config.glsl_version <= 120)
                 shd_print(finalp, shady_glsl_runtime_120_src);
             break;
         case CDialect_CUDA: {
