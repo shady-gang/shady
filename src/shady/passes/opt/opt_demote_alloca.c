@@ -133,9 +133,9 @@ static AllocaInfo* analyze_alloc(Context* ctx, const Node* old, const Type* old_
     switch (old->tag) {
         case GlobalVariable_TAG: {
             // GlobalVariable payload = old->payload.global_variable;
-            if (shd_lookup_annotation(old, "Exported")) {
-               k->leaks = true;
-            }
+            //if (shd_lookup_annotation(old, "Exported")) {
+            //   k->leaks = true;
+            //}
             break;
         }
         default: break;

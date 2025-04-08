@@ -78,7 +78,9 @@ static const Node* process(Context* ctx, const Node* node) {
                 io = shd_get_or_create_builtin(m, b);
                 scope = shd_get_builtin_scope(b);
             } else if (io_annotation) {
-                payload.is_ref = true;
+                // always make the new variable here physical, even if it contains an opaque type
+                // opt_demote_alloca will fix this up
+                payload.is_ref = false;
                 io = shd_global_var(r->dst_module, payload);
                 shd_rewrite_annotations(r, node, (Node*) io);
             } else break;
