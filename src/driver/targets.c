@@ -31,40 +31,60 @@ static CodegenTarget guess_target_through_name(const char* filename) {
     exit(InvalidTarget);
 }
 
-void shd_driver_configure_target(DriverConfig* driver_config) {
-    TargetConfig* target_config = &driver_config->target;
-
-    if (driver_config->target_type == TgtAuto) {
-        if (driver_config->output_filename) {
-            driver_config->target_type = guess_target_through_name(driver_config->output_filename);
+static void configure_target(TargetConfig* target_config, CodegenTarget target_type, DriverConfig* driver_config) {
+    if (target_type == TgtAuto) {
+        if (driver_config && driver_config->output_filename) {
+            target_type = driver_config->target_type = guess_target_through_name(driver_config->output_filename);
         } else {
             shd_log_fmt(INFO, "No target specified, defaulting to a generic one.\n");
         }
     }
 
-    switch (driver_config->target_type) {
+    switch (target_type) {
         case TgtAuto: /* no target */  break;
         case TgtSPV:
-            driver_config->backend_type = BackendSPV;
+            if (driver_config)
+                driver_config->backend_type = BackendSPV;
             add_default_shading_language_limitations(target_config);
             // default to assuming BDA support on Vulkan
             target_config->memory.address_spaces[AsGlobal].physical = true;
             break;
         case TgtC:
-            driver_config->backend_type = BackendC;
-            driver_config->backend_config.c.dialect = CDialect_C11;
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_C11;
+            }
             break;
         case TgtGLSL:
-            driver_config->backend_type = BackendC;
-            driver_config->backend_config.c.dialect = CDialect_GLSL;
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_GLSL;
+            }
             add_default_shading_language_limitations(target_config);
             break;
         case TgtISPC:
-            driver_config->backend_type = BackendC;
-            driver_config->backend_config.c.dialect = CDialect_ISPC;
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_ISPC;
+            }
             add_default_shading_language_limitations(target_config);
             break;
+        case TgtCUDA:
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_CUDA;
+            }
+            target_config->subgroup_size = 32;
+            break;
     }
+}
+
+void shd_driver_configure_defaults_for_target(TargetConfig* target_config, CodegenTarget target) {
+    configure_target(target_config, target, NULL);
+}
+
+void shd_driver_configure_target(TargetConfig* target_config, DriverConfig* driver_config) {
+    configure_target(target_config, driver_config->target_type, driver_config);
 }
 
 ExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
@@ -100,10 +120,10 @@ TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mo
     return specialized_target_config;
 }
 
-void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, Module* mod) {
+void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig* target_config, Module* mod) {
     shd_pipeline_add_normalize_input_cf(pipeline);
 
-    TargetConfig specialized_target_config = shd_driver_specialize_target_config(driver_config->target, mod, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
+    TargetConfig specialized_target_config = shd_driver_specialize_target_config(*target_config, mod, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
 
     shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config);
 

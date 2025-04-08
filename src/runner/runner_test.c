@@ -37,28 +37,31 @@ int main(int argc, char* argv[]) {
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
     shd_parse_common_args(&argc, argv);
     shd_rn_cli_parse_config(&args.runtime_config, &argc, argv);
+
+    Runner* runtime = shd_rn_initialize(args.runtime_config);
+    Device* device = shd_rn_get_device(runtime, args.common_app_args.device);
+    assert(device);
+
+    TargetConfig target_config = shd_rn_get_device_target_config(device);
+
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     shd_parse_driver_args(&args.driver_config, &argc, argv);
     shd_driver_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     shd_info_print("Shady runner test starting...\n");
 
-    Runner* runtime = shd_rn_initialize(args.runtime_config);
-    Device* device = shd_rn_get_device(runtime, args.common_app_args.device);
-    assert(device);
-
     Program* program;
     IrArena* arena = NULL;
-    ArenaConfig aconfig = shd_default_arena_config(&args.driver_config.target);
+    ArenaConfig aconfig = shd_default_arena_config(&target_config);
     Module* module;
     if (shd_list_count(args.driver_config.input_filenames) == 0) {
-        shd_driver_load_source_file(&args.driver_config.config, &args.driver_config.target, SrcSlim, strlen(default_shader), default_shader,
+        shd_driver_load_source_file(&args.driver_config.config, &target_config, SrcSlim, strlen(default_shader), default_shader,
                                     "runtime_test", &module);
         program = shd_rn_new_program_from_module(runtime, &args.driver_config.config, module);
     } else {
         arena = shd_new_ir_arena(&aconfig);
         module = shd_new_module(arena, "my_module");
-        int err = shd_driver_load_source_files(&args.driver_config, module);
+        int err = shd_driver_load_source_files(&args.driver_config.config, &target_config, args.driver_config.input_filenames, module);
         if (err)
             return err;
         program = shd_rn_new_program_from_module(runtime, &args.driver_config.config, module);

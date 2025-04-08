@@ -14,9 +14,16 @@ int main(int argc, char** argv) {
 
     DriverConfig args = shd_default_driver_config();
     VccConfig vcc_options = vcc_init_config(&args.config);
-    shd_parse_driver_args(&args, &argc, argv);
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.config, &argc, argv);
+
+    shd_parse_driver_args(&args, &argc, argv);
+
+    TargetConfig target_config = shd_default_target_config();
+
+    shd_driver_configure_target(&target_config, &args);
+    shd_parse_target_args(&target_config, &argc, argv);
+
     cli_parse_vcc_args(&vcc_options, &argc, argv);
     shd_driver_parse_unknown_options(vcc_options.clang_options, &argc, argv);
     shd_driver_parse_input_files(args.input_filenames, &argc, argv);
@@ -26,7 +33,7 @@ int main(int argc, char** argv) {
         exit(MissingInputArg);
     }
 
-    ArenaConfig aconfig = shd_default_arena_config(&args.target);
+    ArenaConfig aconfig = shd_default_arena_config(&target_config);
 
     vcc_check_clang();
 
@@ -40,13 +47,13 @@ int main(int argc, char** argv) {
         String filename = shd_read_list(String, args.input_filenames)[i];
 
         vcc_run_clang(&vcc_options, filename);
-        Module* mod = vcc_parse_back_into_module(&args.config, &args.target, &vcc_options, filename);
+        Module* mod = vcc_parse_back_into_module(&args.config, &target_config, &vcc_options, filename);
         shd_module_link(m, mod);
         shd_destroy_ir_arena(shd_module_get_arena(mod));
     }
 
     if (!vcc_options.only_run_clang) {
-        shd_driver_compile(&args, m);
+        shd_driver_compile(&args, &target_config, m);
     }
 
     shd_destroy_ir_arena(shd_module_get_arena(m));

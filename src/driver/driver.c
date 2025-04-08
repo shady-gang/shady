@@ -97,18 +97,18 @@ ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* 
     return err;
 }
 
-ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
-    if (shd_list_count(args->input_filenames) == 0) {
+ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod) {
+    if (shd_list_count(input_filenames) == 0) {
         shd_error_print("Missing input file. See --help for proper usage");
         return MissingInputArg;
     }
 
-    size_t num_source_files = shd_list_count(args->input_filenames);
+    size_t num_source_files = shd_list_count(input_filenames);
     for (size_t i = 0; i < num_source_files; i++) {
         Module* m;
-        int err = shd_driver_load_source_file_from_filename(&args->config, &args->target,
-                                                            shd_read_list(const char*, args->input_filenames)[i],
-                                                            shd_read_list(const char*, args->input_filenames)[i], &m);
+        int err = shd_driver_load_source_file_from_filename(config, target_config,
+                                                            shd_read_list(const char*, input_filenames)[i],
+                                                            shd_read_list(const char*, input_filenames)[i], &m);
         if (err)
             return err;
         shd_module_link(mod, m);
@@ -118,16 +118,16 @@ ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod) {
     return NoError;
 }
 
-void shd_driver_fill_pipeline(ShdPipeline pipeline, DriverConfig* driver_config, const Module* mod);
+void shd_driver_fill_pipeline(ShdPipeline pipeline, DriverConfig* driver_config, const TargetConfig*, const Module* mod);
 
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod) {
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* target_config, Module* mod) {
     mod = shd_import(&args->config, mod);
 
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, mod);
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_driver_fill_pipeline(pipeline, args, mod);
+    shd_driver_fill_pipeline(pipeline, args, target_config, mod);
     CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
     shd_destroy_pipeline(pipeline);
     if (result != CompilationNoError) {

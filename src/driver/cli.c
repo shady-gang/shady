@@ -239,7 +239,6 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
 DriverConfig shd_default_driver_config(void) {
     return (DriverConfig) {
         .config = shd_default_compiler_config(),
-        .target = shd_default_target_config(),
         .target_type = TgtAuto,
         .input_filenames = shd_new_list(const char*),
         .output_filename = NULL,
@@ -253,8 +252,6 @@ DriverConfig shd_default_driver_config(void) {
 void shd_destroy_driver_config(DriverConfig* config) {
     shd_destroy_list(config->input_filenames);
 }
-
-void shd_driver_configure_target(DriverConfig* driver_config);
 
 void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     int argc = *pargc;
@@ -335,6 +332,8 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
                 args->target_type = TgtGLSL;
             else if (strcmp(argv[i], "ispc") == 0)
                 args->target_type = TgtISPC;
+            else if (strcmp(argv[i], "cuda") == 0)
+                args->target_type = TgtCUDA;
             else
                 goto invalid_target;
             argv[i] = NULL;
@@ -365,7 +364,4 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     }
 
     shd_pack_remaining_args(pargc, argv);
-
-    shd_driver_configure_target(args);
-    shd_parse_target_args(&args->target, pargc, argv);
 }

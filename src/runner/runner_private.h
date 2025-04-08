@@ -28,6 +28,7 @@ struct Device_ {
     Buffer* (*allocate_buffer)(Device*, size_t bytes);
     Buffer* (*import_host_memory_as_buffer)(Device*, void* base, size_t bytes);
     bool (*can_import_host_memory)(Device*);
+    TargetConfig (*get_device_target_config)(Device*);
 };
 
 struct Program_ {

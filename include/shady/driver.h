@@ -39,6 +39,7 @@ typedef enum {
     TgtC,
     TgtGLSL,
     TgtISPC,
+    TgtCUDA,
 } CodegenTarget;
 
 typedef enum {
@@ -60,7 +61,6 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
 
 typedef struct {
     CompilerConfig config;
-    TargetConfig target;
     CodegenTarget target_type;
     BackendType backend_type;
     struct {
@@ -84,8 +84,15 @@ void shd_destroy_driver_config(DriverConfig* config);
 
 void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv);
 
-ShadyErrorCodes shd_driver_load_source_files(DriverConfig* args, Module* mod);
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, Module* mod);
+/// Populates the 'target' field of DriverConfig with defaults that match the driver options (output file etc)
+void shd_driver_configure_target(TargetConfig*, DriverConfig* driver_config);
+void shd_driver_configure_defaults_for_target(TargetConfig*, CodegenTarget);
+
+/// Parses additional target configuration
+void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv);
+
+ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod);
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig*, Module* mod);
 
 typedef enum CompilationResult_ {
     CompilationNoError

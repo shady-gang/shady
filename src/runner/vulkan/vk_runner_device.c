@@ -1,4 +1,5 @@
 #include "vk_runner_private.h"
+#include "shady/driver.h"
 
 #include "log.h"
 #include "portability.h"
@@ -66,6 +67,13 @@ static void shutdown_vkr_device(VkrDevice* device) {
 
 static const char* get_vkr_device_name(VkrDevice* device) { return device->caps.properties.base.properties.deviceName; }
 
+TargetConfig shd_vkr_get_device_target_config(VkrDevice* device) {
+    TargetConfig target_config = shd_default_target_config();
+    shd_driver_configure_defaults_for_target(&target_config, TgtSPV);
+    target_config.subgroup_size = device->caps.subgroup_size.max;
+    return target_config;
+}
+
 static VkrDevice* create_vkr_device(VkrBackend* runtime, ShadyVkrPhysicalDeviceCaps caps, VkDevice vk_device) {
     VkrDevice* device = calloc(1, sizeof(VkrDevice));
     device->base = (Device) {
@@ -76,6 +84,7 @@ static VkrDevice* create_vkr_device(VkrBackend* runtime, ShadyVkrPhysicalDeviceC
         .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_vkr_import_buffer_host,
         .launch_kernel = (Command* (*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) shd_vkr_launch_kernel,
         .can_import_host_memory = (bool (*)(Device*)) shd_vkr_can_import_host_memory,
+        .get_device_target_config = (TargetConfig (*)(Device*)) shd_vkr_get_device_target_config,
     };
     device->runtime = runtime;
     device->caps = caps;

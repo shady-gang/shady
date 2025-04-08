@@ -13,20 +13,21 @@
 
 #include <stdlib.h>
 
-static CompilerConfig get_compiler_config_for_device(CudaDevice* device, const CompilerConfig* base_config) {
-    CompilerConfig config = *base_config;
-    config.target.subgroup_size = 32;
+static TargetConfig get_target_config_for_device(CudaDevice* device) {
+    TargetConfig target_config = shd_default_target_config();
+    target_config.subgroup_size = 32;
 
-    return config;
+    return target_config;
 }
 
 void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
 
 static bool emit_cuda_c_code(CudaKernel* spec) {
-    CompilerConfig config = get_compiler_config_for_device(spec->device, spec->key.base->base_config);
-    config.specialization.execution_model = EmCompute;
-    config.specialization.entry_point = spec->key.entry_point;
+    CompilerConfig config = *spec->key.base->base_config;
+    TargetConfig target_config = get_target_config_for_device(spec->device);
+    target_config.execution_model = EmCompute;
+    target_config.entry_point = spec->key.entry_point;
 
     spec->final_module = shd_import(&config, spec->key.base->module);
 
@@ -39,7 +40,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
-    shd_pipeline_add_shader_target_lowering(pipeline, config.target, config.specialization.execution_model, config.specialization.entry_point);
+    shd_pipeline_add_shader_target_lowering(pipeline, target_config);
     shd_pipeline_add_c_target_passes(pipeline, &emitter_config);
     CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->final_module);
     shd_destroy_pipeline(pipeline);
