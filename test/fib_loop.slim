@@ -6,8 +6,8 @@ fn fib varying u32(varying u32 n) {
     if (r) {
       break(accp1);
     } else {
-      val n1 = sub(acc, u32 1);
-      val n2 = sub(acc, u32 2);
+      val n1 = sub(i, u32 1);
+      val n2 = sub(i, u32 2);
       val acc2 = acc + bitcast[u32](fib(n1));
       continue(acc2, n2);
     }
