@@ -31,7 +31,13 @@ static_assert(__STDC_VERSION__ >= 201112L, "C11 support is required to build sha
     #define SHADY_FALLTHROUGH __attribute__((fallthrough));
 #endif
 
+inline static size_t _shd_round_up(size_t a, size_t b) {
+    size_t divided = (a + b - 1) / b;
+    return divided * b;
+}
+
 static inline void* shd_alloc_aligned(size_t size, size_t alignment) {
+    size = _shd_round_up(size, alignment);
 #ifdef _WIN32
     return _aligned_malloc(size, alignment);
 #else
