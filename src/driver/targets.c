@@ -16,6 +16,8 @@ static void add_logical_ptr_limitations(TargetConfig* target_config) {
 
 static void add_default_shading_language_limitations(TargetConfig* target_config) {
     add_logical_ptr_limitations(target_config);
+    target_config->capabilities.native_fncalls = false;
+    target_config->capabilities.native_tailcalls = false;
 }
 
 static CodegenTarget guess_target_through_name(const char* filename) {

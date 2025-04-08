@@ -50,6 +50,11 @@ TargetConfig shd_default_target_config(void) {
             .constants = ShdScopeTop,
             .gang = ShdScopeSubgroup,
             .bottom = ShdScopeInvocation,
+        },
+
+        .capabilities = {
+            .native_fncalls = true,
+            .native_tailcalls = true,
         }
     };
 
@@ -83,10 +88,12 @@ ArenaConfig shd_default_arena_config(const TargetConfig* target) {
 
     TargetConfig default_target = shd_default_target_config();
 
-    for (size_t i = 0; i < NumAddressSpaces; i++) {
-        // by default, all address spaces are physical !
-        config.target.memory.address_spaces[i].physical = true;
-        config.target.memory.address_spaces[i].allowed = true;
+    // arenas default to full capabilities
+    memcpy(&config.target.capabilities, &default_target.capabilities, sizeof(target->capabilities));
+    memcpy(&config.target.memory.address_spaces, &default_target.memory.address_spaces, sizeof(target->memory.address_spaces));
+
+    if (target->capabilities.native_fncalls) {
+        config.optimisations.weaken_non_leaking_allocas = true;
     }
 
     return config;

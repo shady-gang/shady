@@ -166,6 +166,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
 Module* shd_pass_lower_callf(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    aconfig.target.capabilities.native_fncalls = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
