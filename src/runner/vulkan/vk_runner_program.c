@@ -170,7 +170,9 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
 #include "shady/pass.h"
 
 void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
+
+TargetConfig shd_driver_specialize_target_config(TargetConfig, Module*, ExecutionModel, String);
 
 static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
@@ -179,9 +181,11 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     SPIRVTargetConfig spv_cfg = shd_default_spirv_target_config();
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spec->specialized_target, &spv_cfg);
 
+    spec->specialized_target = shd_driver_specialize_target_config(spec->specialized_target, spec->key.base->module, spec->key.em, spec->key.entry_point);
+
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
-    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target, spec->key.em, spec->key.entry_point);
+    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target);
     shd_pipeline_add_spirv_target_passes(pipeline, &spv_cfg);
     CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);

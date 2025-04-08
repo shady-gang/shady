@@ -85,22 +85,27 @@ static ExecutionModel get_execution_model_for_entry_point(String entry_point, co
 }
 
 void shd_pipeline_add_normalize_input_cf(ShdPipeline);
-void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig tgt, ExecutionModel em, String entry_point);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig);
 void shd_pipeline_add_feature_lowering(ShdPipeline, TargetConfig);
+
+TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mod, ExecutionModel execution_model, String entry_point) {
+    // specialize the target config a bit further based on the module
+    TargetConfig specialized_target_config = config;
+    specialized_target_config.entry_point = entry_point;
+    if (entry_point && execution_model == EmNone) {
+        execution_model = get_execution_model_for_entry_point(entry_point, mod);
+    }
+    if (execution_model != EmNone)
+        specialized_target_config.execution_model = execution_model;
+    return specialized_target_config;
+}
 
 void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, Module* mod) {
     shd_pipeline_add_normalize_input_cf(pipeline);
 
-    // specialize the target config a bit further based on the module
-    TargetConfig specialized_target_config = driver_config->target;
-    ExecutionModel execution_model = driver_config->specialization.execution_model;
-    if (driver_config->specialization.entry_point && execution_model == EmNone) {
-        execution_model = get_execution_model_for_entry_point(driver_config->specialization.entry_point, mod);
-    }
-    if (execution_model != EmNone)
-        specialized_target_config.execution_model = execution_model;
+    TargetConfig specialized_target_config = shd_driver_specialize_target_config(driver_config->target, mod, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
 
-    shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config, execution_model, driver_config->specialization.entry_point);
+    shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config);
 
     switch (driver_config->backend_type) {
         case BackendNone: /* do nothing */ break;

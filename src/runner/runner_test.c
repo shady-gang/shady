@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
     shd_parse_common_args(&argc, argv);
     shd_rn_cli_parse_config(&args.runtime_config, &argc, argv);
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
+    shd_parse_driver_args(&args.driver_config, &argc, argv);
     shd_driver_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     shd_info_print("Shady runner test starting...\n");

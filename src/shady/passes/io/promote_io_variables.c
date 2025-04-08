@@ -64,6 +64,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = node->payload.global_variable;
             payload = shd_rewrite_global_head_payload(r, payload);
+
             const Node* io = NULL;
             ShdScope scope;
             const Node* io_annotation = shd_lookup_annotation(node, "IO");

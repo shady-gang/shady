@@ -42,8 +42,8 @@ typedef struct {
     } capabilities;
 
     ExecutionModel execution_model;
+    String entry_point;
     uint32_t subgroup_size;
-
 } TargetConfig;
 
 TargetConfig shd_default_target_config(void);
