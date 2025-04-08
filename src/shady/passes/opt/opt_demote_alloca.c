@@ -173,7 +173,8 @@ static const Node* handle_alloc(Context* ctx, const Node* old) {
             const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
 
             const Node* nmem = shd_rewrite_node(r, omem);
-            new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
+            if (nmem)
+                new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
             k->new = new;
             return new;
         } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
