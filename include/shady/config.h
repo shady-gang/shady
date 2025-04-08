@@ -37,6 +37,7 @@ typedef struct {
     } scopes;
 
     struct {
+        bool alloca;
         bool native_fncalls;
         bool native_tailcalls;
     } capabilities;
