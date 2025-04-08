@@ -90,6 +90,22 @@ static const Node* process(Context* ctx, const Node* old) {
                     }
                 }
             }
+            const Use* use = shd_get_first_use(ctx->map, shd_first(get_abstraction_params(payload.inside)));
+            bool used_at_all = false;
+            for (;use; use = use->next_use) {
+                if (use->user == payload.inside) {
+                    continue;
+                }
+
+                used_at_all = true;
+            }
+            if (!used_at_all) {
+                *ctx->todo = true;
+                const Node* control_inside = payload.inside;
+                shd_register_processed(r, shd_get_abstraction_mem(control_inside), shd_rewrite_node(r, payload.mem));
+                shd_register_processed(r, control_inside, NULL);
+                return shd_rewrite_node(r, get_abstraction_body(control_inside));
+            }
             break;
         }
         case Join_TAG: {
