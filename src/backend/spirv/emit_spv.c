@@ -334,10 +334,19 @@ RewritePass shd_spvbe_pass_remove_bda_params;
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);
 
+typedef struct {
+    AddressSpace src_as;
+    AddressSpace dst_as;
+} Global2LocalsPassConfig;
+
 static CompilationResult run_spv_backend_transforms(const SPVBackendConfig* spv_config, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_call_init_fini, config)
     RUN_PASS(shd_pass_globals_to_params, config)
-    RUN_PASS(shd_pass_globals_to_locals, config)
+    Global2LocalsPassConfig globals2locals = {
+        .src_as = AsPrivate,
+        .dst_as = AsFunction,
+    };
+    RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
     RUN_PASS(shd_spv_lower_entrypoint_args, config)
     if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)

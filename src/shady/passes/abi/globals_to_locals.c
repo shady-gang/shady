@@ -11,12 +11,17 @@
 #include "portability.h"
 #include "shady/ir/mem.h"
 
+
+typedef struct {
+    AddressSpace src_as;
+    AddressSpace dst_as;
+} Global2LocalsPassConfig;
+
 typedef struct {
     Rewriter rewriter;
-    AddressSpace as;
-    AddressSpace new_as;
-    const Type* t;
+    Global2LocalsPassConfig pass_config;
 
+    const Type* t;
     const Node* param;
     Node2Node backing;
 } Context;
@@ -28,7 +33,7 @@ static void store_init_values(Context* ctx, BodyBuilder* bb) {
 
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* oglobal = oglobals.nodes[i];
-        if (oglobal->payload.global_variable.address_space != ctx->as)
+        if (oglobal->payload.global_variable.address_space != ctx->pass_config.src_as)
             continue;
         const Node* oinit = oglobal->payload.global_variable.init;
         if (!oinit)
@@ -51,7 +56,8 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_register_processed_list(&fn_ctx.rewriter, get_abstraction_params(node), payload.params);
             const Node* param = NULL;
             if (!shd_lookup_annotation(node, "EntryPoint")) {
-                param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ptr_type_helper(a, ctx->new_as, ctx->t, true)));
+                bool physical = shd_get_arena_config(a)->target.memory.address_spaces[ctx->pass_config.dst_as].physical;
+                param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ptr_type_helper(a, ctx->pass_config.dst_as, ctx->t, !physical)));
                 payload.params = shd_nodes_prepend(a, payload.params, param);
                 fn_ctx.param = param;
             }
@@ -62,7 +68,12 @@ static const Node* process(Context* ctx, const Node* node) {
                 if (!param) {
                     const Node* mem0 = shd_get_abstraction_mem(new);
                     BodyBuilder* bb = shd_bld_begin(a, mem0);
-                    const Node* alloc = shd_bld_add_instruction(bb, local_alloc_helper(a, mem0, ctx->t));
+                    bool physical = shd_get_arena_config(a)->target.memory.address_spaces[ctx->pass_config.dst_as].physical;
+                    const Node* alloc;
+                    if (physical)
+                        alloc = shd_bld_add_instruction(bb, stack_alloc_helper(a, mem0, ctx->t));
+                    else
+                        alloc = shd_bld_add_instruction(bb, local_alloc_helper(a, mem0, ctx->t));
                     fn_ctx.param = alloc;
                     store_init_values(&fn_ctx, bb);
                     shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_bld_mem(bb));
@@ -102,8 +113,8 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case PtrType_TAG: {
             PtrType payload = node->payload.ptr_type;
-            if (payload.address_space == ctx->as) {
-                payload.address_space = ctx->new_as;
+            if (payload.address_space == ctx->pass_config.src_as) {
+                payload.address_space = ctx->pass_config.dst_as;
                 payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
                 return ptr_type(a, payload);
             }
@@ -111,12 +122,12 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case FnType_TAG: {
             FnType payload = shd_recreate_node(r, node)->payload.fn_type;
-            payload.param_types = shd_nodes_prepend(a, payload.param_types, ptr_type_helper(a, ctx->new_as, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ctx->t), true));
+            payload.param_types = shd_nodes_prepend(a, payload.param_types, ptr_type_helper(a, ctx->pass_config.dst_as, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ctx->t), true));
             return fn_type(a, payload);
         }
         case GlobalVariable_TAG: {
             GlobalVariable payload = node->payload.global_variable;
-            if (payload.address_space == ctx->as) {
+            if (payload.address_space == ctx->pass_config.src_as) {
                 const Node* index = shd_node2node_find(ctx->backing, node);
                 assert(index);
                 return ptr_composite_element_helper(a, ctx->param, index);
@@ -130,19 +141,18 @@ static const Node* process(Context* ctx, const Node* node) {
 }
 
 static Rewriter* rewrite_globals_in_local_ctx(Context* ctx, const Node* n) {
-    if (n->tag == GlobalVariable_TAG && n->payload.global_variable.address_space == ctx->as)
+    if (n->tag == GlobalVariable_TAG && n->payload.global_variable.address_space == ctx->pass_config.src_as)
         return &ctx->rewriter;
     return shd_default_rewriter_selector(&ctx->rewriter, n);
 }
 
-Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, const Global2LocalsPassConfig* pass_config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .as = AsPrivate,
-        .new_as = AsFunction,
+        .pass_config = *pass_config,
         .backing = shd_new_node2node(),
     };
     ctx.rewriter.select_rewriter_fn = (SelectRewriterFn*) rewrite_globals_in_local_ctx;
@@ -152,7 +162,7 @@ Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, SH
     size_t count = 0;
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* oglobal = oglobals.nodes[i];
-        if (oglobal->payload.global_variable.address_space != ctx.as)
+        if (oglobal->payload.global_variable.address_space != ctx.pass_config.src_as)
             continue;
         members[count] = shd_rewrite_node(&ctx.rewriter, oglobal->payload.global_variable.type);
         const Node* index = shd_uint32_literal(a, count);

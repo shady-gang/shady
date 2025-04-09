@@ -213,6 +213,7 @@ const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
         .type = ptr_type(arena, (PtrType) {
             .pointed_type = fn_addr.fn->type,
             .address_space = AsCode /* the actual AS does not matter because these are opaque anyways */,
+            .is_reference = !shd_get_arena_config(arena)->target.memory.address_spaces[AsCode].physical,
         })
     });
 }

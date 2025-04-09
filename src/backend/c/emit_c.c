@@ -369,6 +369,11 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
 #include "shady/pipeline/pipeline.h"
 
+typedef struct {
+    AddressSpace src_as;
+    AddressSpace dst_as;
+} Global2LocalsPassConfig;
+
 /// Moves all Private allocations to Function
 RewritePass shd_pass_globals_to_locals;
 
@@ -384,7 +389,11 @@ static CompilationResult run_c_backend_transforms(const CBackendConfig* econfig,
         RUN_PASS(shd_pass_lower_inclusive_scan, config)
     }
     if (econfig->dialect == CDialect_CUDA) {
-        RUN_PASS(shd_pass_globals_to_locals, config)
+        Global2LocalsPassConfig globals2locals = {
+            .src_as = AsPrivate,
+            .dst_as = AsPrivate,
+        };
+        RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
     }
     if (econfig->dialect != CDialect_GLSL && econfig->dialect != CDialect_CUDA) {
         RUN_PASS(shd_pass_lower_vec_arr, config)

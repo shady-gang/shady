@@ -550,9 +550,9 @@ bool shd_compare_string(const char** a, const char** b);
 
 Module* shd_pass_lower_physical_memory(const CompilerConfig* config, const TargetConfig* target, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.memory.address_spaces[AsPrivate].physical = target->memory.address_spaces[AsPrivate].physical;
-    aconfig.target.memory.address_spaces[AsShared].physical = target->memory.address_spaces[AsShared].physical;
-    aconfig.target.memory.address_spaces[AsSubgroup].physical = target->memory.address_spaces[AsSubgroup].physical;
+    for (int i = 0; i < NumAddressSpaces; i++) {
+        aconfig.target.memory.address_spaces[i].physical = target->memory.address_spaces[i].physical;
+    }
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
