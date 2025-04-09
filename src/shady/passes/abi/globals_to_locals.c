@@ -159,18 +159,20 @@ Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, co
 
     Nodes oglobals = shd_module_collect_reachable_globals(src);
     LARRAY(const Type*, members, oglobals.count);
+    LARRAY(String, members_names, oglobals.count);
     size_t count = 0;
     for (size_t i = 0; i < oglobals.count; i++) {
         const Node* oglobal = oglobals.nodes[i];
         if (oglobal->payload.global_variable.address_space != ctx.pass_config.src_as)
             continue;
         members[count] = shd_rewrite_node(&ctx.rewriter, oglobal->payload.global_variable.type);
+        members_names[count] = shd_get_node_name_safe(oglobal);
         const Node* index = shd_uint32_literal(a, count);
         shd_node2node_insert(ctx.backing, oglobal, index);
         count++;
     }
 
-    ctx.t = record_type_helper(a, shd_nodes(a, count, members), shd_strings(a, 0, NULL), NotSpecial);
+    ctx.t = record_type_helper(a, shd_nodes(a, count, members), shd_strings(a, count, members_names), NotSpecial);
 
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_node2node(ctx.backing);
