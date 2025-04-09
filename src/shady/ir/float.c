@@ -57,3 +57,16 @@ double shd_get_float_literal_value(FloatLiteral literal) {
     }
     return r;
 }
+
+const Node* shd_float32_literal(IrArena* arena, double d) {
+    float f = d;
+    uint64_t u = 0;
+    memcpy(&u, &f, sizeof(f));
+    return float_literal_helper(arena, FloatTy32, u);
+}
+
+const Node* shd_float64_literal(IrArena* arena, double d) {
+    uint64_t u = 0;
+    memcpy(&u, &d, sizeof(d));
+    return float_literal_helper(arena, FloatTy64, u);
+}

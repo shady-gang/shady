@@ -380,7 +380,6 @@ static const Node* process_node(Context* ctx, const Node* old) {
             shd_bld_call(bb, fn, mk_nodes(a, pointer_as_offset, value));
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
-        case StackAlloc_TAG: shd_error("This needs to be lowered (see setup_stack_frames.c)")
         case PtrType_TAG: {
             if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
                 return int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });

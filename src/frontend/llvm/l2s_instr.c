@@ -343,8 +343,13 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMUIToFP:
         case LLVMSIToFP: {
             const Node* src = shd_first(convert_operands(p, num_ops, instr));
+            const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+            if (src_t->tag == Bool_TAG) {
+                const Node* zero = shd_float32_literal(a, 0.0f);
+                const Node* one  = shd_float32_literal(a, 1.0f);
+                return prim_op_helper(a, select_op, mk_nodes(a, src, one, zero));
+            }
             if (opcode == LLVMSIToFP) {
-                const Type* src_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
                 src = bit_cast_helper(a, change_int_t_sign(src_t, true), src);
             }
             const Type* conv_t = t;
