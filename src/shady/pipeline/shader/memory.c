@@ -26,9 +26,10 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
     RUN_PASS(shd_pass_promote_io_variables, config)
     RUN_PASS(shd_pass_lower_logical_pointers, config)
 
-    if (!target->capabilities.alloca)
+    if (!target->capabilities.native_stack) {
         RUN_PASS(shd_pass_lower_alloca, config)
-    RUN_PASS(shd_pass_lower_stack, config)
+        RUN_PASS(shd_pass_lower_stack, config)
+    }
     RUN_PASS(shd_pass_lower_memcpy, config)
     RUN_PASS(shd_pass_lower_lea, target)
     RUN_PASS(shd_pass_lower_generic_globals, config)

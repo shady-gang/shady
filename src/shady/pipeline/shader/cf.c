@@ -24,7 +24,8 @@ RewritePass shd_pass_lower_tailcalls;
 void shd_add_scheduler_source(const CompilerConfig* config, Module* dst);
 
 static CompilationResult remove_indirect_calls(const TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_setup_stack_frames, config)
+    if (!target_config->capabilities.native_stack)
+        RUN_PASS(shd_pass_setup_stack_frames, config)
     if (!config->hacks.force_join_point_lifting)
         RUN_PASS(shd_pass_mark_leaf_functions, config)
 

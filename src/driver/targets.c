@@ -77,6 +77,9 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
                 driver_config->backend_config.c.dialect = CDialect_CUDA;
             }
             target_config->subgroup_size = 32;
+            target_config->memory.fn_ptr_size = IntTy64;
+            target_config->memory.word_size = IntTy8;
+            target_config->capabilities.native_stack = true;
             break;
     }
 }
