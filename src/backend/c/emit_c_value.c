@@ -249,7 +249,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             }
             const Node* index = payload.idx;
             uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
-            String member_name = shd_c_get_record_field_name(t, index_literal);
+            String member_name = shd_c_get_record_field_name(emitter, t, index_literal);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", shd_c_emit_type(emitter, t, NULL), member_name));
         }
         case Value_ExtValue_TAG: return emit_ext_value(emitter, fn, p, value->payload.ext_value);
@@ -659,11 +659,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
                     }
                     case Type_RecordType_TAG: {
                         assert(static_index);
-                        Strings names = t->payload.record_type.names;
-                        if (names.count == 0)
-                            acc = shd_format_string_arena(emitter->arena->arena, "(%s._%d)", acc, static_index->value);
-                        else
-                            acc = shd_format_string_arena(emitter->arena->arena, "(%s.%s)", acc, names.strings[static_index->value]);
+                        acc = shd_format_string_arena(emitter->arena->arena, "(%s.%s)", acc, shd_c_get_record_field_name(emitter, t, static_index->value));
                         break;
                     }
                     case Type_PackType_TAG: {
@@ -1000,7 +996,7 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
 
             assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
             size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
-            String field_name = shd_c_get_record_field_name(pointee_type, static_index);
+            String field_name = shd_c_get_record_field_name(emitter, pointee_type, static_index);
             acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", shd_c_deref(emitter, acc), field_name));
             curr_ptr_type = ptr_type(arena, (PtrType) {
                     .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],

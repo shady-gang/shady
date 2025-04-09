@@ -12,14 +12,14 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-String shd_c_get_record_field_name(const Type* t, size_t i) {
+String shd_c_get_record_field_name(Emitter* emitter, const Type* t, size_t i) {
     assert(t->tag == RecordType_TAG);
     RecordType r = t->payload.record_type;
     assert(i < r.members.count);
     if (i >= r.names.count)
         return shd_fmt_string_irarena(t->arena, "_%d", i);
     else
-        return r.names.strings[i];
+        return shd_c_legalize_identifier(emitter, r.names.strings[i]);
 }
 
 void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
@@ -30,7 +30,7 @@ void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* typ
     shd_print(p, "\n%s {", name);
     shd_printer_indent(p);
     for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-        String member_identifier = shd_c_get_record_field_name(type, i);
+        String member_identifier = shd_c_get_record_field_name(emitter, type, i);
         shd_print(p, "\n%s;", shd_c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
     }
     shd_printer_deindent(p);
