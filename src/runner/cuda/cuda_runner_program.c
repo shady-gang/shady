@@ -13,19 +13,12 @@
 
 #include <stdlib.h>
 
-static TargetConfig get_target_config_for_device(CudaDevice* device) {
-    TargetConfig target_config = shd_default_target_config();
-    target_config.subgroup_size = 32;
-
-    return target_config;
-}
-
 void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
 
 static bool emit_cuda_c_code(CudaKernel* spec) {
     CompilerConfig config = *spec->key.base->base_config;
-    TargetConfig target_config = get_target_config_for_device(spec->device);
+    TargetConfig target_config = shd_cur_get_device_target_config(spec->device);
     target_config.execution_model = EmCompute;
     target_config.entry_point = spec->key.entry_point;
 

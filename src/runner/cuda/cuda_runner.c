@@ -70,7 +70,7 @@ static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
     return memcmp(a, b, sizeof(SpecProgramKey)) == 0;
 }
 
-static TargetConfig cuda_get_device_target_config(CudaDevice* device) {
+TargetConfig shd_cur_get_device_target_config(CudaDevice* device) {
     TargetConfig target_config = shd_default_target_config();
     shd_driver_configure_defaults_for_target(&target_config, TgtCUDA);
     return target_config;
@@ -89,7 +89,7 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
             .can_import_host_memory = (bool (*)(Device*)) shd_cur_can_import_host_memory,
             .import_host_memory_as_buffer = (Buffer* (*)(Device*, void*, size_t)) shd_cur_import_host_memory,
             .launch_kernel = (Command* (*)(Device*, Program*, String, int, int, int, int, void**, ExtraKernelOptions*)) launch_kernel,
-            .get_device_target_config = (TargetConfig (*)(Device*)) cuda_get_device_target_config,
+            .get_device_target_config = (TargetConfig (*)(Device*)) shd_cur_get_device_target_config,
         },
         .handle = handle,
         .specialized_programs = shd_new_dict(SpecProgramKey, CudaKernel*, (HashFn) hash_spec_program_key, (CmpFn) cmp_spec_program_keys),

@@ -69,4 +69,6 @@ bool shd_cur_can_import_host_memory(CudaDevice*);
 CudaKernel* shd_cur_get_specialized_program(CudaDevice*, Program*, String ep);
 bool shd_cur_destroy_specialized_kernel(CudaKernel* kernel);
 
+TargetConfig shd_cur_get_device_target_config(CudaDevice* device);
+
 #endif
