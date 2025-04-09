@@ -241,8 +241,8 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             return;
         }
         case Bool_TAG: {
-            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
-            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
+            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
+            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
             const Node* int_value = prim_op_helper(a, select_op, mk_nodes(a, value, one_b, zero_b));
             gen_store_for_type(ctx, bb, word_t, as, address, int_value);
             return;
