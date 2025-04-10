@@ -188,6 +188,8 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             argv[i] = NULL;
             i++;
             config->shader_diagnostics.max_top_iterations = atoi(argv[i]);
+        } else if (strcmp(argv[i], "--inline-everything") == 0) {
+            config->optimisations.inline_everything = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
             continue;
