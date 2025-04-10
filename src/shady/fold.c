@@ -466,22 +466,28 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             }
             // Canonize typical LLVM output
             if (payload.type->tag == PtrType_TAG && shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
-                const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(payload.src->type));
-                if (src_type->tag == NominalType_TAG)
-                    src_type = src_type->payload.nom_type.body;
+                const Node* ptr = payload.src;
                 const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
-                if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
-                    if (src_type->payload.record_type.members.nodes[0] == dst_type) {
-                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                while (true) {
+                    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
+                    if (src_type->tag == NominalType_TAG)
+                        src_type = src_type->payload.nom_type.body;
+
+                    if (src_type == dst_type) {
+                        return ptr;
                     }
-                } else if (src_type->tag == PackType_TAG) {
-                    if (src_type->payload.pack_type.element_type == dst_type) {
-                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+
+                    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
+                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
+                        continue;
+                    } else if (src_type->tag == PackType_TAG) {
+                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
+                        continue;
+                    } else if (src_type->tag == ArrType_TAG) {
+                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
+                        continue;
                     }
-                } else if (src_type->tag == ArrType_TAG) {
-                    if (src_type->payload.arr_type.element_type == dst_type) {
-                        return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
-                    }
+                    break;
                 }
             }
             const FloatLiteral* float_lit = shd_resolve_to_float_literal(payload.src);
