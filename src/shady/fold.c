@@ -244,9 +244,10 @@ static inline const Node* simplify_ptr_source(const Node* ptr, bool ensure_compa
 
 static void maybe_convert_to_generic(const Node* old, const Node** new) {
     IrArena* arena = old->arena;
+    const Type* new_t = shd_get_unqualified_type((*new)->type);
     const Type* old_t = shd_get_unqualified_type(old->type);
-    assert(old_t->tag == PtrType_TAG);
-    if (old_t->payload.ptr_type.address_space == AsGeneric)
+    assert(new_t->tag == PtrType_TAG && old_t->tag == PtrType_TAG);
+    if (new_t->payload.ptr_type.address_space != AsGeneric && old_t->payload.ptr_type.address_space == AsGeneric)
         *new = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type((*new)->type)), *new);
 }
 
@@ -258,6 +259,29 @@ static const Node* to_ptr_size(const Node* n) {
 static inline const Node* resolve_ptr_source(const Node* ptr, bool ensure_compatible_pointee) {
     const Node* simplified = simplify_ptr_source(ptr, ensure_compatible_pointee);
     return simplified ? simplified : ptr;
+}
+
+static uint64_t get_ptr_array_stride(const Type* ptr_type) {
+    IrArena* arena = ptr_type->arena;
+    const Type* new_pointee = shd_get_pointer_type_element(ptr_type);
+    TypeMemLayout pointee_layout = shd_get_mem_layout(arena, new_pointee);
+    return pointee_layout.size_in_bytes;
+}
+
+static const Node* try_enter_composite(const Node* composite_ptr) {
+    IrArena* arena = composite_ptr->arena;
+    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(composite_ptr->type));
+    if (src_type->tag == NominalType_TAG)
+        src_type = src_type->payload.nom_type.body;
+
+    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
+        return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
+    } else if (src_type->tag == PackType_TAG) {
+        return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
+    } else if (src_type->tag == ArrType_TAG) {
+        return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
+    }
+    return NULL;
 }
 
 static inline const Node* fold_simplify_ptr_operand(const Node* node) {
@@ -468,26 +492,12 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             if (payload.type->tag == PtrType_TAG && shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
                 const Node* ptr = payload.src;
                 const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
-                while (true) {
+                while (ptr) {
                     const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
-                    if (src_type->tag == NominalType_TAG)
-                        src_type = src_type->payload.nom_type.body;
-
                     if (src_type == dst_type) {
                         return ptr;
                     }
-
-                    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
-                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
-                        continue;
-                    } else if (src_type->tag == PackType_TAG) {
-                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
-                        continue;
-                    } else if (src_type->tag == ArrType_TAG) {
-                        ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, 0));
-                        continue;
-                    }
-                    break;
+                    ptr = try_enter_composite(ptr);
                 }
             }
             const FloatLiteral* float_lit = shd_resolve_to_float_literal(payload.src);
