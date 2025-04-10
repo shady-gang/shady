@@ -85,6 +85,8 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             k->non_logical_use = true;
         } else if (use->user->tag == PtrCompositeElement_TAG) {
             visit_ptr_uses(use->user, slice_type, k, map);
+        } else if (use->user->tag == ScopeCast_TAG) {
+            visit_ptr_uses(use->user, slice_type, k, map);
         } else {
             k->leaks = true;
         }
@@ -114,6 +116,11 @@ static PtrSourceKnowledge get_ptr_source_knowledge(Context* ctx, const Node* ptr
             }
             case Conversion_TAG: {
                 Conversion payload = ptr->payload.conversion;
+                ptr = payload.src;
+                continue;
+            }
+            case ScopeCast_TAG: {
+                ScopeCast payload = ptr->payload.scope_cast;
                 ptr = payload.src;
                 continue;
             }

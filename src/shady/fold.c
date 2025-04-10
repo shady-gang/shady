@@ -302,6 +302,18 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             }
             break;
         }
+        case ScopeCast_TAG: {
+            ScopeCast payload = node->payload.scope_cast;
+            if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
+                break;
+            const Node* nptr = simplify_ptr_source(payload.src, false);
+            if (!nptr) break;
+            payload.src = nptr;
+            r = scope_cast(arena, payload);
+            r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
+            maybe_convert_to_generic(node, &r);
+            break;
+        }
         case Load_TAG: {
             Load payload = node->payload.load;
             const Node* nptr = simplify_ptr_source(payload.ptr, true);

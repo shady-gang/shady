@@ -79,6 +79,10 @@ static bool is_supported_natively(Context* ctx, SubgroupOp op, const Type* eleme
         return true;
     }
 
+    // these wind up as no-ops
+    if (element_type->tag == PtrType_TAG && element_type->payload.ptr_type.is_reference)
+        return true;
+
     return false;
 }
 
@@ -116,6 +120,8 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
             break;
         }
         case Type_PtrType_TAG: {
+            if (t->payload.ptr_type.is_reference)
+                break;
             param = shd_bld_bitcast(bb, shd_uint64_type(a), param);
             return shd_bld_bitcast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));
         }
