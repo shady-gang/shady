@@ -368,6 +368,72 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             const IntLiteral* known_offset = shd_resolve_to_int_literal(payload.offset);
             uint64_t old_stride = get_ptr_array_stride(shd_get_unqualified_type(payload.ptr->type));
             const Node* raw_ptr = simplify_ptr_source(payload.ptr, false);
+            // Try to turn arbitrary offset into ptr_composite_element
+            if (known_offset && arena->config.optimisations.assume_fixed_memory_layout) {
+                uint64_t offset_in_bytes = old_stride * (shd_get_int_literal_value(*known_offset, false));
+
+                const Node* ptr = raw_ptr ? raw_ptr : payload.ptr;
+
+                int64_t rem_offset = offset_in_bytes;
+                bool simplified = false;
+
+                while (ptr) {
+                    const Node* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
+                    element_t = shd_get_maybe_nominal_type_body(element_t);
+                    TypeMemLayout element_layout = shd_get_mem_layout(arena, element_t);
+                    // give up if we overshot the entire element
+                    // printf("Known offset: %d / %d\n", rem_offset, element_layout.size_in_bytes);
+                    if (offset_in_bytes >= element_layout.size_in_bytes)
+                        break;
+
+                    switch (element_t->tag) {
+                        case RecordType_TAG: {
+                            RecordType record_payload = element_t->payload.record_type;
+                            LARRAY(FieldLayout, fields, record_payload.members.count);
+                            shd_get_record_layout(arena, element_t, fields);
+                            size_t i;
+                            for (i = 0; i < record_payload.members.count; i++) {
+                                if (fields[i].offset_in_bytes == rem_offset) {
+                                    simplified = true;
+                                    break;
+                                }
+                                if (fields[i].offset_in_bytes > rem_offset) {
+                                    break;
+                                }
+                            }
+
+                            if (fields[i].offset_in_bytes > rem_offset) {
+                                assert(i > 0);
+                                i = i - 1;
+                            }
+
+                            ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, i));
+                            rem_offset = rem_offset - fields[i].offset_in_bytes;
+                            assert(rem_offset >= 0);
+                            continue;
+                        }
+                        case ArrType_TAG: {
+                            ArrType arr_payload = element_t->payload.arr_type;
+                            TypeMemLayout arr_element_layout = shd_get_mem_layout(arena, arr_payload.element_type);
+
+                            uint64_t i = offset_in_bytes / arr_element_layout.size_in_bytes;
+                            ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, i));
+                            rem_offset = rem_offset - i * arr_element_layout.size_in_bytes;
+                            continue;
+                        }
+                        default: break;
+                    }
+                    break;
+                }
+
+                if (simplified && rem_offset == 0) {
+                    assert(ptr);
+                    r = ptr;
+                    r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
+                    maybe_convert_to_generic(node, &r);
+                    break;
+                }
+            }
             // Try to move the bitcast to the outer level
             if (raw_ptr && arena->config.optimisations.assume_fixed_memory_layout) {
                 uint64_t new_stride = get_ptr_array_stride(shd_get_unqualified_type(raw_ptr->type));
