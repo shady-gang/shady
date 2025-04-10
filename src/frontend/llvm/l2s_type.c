@@ -128,12 +128,14 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMMetadataTypeKind:
             assert(false && "why are we typing metadata");
             break;
-        case LLVMX86_MMXTypeKind:
-            break;
         case LLVMTokenTypeKind:
             break;
         case LLVMScalableVectorTypeKind:
         case LLVMBFloatTypeKind:
+#if LLVM_VERSION_MAJOR < 20
+        case LLVMX86_MMXTypeKind:
+            break;
+#endif
         case LLVMX86_AMXTypeKind:
             break;
         case LLVMPPC_FP128TypeKind:
