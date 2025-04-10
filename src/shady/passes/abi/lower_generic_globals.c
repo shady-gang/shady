@@ -15,10 +15,15 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
+                if (shd_lookup_annotation(node, "Exported") || shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
+                    break;
                 const Type* t = shd_rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
                 GlobalVariable payload = node->payload.global_variable;
+                // we need to re-promote this in case it was demoted, because we will cast the global to a generic pointer still
+                // if this can be optimized away later we win
+                payload.is_ref = false;
                 payload = shd_rewrite_global_head_payload(r, payload);
-                payload.address_space = AsGlobal;
+                payload.address_space = AsPrivate;
                 Node* new_global = shd_global_var(r->dst_module, payload);
                 const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
                 const Node* converted = conversion_helper(a, dst_t, new_global);

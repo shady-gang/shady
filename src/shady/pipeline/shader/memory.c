@@ -15,7 +15,6 @@ RewritePass shd_pass_lower_memory_layout;
 RewritePass shd_pass_lower_memcpy;
 /// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran shd_first!
 RewritePass shd_pass_lower_decay_ptrs;
-RewritePass shd_pass_lower_generic_globals;
 RewritePass shd_pass_lower_logical_pointers;
 RewritePass shd_pass_promote_io_variables;
 
@@ -32,7 +31,6 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
     }
     RUN_PASS(shd_pass_lower_memcpy, config)
     RUN_PASS(shd_pass_lower_lea, target)
-    RUN_PASS(shd_pass_lower_generic_globals, config)
     if (!target->memory.address_spaces[AsGeneric].allowed) {
         RUN_PASS(shd_pass_lower_generic_ptrs, config)
     }

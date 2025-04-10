@@ -304,6 +304,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
+RewritePass shd_pass_lower_generic_globals;
 RewritePass l2s_promote_byval_params;
 
 bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
@@ -363,6 +364,7 @@ bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_con
     shd_verify_module(config, *pmod);
     shd_destroy_ir_arena(arena);
 
+    RUN_PASS(shd_pass_lower_generic_globals, config)
     RUN_PASS(l2s_promote_byval_params, config);
 
     shd_destroy_dict(p.map);
