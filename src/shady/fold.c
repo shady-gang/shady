@@ -365,6 +365,54 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             PtrArrayElementOffset payload = node->payload.ptr_array_element_offset;
             if (is_zero(payload.offset))
                 return payload.ptr;
+            const IntLiteral* known_offset = shd_resolve_to_int_literal(payload.offset);
+            uint64_t old_stride = get_ptr_array_stride(shd_get_unqualified_type(payload.ptr->type));
+            const Node* raw_ptr = simplify_ptr_source(payload.ptr, false);
+            // Try to move the bitcast to the outer level
+            if (raw_ptr && arena->config.optimisations.assume_fixed_memory_layout) {
+                uint64_t new_stride = get_ptr_array_stride(shd_get_unqualified_type(raw_ptr->type));
+
+                if (new_stride > 0) {
+                    PtrArrayElementOffset npayload = payload;
+                    npayload.ptr = raw_ptr;
+                    bool safe = false;
+
+                    Int offset_int_t = shd_get_unqualified_type(payload.offset->type)->payload.int_type;
+                    if (old_stride > new_stride && (old_stride % new_stride) == 0) {
+                        // if the old pointer stride is a multiple of the new, we can just multiply the offset to compensate
+                        // u32* x[1] => u8* x[4]
+                        uint64_t factor = old_stride / new_stride;
+                        const Node* factor_lit = int_literal_helper(arena, offset_int_t.width, offset_int_t.is_signed, factor);
+                        npayload.offset = prim_op_helper(arena, mul_op, mk_nodes(arena, npayload.offset, factor_lit));
+                        safe = true;
+                    } else if (new_stride > old_stride && (new_stride % old_stride) == 0) {
+                        // if the new pointer size is a multiple of the old, we might be able to divide the offset to compensate
+                        // u8* x[4] => u32* x[1]
+                        if (known_offset) {
+                            uint64_t offset = shd_get_int_literal_value(*known_offset, false);
+                            while (npayload.ptr) {
+                                uint64_t factor = new_stride / old_stride;
+                                if (offset % factor == 0) {
+                                    npayload.offset = int_literal_helper(arena, offset_int_t.width, offset_int_t.is_signed, offset / factor);
+                                    safe = true;
+                                }
+                                // if we can't, maybe try on one of the base fields
+                                npayload.ptr = try_enter_composite(npayload.ptr);
+                                new_stride = get_ptr_array_stride(shd_get_unqualified_type(raw_ptr->type));
+                            }
+                        }
+                    } else if (old_stride == new_stride) {
+                        safe = true;
+                    }
+
+                    if (safe) {
+                        r = ptr_array_element_offset(arena, npayload);
+                        r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
+                        maybe_convert_to_generic(node, &r);
+                        break;
+                    }
+                }
+            }
             const Node* nptr = simplify_ptr_source(payload.ptr, true);
             if (!nptr) break;
             payload.ptr = nptr;
