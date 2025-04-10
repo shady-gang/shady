@@ -55,6 +55,23 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
     return fields[i].offset_in_bytes;
 }
 
+size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
+    switch (t->tag) {
+        case RecordType_TAG: return shd_get_record_field_offset_in_bytes(a, t, i);
+        case ArrType_TAG: {
+            TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.arr_type.element_type);
+            assert(element_layout.size_in_bytes > 0);
+            return element_layout.size_in_bytes * i;
+        }
+        case PackType_TAG: {
+            TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.pack_type.element_type);
+            assert(element_layout.size_in_bytes > 0);
+            return element_layout.size_in_bytes * i;
+        }
+        default: shd_error_die();
+    }
+}
+
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
     size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
     assert(is_type(type));

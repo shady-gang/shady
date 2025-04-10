@@ -368,6 +368,14 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 1, "one operands");
                 return conversion_helper(arena, type, shd_first(ops));
+            } else if (strcmp(id, "ptr_array_offset") == 0) {
+                Nodes ops = expect_operands(ctx, bb);
+                expect(ops.count == 2, "one operands");
+                return ptr_array_element_offset_helper(arena, shd_first(ops), ops.nodes[1]);
+            } else if (strcmp(id, "ptr_composite_offset") == 0) {
+                Nodes ops = expect_operands(ctx, bb);
+                expect(ops.count == 2, "one operands");
+                return ptr_composite_element_helper(arena, shd_first(ops), ops.nodes[1]);
             } else if (strcmp(id, "debug_printf") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
                 return shd_bld_add_instruction(bb, debug_printf(arena, (DebugPrintf) {

@@ -193,6 +193,11 @@ static inline const Node* simplify_ptr_source0(const Node* ptr, bool ensure_comp
                 }
                 break;
             }
+            case ScopeCast_TAG: {
+                ScopeCast payload = ptr->payload.scope_cast;
+                ptr = payload.src;
+                continue;
+            }
             default: break;
         }
         break;
@@ -242,11 +247,17 @@ static inline const Node* simplify_ptr_source(const Node* ptr, bool ensure_compa
     return NULL;
 }
 
-static void maybe_convert_to_generic(const Node* old, const Node** new) {
+static void reapply_pointer_casts(const Node* old, const Node** new) {
     IrArena* arena = old->arena;
     const Type* new_t = shd_get_unqualified_type((*new)->type);
     const Type* old_t = shd_get_unqualified_type(old->type);
     assert(new_t->tag == PtrType_TAG && old_t->tag == PtrType_TAG);
+
+    if (shd_get_qualified_type_scope((*new)->type) != shd_get_qualified_type_scope(old->type))
+        *new = scope_cast_helper(arena, shd_get_qualified_type_scope(old->type), *new);
+    if (shd_get_pointer_type_element(shd_get_unqualified_type((*new)->type)) != shd_get_pointer_type_element(shd_get_unqualified_type(old->type)))
+        *new = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type((*new)->type), shd_get_pointer_type_element(shd_get_unqualified_type(old->type))), *new);
+    new_t = shd_get_unqualified_type((*new)->type);
     if (new_t->payload.ptr_type.address_space != AsGeneric && old_t->payload.ptr_type.address_space == AsGeneric)
         *new = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type((*new)->type)), *new);
 }
@@ -298,20 +309,8 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             const Node* nptr = src;
             if (nptr) {
                 r = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type(nptr->type)), nptr);
-                //r = prim_op_helper(arena, reinterpret_op, shd_singleton(shd_get_unqualified_type(node->type)),shd_singleton(r));
+                reapply_pointer_casts(node, &r);
             }
-            break;
-        }
-        case ScopeCast_TAG: {
-            ScopeCast payload = node->payload.scope_cast;
-            if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
-                break;
-            const Node* nptr = simplify_ptr_source(payload.src, false);
-            if (!nptr) break;
-            payload.src = nptr;
-            r = scope_cast(arena, payload);
-            r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
-            maybe_convert_to_generic(node, &r);
             break;
         }
         case Load_TAG: {
@@ -336,28 +335,74 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             CopyBytes payload = node->payload.copy_bytes;
             NodeResolveConfig config = shd_default_node_resolve_config();
             const Node* copied_value = shd_resolve_ptr_to_value(payload.src, config);
-            const IntLiteral* count = shd_resolve_to_int_literal(payload.count);
-            if (copied_value && count) {
+            const IntLiteral* known_count = shd_resolve_to_int_literal(payload.count);
+            if (copied_value && known_count) {
+                uint64_t count = shd_get_int_literal_value(*known_count, false);
                 TypeMemLayout layout = shd_get_mem_layout(arena, copied_value->type);
-                if (layout.size_in_bytes == shd_get_int_literal_value(*count, false)) {
+                if (layout.size_in_bytes == count) {
                     const Node* dst_ptr = payload.dst;
                     dst_ptr = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(dst_ptr->type), shd_get_unqualified_type(copied_value->type)), dst_ptr);
                     r = store_helper(arena, payload.mem, dst_ptr, copied_value);
                     break;
                 }
             }
-            const Node* src = resolve_ptr_source(payload.src, false);
-            const Node* dst = resolve_ptr_source(payload.dst, false);
+            const Node* nsrc = simplify_ptr_source(payload.src, false);
+            const Node* ndst = simplify_ptr_source(payload.dst, false);
 
-            if (count && shd_get_pointer_type_element(shd_get_unqualified_type(src->type)) == shd_get_pointer_type_element(shd_get_unqualified_type(dst->type))) {
-                const Type* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(src->type));
-                TypeMemLayout layout = shd_get_mem_layout(arena, element_t);
-                if (layout.size_in_bytes == shd_get_int_literal_value(*count, false)) {
-                    const Node* loaded = load_helper(arena, payload.mem, src);
-                    const Node* stored = store_helper(arena, loaded, dst, loaded);
+            const Node* src = nsrc ? nsrc : payload.src;
+            const Node* dst = ndst ? ndst : payload.dst;
+
+            if (known_count) {
+                uint64_t count = shd_get_int_literal_value(*known_count, false);
+                // shd_get_pointer_type_element(shd_get_unqualified_type(src->type)) == shd_get_pointer_type_element(shd_get_unqualified_type(dst->type))
+
+                const Node* valid_src = NULL;
+                const Type* src_type = NULL;
+                while (src) {
+                    const Type* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(src->type));
+                    TypeMemLayout layout = shd_get_mem_layout(arena, element_t);
+                    if (layout.size_in_bytes == count) {
+                        valid_src = src;
+                        src_type = element_t;
+                    }
+                    if (layout.size_in_bytes < count)
+                        break;
+                    src = try_enter_composite(src);
+                }
+
+                const Node* valid_dst = NULL;
+                const Type* dst_type = NULL;
+                while (dst) {
+                    const Type* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(dst->type));
+                    TypeMemLayout layout = shd_get_mem_layout(arena, element_t);
+                    if (layout.size_in_bytes == count) {
+                        valid_dst = dst;
+                        dst_type = element_t;
+                    }
+                    if (layout.size_in_bytes < count)
+                        break;
+                    dst = try_enter_composite(dst);
+                }
+
+                if (valid_src && valid_dst && src_type == dst_type) {
+                    const Node* loaded = load_helper(arena, payload.mem, valid_src);
+                    const Node* stored = store_helper(arena, loaded, valid_dst, loaded);
                     r = stored;
                     break;
                 }
+
+                if (valid_dst) {
+                    const Node* loaded = load_helper(arena, payload.mem, bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(src->type), dst_type), src));
+                    const Node* stored = store_helper(arena, loaded, valid_dst, loaded);
+                    r = stored;
+                    break;
+                }
+            }
+
+            if (nsrc || ndst) {
+                payload.src = src;
+                payload.dst = dst;
+                return copy_bytes(arena, payload);
             }
 
             // const Type* element_type = shd_get_pointer_type_element(shd_get_unqualified_type(payload.dst->type));
@@ -370,7 +415,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             if (!nptr) break;
             payload.ptr = nptr;
             r = ptr_composite_element(arena, payload);
-            maybe_convert_to_generic(node, &r);
+            reapply_pointer_casts(node, &r);
             break;
         }
         case PtrArrayElementOffset_TAG: {
@@ -385,6 +430,18 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
                 uint64_t offset_in_bytes = old_stride * (shd_get_int_literal_value(*known_offset, false));
 
                 const Node* ptr = raw_ptr ? raw_ptr : payload.ptr;
+                while (true) {
+                    if (ptr->tag == PtrCompositeElement_TAG) {
+                        PtrCompositeElement parent = ptr->payload.ptr_composite_element;
+                        const IntLiteral* parent_index = shd_resolve_to_int_literal(parent.index);
+                        if (parent_index) {
+                            offset_in_bytes += shd_get_composite_index_offset_in_bytes(arena, shd_get_pointer_type_element(shd_get_unqualified_type(parent.ptr->type)), shd_get_int_literal_value(*parent_index, false));
+                            ptr = parent.ptr;
+                            continue;
+                        }
+                    }
+                    break;
+                }
 
                 int64_t rem_offset = offset_in_bytes;
                 bool simplified = false;
@@ -431,6 +488,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
                             uint64_t i = offset_in_bytes / arr_element_layout.size_in_bytes;
                             ptr = ptr_composite_element_helper(arena, ptr, shd_uint32_literal(arena, i));
                             rem_offset = rem_offset - i * arr_element_layout.size_in_bytes;
+                            simplified = true;
                             continue;
                         }
                         default: break;
@@ -441,8 +499,7 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
                 if (simplified && rem_offset == 0) {
                     assert(ptr);
                     r = ptr;
-                    r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
-                    maybe_convert_to_generic(node, &r);
+                    reapply_pointer_casts(node, &r);
                     break;
                 }
             }
@@ -485,25 +542,25 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
 
                     if (safe) {
                         r = ptr_array_element_offset(arena, npayload);
-                        r = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type(r->type), shd_get_pointer_type_element(shd_get_unqualified_type(node->type))), r);
-                        maybe_convert_to_generic(node, &r);
+                        reapply_pointer_casts(node, &r);
                         break;
                     }
                 }
             }
-            const Node* nptr = simplify_ptr_source(payload.ptr, true);
-            if (!nptr) break;
-            payload.ptr = nptr;
-            if (nptr->tag == PtrArrayElementOffset_TAG) {
-                PtrArrayElementOffset other_offset = nptr->payload.ptr_array_element_offset;
+            // ptr_array_offset(ptr_array_offset(x, y), z) => ptr_array_offset(x, y + z)
+            if (payload.ptr->tag == PtrArrayElementOffset_TAG) {
+                PtrArrayElementOffset other_offset = payload.ptr->payload.ptr_array_element_offset;
                 payload.ptr = other_offset.ptr;
                 other_offset.offset = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.offset), to_ptr_size(payload.offset)));
                 r = ptr_array_element_offset(arena, other_offset);
-                maybe_convert_to_generic(node, &r);
+                reapply_pointer_casts(node, &r);
                 break;
             }
+            const Node* nptr = simplify_ptr_source(payload.ptr, true);
+            if (!nptr) break;
+            payload.ptr = nptr;
             r = ptr_array_element_offset(arena, payload);
-            maybe_convert_to_generic(node, &r);
+            reapply_pointer_casts(node, &r);
             break;
         }
         case IndirectCall_TAG: {

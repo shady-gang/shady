@@ -20,6 +20,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type);
 
 TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields);
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i);
+size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 
 static inline const Node* size_t_type(IrArena* a) {
     return int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false });
