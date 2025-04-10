@@ -3,6 +3,7 @@
 #include "shady/print.h"
 #include "shady/analysis/uses.h"
 #include "shady/visit.h"
+#include "shady/dict.h"
 
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
@@ -13,6 +14,7 @@
 #include "util.h"
 #include "growy.h"
 #include "printer.h"
+#include "shady/ir/memory_layout.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -103,6 +105,7 @@ NodePrintConfig* shd_default_node_print_config(void) {
             shd_configure_bool_flag_in_list(shady_log_flags, "internal", &default_config.print_internal);
             shd_configure_bool_flag_in_list(shady_log_flags, "color", &default_config.color);
             shd_configure_bool_flag_in_list(shady_log_flags, "scheduled", &default_config.scheduled);
+            shd_configure_bool_flag_in_list(shady_log_flags, "frame", &default_config.frame_report);
         }
     }
     return default_config_ptr;
@@ -301,6 +304,51 @@ static void print_terminator_op(PrinterCtx* ctx, const Node* term) {
     }
 }
 
+typedef struct {
+    Visitor v;
+    Printer* p;
+
+    size_t bytes;
+    NodeSet seen;
+} FunctionFrameVisitor;
+
+static void function_frame_visitor(FunctionFrameVisitor* visitor, const Node* n) {
+    if (shd_node_set_find(visitor->seen, n))
+        return;
+    shd_node_set_insert(visitor->seen, n);
+
+    if (n->tag == StackAlloc_TAG) {
+        StackAlloc payload = n->payload.stack_alloc;
+        TypeMemLayout layout = shd_get_mem_layout(n->arena, payload.type);
+        //char* s;
+        //size_t dc;
+        //shd_print_node_into_str(payload.type, &s, &dc);
+        char* s = shd_get_type_name(n->arena, payload.type);
+        shd_print(visitor->p, "StackAlloc %s %d bytes %s\n", shd_get_node_name_safe(n), layout.size_in_bytes, s);
+        visitor->bytes += layout.size_in_bytes;
+        //free(s);
+    }
+
+    shd_visit_node_operands((Visitor*) visitor, ~NcMem, n);
+}
+
+static void print_function_frame_report(Printer* p, const Node* function) {
+    shd_print(p, "\n");
+    FunctionFrameVisitor v = {
+        .v = {
+            .visit_node_fn = (VisitNodeFn) function_frame_visitor,
+        },
+        .seen = shd_new_node_set(),
+        .p = p,
+        .bytes = 0
+    };
+
+    shd_visit_function_bodies_rpo(&v.v, function);
+    shd_print(p, "Total: %d\n", v.bytes);
+
+    shd_destroy_node_set(v.seen);
+}
+
 static void print_function_body(PrinterCtx* ctx, const Node* node) {
     PrinterCtx sub_ctx = *ctx;
     sub_ctx.fn = node;
@@ -318,6 +366,10 @@ static void print_function_body(PrinterCtx* ctx, const Node* node) {
     ctx = &sub_ctx;
 
     _shd_print_node_generated(ctx, node);
+
+    if (ctx->config.frame_report) {
+        print_function_frame_report(ctx->printer, node);
+    }
 
     if (sub_ctx.cfg) {
         if (sub_ctx.uses)

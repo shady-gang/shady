@@ -17,6 +17,7 @@ typedef struct NodePrintConfig_ {
     bool only_immediate;
     bool scheduled;
     bool function_bodies;
+    bool frame_report;
 } NodePrintConfig;
 
 NodePrintConfig* shd_default_node_print_config(void);

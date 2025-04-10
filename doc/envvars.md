@@ -13,6 +13,7 @@
    * `scheduled=<1|0>`: Whether to schedule the nodes when printing. Disabling scheduling can help diagnosing a broken IR.
    * `internal=<1|0>`: Print 'internal' nodes
    * `generated=<1|0>`: Print 'generated' nodes
+   * `frame=<1|0>`: Prints a report of the allocations in the frame for functions
  * `SHADY_SUPER_VERBOSE_NODE_DEBUG`: Prints the ID of every node everywhere
  * `SHADY_DUMP_CLEAN_ROUNDS`: Prints the module for each optimization loop iteration
  * `SHADY_LOG_PASS=<1|pass_name1,pass_name2,...>`: Logs the module after each pass or the pass names provided
