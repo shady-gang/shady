@@ -100,10 +100,10 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
             bind_sets[set] = prog->sets[set];
         }
         bind_sets_count = MAX_DESCRIPTOR_SETS;
-        vkCmdBindDescriptorSets(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
+        vkCmdBindDescriptorSets(cmd->cmd_buf, prog->bind_point, prog->layout, 0, bind_sets_count, bind_sets, 0, NULL);
     }
 
-    vkCmdPushConstants(cmd->cmd_buf, prog->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_constant_size, push_constant_buffer);
+    vkCmdPushConstants(cmd->cmd_buf, prog->layout, prog->stage, 0, push_constant_size, push_constant_buffer);
     free(push_constant_buffer);
 }
 
@@ -135,7 +135,7 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
     cmd->launched_program = prog;
     cmd->launch_interface_items = calloc(sizeof(VkrDispatchInterfaceItem), prog->interface_items_count);
 
-    vkCmdBindPipeline(cmd->cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, prog->pipeline);
+    vkCmdBindPipeline(cmd->cmd_buf, prog->bind_point, prog->pipeline);
     prepare_resources_for_launch(cmd, prog, dimx, dimy, dimz, args_count, args);
 
     if (options && options->profiled_gpu_time) {
@@ -165,6 +165,62 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
 err_post_commands_create:
     shd_vkr_destroy_command(cmd);
     return NULL;
+}
+
+static VkrCommand* vkr_launch_rays(VkrDevice* device, Program* program, String entry_point, int sizex, int sizey, int sizez, int args_count, void** args, ExtraKernelOptions* options) {
+    assert(program && device);
+
+    VkrSpecProgram* prog = shd_vkr_get_specialized_program(program, entry_point, device);
+
+    shd_debug_print("Dispatching rays on %s\n", device->caps.properties.base.properties.deviceName);
+
+    VkrCommand* cmd = shd_vkr_begin_command(device);
+    if (!cmd)
+        return NULL;
+
+    cmd->launched_program = prog;
+    cmd->launch_interface_items = calloc(sizeof(VkrDispatchInterfaceItem), prog->interface_items_count);
+
+    vkCmdBindPipeline(cmd->cmd_buf, prog->bind_point, prog->pipeline);
+    prepare_resources_for_launch(cmd, prog, sizex, sizey, sizez, args_count, args);
+
+    if (options && options->profiled_gpu_time) {
+        VkQueryPoolCreateInfo qpci = {
+            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+            .pNext = NULL,
+            .queryType = VK_QUERY_TYPE_TIMESTAMP,
+            .queryCount = 2,
+        };
+        CHECK_VK(vkCreateQueryPool(device->device, &qpci, NULL, &cmd->query_pool), {});
+        cmd->profiled_gpu_time = options->profiled_gpu_time;
+        vkCmdResetQueryPool(cmd->cmd_buf, cmd->query_pool, 0, 2);
+        vkCmdWriteTimestamp(cmd->cmd_buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, cmd->query_pool, 0);
+    }
+
+    VkStridedDeviceAddressRegionKHR empty_sbt = {
+        .deviceAddress = 0,
+    };
+
+    device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &prog->rt.rg_sbt, &empty_sbt, &empty_sbt, &empty_sbt, sizex, sizey, sizez);
+    //device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &empty_sbt, &empty_sbt, &empty_sbt, &empty_sbt, 1, 1, 1);
+
+    if (options && options->profiled_gpu_time) {
+        vkCmdWriteTimestamp(cmd->cmd_buf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, cmd->query_pool, 1);
+    }
+
+    if (!shd_vkr_submit_command(cmd))
+        goto err_post_commands_create;
+
+    return cmd;
+
+err_post_commands_create:
+    shd_vkr_destroy_command(cmd);
+    return NULL;
+}
+
+Command* shd_vkr_launch_rays(Program* p, Device* d, const char* entry_point, int x, int y, int z, int args_count, void** args, ExtraKernelOptions* extra_options) {
+    assert(d->backend == VulkanRuntimeBackend);
+    return (Command*) vkr_launch_rays((VkrDevice*) d, (Program*) p, entry_point, x, y, z, args_count, args, extra_options);
 }
 
 VkrCommand* shd_vkr_begin_command(VkrDevice* device) {

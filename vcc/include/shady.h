@@ -12,6 +12,7 @@ namespace vcc {
 #define vertex_shader __attribute__((annotate("shady::entry_point::Vertex")))
 #define fragment_shader __attribute__((annotate("shady::entry_point::Fragment")))
 #define compute_shader  __attribute__((annotate("shady::entry_point::Compute")))
+#define ray_generation_shader  __attribute__((annotate("shady::entry_point::RayGeneration")))
 
 #define location(i)            __attribute__((annotate("shady::location::"#i)))
 #define descriptor_set(i)      __attribute__((annotate("shady::descriptor_set::"#i)))
@@ -91,6 +92,10 @@ native_uvec3 gl_WorkGroupSize;
 __attribute__((annotate("shady::builtin::GlobalInvocationId")))
 __attribute__((annotate("shady::io::389")))
 native_uvec3 gl_GlobalInvocationID;
+
+__attribute__((annotate("shady::builtin::LaunchIdKHR")))
+__attribute__((annotate("shady::io::389")))
+native_uvec3 gl_LaunchIDEXT;
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }

@@ -82,7 +82,7 @@ static bool extract_layout(VkrSpecProgram* program) {
         return false;
     }
     VkPushConstantRange push_constant_ranges[1] = {
-        { .offset = 0, .size = push_constant_size, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT}
+        { .offset = 0, .size = push_constant_size, .stageFlags = program->stage }
     };
 
     CHECK(extract_resources_layout(program, MAX_DESCRIPTOR_SETS, program->set_layouts), return false);
@@ -99,7 +99,7 @@ static bool extract_layout(VkrSpecProgram* program) {
     return true;
 }
 
-static bool create_vk_pipeline(VkrSpecProgram* program) {
+static bool create_vk_shader_module(VkrSpecProgram* program) {
     CHECK_VK(vkCreateShaderModule(program->device->device, &(VkShaderModuleCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
@@ -107,13 +107,16 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
         .codeSize = program->spirv_size,
         .pCode = (uint32_t*) program->spirv_bytes
     }, NULL, &program->shader_module), return false);
+    return true;
+}
 
+static bool create_vk_compute_pipeline(VkrSpecProgram* program) {
     VkPipelineShaderStageCreateInfo stage_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .module = program->shader_module,
-        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .stage = program->stage,
         .pName = program->key.entry_point,
         .pSpecializationInfo = NULL
     };
@@ -124,7 +127,7 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
     };
 
     if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
-       (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & VK_SHADER_STAGE_COMPUTE_BIT)) {
+       (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & program->stage)) {
         append_pnext((VkBaseOutStructure*) &stage_create_info, &pipeline_shader_stage_required_subgroup_size_create_info_ext);
     }
 
@@ -137,6 +140,65 @@ static bool create_vk_pipeline(VkrSpecProgram* program) {
         .layout = program->layout,
         .stage = stage_create_info,
     } }, NULL, &program->pipeline), return false);
+    return true;
+}
+
+static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
+    VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT pipeline_shader_stage_required_subgroup_size_create_info_ext = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
+        .requiredSubgroupSize = program->device->caps.subgroup_size.max
+    };
+
+    int num_callables = 0;
+    LARRAY(VkPipelineShaderStageCreateInfo, stages, 1 + num_callables);
+    stages[0] = (VkPipelineShaderStageCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .module = program->shader_module,
+        .stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        .pName = program->key.entry_point,
+        .pSpecializationInfo = NULL
+    };
+
+    // TODO: for
+    if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
+        (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & program->stage)) {
+        append_pnext((VkBaseOutStructure*) &stages[0], &pipeline_shader_stage_required_subgroup_size_create_info_ext);
+    }
+
+    LARRAY(VkRayTracingShaderGroupCreateInfoKHR, groups, 1 + num_callables);
+    groups[0] = (VkRayTracingShaderGroupCreateInfoKHR) {
+        .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+        .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+        .generalShader = 0,
+        .anyHitShader = VK_SHADER_UNUSED_KHR,
+        .closestHitShader = VK_SHADER_UNUSED_KHR,
+        .intersectionShader = VK_SHADER_UNUSED_KHR,
+    };
+
+    CHECK_VK(program->device->extensions.vkCreateRayTracingPipelinesKHR(program->device->device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
+        &((VkRayTracingPipelineCreateInfoKHR) {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+            .pNext = NULL,
+            .flags = 0,
+            .stageCount = 1 + num_callables,
+            .pStages = stages,
+            .groupCount = 1 + num_callables,
+            .pGroups = groups,
+            .maxPipelineRayRecursionDepth = 1,
+            .layout = program->layout,
+        }), NULL, &program->pipeline), return false);
+
+    size_t sbt_buffer_size = program->device->caps.properties.rt_pipeline_properties.shaderGroupHandleSize;
+    void* sbt_buffer = calloc(1, sbt_buffer_size);
+    CHECK_VK(program->device->extensions.vkGetRayTracingShaderGroupHandlesKHR(program->device->device, program->pipeline, 0, 1, sbt_buffer_size, sbt_buffer), return false);
+    program->rt.rg_sbt_buffer = shd_vkr_allocate_buffer_device(program->device, sbt_buffer_size);
+    shd_rn_copy_to_buffer((Buffer*) program->rt.rg_sbt_buffer, 0, sbt_buffer, sbt_buffer_size);
+    program->rt.rg_sbt.deviceAddress = shd_rn_get_buffer_device_pointer((Buffer*) program->rt.rg_sbt_buffer);
+    program->rt.rg_sbt.stride = sbt_buffer_size;
+    program->rt.rg_sbt.size = sbt_buffer_size;
+    free(sbt_buffer);
     return true;
 }
 
@@ -281,16 +343,43 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     spec_program->device = device;
     spec_program->arena = shd_new_arena();
 
+    switch (key.em) {
+        case EmCompute:
+            spec_program->stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            spec_program->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
+            break;
+        case EmRayGeneration:
+            spec_program->stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+            spec_program->bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+            break;
+        default: shd_error("Unsupported stage")
+    }
+
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
-    CHECK(create_vk_pipeline(spec_program),          return NULL);
+    CHECK(create_vk_shader_module(spec_program),     return NULL);
+    switch (spec_program->stage) {
+        case VK_SHADER_STAGE_COMPUTE_BIT:
+            CHECK(create_vk_compute_pipeline(spec_program), return NULL);
+            break;
+        case VK_SHADER_STAGE_RAYGEN_BIT_KHR:
+            CHECK(create_vk_rt_pipeline(spec_program), return NULL);
+            break;
+        default: shd_error("")
+    }
     CHECK(allocate_sets(spec_program),               return NULL);
     CHECK(prepare_program_resources(spec_program),   return NULL);
     return spec_program;
 }
 
 VkrSpecProgram* shd_vkr_get_specialized_program(Program* program, String entry_point, VkrDevice* device) {
-    SpecProgramKey key = { .base = program, .entry_point = entry_point };
+    const Node* entry_point_decl = shd_module_get_exported(program->module, entry_point);
+    assert(entry_point_decl);
+
+    const Node* entry_point_annotation = shd_lookup_annotation(entry_point_decl, "EntryPoint");
+    ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(entry_point_annotation->arena, shd_get_annotation_value(entry_point_annotation)));
+
+    SpecProgramKey key = { .base = program, .entry_point = entry_point, .em = execution_model };
     VkrSpecProgram** found = shd_dict_find_value(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);
     if (found)
         return *found;

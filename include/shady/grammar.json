@@ -74,6 +74,12 @@
       "llvm-id": 397
     },
     {
+      "name": "CallableDataKHR"
+    },
+    {
+      "name": "IncomingCallableDataKHR"
+    },
+    {
       "name": "DebugInfo"
     },
     {

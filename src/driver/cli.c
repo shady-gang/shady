@@ -114,6 +114,10 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
         } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
             target->capabilities.native_fncalls = true;
             target->memory.fn_ptr_size = IntTy64;
+        } else if (strcmp(argv[i], "--use-rt-pipelines") == 0) {
+            target->capabilities.native_fncalls = true;
+            target->capabilities.rt_pipelines = true;
+            target->memory.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--force-memory-emulation") == 0) {
             target->memory.address_spaces[AsPrivate].physical = false;
             target->memory.address_spaces[AsSubgroup].physical = false;
@@ -304,7 +308,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             if (i == argc)
                 shd_error("Missing execution model name");
             ExecutionModel em = EmNone;
-#define EM(n, _) if (strcmp(argv[i], #n) == 0) em = Em##n;
+#define EM(n) if (strcmp(argv[i], #n) == 0) em = Em##n;
             EXECUTION_MODELS(EM)
 #undef EM
             if (em == EmNone)
@@ -345,7 +349,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             exit(InvalidTarget);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
-#define EM(name, _) #name", "
+#define EM(name) #name", "
             shd_error_print("  --execution-model <em>                   Selects an entry point for the program to be specialized on.\nPossible values: " EXECUTION_MODELS(EM) "\n");
 #undef EM
             continue;

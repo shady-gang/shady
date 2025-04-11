@@ -60,6 +60,8 @@ static VkrBuffer* vkr_allocate_buffer_device_(VkrDevice* device, size_t size, Al
         .queueFamilyIndexCount = 0,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT
     };
+    if (device->caps.supported_extensions[ShadySupportsKHR_ray_tracing_pipeline])
+        buffer_create_info.usage |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
     CHECK_VK(vkCreateBuffer(device->device, &buffer_create_info, NULL, &buffer->buffer), goto err_post_obj_create);
 
     VkBufferMemoryRequirementsInfo2 buf_mem_requirements = {
@@ -112,6 +114,7 @@ static bool vkr_can_import_host_memory_(VkrDevice* device, bool log) {
             shd_error_print("host imported buffers require VK_EXT_external_memory_host\n");
         return false;
     }
+    assert(device->extensions.vkGetMemoryHostPointerPropertiesEXT);
     if (!device->caps.features.buffer_device_address.bufferDeviceAddress) {
         if (log)
             shd_error_print("host imported buffers require VK_KHR_buffer_device_address\n");

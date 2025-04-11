@@ -68,6 +68,7 @@ X(0, KHR_shader_float16_int8) \
 X(0, KHR_8bit_storage) \
 X(0, KHR_16bit_storage) \
 X(0, KHR_driver_properties) \
+X(0, KHR_ray_tracing_pipeline) \
 
 #define E(is_required, name) ShadySupports##name,
 typedef enum {
@@ -110,6 +111,7 @@ typedef struct {
         VkPhysicalDeviceShaderFloat16Int8Features float_16_int8;
         VkPhysicalDevice8BitStorageFeatures storage8;
         VkPhysicalDevice16BitStorageFeatures storage16;
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rt_pipeline_features;
     } features;
     struct {
         VkPhysicalDeviceProperties2 base;
@@ -117,6 +119,7 @@ typedef struct {
         VkPhysicalDeviceSubgroupSizeControlPropertiesEXT subgroup_size_control;
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host;
         VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_properties;
     } properties;
     struct {
         bool is_moltenvk;

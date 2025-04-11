@@ -12,17 +12,17 @@ KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
 static KeyHash hash_spec_program_key(SpecProgramKey* ptr) {
-    return shd_hash(ptr->base, sizeof(Program*)) ^ shd_hash_string(&ptr->entry_point);
+    return shd_hash(ptr->base, sizeof(Program*)) ^ shd_hash_string(&ptr->entry_point) ^ shd_hash(&ptr->em, sizeof(ptr->em));
 }
 
 static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
 	assert(!!a & !!b);
-    return a->base == b->base && strcmp(a->entry_point, b->entry_point) == 0;
+    return a->base == b->base && strcmp(a->entry_point, b->entry_point) == 0 && a->em == b->em;
 }
 
 static void obtain_device_pointers(VkrDevice* device) {
-#define Y(fn_name) device->extensions.fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name); \
-                   assert(device->extensions.fn_name && "loading device fn pointer "#fn_name" failed");
+#define Y(fn_name) device->extensions.fn_name = (PFN_##fn_name) vkGetDeviceProcAddr(device->device, #fn_name);
+                   //assert(device->extensions.fn_name && "loading device fn pointer "#fn_name" failed");
     DEVICE_FUNCTIONS(Y)
 #undef X
 }

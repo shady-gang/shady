@@ -240,11 +240,18 @@ void shd_spv_emit_debuginfo(Emitter* emitter, const Node* n, SpvId id) {
         spvb_name(emitter->file_builder, id, name);
 }
 
-static SpvExecutionModel emit_exec_model(ExecutionModel model) {
+static SpvExecutionModel emit_exec_model(Emitter* emitter, ExecutionModel model) {
     switch (model) {
-        case EmCompute:  return SpvExecutionModelGLCompute;
-        case EmVertex:   return SpvExecutionModelVertex;
-        case EmFragment: return SpvExecutionModelFragment;
+        case EmRayGeneration:
+            spvb_extension(emitter->file_builder, "SPV_KHR_ray_tracing");
+            spvb_capability(emitter->file_builder, SpvCapabilityRayTracingKHR);
+            return SpvExecutionModelRayGenerationKHR;
+        case EmCallable:
+            spvb_extension(emitter->file_builder, "SPV_KHR_ray_tracing");
+            return SpvExecutionModelCallableKHR;
+        case EmCompute:       return SpvExecutionModelGLCompute;
+        case EmVertex:        return SpvExecutionModelVertex;
+        case EmFragment:      return SpvExecutionModelFragment;
         case EmNone: shd_error("No execution model but we were asked to emit it anyways");
     }
 }
@@ -281,7 +288,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
             String exported_name = shd_get_exported_name(decl);
             assert(exported_name);
-            spvb_entry_point(emitter->file_builder, emit_exec_model(execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
+            spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
             const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
@@ -330,6 +337,7 @@ RewritePass shd_pass_globals_to_params;
 RewritePass shd_spv_lower_entrypoint_args;
 /// Avoids some implementation bugs
 RewritePass shd_spvbe_pass_remove_bda_params;
+RewritePass shd_lower_to_callable_shaders;
 
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);
@@ -340,6 +348,9 @@ typedef struct {
 } Global2LocalsPassConfig;
 
 static CompilationResult run_spv_backend_transforms(const SPVBackendConfig* spv_config, const CompilerConfig* config, Module** pmod) {
+    if ((*pmod)->arena->config.target.capabilities.rt_pipelines) {
+        RUN_PASS(shd_lower_to_callable_shaders, config)
+    }
     RUN_PASS(shd_pass_call_init_fini, config)
     RUN_PASS(shd_pass_globals_to_params, config)
     Global2LocalsPassConfig globals2locals = {

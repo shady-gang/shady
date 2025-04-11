@@ -116,6 +116,11 @@ static bool fill_device_properties(ShadyVkrPhysicalDeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.driver_properties);
     }
 
+    if (caps->supported_extensions[ShadySupportsKHR_ray_tracing_pipeline]) {
+        caps->properties.rt_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+        append_pnext((VkBaseOutStructure*) &caps->properties.base, &caps->properties.rt_pipeline_properties);
+    }
+
     vkGetPhysicalDeviceProperties2(caps->physical_device, &caps->properties.base);
 
     if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 3, 0)) {
@@ -165,6 +170,11 @@ static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.storage16);
     }
 
+    if (caps->supported_extensions[ShadySupportsKHR_ray_tracing_pipeline]) {
+        caps->features.rt_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.rt_pipeline_features);
+    }
+
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
 
     if (!caps->features.subgroup_size_control.computeFullSubgroups) {
@@ -188,7 +198,8 @@ static bool fill_queue_properties(ShadyVkrPhysicalDeviceCaps* caps) {
     uint32_t compute_queue_family = queue_families_count;
     for (uint32_t i = 0; i < queue_families_count; i++) {
         VkQueueFamilyProperties2 queue_family_properties = queue_families_properties[i];
-        if (queue_family_properties.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+        bool suitable = queue_family_properties.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT;
+        if (suitable) {
             compute_queue_family = i;
             break;
         }

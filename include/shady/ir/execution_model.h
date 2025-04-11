@@ -2,13 +2,15 @@
 #define SHADY_IR_EXECUTION_MODEL_H
 
 #define EXECUTION_MODELS(EM) \
-EM(Compute,  1) \
-EM(Fragment, 0) \
-EM(Vertex,   0) \
+EM(Compute      ) \
+EM(Fragment     ) \
+EM(Vertex       ) \
+EM(RayGeneration) \
+EM(Callable     ) \
 
 typedef enum {
     EmNone,
-#define EM(name, _) Em##name,
+#define EM(name) Em##name,
     EXECUTION_MODELS(EM)
 #undef EM
 } ExecutionModel;

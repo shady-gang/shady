@@ -22,6 +22,9 @@ Y(vkDestroyDebugUtilsMessengerEXT) \
 
 #define DEVICE_FUNCTIONS(Y) \
 Y(vkGetMemoryHostPointerPropertiesEXT) \
+Y(vkCreateRayTracingPipelinesKHR) \
+Y(vkCmdTraceRaysKHR) \
+Y(vkGetRayTracingShaderGroupHandlesKHR) \
 
 #define S(is_required, name) "VK_" #name,
 SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { SHADY_SUPPORTED_INSTANCE_EXTENSIONS(S) };
@@ -163,6 +166,14 @@ struct VkrSpecProgram_ {
     size_t interface_items_count;
     VkrProgramInterfaceItem* interface_items;
 
+    VkShaderStageFlagBits stage;
+
+    struct {
+        VkStridedDeviceAddressRegionKHR rg_sbt;
+        VkrBuffer* rg_sbt_buffer;
+    } rt;
+
+    VkPipelineBindPoint bind_point;
     VkPipeline pipeline;
     VkPipelineLayout layout;
     VkShaderModule shader_module;

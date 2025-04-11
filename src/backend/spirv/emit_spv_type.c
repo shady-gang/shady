@@ -30,6 +30,8 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
         case AsUniform:                      return SpvStorageClassUniform;
         case AsImage:                        return SpvStorageClassImage;
         case AsUniformConstant:              return SpvStorageClassUniformConstant;
+        case AsIncomingCallableDataKHR:      return SpvStorageClassIncomingCallableDataKHR;
+        case AsCallableDataKHR:              return SpvStorageClassCallableDataKHR;
 
         case AsCode: return SpvStorageClassCodeSectionSHADY;
 

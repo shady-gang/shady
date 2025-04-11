@@ -43,6 +43,7 @@ typedef struct {
         bool native_memcpy;
         bool native_fncalls;
         bool native_tailcalls;
+        bool rt_pipelines;
     } capabilities;
 
     ExecutionModel execution_model;
