@@ -152,6 +152,16 @@ static const Node* process(Context* ctx, const Node* node) {
                 //bool last = found_slot->i == ctx->num_slots - 1;
                 //if (last) {
                 const Node* updated_stack_ptr = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
+                if (shd_get_arena_config(a)->target.memory.max_align > 0) {
+                    // inline static size_t _shd_round_up(size_t a, size_t b) {
+                    //    size_t divided = (a + b - 1) / b;
+                    //    return divided * b;
+                    //}
+                    const Node* align_to = shd_uint32_literal(a, shd_get_arena_config(a)->target.memory.max_align);
+                    const Node* align_to_m1 = shd_uint32_literal(a, shd_get_arena_config(a)->target.memory.max_align - 1);
+                    const Node* divided = prim_op_helper(a, div_op, mk_nodes(a, prim_op_helper(a, add_op, mk_nodes(a, updated_stack_ptr, align_to_m1)), align_to));
+                    updated_stack_ptr = prim_op_helper(a, mul_op, mk_nodes(a, divided, align_to));
+                }
                 shd_bld_set_stack_size(bb, updated_stack_ptr);
                 //}
 

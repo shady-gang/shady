@@ -21,6 +21,8 @@ typedef struct {
     IntSizes fn_ptr_size;
     IntSizes exec_mask_size;
 
+    uint64_t max_align;
+
     struct {
         bool physical;
         bool allowed;
