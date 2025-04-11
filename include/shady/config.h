@@ -38,6 +38,7 @@ typedef struct {
 
     struct {
         bool native_stack;
+        bool native_memcpy;
         bool native_fncalls;
         bool native_tailcalls;
     } capabilities;
