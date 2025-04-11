@@ -53,6 +53,8 @@ static CudaCommand* launch_kernel(CudaDevice* device, Program* p, String entry_p
         cudaEventRecord(cmd->start, 0);
     }
 
+    cudaDeviceSetLimit(cudaLimitStackSize, p->base_config->per_thread_stack_size);
+
     ArenaConfig final_config = *shd_get_arena_config(shd_module_get_arena(kernel->final_module));
     unsigned int gx = final_config.specializations.workgroup_size[0];
     unsigned int gy = final_config.specializations.workgroup_size[1];
