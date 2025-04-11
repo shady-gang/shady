@@ -18,6 +18,8 @@ static void add_default_shading_language_limitations(TargetConfig* target_config
     add_logical_ptr_limitations(target_config);
     target_config->capabilities.native_fncalls = false;
     target_config->capabilities.native_tailcalls = false;
+    target_config->capabilities.native_memcpy = false;
+    target_config->capabilities.native_stack = false;
 }
 
 static CodegenTarget guess_target_through_name(const char* filename) {
@@ -77,9 +79,13 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
                 driver_config->backend_config.c.dialect = CDialect_CUDA;
             }
             target_config->subgroup_size = 32;
-            target_config->memory.fn_ptr_size = IntTy64;
-            target_config->memory.word_size = IntTy8;
-            target_config->capabilities.native_stack = true;
+            //target_config->memory.fn_ptr_size = IntTy64;
+            //target_config->memory.word_size = IntTy8;
+            //target_config->capabilities.native_stack = true;
+            //target_config->capabilities.native_memcpy = true;
+            //target_config->memory.max_align = 8;
+            add_default_shading_language_limitations(target_config);
+            target_config->memory.address_spaces[AsGlobal].physical = true;
             break;
     }
 }

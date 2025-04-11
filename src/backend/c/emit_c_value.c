@@ -973,10 +973,6 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
         case ArrType_TAG: {
             CTerm index = shd_c_emit_value(emitter, fn, selector);
             acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
-            curr_ptr_type = ptr_type(arena, (PtrType) {
-                    .pointed_type = pointee_type->payload.arr_type.element_type,
-                    .address_space = curr_ptr_type->payload.ptr_type.address_space
-            });
             break;
         }
         case NominalType_TAG: {
@@ -998,20 +994,12 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
             size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             String field_name = shd_c_get_record_field_name(emitter, pointee_type, static_index);
             acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", shd_c_deref(emitter, acc), field_name));
-            curr_ptr_type = ptr_type(arena, (PtrType) {
-                    .pointed_type = pointee_type->payload.record_type.members.nodes[static_index],
-                    .address_space = curr_ptr_type->payload.ptr_type.address_space
-            });
             break;
         }
         case Type_PackType_TAG: {
             size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             String suffixes = "xyzw";
             acc = term_from_cvar(shd_format_string_arena(emitter->arena->arena, "(%s.%c)", shd_c_deref(emitter, acc), suffixes[static_index]));
-            curr_ptr_type = ptr_type(arena, (PtrType) {
-                    .pointed_type = pointee_type->payload.pack_type.element_type,
-                    .address_space = curr_ptr_type->payload.ptr_type.address_space
-            });
             break;
         }
         default: shd_error("lea can't work on this");

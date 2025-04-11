@@ -391,7 +391,7 @@ static CompilationResult run_c_backend_transforms(const CBackendConfig* econfig,
     if (econfig->dialect == CDialect_CUDA) {
         Global2LocalsPassConfig globals2locals = {
             .src_as = AsPrivate,
-            .dst_as = AsPrivate,
+            .dst_as = AsFunction,
         };
         RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
     }
