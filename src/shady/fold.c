@@ -295,7 +295,7 @@ static const Node* try_enter_composite(const Node* composite_ptr) {
     return NULL;
 }
 
-static inline const Node* fold_simplify_ptr_operand(const Node* node) {
+static inline const Node* fold_simplify_memory_ops(const Node* node) {
     IrArena* arena = node->arena;
     const Node* r = NULL;
     switch (node->tag) {
@@ -349,12 +349,12 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             const Node* nsrc = simplify_ptr_source(payload.src, false);
             const Node* ndst = simplify_ptr_source(payload.dst, false);
 
-            const Node* src = nsrc ? nsrc : payload.src;
-            const Node* dst = ndst ? ndst : payload.dst;
-
             if (known_count) {
                 uint64_t count = shd_get_int_literal_value(*known_count, false);
                 // shd_get_pointer_type_element(shd_get_unqualified_type(src->type)) == shd_get_pointer_type_element(shd_get_unqualified_type(dst->type))
+
+                const Node* src = nsrc ? nsrc : payload.src;
+                const Node* dst = ndst ? ndst : payload.dst;
 
                 const Node* valid_src = NULL;
                 const Type* src_type = NULL;
@@ -400,6 +400,8 @@ static inline const Node* fold_simplify_ptr_operand(const Node* node) {
             }
 
             if (nsrc || ndst) {
+                const Node* src = nsrc ? nsrc : payload.src;
+                const Node* dst = ndst ? ndst : payload.dst;
                 payload.src = src;
                 payload.dst = dst;
                 return copy_bytes(arena, payload);
@@ -598,6 +600,15 @@ static const Node* fold_prim_op(IrArena* arena, const Node* node) {
     return node;
 }
 
+static const Node* fold_stack_ops(const Node* node) {
+    IrArena* arena = node->arena;
+    const Node* r = NULL;
+
+    if (!r)
+        return node;
+    return r;
+}
+
 static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
     switch (node->tag) {
         case Load_TAG: {
@@ -645,7 +656,7 @@ static bool is_unreachable_destination(const Node* j) {
 const Node* _shd_fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
-    node = fold_simplify_ptr_operand(node);
+    node = fold_simplify_memory_ops(node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case PtrArrayElementOffset_TAG: {
