@@ -40,7 +40,8 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
 
     CHECK(result == CompilationNoError, return false);
 
-    shd_emit_c(&config, emitter_config, spec->final_module, &spec->cuda_code_size, &spec->cuda_code);
+    if (!getenv("SHADY_OVERRIDE_PTX"))
+       shd_emit_c(&config, emitter_config, spec->final_module, &spec->cuda_code_size, &spec->cuda_code);
 
     if (getenv("SHADY_CUDA_RUNNER_DUMP"))
         shd_write_file("cuda_dump.cu", spec->cuda_code_size - 1, spec->cuda_code);
