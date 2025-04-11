@@ -59,7 +59,8 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     const Node* stack_pointer = ctx->stack_pointer;
     const Node* stack = ctx->stack;
 
-    const Node* stack_size = shd_bld_load(bb, stack_pointer);
+    const Node* old_stack_size = shd_bld_load(bb, stack_pointer);
+    const Node* stack_size = old_stack_size;
 
     if (!push) // for pop, we decrease the stack size first
         stack_size = prim_op_helper(a, sub_op, mk_nodes(a, stack_size, element_size));
@@ -88,8 +89,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     // store updated stack size
     shd_bld_store(bb, stack_pointer, stack_size);
     if (ctx->config->printf_trace.stack_size) {
-        shd_bld_debug_printf(bb, name, shd_empty(a));
-        shd_bld_debug_printf(bb, "stack size after: %d\n", shd_singleton(stack_size));
+        shd_bld_debug_printf(bb, shd_fmt_string_irarena(a, "stack %s[%s]: %s -> %s\n", push ? "push" : "pop", shd_get_type_name(a, element_type), "%d", "%d"), mk_nodes(a, old_stack_size, stack_size));
     }
 
     if (push) {
@@ -124,6 +124,10 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 const Node* old_max_stack_size = shd_bld_load(bb, ctx->max_stack_pointer);
                 const Node* new_max_stack_size = prim_op_helper(a, max_op, mk_nodes(a, old_max_stack_size, new_stack_size));
                 shd_bld_store(bb, ctx->max_stack_pointer, new_max_stack_size);
+            }
+
+            if (ctx->config->printf_trace.stack_size) {
+                shd_bld_debug_printf(bb, shd_fmt_string_irarena(a, "stack set_size: %s\n", "%d"), mk_nodes(a, new_stack_size));
             }
 
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
