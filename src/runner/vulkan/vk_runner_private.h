@@ -11,6 +11,7 @@
 #include "arena.h"
 
 #include "vulkan/vulkan.h"
+#include "shady/be/spirv.h"
 
 #include <stdbool.h>
 
@@ -158,10 +159,8 @@ struct VkrSpecProgram_ {
 
     CompilerConfig specialized_config;
     TargetConfig specialized_target;
+    SPVBackendConfig backend_config;
     Module* specialized_module;
-
-    size_t spirv_size;
-    char* spirv_bytes;
 
     size_t interface_items_count;
     VkrProgramInterfaceItem* interface_items;
@@ -169,16 +168,22 @@ struct VkrSpecProgram_ {
     VkShaderStageFlagBits stage;
 
     struct {
+        VkShaderModule rg_shader_module;
         VkrBuffer* rg_sbt_buffer;
         VkStridedDeviceAddressRegionKHR rg_sbt;
+        size_t callables_count;
+        VkShaderModule* callable_shader_modules;
         VkrBuffer* callables_sbt_buffer;
         VkStridedDeviceAddressRegionKHR callables_sbt;
     } rt;
 
+    struct {
+        VkShaderModule shader_module;
+    } compute;
+
     VkPipelineBindPoint bind_point;
     VkPipeline pipeline;
     VkPipelineLayout layout;
-    VkShaderModule shader_module;
 
     VkDescriptorSetLayout set_layouts[MAX_DESCRIPTOR_SETS];
     size_t required_descriptor_counts_count;

@@ -3,6 +3,7 @@
 #include "shady/driver.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/runtime/runtime.h"
+#include "shady/rewrite.h"
 
 #include "log.h"
 #include "portability.h"
@@ -99,23 +100,60 @@ static bool extract_layout(VkrSpecProgram* program) {
     return true;
 }
 
-static bool create_vk_shader_module(VkrSpecProgram* program) {
-    CHECK_VK(vkCreateShaderModule(program->device->device, &(VkShaderModuleCreateInfo) {
+static bool create_vk_shader_module(VkrSpecProgram* spec, String filter_entry_pt, VkShaderModule* out) {
+    size_t code_size;
+    uint32_t* spirv;
+
+    Module* tmp_mod = NULL, *mod = spec->specialized_module;
+    String module_name = shd_module_get_name(spec->specialized_module);
+    if (filter_entry_pt) {
+        IrArena* a = shd_module_get_arena(mod);
+        module_name = shd_fmt_string_irarena(a, "%s_%s", module_name, filter_entry_pt);
+        tmp_mod = shd_new_module(a, module_name);
+
+        Rewriter r = shd_create_importer(mod, tmp_mod);
+        const Node* ep = shd_module_get_exported(mod, filter_entry_pt);
+        assert(ep);
+        const Node* new = shd_rewrite_node(&r, ep);
+        shd_module_add_export(tmp_mod, shd_get_exported_name(new), new);
+        shd_destroy_rewriter(&r);
+        mod = tmp_mod;
+    }
+
+    shd_emit_spirv(&spec->specialized_config, spec->backend_config, mod, &code_size, (char**) &spirv);
+
+    if (spec->key.base->runtime->config.dump_spv) {
+        String file_name = shd_format_string_new("%s.spv", module_name);
+        shd_write_file(file_name, code_size, (char*) spirv);
+        free((void*) file_name);
+    }
+
+    String override_file = getenv("SHADY_OVERRIDE_SPV");
+    if (override_file) {
+        shd_read_file(override_file, &code_size, (char**) &spirv);
+        return true;
+    }
+
+    CHECK_VK(vkCreateShaderModule(spec->device->device, &(VkShaderModuleCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .codeSize = program->spirv_size,
-        .pCode = (uint32_t*) program->spirv_bytes
-    }, NULL, &program->shader_module), return false);
+        .codeSize = code_size,
+        .pCode = spirv
+    }, NULL, out), return false);
+
+    free(spirv);
     return true;
 }
 
 static bool create_vk_compute_pipeline(VkrSpecProgram* program) {
+    create_vk_shader_module(program, NULL, &program->compute.shader_module);
+
     VkPipelineShaderStageCreateInfo stage_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .module = program->shader_module,
+        .module = program->compute.shader_module,
         .stage = program->stage,
         .pName = program->key.entry_point,
         .pSpecializationInfo = NULL
@@ -178,38 +216,42 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
     };
 
-    int num_callables = count_callables(program);
-    LARRAY(VkPipelineShaderStageCreateInfo, stages, 1 + num_callables);
+    program->rt.callables_count = count_callables(program);
+    LARRAY(VkPipelineShaderStageCreateInfo, stages, 1 + program->rt.callables_count);
+    create_vk_shader_module(program, program->key.entry_point, &program->rt.rg_shader_module);
     stages[0] = (VkPipelineShaderStageCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .module = program->shader_module,
+        .module = program->rt.rg_shader_module,
         .stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
         .pName = program->key.entry_point,
         .pSpecializationInfo = NULL
     };
 
-    for (size_t i = 0; i < num_callables; i++) {
+    program->rt.callable_shader_modules = calloc(sizeof(VkShaderModule), program->rt.callables_count);
+    for (size_t i = 0; i < program->rt.callables_count; i++) {
+        String ep_name = shd_fmt_string_irarena(a, "callee_%d", (int) i);
+        create_vk_shader_module(program, ep_name, &program->rt.callable_shader_modules[i]);
         stages[1 + i] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
-            .module = program->shader_module,
+            .module = program->rt.callable_shader_modules[i],
             .stage = VK_SHADER_STAGE_CALLABLE_BIT_KHR,
-            .pName = shd_fmt_string_irarena(a, "callee_%d", (int) i),
+            .pName = ep_name,
             .pSpecializationInfo = NULL
         };
     }
 
-    for (size_t i = 0; i < num_callables + 1; i++) {
+    for (size_t i = 0; i < program->rt.callables_count + 1; i++) {
         if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
             (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & program->stage)) {
             append_pnext((VkBaseOutStructure*) &stages[i], &pipeline_shader_stage_required_subgroup_size_create_info_ext);
         }
     }
 
-    LARRAY(VkRayTracingShaderGroupCreateInfoKHR, groups, 1 + num_callables);
+    LARRAY(VkRayTracingShaderGroupCreateInfoKHR, groups, 1 + program->rt.callables_count);
     groups[0] = (VkRayTracingShaderGroupCreateInfoKHR) {
         .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
         .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -219,7 +261,7 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
         .intersectionShader = VK_SHADER_UNUSED_KHR,
     };
 
-    for (size_t i = 0; i < num_callables; i++) {
+    for (size_t i = 0; i < program->rt.callables_count; i++) {
         groups[1 + i] = (VkRayTracingShaderGroupCreateInfoKHR) {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
@@ -235,16 +277,16 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
             .pNext = NULL,
             .flags = 0,
-            .stageCount = 1 + num_callables,
+            .stageCount = 1 + program->rt.callables_count,
             .pStages = stages,
-            .groupCount = 1 + num_callables,
+            .groupCount = 1 + program->rt.callables_count,
             .pGroups = groups,
             .maxPipelineRayRecursionDepth = program->device->caps.properties.rt_pipeline_properties.maxRayRecursionDepth,
             .layout = program->layout,
         }), NULL, &program->pipeline), return false);
 
     make_sbt(program, 0, 1, &program->rt.rg_sbt_buffer, &program->rt.rg_sbt);
-    make_sbt(program, 1, num_callables, &program->rt.callables_sbt_buffer, &program->rt.callables_sbt);
+    make_sbt(program, 1, program->rt.callables_count, &program->rt.callables_sbt_buffer, &program->rt.callables_sbt);
 
     return true;
 }
@@ -288,35 +330,21 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     spec->specialized_target = shd_vkr_get_device_target_config(&spec->specialized_config, spec->device);
 
-    SPVBackendConfig spv_cfg = shd_default_spirv_backend_config();
-    get_compiler_config_for_device(spec->device, &spec->specialized_config, &spv_cfg);
+    spec->backend_config = shd_default_spirv_backend_config();
+    get_compiler_config_for_device(spec->device, &spec->specialized_config, &spec->backend_config);
 
     spec->specialized_target = shd_driver_specialize_target_config(spec->specialized_target, spec->key.base->module, spec->key.em, spec->key.entry_point);
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
     shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target);
-    shd_pipeline_add_spirv_target_passes(pipeline, &spec->specialized_target, &spv_cfg);
+    shd_pipeline_add_spirv_target_passes(pipeline, &spec->specialized_target, &spec->backend_config);
     CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);
 
     CHECK(result == CompilationNoError, return false);
 
-    shd_emit_spirv(&spec->specialized_config, spv_cfg, spec->specialized_module, &spec->spirv_size, &spec->spirv_bytes);
     shd_vkr_populate_interface(spec);
-
-    if (spec->key.base->runtime->config.dump_spv) {
-        String module_name = shd_module_get_name(spec->specialized_module);
-        String file_name = shd_format_string_new("%s.spv", module_name);
-        shd_write_file(file_name, spec->spirv_size, (const char*) spec->spirv_bytes);
-        free((void*) file_name);
-    }
-
-    String override_file = getenv("SHADY_OVERRIDE_SPV");
-    if (override_file) {
-        shd_read_file(override_file, &spec->spirv_size, &spec->spirv_bytes);
-        return true;
-    }
 
     return true;
 }
@@ -404,7 +432,6 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
 
     CHECK(compile_specialized_program(spec_program), return NULL);
     CHECK(extract_layout(spec_program),              return NULL);
-    CHECK(create_vk_shader_module(spec_program),     return NULL);
     switch (spec_program->stage) {
         case VK_SHADER_STAGE_COMPUTE_BIT:
             CHECK(create_vk_compute_pipeline(spec_program), return NULL);
@@ -441,8 +468,8 @@ void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
     for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++)
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
-    vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
-    free(spec->spirv_bytes);
+    //vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
+    //free(spec->spirv_bytes);
     if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
         shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));
     for (size_t i = 0; i < spec->interface_items_count; i++) {

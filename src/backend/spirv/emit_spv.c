@@ -209,7 +209,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             shd_spv_register_interface(emitter, decl, given_id);
 
             return given_id;
-        } case Function_TAG: {
+        }
+        case Function_TAG: {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, decl, given_id);
             shd_spv_emit_debuginfo(emitter, decl, given_id);
@@ -248,6 +249,7 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ExecutionModel model)
             return SpvExecutionModelRayGenerationKHR;
         case EmCallable:
             spvb_extension(emitter->file_builder, "SPV_KHR_ray_tracing");
+            spvb_capability(emitter->file_builder, SpvCapabilityRayTracingKHR);
             return SpvExecutionModelCallableKHR;
         case EmCompute:       return SpvExecutionModelGLCompute;
         case EmVertex:        return SpvExecutionModelVertex;
