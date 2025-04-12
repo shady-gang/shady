@@ -169,7 +169,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -206,6 +206,7 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, SHADY_UN
         });
         shd_set_debug_name(stack_ptr_decl, "stack_ptr");
         shd_add_annotation_named(stack_ptr_decl, "Generated");
+        shd_add_annotation_named(stack_ptr_decl, "Inout");
         stack_ptr_decl->payload.global_variable.init = shd_uint32_literal(a, 0);
         ctx.stack_pointer = stack_ptr_decl;
 
@@ -217,6 +218,7 @@ Module* shd_pass_lower_stack(SHADY_UNUSED const CompilerConfig* config, SHADY_UN
             });
             shd_set_debug_name(stack_ptr_decl, "max_stack_ptr");
             shd_add_annotation_named(max_stack_size_var, "Generated");
+            shd_add_annotation_named(max_stack_size_var, "Inout");
             max_stack_size_var->payload.global_variable.init = shd_uint32_literal(a, 0);
             ctx.max_stack_pointer = max_stack_size_var;
 

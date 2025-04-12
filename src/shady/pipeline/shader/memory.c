@@ -3,7 +3,7 @@
 /// Implements stack frames: collects allocas into a struct placed on the stack upon function entry
 RewritePass shd_pass_lower_alloca;
 /// Turns stack pushes and pops into accesses into pointer load and stores
-RewritePass shd_pass_lower_stack;
+RewritePass shd_pass_lower_stack_access;
 /// Eliminates lea_op on all physical address spaces
 RewritePass shd_pass_lower_lea;
 /// Emulates generic pointers by replacing them with tagged integers and special load/store routines that look at those tags
@@ -31,7 +31,7 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
 
     if (!target->capabilities.native_stack) {
         RUN_PASS(shd_pass_lower_alloca, config)
-        RUN_PASS(shd_pass_lower_stack, config)
+        RUN_PASS(shd_pass_lower_stack_access, config)
     }
     RUN_PASS(shd_pass_lower_lea, target)
     if (!target->memory.address_spaces[AsGeneric].allowed) {
