@@ -143,13 +143,42 @@ static bool create_vk_compute_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
+static int count_callables(VkrSpecProgram* program) {
+    const Node* entry_point_decl = shd_module_get_exported(program->specialized_module, program->key.entry_point);
+    assert(entry_point_decl);
+    const Node* num_callables = shd_lookup_annotation(entry_point_decl, "NumCallables");
+    return shd_get_int_value(shd_get_annotation_value(num_callables), false);
+}
+
+static bool make_sbt(const VkrSpecProgram* program, size_t base, size_t count, VkrBuffer** p_buffer, VkStridedDeviceAddressRegionKHR* p_region) {
+    size_t sbt_handle_size = program->device->caps.properties.rt_pipeline_properties.shaderGroupHandleSize;
+    void* sbt_buffer_tmp = NULL;
+
+    if (count) {
+        sbt_buffer_tmp = calloc(count, sbt_handle_size);
+        size_t sbt_buffer_size = sbt_handle_size * count;
+        CHECK_VK(program->device->extensions.vkGetRayTracingShaderGroupHandlesKHR(program->device->device, program->pipeline, base, count, sbt_buffer_size, sbt_buffer_tmp), return false);
+
+        *p_buffer = shd_vkr_allocate_buffer_device(program->device, sbt_buffer_size);
+        shd_rn_copy_to_buffer((Buffer*) *p_buffer, 0, sbt_buffer_tmp, sbt_buffer_size);
+        free(sbt_buffer_tmp);
+
+        p_region->deviceAddress = shd_rn_get_buffer_device_pointer((Buffer*) *p_buffer);
+        p_region->stride = sbt_handle_size;
+        p_region->size = sbt_handle_size * count;
+    }
+
+    return true;
+}
+
 static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
+    IrArena* a = shd_module_get_arena(program->specialized_module);
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT pipeline_shader_stage_required_subgroup_size_create_info_ext = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
         .requiredSubgroupSize = program->device->caps.subgroup_size.max
     };
 
-    int num_callables = 0;
+    int num_callables = count_callables(program);
     LARRAY(VkPipelineShaderStageCreateInfo, stages, 1 + num_callables);
     stages[0] = (VkPipelineShaderStageCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -161,10 +190,23 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
         .pSpecializationInfo = NULL
     };
 
-    // TODO: for
-    if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
-        (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & program->stage)) {
-        append_pnext((VkBaseOutStructure*) &stages[0], &pipeline_shader_stage_required_subgroup_size_create_info_ext);
+    for (size_t i = 0; i < num_callables; i++) {
+        stages[1 + i] = (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .module = program->shader_module,
+            .stage = VK_SHADER_STAGE_CALLABLE_BIT_KHR,
+            .pName = shd_fmt_string_irarena(a, "callee_%d", (int) i),
+            .pSpecializationInfo = NULL
+        };
+    }
+
+    for (size_t i = 0; i < num_callables + 1; i++) {
+        if (program->device->caps.supported_extensions[ShadySupportsEXT_subgroup_size_control] &&
+            (program->device->caps.properties.subgroup_size_control.requiredSubgroupSizeStages & program->stage)) {
+            append_pnext((VkBaseOutStructure*) &stages[i], &pipeline_shader_stage_required_subgroup_size_create_info_ext);
+        }
     }
 
     LARRAY(VkRayTracingShaderGroupCreateInfoKHR, groups, 1 + num_callables);
@@ -177,6 +219,17 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
         .intersectionShader = VK_SHADER_UNUSED_KHR,
     };
 
+    for (size_t i = 0; i < num_callables; i++) {
+        groups[1 + i] = (VkRayTracingShaderGroupCreateInfoKHR) {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 1 + i,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        };
+    }
+
     CHECK_VK(program->device->extensions.vkCreateRayTracingPipelinesKHR(program->device->device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
         &((VkRayTracingPipelineCreateInfoKHR) {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -186,19 +239,13 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
             .pStages = stages,
             .groupCount = 1 + num_callables,
             .pGroups = groups,
-            .maxPipelineRayRecursionDepth = 1,
+            .maxPipelineRayRecursionDepth = program->device->caps.properties.rt_pipeline_properties.maxRayRecursionDepth,
             .layout = program->layout,
         }), NULL, &program->pipeline), return false);
 
-    size_t sbt_buffer_size = program->device->caps.properties.rt_pipeline_properties.shaderGroupHandleSize;
-    void* sbt_buffer = calloc(1, sbt_buffer_size);
-    CHECK_VK(program->device->extensions.vkGetRayTracingShaderGroupHandlesKHR(program->device->device, program->pipeline, 0, 1, sbt_buffer_size, sbt_buffer), return false);
-    program->rt.rg_sbt_buffer = shd_vkr_allocate_buffer_device(program->device, sbt_buffer_size);
-    shd_rn_copy_to_buffer((Buffer*) program->rt.rg_sbt_buffer, 0, sbt_buffer, sbt_buffer_size);
-    program->rt.rg_sbt.deviceAddress = shd_rn_get_buffer_device_pointer((Buffer*) program->rt.rg_sbt_buffer);
-    program->rt.rg_sbt.stride = sbt_buffer_size;
-    program->rt.rg_sbt.size = sbt_buffer_size;
-    free(sbt_buffer);
+    make_sbt(program, 0, 1, &program->rt.rg_sbt_buffer, &program->rt.rg_sbt);
+    make_sbt(program, 1, num_callables, &program->rt.callables_sbt_buffer, &program->rt.callables_sbt);
+
     return true;
 }
 

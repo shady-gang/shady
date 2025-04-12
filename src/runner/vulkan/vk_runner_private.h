@@ -169,8 +169,10 @@ struct VkrSpecProgram_ {
     VkShaderStageFlagBits stage;
 
     struct {
-        VkStridedDeviceAddressRegionKHR rg_sbt;
         VkrBuffer* rg_sbt_buffer;
+        VkStridedDeviceAddressRegionKHR rg_sbt;
+        VkrBuffer* callables_sbt_buffer;
+        VkStridedDeviceAddressRegionKHR callables_sbt;
     } rt;
 
     VkPipelineBindPoint bind_point;

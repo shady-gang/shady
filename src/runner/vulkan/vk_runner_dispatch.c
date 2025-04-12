@@ -201,7 +201,7 @@ static VkrCommand* vkr_launch_rays(VkrDevice* device, Program* program, String e
         .deviceAddress = 0,
     };
 
-    device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &prog->rt.rg_sbt, &empty_sbt, &empty_sbt, &empty_sbt, sizex, sizey, sizez);
+    device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &prog->rt.rg_sbt, &empty_sbt, &empty_sbt, &prog->rt.callables_sbt, sizex, sizey, sizez);
     //device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &empty_sbt, &empty_sbt, &empty_sbt, &empty_sbt, 1, 1, 1);
 
     if (options && options->profiled_gpu_time) {
