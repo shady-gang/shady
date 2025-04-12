@@ -76,6 +76,9 @@ static const Node* mul(const Node* a, const Node* b) {
 }
 
 static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
+    // can't really swizzle in RT mode
+    if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model))
+        return offset;
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupSize);
     subgroup_size = shd_bld_convert_int_zero_extend(bb, shd_get_unqualified_type(offset->type), subgroup_size);

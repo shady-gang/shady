@@ -25,6 +25,7 @@ BUILTIN(LocalInvocationId,         AsInput,  Invocation, shd_u32vec3_type(arena)
 BUILTIN(LocalInvocationIndex,      AsInput,  Invocation, shd_uint32_type(arena)  )\
 BUILTIN(GlobalInvocationId,        AsInput,  Invocation, shd_u32vec3_type(arena) )\
 BUILTIN(LaunchIdKHR,               AsInput,  Invocation, shd_u32vec3_type(arena) )\
+BUILTIN(LaunchSizeKHR,             AsInput,  Invocation, shd_u32vec3_type(arena) )\
 BUILTIN(WorkgroupId,               AsUInput, Workgroup,  shd_u32vec3_type(arena) )\
 BUILTIN(WorkgroupSize,             AsUInput, Device,     shd_u32vec3_type(arena) )\
 BUILTIN(NumSubgroups,              AsUInput, Invocation, shd_uint32_type(arena)  )\
