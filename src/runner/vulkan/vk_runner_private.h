@@ -114,8 +114,6 @@ typedef struct VkrCommand_ VkrCommand;
 
 typedef struct {
     RuntimeInterfaceItem interface_item;
-
-    VkrBuffer* scratch;
 } VkrDispatchInterfaceItem;
 
 struct VkrCommand_ {
@@ -145,6 +143,9 @@ typedef struct {
     void* host_owning_ptr;
     VkrBuffer* buffer;
     size_t per_invocation_size;
+
+    size_t scratch_size;
+    VkrBuffer* scratch;
 } VkrProgramInterfaceItem;
 
 void shd_vkr_populate_interface(VkrSpecProgram* spec);

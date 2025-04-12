@@ -529,7 +529,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     Node* words_array = shd_global_var(m, (GlobalVariable) {
         .address_space = ass,
         .type = words_array_type,
-        .is_ref = true
+        .is_ref = !ctx->config->lower.use_scratch_for_private
     });
     String name = shd_format_string_arena(a->arena, "memory_%s", as_name);
     shd_set_debug_name(words_array, name);

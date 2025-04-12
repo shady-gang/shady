@@ -478,6 +478,8 @@ void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
             shd_vkr_destroy_buffer(item->buffer);
         if (item->host_owning_ptr)
             shd_free_aligned(item->host_owning_ptr);
+        if (item->scratch)
+            shd_vkr_destroy_buffer(item->scratch);
     }
     free(spec->interface_items);
     vkDestroyDescriptorPool(spec->device->device, spec->descriptor_pool, NULL);

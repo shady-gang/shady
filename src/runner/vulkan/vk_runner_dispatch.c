@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, int dimx, int dimy, int dimz, int args_count, void** args) {
+static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, int threadsx, int threadsy, int threadsz, int args_count, void** args) {
     LARRAY(VkWriteDescriptorSet, write_descriptor_sets, prog->interface_items_count);
     LARRAY(VkDescriptorBufferInfo, descriptor_buffer_info, prog->interface_items_count);
     size_t write_descriptor_sets_count = 0;
@@ -40,27 +40,20 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
                         break;
                     }
                     case SHD_RII_Src_ScratchBuffer: {
-                        size_t blocks = dimx * dimy * dimz;
+                        size_t threads = threadsx * threadsy * threadsz;
+                        size_t total_size = threads * resource->per_invocation_size;
 
-                        const Node* ep = shd_module_get_exported(prog->specialized_module, prog->key.entry_point);
-                        assert(ep);
-                        const Node* wgs = shd_lookup_annotation(ep, "WorkgroupSize");
-                        assert(wgs);
-                        Nodes values = shd_get_annotation_values(wgs);
-                        assert(values.count == 3);
-                        uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
-                        uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
-                        uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
+                        //printf("blocks: %zu wg: %zu, total: %zu\n", blocks, threads_per_wg, total_size);
+                        if (!resource->scratch || resource->scratch_size != total_size) {
+                            if (resource->scratch_size != 0)
+                                shd_vkr_destroy_buffer(resource->scratch);
+                            resource->scratch = shd_vkr_allocate_buffer_device(cmd->device, total_size);
+                            resource->scratch_size = total_size;
+                        }
+                        //char* zeroes = calloc(total_size, 1);
+                        //shd_rn_copy_to_buffer((Buffer*) dispatch_item->scratch, 0, zeroes, total_size);
 
-                        size_t threads_per_wg = wg_x_dim * wg_y_dim * wg_z_dim;
-                        size_t total_size = blocks * threads_per_wg * resource->per_invocation_size;
-
-                        printf("blocks: %zu wg: %zu, total: %zu\n", blocks, threads_per_wg, total_size);
-                        dispatch_item->scratch = shd_vkr_allocate_buffer_device(cmd->device, total_size);
-                        char* zeroes = calloc(total_size, 1);
-                        shd_rn_copy_to_buffer((Buffer*) dispatch_item->scratch, 0, zeroes, total_size);
-
-                        VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) dispatch_item->scratch);
+                        VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) resource->scratch);
                         memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
                                &bda,
                                resource->interface_item.dst_details.push_constant.size);
@@ -110,8 +103,6 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
 static void cleanup_resources_after_launch(VkrCommand* command) {
     for (size_t i = 0; i < command->launched_program->interface_items_count; i++) {
         VkrDispatchInterfaceItem* resource = &command->launch_interface_items[i];
-        if (resource->scratch)
-            shd_vkr_destroy_buffer(resource->scratch);
     }
 }
 
@@ -136,7 +127,21 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
     cmd->launch_interface_items = calloc(sizeof(VkrDispatchInterfaceItem), prog->interface_items_count);
 
     vkCmdBindPipeline(cmd->cmd_buf, prog->bind_point, prog->pipeline);
-    prepare_resources_for_launch(cmd, prog, dimx, dimy, dimz, args_count, args);
+    //size_t blocks = dimx * dimy * dimz;
+
+    //const Node* ep = shd_module_get_exported(prog->specialized_module, prog->key.entry_point);
+    //assert(ep);
+    //const Node* wgs = shd_lookup_annotation(ep, "WorkgroupSize");
+    //assert(wgs);
+    //Nodes values = shd_get_annotation_values(wgs);
+    //assert(values.count == 3);
+    //uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
+    //uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
+    //uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
+    int threadsx = dimx * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[0];
+    int threadsy = dimy * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[1];
+    int threadsz = dimz * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[2];
+    prepare_resources_for_launch(cmd, prog, threadsx, threadsy, threadsz, args_count, args);
 
     if (options && options->profiled_gpu_time) {
         VkQueryPoolCreateInfo qpci = {
