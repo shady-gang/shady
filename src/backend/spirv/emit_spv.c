@@ -226,7 +226,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, decl, given_id);
             shd_spv_emit_debuginfo(emitter, decl, given_id);
-            spv_emit_nominal_type_body(emitter, decl->payload.nom_type.body, given_id);
+            spv_emit_record_type_body(emitter, decl->payload.nom_type.body, given_id);
             return given_id;
         }
         default: shd_error("");
@@ -390,6 +390,8 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
         .bb_builders = shd_new_dict(Node*, BBBuilder, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .num_entry_pts = 0,
         .interface_vars = shd_new_list(SpvId),
+
+        .types_with_layouts = shd_new_node_set(),
     };
 
     emitter.extended_instruction_sets = shd_new_dict(const char*, SpvId, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);
@@ -414,6 +416,8 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
     shd_destroy_dict(emitter.bb_builders);
     shd_destroy_dict(emitter.extended_instruction_sets);
     shd_destroy_list(emitter.interface_vars);
+
+    shd_destroy_node_set(emitter.types_with_layouts);
 
     shd_destroy_ir_arena(arena);
 }

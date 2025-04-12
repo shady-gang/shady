@@ -73,25 +73,40 @@ SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types) {
     }
 }
 
-void spv_emit_nominal_type_body(Emitter* emitter, const Type* type, SpvId id) {
+void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id) {
+    if (type->tag != RecordType_TAG)
+        shd_error("not a suitable nominal type body (tag=%s)", shd_get_node_tag_string(type->tag));
+    RecordType payload = type->payload.record_type;
+    Nodes member_types = payload.members;
+    LARRAY(SpvId, members, member_types.count);
+    for (size_t i = 0; i < member_types.count; i++)
+        members[i] = spv_emit_type(emitter, member_types.nodes[i]);
+    spvb_struct_type(emitter->file_builder, id, member_types.count, members);
+
+    if (payload.special == DecorateBlock) {
+        spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
+        spv_emit_type_layout(emitter, type);
+    }
+}
+
+void spv_emit_type_layout(Emitter* emitter, const Type* type) {
+    SpvId id = spv_emit_type(emitter, type);
+    if (shd_node_set_find(emitter->types_with_layouts, type))
+        return;
+    shd_node_set_insert(emitter->types_with_layouts, type);
+    type = shd_get_maybe_nominal_type_body(type);
     switch (type->tag) {
         case RecordType_TAG: {
-            Nodes member_types = type->payload.record_type.members;
-            LARRAY(SpvId, members, member_types.count);
-            for (size_t i = 0; i < member_types.count; i++)
-                members[i] = spv_emit_type(emitter, member_types.nodes[i]);
-            spvb_struct_type(emitter->file_builder, id, member_types.count, members);
-            if (type->payload.record_type.special == DecorateBlock) {
-                spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
-            }
+            RecordType payload = type->payload.record_type;
+            Nodes member_types = payload.members;
             LARRAY(FieldLayout, fields, member_types.count);
             shd_get_record_layout(emitter->arena, type, fields);
             for (size_t i = 0; i < member_types.count; i++) {
                 spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
+                spv_emit_type_layout(emitter, member_types.nodes[i]);
             }
-            break;
         }
-        default: shd_error("not a suitable nominal type body (tag=%s)", shd_get_node_tag_string(type->tag));
+        default: break;
     }
 }
 
@@ -141,14 +156,20 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_float_type(emitter->file_builder, width);
             break;
         } case PtrType_TAG: {
-            SpvStorageClass sc = spv_emit_addr_space(emitter, type->payload.ptr_type.address_space);
-            const Type* pointed_type = type->payload.ptr_type.pointed_type;
+            PtrType payload = type->payload.ptr_type;
+            SpvStorageClass sc = spv_emit_addr_space(emitter, payload.address_space);
+            const Type* pointed_type = payload.pointed_type;
             if (pointed_type->tag == NominalType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
                 spv_register_emitted(emitter, NULL, type, new);
                 SpvId pointee = spv_emit_type(emitter, pointed_type);
+                spv_emit_type_layout(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
+            }
+
+            if (sc == SpvStorageClassPhysicalStorageBuffer) {
+                spv_emit_type_layout(emitter, pointed_type);
             }
 
             if (pointed_type == unit_type(emitter->arena))
@@ -204,7 +225,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             }
             new = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, type, new);
-            spv_emit_nominal_type_body(emitter, type, new);
+            spv_emit_record_type_body(emitter, type, new);
             return new;
         }
         case NominalType_TAG: {
