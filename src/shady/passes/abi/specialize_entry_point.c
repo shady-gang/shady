@@ -42,6 +42,7 @@ static void specialize_arena_config(String entry_point, Module* src, ArenaConfig
         shd_error("Entry point not found")
     if (old_entry_point_decl->tag != Function_TAG)
         shd_error("%s is not a function", entry_point);
+    target->target.entry_point = entry_point;
     const Node* ep = shd_lookup_annotation(old_entry_point_decl, "EntryPoint");
     if (!ep)
         shd_error("%s is not annotated with @EntryPoint", entry_point);

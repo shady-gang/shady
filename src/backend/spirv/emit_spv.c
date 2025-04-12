@@ -337,6 +337,8 @@ RewritePass shd_pass_globals_to_params;
 RewritePass shd_spv_lower_entrypoint_args;
 /// Avoids some implementation bugs
 RewritePass shd_spvbe_pass_remove_bda_params;
+
+RewritePass shd_pass_mark_leaf_functions;
 RewritePass shd_lower_to_callable_shaders;
 
 /// Adds calls to init and fini arrounds the entry points
