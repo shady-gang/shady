@@ -431,8 +431,15 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             Nodes indices = shd_nodes(arena, prim_op.operands.count - indices_start, &prim_op.operands.nodes[indices_start]);
 
             const Type* t = source->type;
-            ShdScope scope = shd_deconstruct_qualified_type(&t);
-            shd_enter_composite_type_indices(&t, &scope, indices, true);
+            ShdScope scope;
+            if (t->tag == RecordType_TAG && t->payload.record_type.special == MultipleReturn) {
+                assert(indices.count == 1);
+                t = t->payload.record_type.members.nodes[shd_get_int_value(indices.nodes[0], false)];
+                scope = shd_deconstruct_qualified_type(&t);
+            } else {
+                scope = shd_deconstruct_qualified_type(&t);
+                shd_enter_composite_type_indices(&t, &scope, indices, true);
+            }
 
             if (prim_op.op == insert_op) {
                 const Node* inserted_data = prim_op.operands.nodes[1];
@@ -570,7 +577,6 @@ static void check_arguments_types_against_parameters_helper(Nodes param_types, N
 /// Shared logic between indirect calls and tailcalls
 static Nodes check_value_call(const Type* callee_type, Nodes argument_types) {
     assert(callee_type->tag == FnType_TAG);
-
     const FnType* fn_type = &callee_type->payload.fn_type;
     check_arguments_types_against_parameters_helper(fn_type->param_types, argument_types);
     // TODO force the return types to be varying if the callee is not uniform
@@ -908,6 +914,13 @@ const Type* _shd_check_type_fn_ret(IrArena* arena, Return ret) {
     // assert(ret.fn);
     // TODO check it then !
     return noret_type(arena);
+}
+
+const Type* _shd_check_type_fn_type(IrArena* arena, FnType fn) {
+    for (size_t i = 0; i < fn.return_types.count; i++) {
+        assert(shd_is_value_type(fn.return_types.nodes[i]));
+    }
+    return NULL;
 }
 
 const Type* _shd_check_type_fun(IrArena* arena, Function fn) {

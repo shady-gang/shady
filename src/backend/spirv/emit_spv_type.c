@@ -43,15 +43,29 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
     }
 }
 
-static const Node* rewrite_normalize(Rewriter* rewriter, const Node* node) {
+static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
     if (!is_type(node) || shd_is_node_nominal(node)) {
-        shd_register_processed(rewriter, node, node);
+        shd_register_processed(r, node, node);
         return node;
     }
+    IrArena* a = r->dst_arena;
 
     switch (node->tag) {
-        case QualifiedType_TAG: return shd_rewrite_node(rewriter, node->payload.qualified_type.type);
-        default: return shd_recreate_node(rewriter, node);
+        case QualifiedType_TAG: return shd_rewrite_node(r, node->payload.qualified_type.type);
+        //case FnType_TAG: return node;
+        case RecordType_TAG: {
+            RecordType payload = node->payload.record_type;
+            if (payload.special == MultipleReturn) {
+                //if (payload.members.count == 0)
+                //    return unit_type(a);
+                payload.members = shd_rewrite_nodes(r, payload.members);
+                payload.special = 0;
+            } else {
+                payload.members = shd_rewrite_nodes(r, payload.members);
+            }
+            return record_type(a, payload);
+        }
+        default: return shd_recreate_node(r, node);
     }
 }
 
@@ -63,11 +77,19 @@ const Type* spv_normalize_type(Emitter* emitter, const Type* type) {
 }
 
 SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types) {
+    //return spv_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, return_types));
     switch (return_types.count) {
         case 0: return emitter->void_t;
         case 1: return spv_emit_type(emitter, return_types.nodes[0]);
         default: {
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = return_types, .special = 0 });
+            IrArena* a = emitter->arena;
+            LARRAY(const Type*, stripped, return_types.count);
+            for (size_t i = 0; i < return_types.count; i++) {
+                stripped[i] = return_types.nodes[i];
+                if (stripped[i]->tag == QualifiedType_TAG)
+                    stripped[i] = shd_get_unqualified_type(stripped[i]);
+            }
+            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = shd_nodes(a, return_types.count, stripped), .special = 0 });
             return spv_emit_type(emitter, codom_ret_type);
         }
     }
