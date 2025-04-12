@@ -216,7 +216,7 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, S
                 .address_space = AsPrivate,
                 .is_ref = true
             });
-            shd_set_debug_name(stack_ptr_decl, "max_stack_ptr");
+            shd_set_debug_name(max_stack_size_var, "max_stack_ptr");
             shd_add_annotation_named(max_stack_size_var, "Generated");
             shd_add_annotation_named(max_stack_size_var, "Inout");
             max_stack_size_var->payload.global_variable.init = shd_uint32_literal(a, 0);

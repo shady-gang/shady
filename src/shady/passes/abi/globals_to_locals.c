@@ -151,7 +151,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
                     const Node* alloca = physical ? shd_bld_stack_alloc(bb, t) : shd_bld_local_alloc(bb, t);
                     if (copy_in.count > 0)
-                        shd_bld_store(bb, alloca, copy_in.nodes[0]);
+                        shd_bld_store(bb, alloca, copy_in.nodes[i]);
                     shd_register_processed(&fn_ctx.rewriter, opromoted, alloca);
                     fn_ctx.promoted_to_copy.new = shd_nodes_append(a, fn_ctx.promoted_to_copy.new, alloca);
                     String debug_name = shd_get_node_name_unsafe(opromoted);
@@ -164,7 +164,7 @@ static const Node* process(Context* ctx, const Node* node) {
                         const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
                         const Node* alloca = physical ? shd_bld_stack_alloc(bb, t) : shd_bld_local_alloc(bb, t);
                         if (copy_in.count > 0)
-                            shd_bld_store(bb, alloca, copy_in.nodes[0]);
+                            shd_bld_store(bb, alloca, copy_in.nodes[i]);
                         shd_register_processed(&fn_ctx.rewriter, opromoted, alloca);
                         fn_ctx.promoted_to_alloca.new = shd_nodes_append(a, fn_ctx.promoted_to_alloca.new, alloca);
                         String debug_name = shd_get_node_name_unsafe(opromoted);
