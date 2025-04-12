@@ -96,4 +96,4 @@ uint64_t shd_rn_get_buffer_device_pointer(Buffer* buf) { return buf->get_device_
 bool shd_rn_copy_to_buffer(Buffer* dst, size_t buffer_offset, void* src, size_t size) { return dst->copy_into(dst, buffer_offset, src, size); }
 bool shd_rn_copy_from_buffer(Buffer* src, size_t buffer_offset, void* dst, size_t size) { return src->copy_from(src, buffer_offset, dst, size); }
 
-TargetConfig shd_rn_get_device_target_config(Device* device) { return device->get_device_target_config(device); }
+TargetConfig shd_rn_get_device_target_config(const CompilerConfig* compiler_config, Device* device) { return device->get_device_target_config(compiler_config, device); }

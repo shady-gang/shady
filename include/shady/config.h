@@ -84,6 +84,8 @@ const ArenaConfig* shd_get_arena_config(const IrArena* a);
 typedef struct CompilerConfig_ CompilerConfig;
 struct CompilerConfig_ {
     bool dynamic_scheduling;
+    bool use_rt_pipelines_for_calls;
+
     uint32_t per_thread_stack_size;
 
     struct {

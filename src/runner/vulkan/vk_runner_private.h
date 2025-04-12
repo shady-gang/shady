@@ -186,7 +186,7 @@ struct VkrSpecProgram_ {
     VkDescriptorSet sets[MAX_DESCRIPTOR_SETS];
 };
 
-TargetConfig shd_vkr_get_device_target_config(VkrDevice* device);
+TargetConfig shd_vkr_get_device_target_config(const CompilerConfig*, VkrDevice* device);
 
 VkrSpecProgram* shd_vkr_get_specialized_program(Program* program, String entry_point, VkrDevice* device);
 void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec);

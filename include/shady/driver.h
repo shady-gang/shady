@@ -86,7 +86,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv);
 
 /// Populates the 'target' field of DriverConfig with defaults that match the driver options (output file etc)
 void shd_driver_configure_target(TargetConfig*, DriverConfig* driver_config);
-void shd_driver_configure_defaults_for_target(TargetConfig*, CodegenTarget);
+void shd_driver_configure_defaults_for_target(TargetConfig*, const CompilerConfig*, CodegenTarget);
 
 /// Parses additional target configuration
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv);

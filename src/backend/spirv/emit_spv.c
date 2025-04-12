@@ -347,10 +347,12 @@ typedef struct {
     AddressSpace dst_as;
 } Global2LocalsPassConfig;
 
-static CompilationResult run_spv_backend_transforms(const SPVBackendConfig* spv_config, const CompilerConfig* config, Module** pmod) {
-    if ((*pmod)->arena->config.target.capabilities.rt_pipelines) {
-        RUN_PASS(shd_lower_to_callable_shaders, config)
-    }
+typedef struct {
+    const TargetConfig* target;
+    const SPVBackendConfig* backend;
+} SPVBackendPipelineOptions;
+
+static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_call_init_fini, config)
     RUN_PASS(shd_pass_globals_to_params, config)
     Global2LocalsPassConfig globals2locals = {
@@ -359,16 +361,27 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendConfig* spv_
     };
     RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
     RUN_PASS(shd_spv_lower_entrypoint_args, config)
-    if (spv_config->hacks.avoid_spirv_cross_broken_bda_pointers)
+    if (options->backend->hacks.avoid_spirv_cross_broken_bda_pointers)
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
     RUN_PASS(shd_pass_eliminate_constants, config)
+
+    //if (options->target->capabilities.rt_pipelines) {
+    if (options->target->execution_model == EmRayGeneration) {
+        RUN_PASS(shd_pass_mark_leaf_functions, config)
+        RUN_PASS(shd_lower_to_callable_shaders, config)
+    }
+
     RUN_PASS(shd_pass_import, config)
 
     return CompilationNoError;
 }
 
-void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const SPVBackendConfig* econfig) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, econfig, sizeof(*econfig));
+void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const TargetConfig* target_config, const SPVBackendConfig* backend_config) {
+    SPVBackendPipelineOptions config = {
+        .target = target_config,
+        .backend = backend_config,
+    };
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, &config, sizeof(config));
 }
 
 void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config, Module* mod, size_t* output_size, char** output) {

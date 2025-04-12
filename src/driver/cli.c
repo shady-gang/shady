@@ -114,10 +114,6 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
         } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
             target->capabilities.native_fncalls = true;
             target->memory.fn_ptr_size = IntTy64;
-        } else if (strcmp(argv[i], "--use-rt-pipelines") == 0) {
-            target->capabilities.native_fncalls = true;
-            target->capabilities.rt_pipelines = true;
-            target->memory.fn_ptr_size = IntTy64;
         } else if (strcmp(argv[i], "--force-memory-emulation") == 0) {
             target->memory.address_spaces[AsPrivate].physical = false;
             target->memory.address_spaces[AsSubgroup].physical = false;
@@ -150,6 +146,7 @@ F(config->optimisations.inline_everything, inline-everything) \
 F(config->input_cf.restructure_with_heuristics, restructure-everything) \
 F(config->input_cf.add_scope_annotations, add-scope-annotations) \
 F(config->input_cf.has_scope_annotations, has-scope-annotations) \
+F(config->use_rt_pipelines_for_calls, use-rt-pipelines) \
 
 void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;

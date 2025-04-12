@@ -35,7 +35,7 @@ static CodegenTarget guess_target_through_name(const char* filename) {
     exit(InvalidTarget);
 }
 
-static void configure_target(TargetConfig* target_config, CodegenTarget target_type, DriverConfig* driver_config) {
+static void configure_target(TargetConfig* target_config, CodegenTarget target_type, CompilerConfig* compiler_config, DriverConfig* driver_config) {
     if (target_type == TgtAuto) {
         if (driver_config && driver_config->output_filename) {
             target_type = driver_config->target_type = guess_target_through_name(driver_config->output_filename);
@@ -52,6 +52,12 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
             add_default_shading_language_limitations(target_config);
             // default to assuming BDA support on Vulkan
             target_config->memory.address_spaces[AsGlobal].physical = true;
+
+            if (compiler_config->use_rt_pipelines_for_calls) {
+                target_config->capabilities.native_fncalls = true;
+                target_config->capabilities.rt_pipelines = true;
+                //target_config->memory.fn_ptr_size = IntTy64;
+            }
             break;
         case TgtC:
             if (driver_config) {
@@ -90,12 +96,12 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
     }
 }
 
-void shd_driver_configure_defaults_for_target(TargetConfig* target_config, CodegenTarget target) {
-    configure_target(target_config, target, NULL);
+void shd_driver_configure_defaults_for_target(TargetConfig* target_config, const CompilerConfig* compiler_config, CodegenTarget target) {
+    configure_target(target_config, target, compiler_config, NULL);
 }
 
 void shd_driver_configure_target(TargetConfig* target_config, DriverConfig* driver_config) {
-    configure_target(target_config, driver_config->target_type, driver_config);
+    configure_target(target_config, driver_config->target_type, &driver_config->config, driver_config);
 }
 
 ExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
@@ -144,7 +150,7 @@ void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_c
             shd_pipeline_add_c_target_passes(pipeline, &driver_config->backend_config.c);
             break;
         case BackendSPV:
-            shd_pipeline_add_spirv_target_passes(pipeline, &driver_config->backend_config.spirv);
+            shd_pipeline_add_spirv_target_passes(pipeline, target_config, &driver_config->backend_config.spirv);
             break;
     }
 }

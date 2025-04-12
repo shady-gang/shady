@@ -239,7 +239,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
     spec->specialized_module = shd_import(&spec->specialized_config, spec->key.base->module);
 
-    spec->specialized_target = shd_vkr_get_device_target_config(spec->device);
+    spec->specialized_target = shd_vkr_get_device_target_config(&spec->specialized_config, spec->device);
 
     SPVBackendConfig spv_cfg = shd_default_spirv_backend_config();
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spv_cfg);
@@ -249,7 +249,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_pipeline_add_normalize_input_cf(pipeline);
     shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target);
-    shd_pipeline_add_spirv_target_passes(pipeline, &spv_cfg);
+    shd_pipeline_add_spirv_target_passes(pipeline, &spec->specialized_target, &spv_cfg);
     CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);
 

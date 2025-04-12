@@ -36,7 +36,7 @@ Device* shd_rn_get_an_device(Runner* r);
 const char* shd_rn_get_device_name(Device* d);
 RunnerBackend shd_rn_get_device_backend(Device* d);
 
-TargetConfig shd_rn_get_device_target_config(Device*);
+TargetConfig shd_rn_get_device_target_config(const CompilerConfig*, Device*);
 
 typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;

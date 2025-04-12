@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     Device* device = shd_rn_get_device(runtime, args.common_app_args.device);
     assert(device);
 
-    TargetConfig target_config = shd_rn_get_device_target_config(device);
+    TargetConfig target_config = shd_rn_get_device_target_config(&args.driver_config.config, device);
 
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     shd_parse_driver_args(&args.driver_config, &argc, argv);

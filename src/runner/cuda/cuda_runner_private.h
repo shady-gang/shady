@@ -22,6 +22,7 @@ typedef struct CudaBackend_ {
 
 typedef struct {
     Device base;
+    CudaBackend* backend;
     CUdevice handle;
     CUcontext context;
     char name[256];
@@ -69,6 +70,6 @@ bool shd_cur_can_import_host_memory(CudaDevice*);
 CudaKernel* shd_cur_get_specialized_program(CudaDevice*, Program*, String ep);
 bool shd_cur_destroy_specialized_kernel(CudaKernel* kernel);
 
-TargetConfig shd_cur_get_device_target_config(CudaDevice* device);
+TargetConfig shd_cur_get_device_target_config(const CompilerConfig*, CudaDevice* device);
 
 #endif
