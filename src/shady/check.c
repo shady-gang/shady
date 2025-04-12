@@ -547,11 +547,11 @@ const Type* _shd_check_type_conversion(IrArena* a, Conversion conversion) {
 }
 
 const Type* _shd_check_type_ext_value(IrArena* arena, ExtValue payload) {
-    return payload.result_t;
+    return payload.result_t ? payload.result_t : unit_type(arena);
 }
 
 const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
-    return payload.result_t;
+    return payload.result_t ? payload.result_t : unit_type(arena);
 }
 
 const Type* _shd_check_type_ext_terminator(IrArena* arena, ExtTerminator payload) {

@@ -709,7 +709,7 @@
       "class": ["mem", "value", "instruction"],
       "ops": [
         { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "result_t", "class": "type" },
+        { "name": "result_t", "class": "type", "nullable": true },
         { "name": "set", "class": "string" },
         { "name": "opcode", "type": "uint32_t" },
         { "name": "operands", "class": "value", "list": true }

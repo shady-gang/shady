@@ -86,6 +86,7 @@ struct List* spvb_get_phis(SpvbBasicBlockBuilder* bb_builder);
 
 // Normal instructions
 SpvId spvb_op(SpvbBasicBlockBuilder*, SpvOp op, SpvId result_type, size_t operands_count, SpvId operands[]);
+void spvb_no_result(SpvbBasicBlockBuilder*, SpvOp op, size_t operands_count, SpvId operands[]);
 SpvId spvb_composite(SpvbBasicBlockBuilder*, SpvId aggregate_t, size_t elements_count, SpvId elements[]);
 SpvId spvb_select(SpvbBasicBlockBuilder*, SpvId type, SpvId condition, SpvId if_true, SpvId if_false);
 SpvId spvb_extract(SpvbBasicBlockBuilder*, SpvId target_type, SpvId composite, size_t indices_count, uint32_t indices[]);

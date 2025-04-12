@@ -823,6 +823,12 @@ SpvId spvb_op(SpvbBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, si
     return id;
 }
 
+void spvb_no_result(SpvbBasicBlockBuilder* bb_builder, SpvOp op, size_t operands_count, SpvId operands[]) {
+    op(op, 1 + operands_count);
+    for (size_t i = 0; i < operands_count; i++)
+        ref_id(operands[i]);
+}
+
 SpvId spvb_group_elect(SpvbBasicBlockBuilder* bb_builder, SpvId result_type, SpvId scope) {
     op(SpvOpGroupNonUniformElect, 4);
     SpvId id = spvb_fresh_id(bb_builder->fn_builder->file_builder);

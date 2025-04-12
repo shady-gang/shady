@@ -297,6 +297,10 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
         LARRAY(SpvId, ops, operands.count);
         for (size_t i = 0; i < operands.count; i++)
             ops[i] = spv_emit_value(emitter, fn_builder, operands.nodes[i]);
+        if (!result_t) {
+            spvb_no_result(bb_builder, opcode, operands.count, ops);
+            return 0;
+        }
         return spvb_op(bb_builder, opcode, spv_emit_type(emitter, result_t), operands.count, ops);
     }
     LARRAY(SpvId, ops, operands.count);
