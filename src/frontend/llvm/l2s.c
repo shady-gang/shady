@@ -274,6 +274,11 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         if (value && as != AsUniformConstant)
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
+        if (LLVMIsGlobalConstant(global)) {
+            shd_add_annotation_named(decl, "Constant");
+            shd_add_annotation_named(decl, "DoNotDemoteToReference");
+        }
+
         switch (LLVMGetLinkage(global)) {
             case LLVMExternalLinkage:
             case LLVMExternalWeakLinkage:

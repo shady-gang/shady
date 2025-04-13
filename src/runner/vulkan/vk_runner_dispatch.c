@@ -43,7 +43,7 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
                         size_t threads = threadsx * threadsy * threadsz;
                         size_t total_size = threads * resource->per_invocation_size;
 
-                        //printf("blocks: %zu wg: %zu, total: %zu\n", blocks, threads_per_wg, total_size);
+                        //printf("threads: %d %d %d, total: %zu\n", threadsx, threadsy, threadsz, total_size);
                         if (!resource->scratch || resource->scratch_size != total_size) {
                             if (resource->scratch_size != 0)
                                 shd_vkr_destroy_buffer(resource->scratch);
@@ -206,6 +206,7 @@ static VkrCommand* vkr_launch_rays(VkrDevice* device, Program* program, String e
         .deviceAddress = 0,
     };
 
+    device->extensions.vkCmdSetRayTracingPipelineStackSizeKHR(cmd->cmd_buf, prog->rt.stack_size);
     device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &prog->rt.rg_sbt, &empty_sbt, &empty_sbt, &prog->rt.callables_sbt, sizex, sizey, sizez);
     //device->extensions.vkCmdTraceRaysKHR(cmd->cmd_buf, &empty_sbt, &empty_sbt, &empty_sbt, &empty_sbt, 1, 1, 1);
 
@@ -286,7 +287,7 @@ err_post_fence_create:
 
 bool shd_vkr_wait_completion(VkrCommand* cmd) {
     assert(cmd->submitted && "Command must be submitted before they can be waited on");
-    CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT32_MAX), return false);
+    CHECK_VK(vkWaitForFences(cmd->device->device, 1, (VkFence[]) { cmd->done_fence }, true, UINT64_MAX), return false);
     if (cmd->launch_interface_items)
         cleanup_resources_after_launch(cmd);
     if (cmd->profiled_gpu_time) {

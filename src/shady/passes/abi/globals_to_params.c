@@ -124,9 +124,11 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
                             //const Node* global_thread_offset = mul(thread_size, linear_workgroup_id);
                             //global_thread_offset = shd_uint32_literal(a, 48);
                         }
-                        if (ctx->config->printf_trace.scratch_base_addr)
-                            shd_bld_debug_printf(fn_ctx.bb, "GTO=%d\n", mk_nodes(a, global_thread_offset));
                         value = ptr_array_element_offset_helper(a, value, global_thread_offset);
+                        if (ctx->config->printf_trace.scratch_base_addr) {
+                            const Node* ptr = bit_cast_helper(a, shd_uint64_type(a), value);
+                            shd_bld_debug_printf(fn_ctx.bb, "GTO=%d ptr=%lx\n", mk_nodes(a, global_thread_offset, ptr));
+                        }
                     }
                     shd_bld_store(fn_ctx.bb, ctx->extra_globals.nodes[i], value);
                 }

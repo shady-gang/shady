@@ -29,6 +29,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
                 const Node* converted = conversion_helper(a, dst_t, new_global);
                 shd_register_processed(r, node, converted);
                 shd_recreate_node_body(r, node, new_global);
+                shd_rewrite_annotations(r, node, new_global);
                 return shd_new_rewrite_result(r, converted);
             }
             break;

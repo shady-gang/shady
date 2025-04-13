@@ -248,6 +248,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_fresh_id(emitter->file_builder);
             spv_register_emitted(emitter, NULL, type, new);
             spv_emit_record_type_body(emitter, type, new);
+            spv_emit_type_layout(emitter, type);
             return new;
         }
         case NominalType_TAG: {

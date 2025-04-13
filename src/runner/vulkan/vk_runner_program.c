@@ -272,6 +272,18 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
         };
     }
 
+    VkDynamicState dynamic_states[] = {
+        VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR,
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamic_state = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+
+        .flags = 0,
+        .dynamicStateCount = 1,
+        .pDynamicStates = dynamic_states
+    };
+
     CHECK_VK(program->device->extensions.vkCreateRayTracingPipelinesKHR(program->device->device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
         &((VkRayTracingPipelineCreateInfoKHR) {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -283,10 +295,25 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
             .pGroups = groups,
             .maxPipelineRayRecursionDepth = program->device->caps.properties.rt_pipeline_properties.maxRayRecursionDepth,
             .layout = program->layout,
+            .pDynamicState = &dynamic_state,
         }), NULL, &program->pipeline), return false);
 
     make_sbt(program, 0, 1, &program->rt.rg_sbt_buffer, &program->rt.rg_sbt);
     make_sbt(program, 1, program->rt.callables_count, &program->rt.callables_sbt_buffer, &program->rt.callables_sbt);
+
+    size_t biggest_callable_stack_size = 0;
+    for (size_t i = 0; i < program->rt.callables_count; i++) {
+        size_t callable_stack_size = program->device->extensions.vkGetRayTracingShaderGroupStackSizeKHR(program->device->device, program->pipeline, 1 + i, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
+        printf("stack size of callable is: %zu bytes\n", callable_stack_size);
+        if (callable_stack_size > biggest_callable_stack_size)
+            biggest_callable_stack_size = callable_stack_size;
+    }
+    size_t raygen_stack_size = program->device->extensions.vkGetRayTracingShaderGroupStackSizeKHR(program->device->device, program->pipeline, 0, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
+    printf("stack size of raygen is: %zu bytes\n", raygen_stack_size);
+    printf("stack size of biggest callable is: %zu bytes\n", biggest_callable_stack_size);
+
+    program->rt.stack_size = raygen_stack_size + biggest_callable_stack_size * 5;
+    printf("stack size set to: %zu bytes\n", program->rt.stack_size);
 
     return true;
 }

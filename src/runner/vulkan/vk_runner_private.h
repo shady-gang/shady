@@ -26,6 +26,8 @@ Y(vkGetMemoryHostPointerPropertiesEXT) \
 Y(vkCreateRayTracingPipelinesKHR) \
 Y(vkCmdTraceRaysKHR) \
 Y(vkGetRayTracingShaderGroupHandlesKHR) \
+Y(vkGetRayTracingShaderGroupStackSizeKHR) \
+Y(vkCmdSetRayTracingPipelineStackSizeKHR) \
 
 #define S(is_required, name) "VK_" #name,
 SHADY_UNUSED static const char* shady_supported_instance_extensions_names[] = { SHADY_SUPPORTED_INSTANCE_EXTENSIONS(S) };
@@ -176,6 +178,7 @@ struct VkrSpecProgram_ {
         VkShaderModule* callable_shader_modules;
         VkrBuffer* callables_sbt_buffer;
         VkStridedDeviceAddressRegionKHR callables_sbt;
+        size_t stack_size;
     } rt;
 
     struct {

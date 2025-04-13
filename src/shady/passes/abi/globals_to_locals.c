@@ -286,7 +286,7 @@ Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, co
         const Node* oglobal = oglobals.nodes[i];
         if (oglobal->payload.global_variable.address_space != ctx.pass_config.src_as)
             continue;
-        bool promote_to_ref = !shd_lookup_annotation(oglobal, "Inout");
+        bool promote_to_ref = !shd_lookup_annotation(oglobal, "Inout") && !config->use_rt_pipelines_for_calls;
         if (promote_to_ref)
             ctx.promoted_to_alloca.old = shd_nodes_append(oa, ctx.promoted_to_alloca.old, oglobal);
         else
