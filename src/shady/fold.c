@@ -430,8 +430,6 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             payload.src = try_simplify_pointer_casts(payload.src, &src_changes, PtrBitCast | PtrScopeCast | PtrGenericCast);
             payload.dst = try_simplify_pointer_casts(payload.dst, &dst_changes, PtrBitCast | PtrScopeCast | PtrGenericCast);
             if (src_changes || dst_changes) {
-                reapply_ptr_casts(opayload.src, src_changes, &payload.src);
-                reapply_ptr_casts(opayload.dst, dst_changes, &payload.dst);
                 return copy_bytes(arena, payload);
             }
 
