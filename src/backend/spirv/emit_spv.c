@@ -372,6 +372,8 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOpti
 
     //if (options->target->capabilities.rt_pipelines) {
     if (options->target->execution_model == EmRayGeneration) {
+        // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
+        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
         RUN_PASS(shd_pass_mark_leaf_functions, config)
         RUN_PASS(shd_lower_to_callable_shaders, config)
     }
