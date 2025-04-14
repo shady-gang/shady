@@ -91,11 +91,14 @@ static const Node* process(Context* ctx, const Node* node) {
 
             // don't perform physical conversion if there's no suitable scratch address space
             // this happens in the case of uniform variables in non-compute stages
-            AddressSpace as = (scope <= ShdScopeSubgroup) ? AsSubgroup : AsPrivate;
-            can_be_physical &= (shd_ir_arena_get_config(a)->target.memory.address_spaces[as].allowed);
+            //AddressSpace as = (scope <= ShdScopeSubgroup) ? AsSubgroup : AsPrivate;
+            //can_be_physical &= (shd_ir_arena_get_config(a)->target.memory.address_spaces[as].allowed);
 
             if (can_be_physical) {
+                AddressSpace as = AsPrivate;
                 io = promote_to_physical(ctx, as, io);
+                //if (scope > shd_get_addr_space_scope(as))
+                //    io = scope_cast_helper(a, scope, io);
             } else {
                 io = conversion_helper(a, make_ptr_generic(shd_get_unqualified_type(io->type)), io);
             }
