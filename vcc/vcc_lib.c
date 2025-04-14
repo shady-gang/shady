@@ -60,9 +60,9 @@ VccConfig vcc_init_config(CompilerConfig* compiler_config) {
     };
 
     // magic!
-    //compiler_config->hacks.recover_structure = true;
-    compiler_config->input_cf.add_scope_annotations = true;
-    compiler_config->input_cf.has_scope_annotations = true;
+    compiler_config->input_cf.restructure_with_heuristics = true;
+    //compiler_config->input_cf.add_scope_annotations = true;
+    //compiler_config->input_cf.has_scope_annotations = true;
 
     String self_path = shd_get_executable_location();
     String working_dir = shd_strip_path(self_path);
