@@ -78,6 +78,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
     switch (type->tag) {
         case FnType_TAG:  shd_error("Functions have an opaque memory representation");
         case PtrType_TAG: switch (type->payload.ptr_type.address_space) {
+            case AsFunction:
             case AsPrivate:
             case AsSubgroup:
             case AsShared:

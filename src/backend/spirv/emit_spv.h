@@ -66,7 +66,6 @@ SpvStorageClass spv_emit_addr_space(Emitter*, AddressSpace address_space);
 SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types);
 const Type* spv_normalize_type(Emitter* emitter, const Type* type);
 void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id);
-void spv_emit_type_layout(Emitter* emitter, const Type* type);
 void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id);
 
 void shd_spv_emit_debuginfo(Emitter*, const Node* n, SpvId id);
