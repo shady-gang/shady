@@ -312,7 +312,7 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
     printf("stack size of raygen is: %zu bytes\n", raygen_stack_size);
     printf("stack size of biggest callable is: %zu bytes\n", biggest_callable_stack_size);
 
-    program->rt.stack_size = raygen_stack_size + biggest_callable_stack_size * 5;
+    program->rt.stack_size = raygen_stack_size + biggest_callable_stack_size * 6;
     printf("stack size set to: %zu bytes\n", program->rt.stack_size);
 
     return true;
