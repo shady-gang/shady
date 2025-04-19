@@ -57,6 +57,7 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
 
 size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
     switch (t->tag) {
+        case NominalType_TAG: return shd_get_composite_index_offset_in_bytes(a, shd_get_nominal_type_body(t), i);
         case RecordType_TAG: return shd_get_record_field_offset_in_bytes(a, t, i);
         case ArrType_TAG: {
             TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.arr_type.element_type);

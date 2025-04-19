@@ -513,7 +513,7 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
                                 }
                             }
 
-                            if (fields[i].offset_in_bytes > rem_offset) {
+                            if (i >= record_payload.members.count || fields[i].offset_in_bytes > rem_offset) {
                                 assert(i > 0);
                                 i = i - 1;
                             }
