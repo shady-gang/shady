@@ -134,45 +134,69 @@ static bool fill_device_properties(ShadyVkrPhysicalDeviceCaps* caps) {
     return true;
 }
 
+static void register_ext_feature_impl(size_t* len, VkBaseInStructure** features, size_t* lens, VkBaseInStructure* s, size_t s_len) {
+    if (features) {
+        features[*len] = s;
+    }
+    if (lens) {
+        lens[*len] = s_len;
+    }
+    (*len)++;
+}
+
+void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens) {
+    assert(len);
+    *len = 0;
+
+#define register_ext_feature(s) register_ext_feature_impl(len, features, lens, (VkBaseInStructure*) &s, sizeof(s))
+
+    if (caps->supported_extensions[ShadySupportsKHR_shader_subgroup_extended_types] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.subgroup_extended_types.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
+        register_ext_feature(caps->features.subgroup_extended_types);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_buffer_device_address] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
+        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
+        register_ext_feature(caps->features.buffer_device_address);
+    }
+
+    if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control]) {
+        caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
+        register_ext_feature(caps->features.subgroup_size_control);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_shader_float16_int8]) {
+        caps->features.float_16_int8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
+        register_ext_feature(caps->features.float_16_int8);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_8bit_storage]) {
+        caps->features.storage8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
+        register_ext_feature(caps->features.storage8);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_16bit_storage]) {
+        caps->features.storage16.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
+        register_ext_feature(caps->features.storage16);
+    }
+
+    if (caps->supported_extensions[ShadySupportsKHR_ray_tracing_pipeline]) {
+        caps->features.rt_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        register_ext_feature(caps->features.rt_pipeline_features);
+    }
+}
+
 static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {
     caps->features.base = (VkPhysicalDeviceFeatures2) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = NULL,
     };
 
-    if (caps->supported_extensions[ShadySupportsKHR_shader_subgroup_extended_types] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
-        caps->features.subgroup_extended_types.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_extended_types);
-    }
-
-    if (caps->supported_extensions[ShadySupportsKHR_buffer_device_address] || caps->properties.base.properties.apiVersion >= VK_MAKE_VERSION(1, 2, 0)) {
-        caps->features.buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.buffer_device_address);
-    }
-
-    if (caps->supported_extensions[ShadySupportsEXT_subgroup_size_control]) {
-        caps->features.subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.subgroup_size_control);
-    }
-
-    if (caps->supported_extensions[ShadySupportsKHR_shader_float16_int8]) {
-        caps->features.float_16_int8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.float_16_int8);
-    }
-
-    if (caps->supported_extensions[ShadySupportsKHR_8bit_storage]) {
-        caps->features.storage8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.storage8);
-    }
-
-    if (caps->supported_extensions[ShadySupportsKHR_16bit_storage]) {
-        caps->features.storage16.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.storage16);
-    }
-
-    if (caps->supported_extensions[ShadySupportsKHR_ray_tracing_pipeline]) {
-        caps->features.rt_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-        append_pnext((VkBaseOutStructure*) &caps->features.base, &caps->features.rt_pipeline_features);
+    LARRAY(VkBaseInStructure*, extended_features, SHADY_SUPPORTED_DEVICE_EXTENSIONS_COUNT);
+    size_t len;
+    shd_rt_get_device_caps_ext_features(caps, &len, extended_features, NULL);
+    for (size_t i = 0; i < len; i++) {
+        append_pnext((VkBaseOutStructure*) &caps->features.base, extended_features[i]);
     }
 
     vkGetPhysicalDeviceFeatures2(caps->physical_device, &caps->features.base);
