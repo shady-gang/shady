@@ -81,10 +81,3 @@ Nodes shd_filter_out_annotation(IrArena* arena, Nodes annotations, const char* n
     }
     return shd_nodes(arena, new_count, new_annotations);
 }
-
-ExecutionModel shd_execution_model_from_string(const char* string) {
-#define EM(n) if (strcmp(string, #n) == 0) return Em##n;
-    EXECUTION_MODELS(EM)
-#undef EM
-    return EmNone;
-}

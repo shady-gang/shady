@@ -104,16 +104,6 @@ void shd_driver_configure_target(TargetConfig* target_config, DriverConfig* driv
     configure_target(target_config, driver_config->target_type, &driver_config->config, driver_config);
 }
 
-ExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
-    String name = shd_get_node_name_safe(decl);
-    if (decl->tag != Function_TAG)
-        shd_error("Cannot specialize: '%s' is not a function.", name)
-    const Node* ep = shd_lookup_annotation(decl, "EntryPoint");
-    if (!ep)
-        shd_error("%s is not annotated with @EntryPoint", name);
-    return shd_execution_model_from_string(shd_get_annotation_string_payload(ep));
-}
-
 static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
     const Node* decl = shd_module_get_exported(mod, entry_point);
     if (!decl)

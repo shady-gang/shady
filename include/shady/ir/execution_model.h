@@ -1,6 +1,8 @@
 #ifndef SHADY_IR_EXECUTION_MODEL_H
 #define SHADY_IR_EXECUTION_MODEL_H
 
+#include "shady/ir/base.h"
+
 #define EXECUTION_MODELS(EM) \
 EM(Compute      ) \
 EM(Fragment     ) \
