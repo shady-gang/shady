@@ -25,8 +25,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
                 payload = shd_rewrite_global_head_payload(r, payload);
                 payload.address_space = AsPrivate;
                 Node* new_global = shd_global_var(r->dst_module, payload);
-                const Type* dst_t = ptr_type(a, (PtrType) { .pointed_type = t, .address_space = AsGeneric });
-                const Node* converted = conversion_helper(a, dst_t, new_global);
+                const Node* converted = generic_ptr_cast_helper(a, new_global);
                 shd_register_processed(r, node, converted);
                 shd_recreate_node_body(r, node, new_global);
                 shd_rewrite_annotations(r, node, new_global);

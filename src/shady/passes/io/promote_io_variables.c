@@ -46,14 +46,7 @@ static const Node* promote_to_physical(Context* ctx, AddressSpace as, const Node
         default: assert(false);
     }
 
-    const Type* tgt_ptr_t = ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = ptr_payload.pointed_type });
-    return conversion_helper(a, tgt_ptr_t, phy);
-}
-
-static const Type* make_ptr_generic(const Type* old) {
-    PtrType payload = old->payload.ptr_type;
-    payload.address_space = AsGeneric;
-    return ptr_type(old->arena, payload);
+    return generic_ptr_cast_helper(a, phy);
 }
 
 static const Node* process(Context* ctx, const Node* node) {
@@ -100,7 +93,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 //if (scope > shd_get_addr_space_scope(as))
                 //    io = scope_cast_helper(a, scope, io);
             } else {
-                io = conversion_helper(a, make_ptr_generic(shd_get_unqualified_type(io->type)), io);
+                io = generic_ptr_cast_helper(a, io);
             }
 
             shd_register_processed(r, node, io);

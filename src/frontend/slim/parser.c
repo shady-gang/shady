@@ -368,6 +368,10 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 1, "one operands");
                 return conversion_helper(arena, type, shd_first(ops));
+            } else if (strcmp(id, "generic_ptr_cast") == 0) {
+                Nodes ops = expect_operands(ctx, bb);
+                expect(ops.count == 1, "one operands");
+                return generic_ptr_cast_helper(arena, shd_first(ops));
             } else if (strcmp(id, "ptr_array_offset") == 0) {
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 2, "one operands");

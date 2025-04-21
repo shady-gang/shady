@@ -7,7 +7,7 @@ fn f varying f32() {
 @Exported
 fn g varying i32() {
   var i32 i = 420;
-  return (*(convert[ptr generic i32](&i)));
+  return (*(generic_ptr_cast(&i)));
 }
 
 @Exported
@@ -15,6 +15,6 @@ fn h varying f32() {
   var i32 i = 1116340224; // 69.0f
   val p = &i;
   val p1 = (bitcast[ptr private f32](&i));
-  val p2 = convert[ptr generic f32](p1);
+  val p2 = generic_ptr_cast(p1);
   return (*p2);
 }

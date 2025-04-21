@@ -954,7 +954,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, conversion_helper(parser->arena, dst_t, src));
+            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, generic_ptr_cast_helper(parser->arena, src));
             break;
         }
         case SpvOpConvertPtrToU:
