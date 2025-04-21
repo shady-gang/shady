@@ -4,34 +4,62 @@
 
 %module shady
 %{
-#include "shady/ir.h"
-
-* bb
-
-* bb
-
-#include "shady/runtime.h"
-
-* d
-
-* r
-
-* runtime
-
+#include "shady/ir/annotation.h"
+#include "shady/ir/arena.h"
+#include "shady/ir/base.h"
+#include "shady/ir/builder.h"
+#include "shady/ir/builtin.h"
+#include "shady/ir/cast.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/decl.h"
+#include "shady/ir/enum.h"
+#include "shady/ir/execution_model.h"
+#include "shady/ir/ext.h"
+#include "shady/ir/float.h"
+#include "shady/ir/function.h"
+#include "shady/ir/grammar.h"
+#include "shady/ir/int.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/memory_layout.h"
+#include "shady/ir/module.h"
+#include "shady/ir/primop.h"
+#include "shady/ir/stack.h"
+#include "shady/ir/type.h"
+#include "shady/runtime/runtime.h"
 #include "shady/driver.h"
-
-* mod
-
 #include "shady/config.h"
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
 #include "shady/be/dump.h"
 %}
 
-%include "shady/ir.h"
+%include "shady/ir/annotation.h"
+%include "shady/ir/arena.h"
+%include "shady/ir/base.h"
+%include "shady/ir/builder.h"
+%include "shady/ir/builtin.h"
+%include "shady/ir/cast.h"
+%include "shady/ir/composite.h"
+%include "shady/ir/debug.h"
+%include "shady/ir/decl.h"
+%include "shady/ir/enum.h"
+%include "shady/ir/execution_model.h"
+%include "shady/ir/ext.h"
+%include "shady/ir/float.h"
+%include "shady/ir/function.h"
+%include "shady/ir/grammar.h"
+%include "shady/ir/int.h"
+%include "shady/ir/mem.h"
+%include "shady/ir/memory_layout.h"
+%include "shady/ir/module.h"
+%include "shady/ir/primop.h"
+%include "shady/ir/stack.h"
+%include "shady/ir/type.h"
 %include "grammar_generated.h"
+%include "enum_generated.h"
 %include "shady/driver.h"
-%include "shady/runtime.h"
+%include "shady/runtime/runtime.h"
 %include "shady/config.h"
 %include "shady/be/c.h"
 %include "shady/be/spirv.h"

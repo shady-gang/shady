@@ -21,7 +21,7 @@ if (SHADY_ENABLE_JAVA_BINDINGS)
     swig_add_library(zhady_shared_lib TYPE SHARED LANGUAGE java SOURCES shady.i OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady)
     set_property(TARGET zhady_shared_lib PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES TRUE)
     set_property(TARGET zhady_shared_lib PROPERTY SWIG_COMPILE_OPTIONS -package de.unisaarland.zhady)
-    target_link_libraries(zhady_shared_lib PUBLIC JNI::JNI api driver runtime)
+    target_link_libraries(zhady_shared_lib PUBLIC JNI::JNI api driver shd_runtime)
 
     if (TARGET vcc_lib)
         swig_add_library(vcc_swig_c TYPE OBJECT LANGUAGE java SOURCES vcc.i OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/java_sources/de/unisaarland/zhady)
