@@ -7,4 +7,6 @@
 
 bool shd_parse_llvm(const CompilerConfig*, const TargetConfig*, size_t len, const char* data, String name, Module** dst);
 
+int shd_get_linked_major_llvm_version();
+
 #endif

@@ -35,13 +35,9 @@ static bool cmp_opaque_ptr(OpaqueRef* a, OpaqueRef* b) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-#ifdef LLVM_VERSION_MAJOR
-int vcc_get_linked_major_llvm_version() {
+int shd_get_linked_major_llvm_version() {
     return LLVM_VERSION_MAJOR;
 }
-#else
-#error "wat"
-#endif
 
 static void write_bb_body(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* bb_ctx) {
     bb_ctx->builder = shd_bld_begin(bb_ctx->nbb->arena, shd_get_abstraction_mem(bb_ctx->nbb));
