@@ -418,6 +418,11 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             SpvId src = spv_emit_value(emitter, fn_builder, payload.src);
             return spvb_op(bb_builder, op, spv_emit_type(emitter, instruction->type), 1, &src);
         }
+        case Instruction_GenericPtrCast_TAG: {
+            GenericPtrCast payload = instruction->payload.generic_ptr_cast;
+            IselTableEntry entry = { Plain, Monomorphic, TyOperand, .op = SpvOpGenericCastToPtr };
+            return emit_using_entry(emitter, fn_builder, bb_builder, entry, instruction->type, shd_singleton(payload.src));
+        }
         case Instruction_Conversion_TAG: {
             Conversion payload = instruction->payload.conversion;
             IselTableEntry entry = {Plain, FirstAndResult, TyOperand, .foar = {

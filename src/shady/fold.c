@@ -199,14 +199,8 @@ static const Node* try_simplify_pointer_casts(const Node* ptr, PtrCasts* casts, 
                 ptr = payload.src;
                 continue;
             }
-            case Conversion_TAG: {
-                Conversion payload = ptr->payload.conversion;
-                //if (shd_get_unqualified_type(payload.src->type)->tag != PtrType_TAG)
-                //    break;
-                // only ptr-to-generic pointers are acceptable
-                if (payload.type->tag != PtrType_TAG)
-                    break;
-                assert(payload.type->payload.ptr_type.address_space == AsGeneric);
+            case GenericPtrCast_TAG: {
+                GenericPtrCast payload = ptr->payload.generic_ptr_cast;
                 *casts |= PtrGenericCast;
                 ptr = payload.src;
                 continue;
@@ -253,12 +247,6 @@ static bool is_generic(const Node* ptr) {
     return t->payload.ptr_type.address_space == AsGeneric;
 }
 
-static const Type* make_ptr_generic(const Type* old) {
-    PtrType payload = old->payload.ptr_type;
-    payload.address_space = AsGeneric;
-    return ptr_type(old->arena, payload);
-}
-
 static const Type* change_pointee(const Type* old, const Type* pointee) {
     PtrType payload = old->payload.ptr_type;
     payload.pointed_type = pointee;
@@ -278,7 +266,7 @@ static void reapply_ptr_casts(const Node* old, PtrCasts casts, const Node** new)
     if (casts & PtrScopeCast)
         *new = scope_cast_helper(arena, shd_get_qualified_type_scope(old->type), *new);
     if (casts & PtrGenericCast)
-        *new = conversion_helper(arena, make_ptr_generic(shd_get_unqualified_type((*new)->type)), *new);
+        *new = generic_ptr_cast_helper(arena, *new);
 }
 
 static const Node* to_ptr_size(const Node* n) {
@@ -674,6 +662,12 @@ static const Node* fold_memory_poison(IrArena* arena, const Node* node) {
                 return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
             break;
         }
+        case GenericPtrCast_TAG: {
+            GenericPtrCast payload = node->payload.generic_ptr_cast;
+            if (payload.src->tag == Undef_TAG)
+                return quote_single(arena, undef(arena, (Undef) { .type = shd_get_unqualified_type(node->type) }));
+            break;
+        }
         default: break;
     }
     return node;
@@ -707,6 +701,10 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             ScopeCast payload = node->payload.scope_cast;
             if (shd_get_qualified_type_scope(payload.src->type) <= payload.scope)
                 return quote_single(arena, payload.src);
+            switch (payload.src->tag) {
+                case Undef_TAG: return undef_helper(arena, shd_get_unqualified_type(node->type));
+                default: break;
+            }
             break;
         }
         case BitCast_TAG: {

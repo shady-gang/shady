@@ -400,6 +400,14 @@
       ]
     },
     {
+      "name": "GenericPtrCast",
+      "class": ["value", "instruction"],
+      "description": "Promotes a pointer into the generic address space",
+      "ops": [
+        { "name": "src", "class": "value" }
+      ]
+    },
+    {
       "name": "Conversion",
       "class": ["value", "instruction"],
       "description": "Converts things into other things.",

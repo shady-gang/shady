@@ -538,21 +538,19 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     SHADY_UNREACHABLE;
 }
 
-static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
+static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Type* dst_type, const Node* src) {
     IrArena* arena = emitter->arena;
-    Conversion payload = node->payload.conversion;
-    CTerm src = shd_c_emit_value(emitter, fn, payload.src);
-    const Type* src_type = shd_get_unqualified_type(payload.src->type);
-    const Type* dst_type = payload.type;
+    CTerm esrc = shd_c_emit_value(emitter, fn, src);
+    const Type* src_type = shd_get_unqualified_type(src->type);
     if (emitter->backend_config.dialect == CDialect_GLSL) {
         if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
             CType t = shd_c_emit_type(emitter, dst_type, NULL);
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, src)));
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, esrc)));
         } else
             assert(false);
     } else {
         CType t = shd_c_emit_type(emitter, dst_type, NULL);
-        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, src)));
+        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, esrc)));
     }
 }
 
@@ -1127,7 +1125,14 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             return empty_term();
         }
         case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
-        case Instruction_Conversion_TAG: return emit_conversion(emitter, fn, p, instruction);
+        case Instruction_GenericPtrCast_TAG: {
+            GenericPtrCast payload = instruction->payload.generic_ptr_cast;
+            return emit_conversion(emitter, fn, p, instruction->type, payload.src);
+        }
+        case Instruction_Conversion_TAG: {
+            Conversion payload = instruction->payload.conversion;
+            return emit_conversion(emitter, fn, p, payload.type, payload.src);
+        }
         case Value_ScopeCast_TAG: {
             ScopeCast payload = instruction->payload.scope_cast;
             if (payload.scope <= ShdScopeSubgroup) {

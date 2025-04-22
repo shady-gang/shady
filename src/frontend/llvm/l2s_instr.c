@@ -248,7 +248,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
                 r = bit_cast_helper(a, untyped_ptr_t, r);
             }
-            return conversion_helper(a, t, r);
+            return generic_ptr_cast_helper(a, r);
         }
         case LLVMLoad: {
             Nodes ops = convert_operands(p, num_ops, instr);
@@ -377,7 +377,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         case AsGeneric: // generic-to-generic isn't a conversion.
                             break;
                         default: {
-                            return conversion_helper(a, t, src);
+                            return generic_ptr_cast_helper(a, src);
                         }
                     }
                 }
