@@ -82,7 +82,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
 
     if (ctx->max_stack_pointer) {
         const Node* old_max_stack_size = shd_bld_load(bb, ctx->max_stack_pointer);
-        const Node* new_max_stack_size = prim_op_helper(a, max_op, mk_nodes(a, old_max_stack_size, stack_size));
+        const Node* new_max_stack_size = shd_op_umax(a, old_max_stack_size, stack_size);
         shd_bld_store(bb, ctx->max_stack_pointer, new_max_stack_size);
     }
 
@@ -122,7 +122,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             if (ctx->max_stack_pointer) {
                 const Node* old_max_stack_size = shd_bld_load(bb, ctx->max_stack_pointer);
-                const Node* new_max_stack_size = prim_op_helper(a, max_op, mk_nodes(a, old_max_stack_size, new_stack_size));
+                const Node* new_max_stack_size = shd_op_umax(a, old_max_stack_size, new_stack_size);
                 shd_bld_store(bb, ctx->max_stack_pointer, new_max_stack_size);
             }
 

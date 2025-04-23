@@ -43,7 +43,7 @@ static const Node* process(Context* ctx, const Node* node) {
             });
         }
         case PrimOp_TAG: {
-            if (shd_get_primop_class(node->payload.prim_op.op) & (OcArithmetic | OcLogic | OcCompare | OcShift | OcMath))
+            if (shd_get_primop_class(node->payload.prim_op.op) & (OcArithmetic | OcLogic | OcCompare | OcShift))
                 return scalarify_primop(ctx, node);
         }
         default: break;

@@ -13,9 +13,6 @@
       "name": "shift"
     },
     {
-      "name": "math"
-    },
-    {
       "name": "mask"
     }
   ],
@@ -46,10 +43,6 @@
     },
     {
       "name": "div",
-      "class": "arithmetic"
-    },
-    {
-      "name": "fma",
       "class": "arithmetic"
     },
     {
@@ -111,62 +104,6 @@
     {
       "name": "lshift",
       "class": "shift"
-    },
-    {
-      "name": "sqrt",
-      "class": "math"
-    },
-    {
-      "name": "inv_sqrt",
-      "class": "math"
-    },
-    {
-      "name": "pow",
-      "class": "math"
-    },
-    {
-      "name": "exp",
-      "class": "math"
-    },
-    {
-      "name": "floor",
-      "class": "math"
-    },
-    {
-      "name": "ceil",
-      "class": "math"
-    },
-    {
-      "name": "round",
-      "class": "math"
-    },
-    {
-      "name": "fract",
-      "class": "math"
-    },
-    {
-      "name": "min",
-      "class": "math"
-    },
-    {
-      "name": "max",
-      "class": "math"
-    },
-    {
-      "name": "abs",
-      "class": "math"
-    },
-    {
-      "name": "sign",
-      "class": "math"
-    },
-    {
-      "name": "sin",
-      "class": "math"
-    },
-    {
-      "name": "cos",
-      "class": "math"
     },
     {
       "name": "select"

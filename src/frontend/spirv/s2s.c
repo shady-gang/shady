@@ -1156,32 +1156,43 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                         });
                         break;
                     case OpenCLstd_Floor:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                            .op = floor_op,
-                        .operands = shd_singleton(args[0])
+                        instr = ext_value(parser->arena, (ExtValue) {
+                            .result_t = get_def_type(parser, result_t),
+                            .set = "GLSL.std.450",
+                            .opcode = GLSLstd450Floor,
+                            .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Sqrt:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                            .op = sqrt_op,
+                        instr = ext_value(parser->arena, (ExtValue) {
+                            .result_t = get_def_type(parser, result_t),
+                            .set = "GLSL.std.450",
+                            .opcode = GLSLstd450Sqrt,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Fabs:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                            .op = abs_op,
+                        instr = ext_value(parser->arena, (ExtValue) {
+                            .result_t = get_def_type(parser, result_t),
+                            .set = "GLSL.std.450",
+                            .opcode = GLSLstd450FAbs,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Sin:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                            .op = sin_op,
+
+                        instr = ext_value(parser->arena, (ExtValue) {
+                            .result_t = get_def_type(parser, result_t),
+                            .set = "GLSL.std.450",
+                            .opcode = GLSLstd450Sin,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Cos:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                            .op = cos_op,
+                        instr = ext_value(parser->arena, (ExtValue) {
+                            .result_t = get_def_type(parser, result_t),
+                            .set = "GLSL.std.450",
+                            .opcode = GLSLstd450Cos,
                             .operands = shd_singleton(args[0])
                         });
                         break;
@@ -1190,54 +1201,25 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             } else if (strcmp(set, "GLSL.std.450") == 0) {
                 switch (ext_instr) {
                     case GLSLstd450Fma:
-                        assert(num_args == 3);
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = mul_op,
-                                .operands = mk_nodes(parser->arena, args[0], args[1])
-                        });
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = add_op,
-                                .operands = mk_nodes(parser->arena, instr, args[2])
-                        });
-                        break;
                     case GLSLstd450Floor:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = floor_op,
-                                .operands = shd_singleton(args[0])
-                        });
-                        break;
                     case GLSLstd450Sqrt:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = sqrt_op,
-                                .operands = shd_singleton(args[0])
-                        });
-                        break;
                     case GLSLstd450FAbs:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = abs_op,
-                                .operands = shd_singleton(args[0])
-                        });
-                        break;
                     case GLSLstd450Sin:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = sin_op,
-                                .operands = shd_singleton(args[0])
-                        });
-                        break;
                     case GLSLstd450Cos:
-                        instr = prim_op(parser->arena, (PrimOp) {
-                                .op = cos_op,
-                                .operands = shd_singleton(args[0])
-                        });
+                    case GLSLstd450FMin:
+                    case GLSLstd450SMin:
+                    case GLSLstd450UMin:
+                    case GLSLstd450FMax:
+                    case GLSLstd450SMax:
+                    case GLSLstd450UMax:
+                    case GLSLstd450Exp:
+                    case GLSLstd450Pow:
+                        instr = ext_value(a, (ExtValue) {
+                        .result_t = get_def_type(parser, result_t),
+                        .set = set,
+                        .opcode = op,
+                        .operands = shd_nodes(a, num_args, args)});
                         break;
-                    case GLSLstd450FMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450SMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450UMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450FMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450SMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450UMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450Exp: instr = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = shd_singleton(args[0]) }); break;
-                    case GLSLstd450Pow: instr = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
                     default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else {

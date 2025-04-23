@@ -526,25 +526,25 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     return shd_bld_add_instruction(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = shd_bld_mem(b) }));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, fma_op, shd_nodes(a, 3, ops.nodes));
+                    return shd_op_fma(a, ops.nodes[0], ops.nodes[1], ops.nodes[2]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, abs_op, shd_nodes(a, 1, ops.nodes));
+                    return shd_op_fabs(a, ops.nodes[0]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.floor")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, floor_op, shd_nodes(a, 1, ops.nodes));
+                    return shd_op_floor(a, ops.nodes[0]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.umax")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, max_op, shd_nodes(a, 2, ops.nodes));
+                    return shd_op_umax(a, ops.nodes[0], ops.nodes[1]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.umin")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
+                    return shd_op_umin(a, ops.nodes[0], ops.nodes[1]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.smax")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, max_op, shd_nodes(a, 2, ops.nodes));
+                    return shd_op_smax(a, ops.nodes[0], ops.nodes[1]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.smin")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
+                    return shd_op_smin(a, ops.nodes[0], ops.nodes[1]);
                 }
 
                 typedef struct {

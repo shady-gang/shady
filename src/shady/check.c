@@ -257,8 +257,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case add_carry_op:
         case sub_borrow_op:
         case mul_extended_op: extended = true; SHADY_FALLTHROUGH;
-        case min_op:
-        case max_op:
         case add_op:
         case sub_op:
         case mul_op:
@@ -337,69 +335,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             }
 
             return qualified_type_helper(arena, result_scope, shd_maybe_packed_type_helper(bool_type(arena), first_operand_width));
-        }
-        case sqrt_op:
-        case inv_sqrt_op:
-        case floor_op:
-        case ceil_op:
-        case round_op:
-        case fract_op:
-        case sin_op:
-        case cos_op:
-        case exp_op:
-        {
-            assert(prim_op.operands.count == 1);
-            const Node* src_type = shd_first(prim_op.operands)->type;
-            ShdScope scope = shd_deconstruct_qualified_type(&src_type);
-            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
-            assert(src_type->tag == Float_TAG);
-            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
-        }
-        case pow_op: {
-            assert(prim_op.operands.count == 2);
-            const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
-
-            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
-            for (size_t i = 0; i < prim_op.operands.count; i++) {
-                const Node* arg = prim_op.operands.nodes[i];
-                const Type* operand_type = arg->type;
-                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
-
-                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
-                assert(first_operand_type == operand_type &&  "operand type mismatch");
-
-                result_scope = shd_combine_scopes(result_scope, operand_scope);
-            }
-
-            return qualified_type_helper(arena, result_scope, first_operand_type);
-        }
-        case fma_op: {
-            assert(prim_op.operands.count == 3);
-            const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
-
-            ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
-            for (size_t i = 0; i < prim_op.operands.count; i++) {
-                const Node* arg = prim_op.operands.nodes[i];
-                const Type* operand_type = arg->type;
-                ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
-
-                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
-                assert(first_operand_type == operand_type &&  "operand type mismatch");
-
-                result_scope = shd_combine_scopes(result_scope, operand_scope);
-            }
-
-            return qualified_type_helper(arena, result_scope, first_operand_type);
-        }
-        case abs_op:
-        case sign_op:
-        {
-            assert(prim_op.operands.count == 1);
-            const Node* src_type = shd_first(prim_op.operands)->type;
-            ShdScope scope = shd_deconstruct_qualified_type(&src_type);
-            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
-            assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
-            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case select_op: {
             assert(prim_op.operands.count == 3);
@@ -571,12 +506,28 @@ const Type* _shd_check_type_generic_ptr_cast(IrArena* a, GenericPtrCast generic_
     });
 }
 
+static const Type* decide_ext_scope(IrArena* a, const Type* datatype, Nodes args) {
+    if (!datatype)
+        return unit_type(a);
+    if (datatype->tag == QualifiedType_TAG)
+        return datatype;
+
+    ShdScope scope = a->config.target.scopes.constants;
+    LARRAY(ShdScope, arg_scopes, args.count);
+    for (size_t i = 0; i < args.count; i++) {
+        arg_scopes[i] = shd_get_qualified_type_scope(args.nodes[i]);
+        scope = shd_combine_scopes(scope, arg_scopes[i]);
+    }
+
+    return qualified_type_helper(a, scope, datatype);
+}
+
 const Type* _shd_check_type_ext_value(IrArena* arena, ExtValue payload) {
-    return payload.result_t ? payload.result_t : unit_type(arena);
+    return decide_ext_scope(arena, payload.result_t, payload.operands);
 }
 
 const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
-    return payload.result_t ? payload.result_t : unit_type(arena);
+    return decide_ext_scope(arena, payload.result_t, payload.operands);
 }
 
 const Type* _shd_check_type_ext_terminator(IrArena* arena, ExtTerminator payload) {

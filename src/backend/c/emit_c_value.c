@@ -321,34 +321,6 @@ static const ISelTableEntry isel_table[PRIMOPS_COUNT] = {
     [lshift_op] = { IsMono, OsInfix,  "<<" },*/
 };
 
-static const ISelTableEntry isel_table_c[PRIMOPS_COUNT] = {
-    [abs_op] = { IsPoly, OsCall, .s_ops = { "abs", "abs", "abs", "llabs" }, .f_ops = {"fabsf", "fabsf", "fabs"}},
-
-    [sin_op] = { IsPoly, OsCall, .f_ops = {"sinf", "sinf", "sin"}},
-    [cos_op] = { IsPoly, OsCall, .f_ops = {"cosf", "cosf", "cos"}},
-    [floor_op] = { IsPoly, OsCall, .f_ops = {"floorf", "floorf", "floor"}},
-    [ceil_op] = { IsPoly, OsCall, .f_ops = {"ceilf", "ceilf", "ceil"}},
-    [round_op] = { IsPoly, OsCall, .f_ops = {"roundf", "roundf", "round"}},
-
-    [sqrt_op] = { IsPoly, OsCall, .f_ops = {"sqrtf", "sqrtf", "sqrt"}},
-    [exp_op] = { IsPoly, OsCall, .f_ops = {"expf", "expf", "exp"}},
-    [pow_op] = { IsPoly, OsCall, .f_ops = {"powf", "powf", "pow"}},
-};
-
-static const ISelTableEntry isel_table_glsl[PRIMOPS_COUNT] = {
-    [abs_op] = { IsMono, OsCall, "abs" },
-
-    [sin_op] = { IsMono, OsCall, "sin" },
-    [cos_op] = { IsMono, OsCall, "cos" },
-    [floor_op] = { IsMono, OsCall, "floor" },
-    [ceil_op] = { IsMono, OsCall, "ceil" },
-    [round_op] = { IsMono, OsCall, "round" },
-
-    [sqrt_op] = { IsMono, OsCall, "sqrt" },
-    [exp_op] = { IsMono, OsCall, "exp" },
-    [pow_op] = { IsMono, OsCall, "pow" },
-};
-
 static const ISelTableEntry isel_table_glsl_120[PRIMOPS_COUNT] = {
     [mod_op] = { IsMono, OsCall,  "mod" },
 
@@ -356,20 +328,6 @@ static const ISelTableEntry isel_table_glsl_120[PRIMOPS_COUNT] = {
     [ or_op] = { IsMono, OsCall,   "or" },
     [xor_op] = { IsMono, OsCall,  "xor" },
     [not_op] = { IsMono, OsCall,  "not" },
-};
-
-static const ISelTableEntry isel_table_ispc[PRIMOPS_COUNT] = {
-    [abs_op] = { IsMono, OsCall, "abs" },
-
-    [sin_op] = { IsMono, OsCall, "sin" },
-    [cos_op] = { IsMono, OsCall, "cos" },
-    [floor_op] = { IsMono, OsCall, "floor" },
-    [ceil_op] = { IsMono, OsCall, "ceil" },
-    [round_op] = { IsMono, OsCall, "round" },
-
-    [sqrt_op] = { IsMono, OsCall, "sqrt" },
-    [exp_op] = { IsMono, OsCall, "exp" },
-    [pow_op] = { IsMono, OsCall, "pow" },
 };
 
 static CTerm emit_using_entry(Emitter* emitter, FnEmitter* fn, Printer* p, const ISelTableEntry* entry, Nodes operands) {
@@ -435,12 +393,12 @@ static CTerm emit_using_entry(Emitter* emitter, FnEmitter* fn, Printer* p, const
 static const ISelTableEntry* lookup_entry(Emitter* emitter, Op op) {
     const ISelTableEntry* isel_entry = &isel_dummy;
 
-    switch (emitter->backend_config.dialect) {
-        case CDialect_CUDA: /* TODO: do better than that */
-        case CDialect_C11: isel_entry = &isel_table_c[op]; break;
-        case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
-        case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
-    }
+    //switch (emitter->backend_config.dialect) {
+    //    case CDialect_CUDA: /* TODO: do better than that */
+    //    case CDialect_C11: isel_entry = &isel_table_c[op]; break;
+    //    case CDialect_GLSL: isel_entry = &isel_table_glsl[op]; break;
+    //    case CDialect_ISPC: isel_entry = &isel_table_ispc[op]; break;
+    //}
 
     if (emitter->backend_config.dialect == CDialect_GLSL && emitter->backend_config.glsl_version <= 120)
         isel_entry = &isel_table_glsl_120[op];
@@ -567,50 +525,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             shd_error("TODO: implement extended arithm ops in C");
             break;
         // MATH OPS
-        case fract_op: {
-            CTerm floored = emit_using_entry(emitter, fn, p, lookup_entry(emitter, floor_op), prim_op->operands);
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1 - %s", shd_c_to_ssa(emitter, floored)));
-            break;
-        }
-        case inv_sqrt_op: {
-            CTerm floored = emit_using_entry(emitter, fn, p, lookup_entry(emitter, sqrt_op), prim_op->operands);
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "1.0f / %s", shd_c_to_ssa(emitter, floored)));
-            break;
-        }
-        case min_op: {
-            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, b, a));
-            break;
-        }
-        case max_op: {
-            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > %s ? %s : %s)", a, b, a, b));
-            break;
-        }
-        case sign_op: {
-            CValue src = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s > 0 ? 1 : -1)", src));
-            break;
-        }
-        case fma_op: {
-            CValue a = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
-            CValue b = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
-            CValue c = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
-            switch (emitter->backend_config.dialect) {
-                case CDialect_C11:
-                case CDialect_CUDA: {
-                    term = term_from_cvalue(shd_format_string_arena(arena->arena, "fmaf(%s, %s, %s)", a, b, c));
-                    break;
-                }
-                default: {
-                    term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s * %s) + %s", a, b, c));
-                    break;
-                }
-            }
-            break;
-        }
         case lshift_op:
         case rshift_arithm_op:
         case rshift_logical_op: {
@@ -738,6 +652,21 @@ typedef struct {
     ISelTableEntry payload;
 } ExtISelEntry;
 
+#include "spirv/unified1/GLSL.std.450.h"
+
+static const ExtISelEntry ext_isel_c_entries[PRIMOPS_COUNT] = {
+    {{ "GLSL.std.450", GLSLstd450FAbs, }, { IsPoly, OsCall, .f_ops = {"fabsf", "fabsf", "fabs"}}},
+    {{ "GLSL.std.450", GLSLstd450SAbs, }, { IsPoly, OsCall, .s_ops = { "abs", "abs", "abs", "llabs" }}},
+    {{ "GLSL.std.450", GLSLstd450Sin, }, { IsPoly, OsCall, .f_ops = {"sinf", "sinf", "sin"}}},
+    {{ "GLSL.std.450", GLSLstd450Cos, }, { IsPoly, OsCall, .f_ops = {"cosf", "cosf", "cos"}}},
+    {{ "GLSL.std.450", GLSLstd450Floor, }, { IsPoly, OsCall, .f_ops = {"floorf", "floorf", "floor"}}},
+    {{ "GLSL.std.450", GLSLstd450Ceil, }, { IsPoly, OsCall, .f_ops = {"ceilf", "ceilf", "ceil"}}},
+    {{ "GLSL.std.450", GLSLstd450Round, }, { IsPoly, OsCall, .f_ops = {"roundf", "roundf", "round"}}},
+    {{ "GLSL.std.450", GLSLstd450Sqrt, }, { IsPoly, OsCall, .f_ops = {"sqrtf", "sqrtf", "sqrt"}}},
+    {{ "GLSL.std.450", GLSLstd450Exp, }, { IsPoly, OsCall, .f_ops = {"expf", "expf", "exp"}}},
+    {{ "GLSL.std.450", GLSLstd450Pow, }, { IsPoly, OsCall, .f_ops = {"powf", "powf", "pow"}}},
+};
+
 ExtISelEntry ext_isel_ispc_entries[] = {
     // reduce add
     {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "reduce_add" }},
@@ -792,8 +721,6 @@ ExtISelEntry ext_isel_glsl_entries[] = {
 
 };
 
-#include "spirv/unified1/GLSL.std.450.h"
-
 ExtISelEntry ext_isel_entries[] = {
     {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
 
@@ -844,6 +771,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 
 static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
     switch (e->backend_config.dialect) {
+        case CDialect_C11:  scan_entries(ext_isel_c_entries); break;
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
         default: break;
