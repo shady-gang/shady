@@ -7,7 +7,7 @@ endif ()
 if (LLVM_FOUND AND SHADY_ENABLE_LLVM_FRONTEND)
     add_generated_file_python(FILE_NAME l2s_generated.c GENERATOR src.frontend.llvm.generator_l2s)
 
-    add_library(shady_fe_llvm STATIC l2s.c l2s_type.c l2s_value.c l2s_instr.c l2s_meta.c l2s_postprocess.c l2s_annotations.c l2s_promote_byval_params.c ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c)
+    shady_add_component(NAME shady_fe_llvm SOURCES l2s.c l2s_type.c l2s_value.c l2s_instr.c l2s_meta.c l2s_postprocess.c l2s_annotations.c l2s_promote_byval_params.c ${CMAKE_CURRENT_BINARY_DIR}/l2s_generated.c)
 
     target_include_directories(shady_fe_llvm PRIVATE ${LLVM_INCLUDE_DIRS})
     target_include_directories(shady_fe_llvm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) # for l2s_generated.c
@@ -28,5 +28,5 @@ if (LLVM_FOUND AND SHADY_ENABLE_LLVM_FRONTEND)
     target_link_libraries(shady_fe_llvm PRIVATE api common shady)
 
     target_compile_definitions(driver PUBLIC LLVM_PARSER_PRESENT)
-    target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady_fe_llvm>")
+    target_link_libraries(driver PUBLIC shady_fe_llvm)
 endif ()

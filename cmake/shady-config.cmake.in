@@ -1,2 +1,8 @@
+set(shady_HAS_LLVM_SUPPORT @SHADY_ENABLE_LLVM_FRONTEND@)
+
+if (shady_HAS_LLVM_SUPPORT)
+    find_package(LLVM REQUIRED)
+endif ()
+
 include("${CMAKE_CURRENT_LIST_DIR}/shady-targets.cmake")
 # set(shady_INCLUDE_DIRS ${CMAKE_CURRENT_LIST_DIR}/include)

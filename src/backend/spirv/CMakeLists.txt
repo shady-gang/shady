@@ -1,4 +1,4 @@
-add_library(shady_spirv STATIC
+shady_add_component(NAME shady_spirv SOURCES
     emit_spv.c
     emit_spv_type.c
     emit_spv_value.c
@@ -8,12 +8,11 @@ add_library(shady_spirv STATIC
     spirv_callable_shaders.c
     spirv_builder.c
 )
-set_property(TARGET shady_spirv PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(shady_spirv PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
 target_link_libraries(shady_spirv PRIVATE "api")
-target_link_libraries(shady_spirv INTERFACE "$<BUILD_INTERFACE:shady>")
-target_link_libraries(shady_spirv PRIVATE "$<BUILD_INTERFACE:common>")
+target_link_libraries(shady_spirv INTERFACE shady)
+target_link_libraries(shady_spirv PRIVATE common)
 
-target_link_libraries(driver PUBLIC "$<BUILD_INTERFACE:shady_spirv>")
+target_link_libraries(driver PUBLIC shady_spirv)

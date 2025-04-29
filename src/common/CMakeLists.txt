@@ -1,8 +1,4 @@
-add_library(common list.c dict.c log.c portability.c util.c growy.c arena.c printer.c)
-set_property(TARGET common PROPERTY POSITION_INDEPENDENT_CODE ON)
-
-# We need to export 'common' because otherwise when using static libraries we will not be able to resolve those symbols
-install(TARGETS common EXPORT shady_export_set)
+shady_add_component(NAME common SOURCES list.c dict.c log.c portability.c util.c growy.c arena.c printer.c)
 
 # But we don't want projects outside this to be able to see these APIs and call into them
 # (Also we couldn't since the header files live with the source anyways)
