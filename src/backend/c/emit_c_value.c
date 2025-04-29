@@ -730,6 +730,7 @@ typedef struct {
     uint32_t* prefix;
 } ExtISelPattern;
 
+#define empty_prefix() .prefix_len = 0, .prefix = NULL
 #define mk_prefix(...) .prefix_len = sizeof((uint32_t[]) {__VA_ARGS__}) / sizeof(uint32_t), .prefix = (uint32_t[]) {__VA_ARGS__}
 #define subgroup_reduction mk_prefix(SpvScopeSubgroup, SpvGroupOperationReduce)
 
@@ -797,24 +798,24 @@ ExtISelEntry ext_isel_glsl_entries[] = {
 ExtISelEntry ext_isel_entries[] = {
     {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
 
-    {{ "GLSL.std.450", GLSLstd450Round, mk_prefix() }, { IsMono, OsCall, .op = "round" }},
-    {{ "GLSL.std.450", GLSLstd450Trunc, mk_prefix() }, { IsMono, OsCall, .op = "trunc" }},
-    {{ "GLSL.std.450", GLSLstd450FAbs, mk_prefix() }, { IsMono, OsCall, .op = "fabs" }},
-    {{ "GLSL.std.450", GLSLstd450FSign, mk_prefix() }, { IsMono, OsCall, .op = "sign" }},
-    {{ "GLSL.std.450", GLSLstd450Floor, mk_prefix() }, { IsMono, OsCall, .op = "floor" }},
-    {{ "GLSL.std.450", GLSLstd450Ceil, mk_prefix() }, { IsMono, OsCall, .op = "ceil" }},
-    {{ "GLSL.std.450", GLSLstd450Fract, mk_prefix() }, { IsMono, OsCall, .op = "fract" }},
-    {{ "GLSL.std.450", GLSLstd450Sin, mk_prefix() }, { IsMono, OsCall, .op = "sinf" }},
-    {{ "GLSL.std.450", GLSLstd450Cos, mk_prefix() }, { IsMono, OsCall, .op = "cosf" }},
-    {{ "GLSL.std.450", GLSLstd450Tan, mk_prefix() }, { IsMono, OsCall, .op = "tanf" }},
-    {{ "GLSL.std.450", GLSLstd450Sqrt, mk_prefix() }, { IsMono, OsCall, .op = "sqrtf" }},
-    {{ "GLSL.std.450", GLSLstd450FMin, mk_prefix() }, { IsMono, OsCall, .op = "fminf" }},
-    {{ "GLSL.std.450", GLSLstd450FMax, mk_prefix() }, { IsMono, OsCall, .op = "fmaxf" }},
-    {{ "GLSL.std.450", GLSLstd450Fma, mk_prefix() }, { IsMono, OsCall, .op = "fmaf" }},
-    {{ "GLSL.std.450", GLSLstd450Log2, mk_prefix() }, { IsMono, OsCall, .op = "log2f" }},
-    {{ "GLSL.std.450", GLSLstd450Log, mk_prefix() }, { IsMono, OsCall, .op = "logf" }},
-    {{ "GLSL.std.450", GLSLstd450Exp, mk_prefix() }, { IsMono, OsCall, .op = "expf" }},
-    {{ "GLSL.std.450", GLSLstd450Pow, mk_prefix() }, { IsMono, OsCall, .op = "powf" }},
+    {{ "GLSL.std.450", GLSLstd450Round, empty_prefix() }, { IsMono, OsCall, .op = "round" }},
+    {{ "GLSL.std.450", GLSLstd450Trunc, empty_prefix() }, { IsMono, OsCall, .op = "trunc" }},
+    {{ "GLSL.std.450", GLSLstd450FAbs, empty_prefix() }, { IsMono, OsCall, .op = "fabs" }},
+    {{ "GLSL.std.450", GLSLstd450FSign, empty_prefix() }, { IsMono, OsCall, .op = "sign" }},
+    {{ "GLSL.std.450", GLSLstd450Floor, empty_prefix() }, { IsMono, OsCall, .op = "floor" }},
+    {{ "GLSL.std.450", GLSLstd450Ceil, empty_prefix() }, { IsMono, OsCall, .op = "ceil" }},
+    {{ "GLSL.std.450", GLSLstd450Fract, empty_prefix() }, { IsMono, OsCall, .op = "fract" }},
+    {{ "GLSL.std.450", GLSLstd450Sin, empty_prefix() }, { IsMono, OsCall, .op = "sinf" }},
+    {{ "GLSL.std.450", GLSLstd450Cos, empty_prefix() }, { IsMono, OsCall, .op = "cosf" }},
+    {{ "GLSL.std.450", GLSLstd450Tan, empty_prefix() }, { IsMono, OsCall, .op = "tanf" }},
+    {{ "GLSL.std.450", GLSLstd450Sqrt, empty_prefix() }, { IsMono, OsCall, .op = "sqrtf" }},
+    {{ "GLSL.std.450", GLSLstd450FMin, empty_prefix() }, { IsMono, OsCall, .op = "fminf" }},
+    {{ "GLSL.std.450", GLSLstd450FMax, empty_prefix() }, { IsMono, OsCall, .op = "fmaxf" }},
+    {{ "GLSL.std.450", GLSLstd450Fma, empty_prefix() }, { IsMono, OsCall, .op = "fmaf" }},
+    {{ "GLSL.std.450", GLSLstd450Log2, empty_prefix() }, { IsMono, OsCall, .op = "log2f" }},
+    {{ "GLSL.std.450", GLSLstd450Log, empty_prefix() }, { IsMono, OsCall, .op = "logf" }},
+    {{ "GLSL.std.450", GLSLstd450Exp, empty_prefix() }, { IsMono, OsCall, .op = "expf" }},
+    {{ "GLSL.std.450", GLSLstd450Pow, empty_prefix() }, { IsMono, OsCall, .op = "powf" }},
 };
 
 static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {

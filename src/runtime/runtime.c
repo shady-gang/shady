@@ -6,7 +6,7 @@
 
 #include "portability.h"
 
-void shd_rt_materialize_constant_at(void* tgt, const Node* value) {
+void shd_rt_materialize_constant_at(unsigned char* tgt, const Node* value) {
     assert(tgt);
     IrArena* a = value->arena;
     switch (value->tag) {
