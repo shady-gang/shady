@@ -1,5 +1,4 @@
 #include "pipeline/pipeline_private.h"
-#include "passes/passes.h"
 
 #include "shady/ir/builtin.h"
 

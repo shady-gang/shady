@@ -2,8 +2,9 @@
 #include "shady/driver.h"
 #include "shady/print.h"
 #include "shady/visit.h"
+#include "shady/pass.h"
 
-#include "../shady/passes/passes.h"
+RewritePass shd_cleanup;
 
 #include "log.h"
 #include "portability.h"

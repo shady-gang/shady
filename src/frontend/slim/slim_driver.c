@@ -2,7 +2,7 @@
 
 #include "shady/pass.h"
 
-#include "../shady/passes/passes.h"
+RewritePass shd_pass_lower_cf_instrs;
 
 #include "log.h"
 #include "printer.h"
