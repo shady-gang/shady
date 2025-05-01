@@ -1,6 +1,5 @@
 #include "pipeline/pipeline_private.h"
 
-#include "passes/passes.h"
 #include "portability.h"
 #include "log.h"
 
@@ -20,6 +19,8 @@ RewritePass shd_pass_lift_indirect_targets;
 RewritePass shd_pass_lower_dynamic_control;
 /// Creates a top-level function
 RewritePass shd_pass_lower_tailcalls;
+
+RewritePass shd_pass_inline;
 
 void shd_add_scheduler_source(const CompilerConfig* config, Module* dst);
 
@@ -51,6 +52,8 @@ void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, TargetConfig target
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, &target_config, sizeof(TargetConfig));
 }
 
+RewritePass shd_pass_restructurize;
+
 static CompilationResult restructure(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_restructurize, config)
 
@@ -60,6 +63,11 @@ static CompilationResult restructure(SHADY_UNUSED void* unused, const CompilerCo
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline) {
     shd_pipeline_add_step(pipeline, restructure, NULL, 0);
 }
+
+RewritePass shd_pass_lcssa;
+RewritePass shd_pass_scope2control;
+RewritePass shd_pass_remove_critical_edges;
+RewritePass shd_pass_reconvergence_heuristics;
 
 static CompilationResult normalize_input_cf(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     if (config->input_cf.has_scope_annotations) {
