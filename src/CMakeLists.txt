@@ -10,6 +10,7 @@ function(shady_add_component)
     endif ()
 
     set_property(TARGET ${F_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set_property(TARGET ${F_NAME} PROPERTY OUTPUT_NAME "shady_${F_NAME}")
     install(TARGETS ${F_NAME} EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 endfunction()
 
