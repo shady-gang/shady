@@ -1,4 +1,4 @@
-#include "../../../frontend/slim/parser.h"
+#include "../frontend/slim/parser.h"
 #include "shady/ir/module.h"
 
 #include "shady_scheduler_src.h"
