@@ -1,4 +1,4 @@
-#include "pipeline/pipeline_private.h"
+#include "shader_pipeline.h"
 
 #include "portability.h"
 #include "log.h"
