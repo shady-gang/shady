@@ -1,4 +1,5 @@
-#include "pipeline/pipeline_private.h"
+#include "shady/pass.h"
+#include "shady/pipeline/pipeline.h"
 #include "shady/ir/debug.h"
 
 #include "portability.h"

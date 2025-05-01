@@ -1,4 +1,4 @@
-#include "pipeline/pipeline_private.h"
+#include "shader_pipeline.h"
 
 /// Implements stack frames: collects allocas into a struct placed on the stack upon function entry
 RewritePass shd_pass_lower_alloca;

@@ -4,7 +4,7 @@
 #include "shady/ir/base.h"
 
 /// Turns a constant into an array of actual bytes
-void shd_rt_materialize_constant_at(void* target, const Node* value);
+void shd_rt_materialize_constant_at(unsigned char* target, const Node* value);
 
 /// Turns a constant into an array of actual bytes
 /// only returns the size if data is null
