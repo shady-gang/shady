@@ -75,9 +75,9 @@ static bool cuda_c_to_ptx(CudaKernel* kernel) {
     arch_flag[14] = '0' + kernel->device->cc_major;
     arch_flag[15] = '0' + kernel->device->cc_minor;
 
-    char* parch_flag = &arch_flag;
+    char* parch_flag = (char*) &arch_flag;
     shd_list_append(String, nvrtc_args, parch_flag);
-    char* pfast_math = &"--use_fast_math";
+    char* pfast_math = (char*) &"--use_fast_math";
     shd_list_append(String, nvrtc_args, pfast_math);
 
     char* override_nvrtc_params_file_contents = NULL;
