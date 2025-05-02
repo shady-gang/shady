@@ -29,8 +29,6 @@ namespace vcc {
 #define shared                 __attribute__((address_space(3)))
 #define private                __attribute__((address_space(5)))
 
-float sqrtf(float f) __asm__("shady::prim_op::sqrt");
-
 typedef float native_vec4     __attribute__((ext_vector_type(4)));
 typedef float native_vec3     __attribute__((ext_vector_type(3)));
 typedef float native_vec2     __attribute__((ext_vector_type(2)));
