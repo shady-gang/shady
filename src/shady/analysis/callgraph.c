@@ -97,7 +97,7 @@ static CGNode* analyze_fn(CallGraph* graph, const Node* fn) {
     new->callees = shd_new_set(CGEdge, (HashFn) shd_hash_cgedge, (CmpFn) shd_compare_cgedge);
     new->callers = shd_new_set(CGEdge, (HashFn) shd_hash_cgedge, (CmpFn) shd_compare_cgedge);
     new->tarjan.index = -1;
-    shd_dict_insert_get_key(const Node*, CGNode*, graph->fn2cgn, fn, new);
+    shd_dict_insert(const Node*, CGNode*, graph->fn2cgn, fn, new);
 
     CGVisitor v = {
         .visitor = {
@@ -197,7 +197,7 @@ static void tarjan(struct Dict* verts) {
 }
 
 CallGraph* shd_new_callgraph(Module* mod) {
-    CallGraph* graph = calloc(sizeof(CallGraph), 1);
+    CallGraph* graph = calloc(1, sizeof(CallGraph));
     *graph = (CallGraph) {
         .fn2cgn = shd_new_dict(const Node*, CGNode*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node)
     };

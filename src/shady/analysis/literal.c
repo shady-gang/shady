@@ -55,9 +55,10 @@ const Node* shd_resolve_ptr_to_value(const Node* ptr, NodeResolveConfig config) 
     while (ptr) {
         ptr = shd_resolve_node_to_definition(ptr, config);
         switch (ptr->tag) {
-            case Conversion_TAG: {
+            case GenericPtrCast_TAG: {
                 // allow address space conversions
-                ptr = ptr->payload.conversion.src;
+                ptr = ptr->payload.generic_ptr_cast.src;
+                continue;
             }
             case GlobalVariable_TAG:
                 if (config.assume_globals_immutability)
@@ -93,6 +94,7 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
                     node = result;
                     continue;
                 }
+                break;
             }
             case BitCast_TAG: {
                 BitCast payload = node->payload.bit_cast;

@@ -18,72 +18,48 @@ typedef struct {
     const Node* (*I)(IrArena*, const Type* t);
 } GroupOp;
 
-static const Node* zero(IrArena* a, const Type* t) {
-    t = shd_get_unqualified_type(t);
-    assert(t->tag == Int_TAG);
-    Int t_payload = t->payload.int_type;
-    IntLiteral lit = {
-        .width = t_payload.width,
-        .is_signed = t_payload.is_signed,
-        .value = 0
-    };
-    return int_literal(a, lit);
-}
-
-static const Node* one(IrArena* a, const Type* t) {
-    t = shd_get_unqualified_type(t);
-    assert(t->tag == Int_TAG);
-    Int t_payload = t->payload.int_type;
-    IntLiteral lit = {
-        .width = t_payload.width,
-        .is_signed = t_payload.is_signed,
-        .value = 1
-    };
-    return int_literal(a, lit);
-}
-
 static GroupOp group_operations[] = {
-    { SpvOpGroupIAdd, add_op },
-    { SpvOpGroupFAdd, add_op },
-    { SpvOpGroupFMin, min_op },
-    { SpvOpGroupUMin, min_op },
-    { SpvOpGroupSMin, min_op },
-    { SpvOpGroupFMax, max_op, },
-    { SpvOpGroupUMax, max_op },
-    { SpvOpGroupSMax, max_op },
-    { SpvOpGroupNonUniformBallotBitCount, /* todo */ },
-    { SpvOpGroupNonUniformIAdd, add_op },
-    { SpvOpGroupNonUniformFAdd, add_op },
-    { SpvOpGroupNonUniformIMul, mul_op },
-    { SpvOpGroupNonUniformFMul, mul_op },
-    { SpvOpGroupNonUniformSMin, min_op },
-    { SpvOpGroupNonUniformUMin, min_op },
-    { SpvOpGroupNonUniformFMin, min_op },
-    { SpvOpGroupNonUniformSMax, max_op },
-    { SpvOpGroupNonUniformUMax, max_op },
-    { SpvOpGroupNonUniformFMax, max_op },
-    { SpvOpGroupNonUniformBitwiseAnd, and_op },
-    { SpvOpGroupNonUniformBitwiseOr, or_op },
-    { SpvOpGroupNonUniformBitwiseXor, xor_op },
-    { SpvOpGroupNonUniformLogicalAnd, and_op },
-    { SpvOpGroupNonUniformLogicalOr, or_op },
-    { SpvOpGroupNonUniformLogicalXor, xor_op },
-    { SpvOpGroupIAddNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupFAddNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupFMinNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupUMinNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupSMinNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupFMaxNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupUMaxNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupSMaxNonUniformAMD, /* todo: map to std */ },
-    { SpvOpGroupIMulKHR, /* todo: map to std */ },
-    { SpvOpGroupFMulKHR, /* todo: map to std */ },
-    { SpvOpGroupBitwiseAndKHR, /* todo: map to std */ },
-    { SpvOpGroupBitwiseOrKHR, /* todo: map to std */ },
-    { SpvOpGroupBitwiseXorKHR, /* todo: map to std */ },
-    { SpvOpGroupLogicalAndKHR, /* todo: map to std */ },
-    { SpvOpGroupLogicalOrKHR, /* todo: map to std */ },
-    { SpvOpGroupLogicalXorKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupIAdd, add_op },
+    { .spv_op = SpvOpGroupFAdd, add_op },
+    { .spv_op = SpvOpGroupFMin, min_op },
+    { .spv_op = SpvOpGroupUMin, min_op },
+    { .spv_op = SpvOpGroupSMin, min_op },
+    { .spv_op = SpvOpGroupFMax, max_op, },
+    { .spv_op = SpvOpGroupUMax, max_op },
+    { .spv_op = SpvOpGroupSMax, max_op },
+    { .spv_op = SpvOpGroupNonUniformBallotBitCount, /* todo */ },
+    { .spv_op = SpvOpGroupNonUniformIAdd, add_op },
+    { .spv_op = SpvOpGroupNonUniformFAdd, add_op },
+    { .spv_op = SpvOpGroupNonUniformIMul, mul_op },
+    { .spv_op = SpvOpGroupNonUniformFMul, mul_op },
+    { .spv_op = SpvOpGroupNonUniformSMin, min_op },
+    { .spv_op = SpvOpGroupNonUniformUMin, min_op },
+    { .spv_op = SpvOpGroupNonUniformFMin, min_op },
+    { .spv_op = SpvOpGroupNonUniformSMax, max_op },
+    { .spv_op = SpvOpGroupNonUniformUMax, max_op },
+    { .spv_op = SpvOpGroupNonUniformFMax, max_op },
+    { .spv_op = SpvOpGroupNonUniformBitwiseAnd, and_op },
+    { .spv_op = SpvOpGroupNonUniformBitwiseOr, or_op },
+    { .spv_op = SpvOpGroupNonUniformBitwiseXor, xor_op },
+    { .spv_op = SpvOpGroupNonUniformLogicalAnd, and_op },
+    { .spv_op = SpvOpGroupNonUniformLogicalOr, or_op },
+    { .spv_op = SpvOpGroupNonUniformLogicalXor, xor_op },
+    { .spv_op = SpvOpGroupIAddNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupFAddNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupFMinNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupUMinNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupSMinNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupFMaxNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupUMaxNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupSMaxNonUniformAMD, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupIMulKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupFMulKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupBitwiseAndKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupBitwiseOrKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupBitwiseXorKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupLogicalAndKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupLogicalOrKHR, /* todo: map to std */ },
+    { .spv_op = SpvOpGroupLogicalXorKHR, /* todo: map to std */ },
 };
 
 enum {

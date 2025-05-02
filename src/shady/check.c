@@ -226,7 +226,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
 
     bool extended = false;
     bool ordered = false;
-    AddressSpace as;
     switch (prim_op.op) {
         case neg_op: {
             assert(prim_op.operands.count == 1);
@@ -398,7 +397,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Node* src_type = shd_first(prim_op.operands)->type;
             ShdScope scope = shd_deconstruct_qualified_type(&src_type);
             size_t width = shd_deconstruct_maybe_packed_type(&src_type);
-            assert(src_type->tag == Float_TAG || src_type->tag == Int_TAG && src_type->payload.int_type.is_signed);
+            assert(src_type->tag == Float_TAG || (src_type->tag == Int_TAG && src_type->payload.int_type.is_signed));
             return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
         }
         case select_op: {
@@ -463,7 +462,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             ShdScope lhs_scope = shd_deconstruct_qualified_type(&lhs_t);
             ShdScope rhs_scope = shd_deconstruct_qualified_type(&rhs_t);
             assert(lhs_t->tag == PackType_TAG && rhs_t->tag == PackType_TAG);
-            size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
+            int64_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             const Type* element_t = lhs_t->payload.pack_type.element_type;
             assert(element_t == rhs_t->payload.pack_type.element_type);
 
@@ -489,8 +488,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 .type = bool_type(arena)
             });
         }
-        // Intermediary ops
-        case PRIMOPS_COUNT: assert(false);
+        default: assert(false);
     }
 }
 
@@ -651,12 +649,6 @@ static void ensure_types_are_data_types(const Nodes* yield_types) {
     }
 }
 
-static void ensure_types_are_value_types(const Nodes* yield_types) {
-    for (size_t i = 0; i < yield_types->count; i++) {
-        assert(shd_is_value_type(yield_types->nodes[i]));
-    }
-}
-
 const Type* _shd_check_type_if_instr(IrArena* arena, If if_instr) {
     assert(if_instr.tail && is_abstraction(if_instr.tail));
     ensure_types_are_data_types(&if_instr.yield_types);
@@ -775,8 +767,8 @@ const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElement
 
     const IntLiteral* lit = shd_resolve_to_int_literal(lea.offset);
     bool offset_is_zero = lit && lit->value == 0;
-    assert(offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference && "if an offset is used, the base cannot be a reference");
-    assert(offset_is_zero || shd_is_data_type(pointee_type) && "if an offset is used, the base must point to a data type");
+    assert((offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference) && "if an offset is used, the base cannot be a reference");
+    assert((offset_is_zero || shd_is_data_type(pointee_type)) && "if an offset is used, the base must point to a data type");
 
     return qualified_type(a, (QualifiedType) {
         .scope = shd_combine_scopes(ptr_scope, offset_scope),

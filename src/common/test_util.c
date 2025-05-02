@@ -1,5 +1,6 @@
 #include "util.h"
 #include "printer.h"
+#include "portability.h"
 
 #undef NDEBUG
 #include <assert.h>
@@ -50,7 +51,7 @@ void test_unescape_printer(void) {
     free((char*) output);
 }
 
-int main(int argc, char** argv) {
+int main(SHADY_UNUSED int argc, SHADY_UNUSED char** argv) {
     assert(strlen(double_escaped) == DoubleLen - 1);
     assert(strlen(escaped) == Len - 1);
 

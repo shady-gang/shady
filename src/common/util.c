@@ -120,7 +120,7 @@ bool shd_read_file(const char* filename, size_t* size, char** output) {
         goto err_post_open;
 
     // pad an extra zero at the end so this can be safely treated like a string
-    unsigned char* string = malloc(fsize + 1);
+    char* string = malloc(fsize + 1);
     if (!string)
         goto err_post_open;
 
@@ -256,12 +256,12 @@ char* shd_strip_path(const char* path) {
     char* end = strrchr(path, separator);
     if (!end) {
         fprintf(stderr, "path: %s\n", path);
-        char* new = calloc(sizeof(char), 3);
+        char* new = calloc(3, sizeof(char));
         new[0] = '.';
         new[1] = '/';
         return new;
     }
-    char* new = calloc(sizeof(char), (end - path) + 1);
+    char* new = calloc((end - path) + 1, sizeof(char));
     size_t i = 0;
     for (const char* c = path; c < end; c++) {
         new[i++] = *c;

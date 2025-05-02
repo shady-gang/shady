@@ -65,7 +65,7 @@ static void schedule_after(Scheduler* scheduler, const Node* op, CFNode** schedu
     }
 }
 
-static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node* op, size_t i) {
+static void visit_operand(Scheduler* s, NodeClass nc, SHADY_UNUSED String opname, const Node* op, SHADY_UNUSED size_t i) {
     if (is_declaration(op))
         return;
     switch (nc) {
@@ -80,7 +80,7 @@ static void visit_operand(Scheduler* s, NodeClass nc, String opname, const Node*
 }
 
 Scheduler* shd_new_scheduler(CFG* cfg) {
-    Scheduler* s = calloc(sizeof(Scheduler), 1);
+    Scheduler* s = calloc(1, sizeof(Scheduler));
     *s = (Scheduler) {
         .v = {
             .visit_op_fn = (VisitOpFn) visit_operand,

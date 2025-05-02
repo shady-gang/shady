@@ -199,7 +199,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = shd_recreate_node(r, old_jp_type);
                 const Node* new_jp = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, new_jp_type));
-                shd_rewrite_annotations(r, old_jp, new_jp);
+                shd_rewrite_annotations(r, old_jp, (Node*) new_jp);
                 shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = basic_block_helper(a, shd_singleton(new_jp));
                 shd_register_processed(r, payload.inside, new_control_case);

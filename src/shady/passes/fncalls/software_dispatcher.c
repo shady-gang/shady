@@ -148,7 +148,6 @@ static const Node* process(Context* ctx, const Node* old) {
         default: break;
     }
 
-    rebuild:
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
