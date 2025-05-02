@@ -515,7 +515,7 @@ static const Type* decide_ext_scope(IrArena* a, const Type* datatype, Nodes args
     ShdScope scope = a->config.target.scopes.constants;
     LARRAY(ShdScope, arg_scopes, args.count);
     for (size_t i = 0; i < args.count; i++) {
-        arg_scopes[i] = shd_get_qualified_type_scope(args.nodes[i]);
+        arg_scopes[i] = shd_get_qualified_type_scope(args.nodes[i]->type);
         scope = shd_combine_scopes(scope, arg_scopes[i]);
     }
 

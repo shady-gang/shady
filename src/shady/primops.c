@@ -13,10 +13,14 @@ String shd_get_primop_name(Op op) {
 #include "spirv/unified1/GLSL.std.450.h"
 
 static inline const Type* _shd_match_data_types(const Node* a, const Node* b) {
-    shd_deconstruct_qualified_type(&a);
-    shd_deconstruct_qualified_type(&b);
-    assert(a == b);
-    return a;
+    const Node* at = a->type;
+    const Node* bt = b->type;
+    //if (a->tag == QualifiedType_TAG)
+    shd_deconstruct_qualified_type(&at);
+    //if (b->tag == QualifiedType_TAG)
+    shd_deconstruct_qualified_type(&bt);
+    assert(at == bt);
+    return at;
 }
 
 const Node* shd_op_fma(IrArena* arena, const Node* a, const Node* b, const Node* c) { return ext_value_helper(arena, _shd_match_data_types(a, b), "GLSL.std.450", GLSLstd450Fma, mk_nodes(arena, a, b, c)); }

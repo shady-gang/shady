@@ -15,7 +15,7 @@ static OpRewriteResult* process(Context* ctx, NodeClass use, String name, const 
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
-                if (shd_lookup_annotation(node, "Exported") || shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
+                if (shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
                     break;
                 const Type* t = shd_rewrite_op(&ctx->rewriter, NcType, "type", node->payload.global_variable.type);
                 GlobalVariable payload = node->payload.global_variable;
