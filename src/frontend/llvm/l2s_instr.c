@@ -100,6 +100,8 @@ static ShdScope parse_scope(String str) {
     shd_error("Unknown scope %s", str);
 }
 
+#include "spirv/unified1/GLSL.std.450.h"
+
 /// instr may be an instruction or a constantexpr
 const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_bb, BodyBuilder* b, LLVMValueRef instr) {
     Node* fn = fn_ctx ? fn_ctx->fn : NULL;
@@ -526,7 +528,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     return shd_bld_add_instruction(b, fill_bytes(a, (FillBytes) { .dst = ops.nodes[0], .src = ops.nodes[1], .count = ops.nodes[2], .mem = shd_bld_mem(b) }));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fmuladd")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return shd_op_fma(a, ops.nodes[0], ops.nodes[1], ops.nodes[2]);
+                    return ext_value_helper(a, l2s_convert_type(p, LLVMTypeOf(instr)), "GLSL.std.450", GLSLstd450Fma, shd_nodes(a, 3, ops.nodes));
                 } else if (shd_string_starts_with(intrinsic, "llvm.fabs")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return shd_op_fabs(a, ops.nodes[0]);
@@ -535,7 +537,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     return shd_op_floor(a, ops.nodes[0]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.umax")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return shd_op_umax(a, ops.nodes[0], ops.nodes[1]);
+                    return ext_value_helper(a, l2s_convert_type(p, LLVMTypeOf(instr)), "GLSL.std.450", GLSLstd450UMax, shd_nodes(a, 2, ops.nodes));
+                    //return shd_op_umax(a, ops.nodes[0], ops.nodes[1]);
                 } else if (shd_string_starts_with(intrinsic, "llvm.umin")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
                     return shd_op_umin(a, ops.nodes[0], ops.nodes[1]);
