@@ -51,7 +51,6 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
 
 static const Node* lower_callf_process(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
-    Module* m = ctx->rewriter.dst_module;
     Rewriter* r = &ctx->rewriter;
 
     if (old->tag == Function_TAG) {
@@ -118,18 +117,14 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes nargs = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_ret.args);
 
             const Node* return_jp = ctx->return_jp;
-            if (return_jp) {
-                BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, old->payload.fn_ret.mem));
-                // return_jp = prim_op_helper(a, subgroup_assume_uniform_op, shd_empty(a), shd_singleton(return_jp));
-                // Join up at the return address instead of returning
-                return shd_bld_finish(bb, join(a, (Join) {
-                    .join_point = return_jp,
-                    .args = nargs,
-                    .mem = shd_bld_mem(bb),
-                }));
-            } else {
-                assert(false);
-            }
+            assert(return_jp);
+            BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, old->payload.fn_ret.mem));
+            // Join up at the return address instead of returning
+            return shd_bld_finish(bb, join(a, (Join) {
+                .join_point = return_jp,
+                .args = nargs,
+                .mem = shd_bld_mem(bb),
+            }));
         }
         case Call_TAG: {
             Call payload = old->payload.call;

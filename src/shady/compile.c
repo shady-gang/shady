@@ -35,7 +35,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
-        *pmod = shd_cleanup(config, config, *pmod);
+        *pmod = shd_cleanup(config, NULL, *pmod);
     if (log_pass)
         shd_log_module(INFO, *pmod);
     if (SHADY_RUN_VERIFY)

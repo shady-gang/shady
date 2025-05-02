@@ -43,7 +43,7 @@ KeyHash shd_hash_node(const Node** pnode);
 bool shd_compare_node(const Node** pa, const Node** pb);
 
 static KeyHash hash_key(Key* key) {
-    return shd_hash_node(&key->t) ^ shd_hash_string(&key->op.iset) ^ shd_hash(&key->op.opcode, sizeof(Op)) & shd_hash_nodes(&key->op.params);
+    return shd_hash_node(&key->t) ^ shd_hash_string(&key->op.iset) ^ shd_hash(&key->op.opcode, sizeof(Op)) ^ shd_hash_nodes(&key->op.params);
 }
 
 static bool compare_key(Key* a, Key* b) {
@@ -67,7 +67,7 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
     }
 }
 
-static bool is_supported_natively(Context* ctx, SubgroupOp op, const Type* element_type) {
+static bool is_supported_natively(Context* ctx, SHADY_UNUSED SubgroupOp op, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     if (element_type->tag == Int_TAG && element_type->payload.int_type.width <= IntTy32) {
         return true;

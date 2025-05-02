@@ -79,6 +79,8 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_rewrite_annotations(r, node, (Node*) io);
             } else break;
 
+            io = scope_cast_helper(a, scope, io);
+
             assert(io);
             bool can_be_physical = shd_is_physical_data_type(payload.type);
 

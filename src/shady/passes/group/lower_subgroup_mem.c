@@ -17,7 +17,7 @@ typedef struct {
     Node2Node shared_backing;
 } Context;
 
-static OpRewriteResult* process(Context* ctx, NodeClass use_class, String name, const Node* node) {
+static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, SHADY_UNUSED String name, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 

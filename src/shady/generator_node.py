@@ -99,7 +99,8 @@ def generate_address_space_name_fn(g, address_spaces):
     g.g += "\tswitch (as) {\n"
     for address_space in address_spaces:
         name = address_space["name"]
-        g.g += f"\t\t case As{name}: return \"{name}\";\n"
+        g.g += f"\t\tcase As{name}: return \"{name}\";\n"
+    g.g += f"\t\tdefault : return NULL;\n"
     g.g += "\t}\n"
     g.g += "}\n"
 

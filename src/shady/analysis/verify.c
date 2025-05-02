@@ -43,7 +43,7 @@ static void verify_same_arena(Module* mod) {
     shd_destroy_dict(visitor.once);
 }
 
-static void verify_scoping(const CompilerConfig* config, Module* mod) {
+static void verify_scoping(Module* mod) {
     struct List* cfgs = shd_build_cfgs(mod, structured_scope_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
@@ -108,35 +108,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
     }
 }
 
-typedef struct ScheduleContext_ {
-    Visitor visitor;
-    struct Dict* bound;
-    struct ScheduleContext_* parent;
-    CompilerConfig* config;
-    Module* mod;
-} ScheduleContext;
-
-static void verify_schedule_visitor(ScheduleContext* ctx, const Node* node) {
-    if (is_instruction(node)) {
-        ScheduleContext* search = ctx;
-        while (search) {
-            if (shd_dict_find_key(const Node*, search->bound, node))
-                break;
-            search = search->parent;
-        }
-        if (!search) {
-            shd_log_fmt(ERROR, "Scheduling problem: ");
-            shd_log_node(ERROR, node);
-            shd_log_fmt(ERROR, "was encountered before we saw it be bound by a let!\n");
-            shd_log_fmt(ERROR, "Problematic module:\n");
-            shd_log_module(ERROR, ctx->mod);
-            shd_error_die();
-        }
-    }
-    shd_visit_node_operands(&ctx->visitor, NcTerminator | NcFunction, node);
-}
-
-static void verify_bodies(const CompilerConfig* config, Module* mod) {
+static void verify_bodies(Module* mod) {
     struct List* cfgs = shd_build_cfgs(mod, structured_scope_cfg_build());
     for (size_t i = 0; i < shd_list_count(cfgs); i++) {
         CFG* cfg = shd_read_list(CFG*, cfgs)[i];
@@ -159,12 +131,12 @@ static void verify_bodies(const CompilerConfig* config, Module* mod) {
     }
 }
 
-void shd_verify_module(const CompilerConfig* config, Module* mod) {
+void shd_verify_module(SHADY_UNUSED const CompilerConfig* config, Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly
     if (shd_module_get_arena(mod)->config.check_types) {
-        verify_scoping(config, mod);
-        verify_bodies(config, mod);
+        verify_scoping(mod);
+        verify_bodies(mod);
     }
 }

@@ -37,7 +37,7 @@ static const Nodes* find_scope_info(const Node* abs) {
     assert(is_abstraction(abs));
     const Node* terminator = get_abstraction_body(abs);
     const Node* mem = get_terminator_mem(terminator);
-    Nodes* info = NULL;
+    const Nodes* info = NULL;
     while (mem) {
         if (mem->tag == ExtInstr_TAG && strcmp(mem->payload.ext_instr.set, "shady.scope") == 0) {
             if (!info || info->count > mem->payload.ext_instr.operands.count)

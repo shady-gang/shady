@@ -398,7 +398,7 @@ CFG* shd_new_cfg(const Node* function, const Node* entry, CFGBuildConfig config)
 
     shd_destroy_dict(context.join_point_values);
 
-    CFG* cfg = calloc(sizeof(CFG), 1);
+    CFG* cfg = calloc(1, sizeof(CFG));
     *cfg = (CFG) {
         .arena = arena,
         .config = config,

@@ -17,7 +17,7 @@ def generate(g, src):
         ops = node.get("ops")
         if ops is not None:
             assert type(ops) is list
-            g.g += f"\t\t{name} payload = node->payload.{snake_name};\n"
+            g.g += f"\t\tSHADY_UNUSED {name} payload = node->payload.{snake_name};\n"
             for op in ops:
                 op_name = op["name"]
                 is_list = op.get("list")

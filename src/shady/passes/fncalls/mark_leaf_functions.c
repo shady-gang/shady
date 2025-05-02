@@ -87,7 +87,6 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
 
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
     switch (node->tag) {
         case Function_TAG: {
             Context fn_ctx = *ctx;

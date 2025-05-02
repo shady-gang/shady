@@ -1,3 +1,5 @@
+#include "portability.h"
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -71,15 +73,15 @@ const char* shd_get_executable_location(void) {
 
 #ifdef __USE_POSIX
 #include "signal.h"
-void shd_breakpoint(const char* s) {
+void shd_breakpoint(SHADY_UNUSED const char* message) {
     raise(SIGTRAP);
 }
 #elif WIN32
-void shd_breakpoint(const char* s) {
+void shd_breakpoint(SHADY_UNUSED const char* message) {
     __debugbreak();
 }
 #else
-void shd_breakpoint(const char* s) {
+void shd_breakpoint(SHADY_UNUSED const char* message) {
     exit(666);
 }
 #endif
