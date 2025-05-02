@@ -26,7 +26,7 @@ void shuffle(int arr[]) {
     }
 }
 
-int main(int argc, char** argv) {
+int main(SHADY_UNUSED int argc, SHADY_UNUSED char** argv) {
     srand((int) shd_get_time_nano());
     struct Dict* d = shd_new_set(int, (HashFn) bad_hash_i32, (CmpFn) compare_i32);
 

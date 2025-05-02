@@ -323,7 +323,7 @@ static void function_frame_visitor(FunctionFrameVisitor* visitor, const Node* n)
         //char* s;
         //size_t dc;
         //shd_print_node_into_str(payload.type, &s, &dc);
-        char* s = shd_get_type_name(n->arena, payload.type);
+        String s = shd_get_type_name(n->arena, payload.type);
         shd_print(visitor->p, "StackAlloc %s %d bytes %s\n", shd_get_node_name_safe(n), layout.size_in_bytes, s);
         visitor->bytes += layout.size_in_bytes;
         //free(s);
@@ -357,8 +357,8 @@ static void print_function_body(PrinterCtx* ctx, const Node* node) {
         CFG* cfg = shd_new_cfg(node, node, cfg_config);
         sub_ctx.cfg = cfg;
         sub_ctx.scheduler = shd_new_scheduler(cfg);
-        sub_ctx.bb_growies = calloc(sizeof(size_t), cfg->size);
-        sub_ctx.bb_printers = calloc(sizeof(size_t), cfg->size);
+        sub_ctx.bb_growies = calloc(cfg->size, sizeof(size_t));
+        sub_ctx.bb_printers = calloc(cfg->size, sizeof(size_t));
         if (node->arena->config.check_types && node->arena->config.allow_fold) {
             sub_ctx.uses = shd_new_uses_map_fn(node, (NcFunction | NcType));
         }
@@ -388,6 +388,7 @@ String shd_get_scope_name(ShdScope scope) {
         case ShdScopeWorkgroup:  return "Workgroup";
         case ShdScopeSubgroup:   return "Subgroup";
         case ShdScopeInvocation: return "Invocation";
+        default: SHADY_UNKNOWN_ENUM("Scope with value %d", scope);
     }
 }
 
@@ -504,9 +505,10 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
         }
         case Type_ImageType_TAG: {
             switch (node->payload.image_type.sampled) {
-                case 0: printf("texture_or_image_type");
-                case 1: printf("texture_type");
-                case 2: printf("image_type");
+                case 0: printf("texture_or_image_type"); break;
+                case 1: printf("texture_type"); break;
+                case 2: printf("image_type"); break;
+                default: SHADY_UNKNOWN_ENUM("ImageType with sampled = %d", node->payload.image_type.sampled); break;
             }
             printf(RESET);
             printf("[");
@@ -782,7 +784,7 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
             print_args_list(ctx, annotation->values);
             break;
         }
-        case NotAnAnnotation: shd_error("");
+        case NotAnAnnotation: SHADY_UNKNOWN_ENUM("annotation node, tag = %s", shd_get_node_tag_string(node->tag));
     }
 }
 
@@ -934,7 +936,7 @@ typedef struct {
     PrinterCtx* ctx;
 } PrinterVisitor;
 
-static void print_mem_visitor(PrinterVisitor* ctx, NodeClass nc, String opname, const Node* op, size_t i) {
+static void print_mem_visitor(PrinterVisitor* ctx, NodeClass nc, SHADY_UNUSED String opname, const Node* op, SHADY_UNUSED size_t i) {
     if (nc == NcMem)
         print_mem(ctx->ctx, op);
 }
@@ -948,11 +950,11 @@ static void print_mem(PrinterCtx* ctx, const Node* mem) {
     };
     switch (is_mem(mem)) {
         case Mem_AbsMem_TAG: return;
-        case Mem_MemAndValue_TAG: return print_mem(ctx, mem->payload.mem_and_value.mem);
+        case Mem_MemAndValue_TAG: print_mem(ctx, mem->payload.mem_and_value.mem); break;
         default: {
             assert(is_instruction(mem));
             shd_visit_node_operands((Visitor*) &pv, 0, mem);
-            return;
+            break;
         }
     }
 }
@@ -995,13 +997,13 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass oc, const Node* op) 
     }
 }
 
-void _shd_print_node_operand(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, const Node* op) {
+void _shd_print_node_operand(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, NodeClass op_class, const Node* op) {
     print_operand_name_helper(ctx, name);
     print_operand_helper(ctx, op_class, op);
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, NodeClass op_class, Nodes ops) {
+void _shd_print_node_operand_list(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, NodeClass op_class, Nodes ops) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1012,44 +1014,44 @@ void _shd_print_node_operand_list(PrinterCtx* ctx, const Node* n, String name, N
     shd_print(ctx->printer, "]");
 }
 
-void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, const Node* n, String name, AddressSpace as) {
+void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, AddressSpace as) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, BLUE);
     shd_print(ctx->printer, "%s", shd_get_address_space_name(as));
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_Builtin(PrinterCtx* ctx, const Node* n, String name, Builtin b) {
+void _shd_print_node_operand_Builtin(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, Builtin b) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, BLUE);
     shd_print(ctx->printer, "%s", shd_get_builtin_name(b));
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_Op(PrinterCtx* ctx, const Node* n, String name, Op op) {
+void _shd_print_node_operand_Op(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, Op op) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, BLUE);
     shd_print(ctx->printer, "%s", shd_get_primop_name(op));
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, const Node* n, String name, RecordSpecialFlag flags) {
+void _shd_print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, RecordSpecialFlag flags) {
     print_operand_name_helper(ctx, name);
     if (flags & DecorateBlock)
         shd_print(ctx->printer, "DecorateBlock");
 }
 
-void _shd_print_node_operand_uint32_t(PrinterCtx* ctx, const Node* n, String name, uint32_t i) {
+void _shd_print_node_operand_uint32_t(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, uint32_t i) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%u", i);
 }
 
-void _shd_print_node_operand_uint64_t(PrinterCtx* ctx, const Node* n, String name, uint64_t i) {
+void _shd_print_node_operand_uint64_t(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, uint64_t i) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "%zu", i);
 }
 
-void _shd_print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String name, IntSizes s) {
+void _shd_print_node_operand_IntSizes(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, IntSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
         case IntTy8: shd_print(ctx->printer, "8");  break;
@@ -1059,7 +1061,7 @@ void _shd_print_node_operand_IntSizes(PrinterCtx* ctx, const Node* n, String nam
     }
 }
 
-void _shd_print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String name, FloatSizes s) {
+void _shd_print_node_operand_FloatSizes(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, FloatSizes s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
         case FloatTy16: shd_print(ctx->printer, "16"); break;
@@ -1068,7 +1070,7 @@ void _shd_print_node_operand_FloatSizes(PrinterCtx* ctx, const Node* n, String n
     }
 }
 
-void _shd_print_node_operand_String(PrinterCtx* ctx, const Node* n, String name, String s ){
+void _shd_print_node_operand_String(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, String s ){
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, LITERAL_COLOR);
     if (s)
@@ -1078,7 +1080,7 @@ void _shd_print_node_operand_String(PrinterCtx* ctx, const Node* n, String name,
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name, Strings ops) {
+void _shd_print_node_operand_Strings(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, Strings ops) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, "[");
     for (size_t i = 0; i < ops.count; i++) {
@@ -1094,7 +1096,7 @@ void _shd_print_node_operand_Strings(PrinterCtx* ctx, const Node* n, String name
     shd_print(ctx->printer, "]");
 }
 
-void _shd_print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, bool b) {
+void _shd_print_node_operand_bool(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, bool b) {
     print_operand_name_helper(ctx, name);
     if (b)
         shd_print(ctx->printer, "true");
@@ -1102,7 +1104,7 @@ void _shd_print_node_operand_bool(PrinterCtx* ctx, const Node* n, String name, b
         shd_print(ctx->printer, "false");
 }
 
-static void _shd_print_node_operand_ShdScope(PrinterCtx* ctx, const Node* n, String name, ShdScope scope) {
+static void _shd_print_node_operand_ShdScope(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdScope scope) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, SCOPE_COLOR);
     print_scope(ctx, scope);

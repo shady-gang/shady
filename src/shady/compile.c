@@ -1,7 +1,7 @@
 #include "ir_private.h"
 #include "shady/driver.h"
+#include "shady/pass.h"
 
-#include "passes/passes.h"
 #include "analysis/verify.h"
 
 #include "log.h"
@@ -12,6 +12,8 @@
 #else
 #define SHADY_RUN_VERIFY 1
 #endif
+
+RewritePass shd_cleanup;
 
 void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass pass, String pass_name, void* payload) {
     if (shd_string_starts_with(pass_name, "shd_pass_"))
@@ -33,7 +35,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
     if (config->optimisations.cleanup.after_every_pass)
-        *pmod = shd_cleanup(config, config, *pmod);
+        *pmod = shd_cleanup(config, NULL, *pmod);
     if (log_pass)
         shd_log_module(INFO, *pmod);
     if (SHADY_RUN_VERIFY)

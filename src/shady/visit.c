@@ -1,7 +1,9 @@
 #include "shady/ir.h"
-#include "log.h"
 #include "shady/visit.h"
 #include "analysis/cfg.h"
+
+#include "log.h"
+#include "portability.h"
 
 #include <assert.h>
 

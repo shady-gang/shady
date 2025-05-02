@@ -7,6 +7,9 @@ else()
 endif()
 
 if (SHADY_ENABLE_RUNTIME_VULKAN_BACKEND)
-    add_library(shd_vk_runtime STATIC vk_runtime_module_interface.c vk_runtime_device_caps.c)
-    target_link_libraries(shd_vk_runtime PRIVATE Vulkan::Headers api common)
+    shady_add_component(NAME runtime_vk SOURCES vk_runtime_module_interface.c vk_runtime_device_caps.c)
+    target_link_libraries(runtime_vk PRIVATE common)
+    target_link_libraries(runtime_vk PUBLIC Vulkan::Headers Vulkan::Vulkan api)
+
+    target_link_libraries(runtime PUBLIC runtime_vk)
 endif()

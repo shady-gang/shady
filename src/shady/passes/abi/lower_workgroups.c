@@ -14,7 +14,6 @@ typedef struct {
     Rewriter rewriter;
     const TargetConfig* target_config;
     const CompilerConfig* config;
-    Node** globals;
     bool is_entry_point;
 } Context;
 
@@ -197,10 +196,8 @@ Module* shd_pass_lower_workgroups(SHADY_UNUSED const CompilerConfig* config, SHA
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .target_config = &aconfig.target,
         .config = config,
-        .globals = calloc(sizeof(Node*), PRIMOPS_COUNT),
     };
     shd_rewrite_module(&ctx.rewriter);
-    free(ctx.globals);
     shd_destroy_rewriter(&ctx.rewriter);
     return dst;
 }

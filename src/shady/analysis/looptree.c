@@ -27,7 +27,7 @@ KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
 static LTNode* new_lf_node(int type, LTNode* parent, int depth, struct List* cf_nodes) {
-    LTNode* n = calloc(sizeof(LTNode), 1);
+    LTNode* n = calloc(1, sizeof(LTNode));
     n->parent = parent;
     n->type = type;
     n->lf_children = shd_new_list(LTNode*);
@@ -138,7 +138,7 @@ static int walk_scc(LoopTreeBuilder* ltb, const CFNode* cur, LTNode* parent, int
 
         // pop whole SCC
         while (shd_list_count(ltb->stack) != b) {
-            shd_list_pop(const CFNode*, ltb->stack);
+            SHADY_UNUSED const CFNode* x = shd_list_pop(const CFNode*, ltb->stack);
         }
     }
 
@@ -211,7 +211,7 @@ LoopTree* shd_new_loop_tree(CFG* s) {
         .stack = shd_new_list(const CFNode*),
     };
 
-    LoopTree* lt = calloc(sizeof(LoopTree), 1);
+    LoopTree* lt = calloc(1, sizeof(LoopTree));
     struct List* empty_list = shd_new_list(CFNode*);
     lt->root = new_lf_node(LF_HEAD, NULL, 0, empty_list);
     const CFNode* entry = s->entry;

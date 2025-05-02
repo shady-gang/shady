@@ -1,6 +1,8 @@
 #ifndef SHADY_LIST_H
 #define SHADY_LIST_H
 
+#include "portability.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 

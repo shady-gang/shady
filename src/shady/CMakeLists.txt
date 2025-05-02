@@ -1,4 +1,4 @@
-add_library(shady STATIC)
+shady_add_component(NAME shady SOURCES)
 
 add_generated_file_python(FILE_NAME type_generated.c         TARGET_NAME type_generated         GENERATOR src.shady.generator_type)
 add_generated_file_python(FILE_NAME node_generated.c         TARGET_NAME node_generated         GENERATOR src.shady.generator_node)
@@ -24,12 +24,12 @@ target_sources(shady PRIVATE
     compile.c
     config.c
     dict.c
+    pipeline.c
 )
 
 add_subdirectory(analysis)
 add_subdirectory(passes)
 add_subdirectory(ir)
-add_subdirectory(pipeline)
 
 #target_include_directories(shady PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
@@ -46,4 +46,3 @@ target_link_libraries(shady PRIVATE "common")
 target_link_libraries(shady PRIVATE "$<BUILD_INTERFACE:m>")
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/shady DESTINATION include)
-#install(TARGETS shady EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})

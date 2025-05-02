@@ -14,7 +14,7 @@ void shd_vkr_populate_interface(VkrSpecProgram* spec) {
     }
 }
 
-static size_t max(size_t a, size_t b) {
+static size_t _max(size_t a, size_t b) {
     if (a > b) return a;
     return b;
 }
@@ -25,7 +25,7 @@ size_t shd_vkr_get_push_constant_size(VkrSpecProgram* program) {
         VkrProgramInterfaceItem item = program->interface_items[i];
         switch (item.interface_item.dst_kind) {
             case SHD_RII_Dst_PushConstant:
-                push_constant_size = max(push_constant_size, item.interface_item.dst_details.push_constant.offset + item.interface_item.dst_details.push_constant.size);
+                push_constant_size = _max(push_constant_size, item.interface_item.dst_details.push_constant.offset + item.interface_item.dst_details.push_constant.size);
             break;
             default: continue;
         }

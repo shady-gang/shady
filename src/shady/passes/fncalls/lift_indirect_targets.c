@@ -52,7 +52,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
         const Node* nvar = shd_rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
         shd_deconstruct_qualified_type(&t);
-        assert(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference && "References cannot be spilled");
+        SHADY_ASSERT(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference, "References cannot be spilled");
         shd_bld_stack_push_value(builder, nvar);
     }
 
@@ -110,7 +110,7 @@ static LiftedCont* lambda_lift(Context* callsite_context, const Node* liftee) {
     }
     shd_debugv_print("\n");
 
-    LiftedCont* lifted_cont = calloc(sizeof(LiftedCont), 1);
+    LiftedCont* lifted_cont = calloc(1, sizeof(LiftedCont));
     lifted_cont->old_cont = liftee;
     lifted_cont->save_values = frontier;
     shd_dict_insert(const Node*, LiftedCont*, callsite_context->lifted, liftee, lifted_cont);

@@ -2,12 +2,20 @@
 #include "shady/driver.h"
 #include "shady/pipeline/pipeline.h"
 #include "shady/print.h"
+#include "shady/pass.h"
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
 #include "shady/be/dump.h"
 
-#include "passes/passes.h"
 #include "../frontend/slim/parser.h"
+
+#ifdef LLVM_PARSER_PRESENT
+#include "../frontend/llvm/l2s.h"
+#endif
+
+#ifdef SPV_PARSER_PRESENT
+#include "../frontend/spirv/s2s.h"
+#endif
 
 #include "list.h"
 #include "util.h"
@@ -16,15 +24,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-
-#ifdef LLVM_PARSER_PRESENT
-#include "../frontend/llvm/l2s.h"
-#endif
-
-#ifdef SPV_PARSER_PRESENT
-#include "../frontend/spirv/s2s.h"
-
-#endif
 
 #pragma GCC diagnostic error "-Wswitch"
 

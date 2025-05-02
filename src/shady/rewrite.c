@@ -9,8 +9,6 @@
 #include <assert.h>
 #include <string.h>
 
-#define bool int
-
 KeyHash shd_hash_node(const Node** pnode);
 bool shd_compare_node(const Node** pa, const Node** pb);
 
@@ -126,7 +124,7 @@ Rewriter shd_create_children_rewriter(Rewriter* parent) {
     return r;
 }
 
-static bool rule_match(const OpRewriteResultRule* rule, const Node* node, NodeClass use_class) {
+static bool rule_match(const OpRewriteResultRule* rule, SHADY_UNUSED const Node* node, NodeClass use_class) {
     switch (rule->type) {
         case MASK: {
             OpRewriteResultMaskRule* mask_rule = (OpRewriteResultMaskRule*) rule;
@@ -174,7 +172,7 @@ static const Node* shd_search_processed_canary(const Rewriter* r, const Node* ol
 }
 
 const Node* shd_search_processed_by_use_class(const Rewriter* r, const Node* old, NodeClass mask) {
-    int b;
+    bool b;
     return shd_search_processed_canary(r, old, &b, mask);
 }
 
@@ -315,7 +313,7 @@ void shd_register_processed_result(Rewriter* r, const Node* old, const OpRewrite
 }
 
 void shd_register_processed(Rewriter* r, const Node* old, const Node* new) {
-    return shd_register_processed_result(r, old, shd_new_rewrite_result(r, new));
+    shd_register_processed_result(r, old, shd_new_rewrite_result(r, new));
 }
 
 void shd_register_processed_list(Rewriter* r, Nodes old, Nodes new) {
@@ -343,7 +341,7 @@ void shd_rewrite_module(Rewriter* r) {
 const Node* shd_recreate_param(Rewriter* r, const Node* oparam) {
     assert(oparam->tag == Param_TAG);
     const Node* nparam = param_helper(r->dst_arena, rewrite_op_helper(r, NcType, "type", oparam->payload.param.type));
-    shd_rewrite_annotations(r, oparam, nparam);
+    shd_rewrite_annotations(r, oparam, (Node*) nparam);
     return nparam;
 }
 
@@ -378,7 +376,7 @@ Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old) {
     return new;
 }
 
-NominalType shd_rewrite_nominal_type_head_payload(Rewriter* r, NominalType old) {
+NominalType shd_rewrite_nominal_type_head_payload(SHADY_UNUSED Rewriter* r, NominalType old) {
     NominalType new = old;
     new.body = NULL;
     return new;

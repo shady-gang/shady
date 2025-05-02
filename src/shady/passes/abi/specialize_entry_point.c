@@ -1,5 +1,5 @@
-#include "pipeline/pipeline_private.h"
-#include "passes/passes.h"
+#include "shady/pass.h"
+#include "shady/pipeline/pipeline.h"
 
 #include "shady/ir/builtin.h"
 
@@ -62,7 +62,7 @@ static void specialize_arena_config(String entry_point, Module* src, ArenaConfig
     }
 }
 
-static Module* specialize_entry_point(const CompilerConfig* config, String entry_point_name, Module* src) {
+static Module* specialize_entry_point(SHADY_UNUSED const CompilerConfig* config, String entry_point_name, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(entry_point_name, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -91,10 +91,11 @@ static Module* specialize_entry_point(const CompilerConfig* config, String entry
     return dst;
 }
 
-static void specialize_entry_point_f(String* entry_point, const CompilerConfig* config, Module** pmod) {
+static CompilationResult specialize_entry_point_f(String* entry_point, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(specialize_entry_point, entry_point)
+    return CompilationNoError;
 }
 
 void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point_f, entry_point, strlen(entry_point) + 1);
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_entry_point_f, (void*) entry_point, strlen(entry_point) + 1);
 }

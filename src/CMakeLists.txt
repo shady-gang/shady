@@ -1,7 +1,24 @@
+option(SHADY_USE_OBJECT_LIBS "Whether to use object libraries for shady components")
+
+function(shady_add_component)
+    cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME" "SOURCES")
+
+    if (SHADY_USE_OBJECT_LIBS)
+        add_library(${F_NAME} OBJECT ${F_SOURCES})
+    else ()
+        add_library(${F_NAME} ${F_SOURCES})
+    endif ()
+
+    set_property(TARGET ${F_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set_property(TARGET ${F_NAME} PROPERTY OUTPUT_NAME "shady_${F_NAME}")
+    install(TARGETS ${F_NAME} EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+endfunction()
+
 add_subdirectory(common)
 add_subdirectory(generator)
 add_subdirectory(api)
 add_subdirectory(shady)
+add_subdirectory(shader-pipeline)
 add_subdirectory(runtime)
 add_subdirectory(runner)
 add_subdirectory(driver)

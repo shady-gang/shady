@@ -52,11 +52,32 @@ void shd_log_module_config(LogLevel level, Module* mod, const NodePrintConfig*);
   SHADY_UNREACHABLE;          \
 }
 
-#define shd_error(...) {                                    \
-  fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
-  fprintf (stderr, __VA_ARGS__);                            \
-  fprintf (stderr, "\n");                                   \
-  shd_error_die();                                          \
+#define shd_error(...) {                                      \
+    fprintf (stderr, "Error at %s:%d: ", __FILE__, __LINE__); \
+    fprintf (stderr, __VA_ARGS__);                            \
+    fprintf (stderr, "\n");                                   \
+    shd_error_die();                                          \
+}
+
+#define SHADY_UNKNOWN_ENUM(...) {                                         \
+    fprintf (stderr, "Unknown enum item at %s:%d: ", __FILE__, __LINE__); \
+    fprintf (stderr, __VA_ARGS__);                                        \
+    fprintf (stderr, "\n");                                               \
+    shd_error_die();                                                      \
+}
+
+#define SHADY_UNIMPLEMENTED(...) {                                            \
+    fprintf (stderr, "Unimplemented feature at %s:%d: ", __FILE__, __LINE__); \
+    fprintf (stderr, __VA_ARGS__);                                            \
+    fprintf (stderr, "\n");                                                   \
+    shd_error_die();                                                          \
+}
+
+#define SHADY_ASSERT(c, ...) if (!(c)) {                                                \
+    fprintf (stderr, "Assertion failed: %s at %s:%d: ", #c, __FILE__, __LINE__); \
+    fprintf (stderr, __VA_ARGS__);                                            \
+    fprintf (stderr, "\n");                                                   \
+    shd_error_die();                                                          \
 }
 
 #define CHECK(x, failure_handler) { if (!(x)) { shd_error_print(#x " failed\n"); failure_handler; } }

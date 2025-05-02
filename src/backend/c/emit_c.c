@@ -1,7 +1,8 @@
 #include "emit_c.h"
 
+#include "shady/pass.h"
+
 #include "../shady/ir_private.h"
-#include "../shady/passes/passes.h"
 #include "../shady/analysis/cfg.h"
 #include "../shady/analysis/scheduler.h"
 
@@ -376,6 +377,10 @@ typedef struct {
 
 /// Moves all Private allocations to Function
 RewritePass shd_pass_globals_to_locals;
+RewritePass shd_pass_eliminate_constants;
+RewritePass shd_pass_lower_workgroups;
+RewritePass shd_pass_lower_inclusive_scan;
+RewritePass shd_pass_lower_vec_arr;
 
 /// Adds calls to init and fini arrounds the entry points
 Module* shd_pass_call_init_fini(void*, Module* src);

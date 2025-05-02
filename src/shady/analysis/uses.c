@@ -68,7 +68,7 @@ static void uses_visit_op(UsesMapVisitor* v, NodeClass class, String op_name, co
 }
 
 static const UsesMap* create_uses_map_(const Node* root, const Module* m, NodeClass exclude) {
-    UsesMap* uses = calloc(sizeof(UsesMap), 1);
+    UsesMap* uses = calloc(1, sizeof(UsesMap));
     *uses = (UsesMap) {
         .map = shd_new_dict(const Node*, Use*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .a = shd_new_arena(),

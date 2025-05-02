@@ -35,7 +35,6 @@ typedef struct {
 
 static void store_init_values(Context* ctx, BodyBuilder* bb) {
     Rewriter* r = &ctx->rewriter;
-    IrArena* a = r->dst_arena;
     Nodes oglobals = shd_module_collect_reachable_globals(ctx->rewriter.src_module);
 
     for (size_t i = 0; i < oglobals.count; i++) {

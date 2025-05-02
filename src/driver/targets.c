@@ -78,6 +78,13 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
                 driver_config->backend_config.c.dialect = CDialect_ISPC;
             }
             add_default_shading_language_limitations(target_config);
+            for (size_t i = 0; i < NumAddressSpaces; i++) {
+                if (i != AsGeneric && shd_get_addr_space_scope(i) < ShdScopeSubgroup) {
+                    // ISPC can use native physical pointers for `uniform` data
+                    // Due to how it lays out types for `varying` data, we want to emulate memory ourselves.
+                    target_config->memory.address_spaces[AsGlobal].physical = true;
+                }
+            }
             break;
         case TgtCUDA:
             if (driver_config) {

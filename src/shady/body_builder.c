@@ -109,7 +109,6 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
         StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
         const Node* t2 = terminator;
         switch (entry.structured.tag) {
-            case NotAStructured_construct: shd_error("")
             case Structured_construct_If_TAG: {
                 terminator = if_instr(a, entry.structured.payload.if_instr);
                 break;
@@ -126,6 +125,7 @@ static const Node* build_body(BodyBuilder* bb, const Node* terminator) {
                 terminator = control(a, entry.structured.payload.control);
                 break;
             }
+            case NotAStructured_construct: SHADY_UNKNOWN_ENUM("Not a structured construct: %s", shd_get_node_tag_string(terminator->tag))
         }
         shd_set_abstraction_body((Node*) get_structured_construct_tail(terminator), t2);
     }
@@ -268,7 +268,6 @@ static Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_
         .vars = params,
     };
     switch (entry.structured.tag) {
-        case NotAStructured_construct: shd_error("")
         case Structured_construct_If_TAG: {
             entry.structured.payload.if_instr.tail = tail;
             entry.structured.payload.if_instr.mem = shd_bld_mem(bb);
@@ -289,6 +288,7 @@ static Nodes add_structured_construct(BodyBuilder* bb, Nodes params, Structured_
             entry.structured.payload.control.mem = shd_bld_mem(bb);
             break;
         }
+        case NotAStructured_construct: SHADY_UNREACHABLE;
     }
     bb->mem = shd_get_abstraction_mem(tail);
     shd_list_append(StackEntry , bb->stack, entry);
@@ -382,13 +382,7 @@ begin_loop_helper_t shd_bld_begin_loop_helper(BodyBuilder* bb, Nodes yield_types
 }
 
 void shd_bld_cancel(BodyBuilder* bb) {
-    for (size_t i = 0; i < shd_list_count(bb->stack); i++) {
-        StackEntry entry = shd_read_list(StackEntry, bb->stack)[i];
-        // if (entry.structured.tag != NotAStructured_construct)
-        //     destroy_list(entry.structured.stack);
-    }
     shd_destroy_list(bb->stack);
-    //destroy_list(bb->stack_stack);
     free(bb);
 }
 

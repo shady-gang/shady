@@ -18,30 +18,6 @@ typedef struct {
     const Node* (*I)(IrArena*, const Type* t);
 } GroupOp;
 
-static const Node* zero(IrArena* a, const Type* t) {
-    t = shd_get_unqualified_type(t);
-    assert(t->tag == Int_TAG);
-    Int t_payload = t->payload.int_type;
-    IntLiteral lit = {
-        .width = t_payload.width,
-        .is_signed = t_payload.is_signed,
-        .value = 0
-    };
-    return int_literal(a, lit);
-}
-
-static const Node* one(IrArena* a, const Type* t) {
-    t = shd_get_unqualified_type(t);
-    assert(t->tag == Int_TAG);
-    Int t_payload = t->payload.int_type;
-    IntLiteral lit = {
-        .width = t_payload.width,
-        .is_signed = t_payload.is_signed,
-        .value = 1
-    };
-    return int_literal(a, lit);
-}
-
 static GroupOp group_operations[] = {
     { SpvOpGroupIAdd, add_op },
     { SpvOpGroupFAdd, add_op },

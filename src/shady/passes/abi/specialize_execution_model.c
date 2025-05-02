@@ -1,4 +1,5 @@
-#include "pipeline/pipeline_private.h"
+#include "shady/pass.h"
+#include "shady/pipeline/pipeline.h"
 #include "shady/ir/debug.h"
 
 #include "portability.h"
@@ -8,14 +9,6 @@
 typedef struct {
     Rewriter rewriter;
 } Context;
-
-static const Node* process(Context* ctx, const Node* node) {
-    IrArena* a = ctx->rewriter.dst_arena;
-    switch (node->tag) {
-        default: break;
-    }
-    return shd_recreate_node(&ctx->rewriter, node);
-}
 
 static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
     target->execution_model = em;
@@ -37,7 +30,7 @@ static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* con
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
-        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) shd_recreate_node),
     };
 
     shd_rewrite_module(&ctx.rewriter);
@@ -45,8 +38,9 @@ static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* con
     return dst;
 }
 
-static void specialize_execution_model_f(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
+static CompilationResult specialize_execution_model_f(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(specialize_execution_model, em);
+    return CompilationNoError;
 }
 
 void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ExecutionModel em) {

@@ -1,10 +1,10 @@
 #include "emit_spv.h"
 
 #include "shady/ir/builtin.h"
+#include "shady/pass.h"
 
 #include "../shady/ir_private.h"
 #include "../shady/analysis/cfg.h"
-#include "../shady/passes/passes.h"
 #include "../shady/analysis/scheduler.h"
 
 #include "list.h"
@@ -342,6 +342,7 @@ RewritePass shd_spv_lower_entrypoint_args;
 RewritePass shd_spvbe_pass_remove_bda_params;
 
 RewritePass shd_pass_mark_leaf_functions;
+RewritePass shd_pass_eliminate_constants;
 RewritePass shd_lower_to_callable_shaders;
 
 /// Adds calls to init and fini arrounds the entry points
