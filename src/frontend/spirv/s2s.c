@@ -12,7 +12,7 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "spirv/unified1/OpenCL.std.h"
 #include "spirv/unified1/GLSL.std.450.h"
 
-#include "s2s.h"
+#include "shady/fe/spirv.h"
 
 #include "shady/ir/builtin.h"
 #include "shady/ir/memory_layout.h"

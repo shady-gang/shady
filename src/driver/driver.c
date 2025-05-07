@@ -14,7 +14,7 @@
 #endif
 
 #ifdef SPV_PARSER_PRESENT
-#include "../frontend/spirv/s2s.h"
+#include "shady/fe/spirv.h"
 #endif
 
 #include "list.h"
