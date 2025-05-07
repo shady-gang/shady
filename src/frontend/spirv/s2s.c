@@ -455,14 +455,12 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         LARRAY(const Node*, ops, num_ops);
         for (size_t i = 0; i < num_ops; i++)
             ops[i] = get_def_ssa_value(parser, instruction[shd_op.ops_offset + i]);
-        int results_count = has_result ? 1 : 0;
-        Nodes results = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-            .op = shd_op.op,
-            .operands = shd_nodes(parser->arena, num_ops, ops)
-        }), results_count);
         if (has_result) {
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_first(results);
+            parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
+                .op = shd_op.op,
+                .operands = shd_nodes(parser->arena, num_ops, ops)
+            });
         }
         return size;
     }
@@ -662,6 +660,30 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             });
             break;
         }
+        case SpvOpTypeImage: {
+            parser->defs[result].type = Typ;
+            const Type* sampled_type = get_def_type(parser, instruction[2]);
+            parser->defs[result].node = image_type(parser->arena, (ImageType) {
+                .sampled_type = sampled_type,
+                .dim = instruction[3],
+                .depth = instruction[4],
+                .arrayed = instruction[5],
+                .ms = instruction[6],
+                .sampled = instruction[7],
+                .imageformat = instruction[8],
+            });
+            break;
+        }
+        case SpvOpTypeSampler: {
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = sampler_type(a);
+            break;
+        }
+        case SpvOpTypeSampledImage: {
+            parser->defs[result].type = Typ;
+            parser->defs[result].node = sampled_image_type_helper(a, get_def_type(parser, instruction[2]));
+            break;
+        }
         case SpvOpConstant: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);
@@ -740,7 +762,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 parser->defs[result].node = ptr;
 
                 if (size == 5)
-                    shd_bld_add_instruction_extract_count(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bld_mem(parser->current_block.builder) }), 1);
+                    shd_bld_add_instruction(parser->current_block.builder, store(parser->arena, (Store) { .ptr = ptr, .value = get_def_ssa_value(parser, instruction[4]), .mem = shd_bld_mem(parser->current_block.builder) }));
             } else {
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
                 if (builtin) {
@@ -775,6 +797,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             Nodes annotations = shd_empty(parser->arena);
             annotations = shd_nodes_append(parser->arena, annotations, annotation(parser->arena, (Annotation) { .name = "Restructure" }));
             SpvDeco* entry_point_type = find_decoration(parser, result, -1, ShdDecorationEntryPointType);
+            SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
             parser->is_entry_pt = entry_point_type;
             if (entry_point_type) {
                 annotations = shd_nodes_append(parser->arena, annotations, annotation_value(parser->arena, (AnnotationValue) {
@@ -782,7 +805,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     .value = string_lit(parser->arena, (StringLiteral) { .string = entry_point_type->payload.str })
                 }));
 
-                SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
                 assert(entry_point_name);
                 name = entry_point_name->payload.str;
 
@@ -834,13 +856,16 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 instruction_offset += s;
             }
 
+            if (entry_point_name)
+                shd_module_add_export(parser->mod, entry_point_name->payload.str, fun);
+
             // Final OpFunctionEnd
             size_t s = parse_spv_instruction_at(parser, instruction_offset);
             size += s;
 
-            // steal the body of the first block, it can't be jumped to anyways!
+            // Jump to the first block if it exists
             if (first_block)
-                shd_set_abstraction_body(fun, first_block->payload.basic_block.body);
+                shd_set_abstraction_body(fun, jump_helper(a, shd_get_abstraction_mem(fun), first_block, shd_empty(a)));
             parser->fun = old_fun;
             break;
         }
@@ -949,12 +974,18 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpConvertSToF:
         case SpvOpSConvert:
         case SpvOpFConvert:
-        case SpvOpUConvert:
+        case SpvOpUConvert: {
+            const Type* src = get_def_ssa_value(parser, instruction[3]);
+            const Type* dst_t = get_def_type(parser, result_t);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = conversion_helper(parser->arena, dst_t, src);
+            break;
+        }
         case SpvOpPtrCastToGeneric: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, generic_ptr_cast_helper(parser->arena, src));
+            parser->defs[result].node = generic_ptr_cast_helper(parser->arena, src);
             break;
         }
         case SpvOpConvertPtrToU:
@@ -993,10 +1024,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < num_indices; i++)
                 ops[1 + i] = shd_int32_literal(parser->arena, instruction[4 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
                 .op = extract_op,
                 .operands = shd_nodes(parser->arena, 1 + num_indices, ops)
-            }));
+            });
             break;
         }
         case SpvOpCompositeInsert: {
@@ -1007,10 +1038,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < num_indices; i++)
                 ops[2 + i] = shd_int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+            parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
                 .op = insert_op,
                 .operands = shd_nodes(parser->arena, 2 + num_indices, ops)
-            }));
+            });
             break;
         }
         case SpvOpVectorShuffle: {
@@ -1031,10 +1062,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     index -= num_components_a;
                     src = src_b;
                 }
-                components[i] = shd_bld_add_instruction(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
+                components[i] = prim_op(parser->arena, (PrimOp) {
                     .op = extract_op,
                     .operands = mk_nodes(parser->arena, src, shd_int32_literal(parser->arena, index))
-                }));
+                });
             }
 
             parser->defs[result].type = Value;
@@ -1053,7 +1084,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpStore: {
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
-            shd_bld_add_instruction_extract_count(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bld_mem(parser->current_block.builder) }), 0);
+            shd_bld_add_instruction(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bld_mem(parser->current_block.builder) }));
             break;
         }
         case SpvOpCopyMemory:
@@ -1110,14 +1141,12 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                         }
                     }
                     assert(op != PRIMOPS_COUNT);
-                    //assert(false && intrinsic);
-                    Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, prim_op(parser->arena, (PrimOp) {
-                        .op = op,
-                        .operands = shd_nodes(parser->arena, num_args, args)
-                    }), rslts_count);
 
-                    if (rslts_count == 1)
-                        parser->defs[result].node = shd_first(rslts);
+                    if (rslts_count >= 1)
+                        parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
+                            .op = op,
+                            .operands = shd_nodes(parser->arena, num_args, args)
+                        });
 
                     break;
                 }
@@ -1141,46 +1170,46 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < num_args; i++)
                 args[i] = get_def_ssa_value(parser, instruction[5 + i]);
 
-            const Node* instr = NULL;
+            const Node* value = NULL;
             if (strcmp(set, "OpenCL.std") == 0) {
                 switch (ext_instr) {
                     case OpenCLstd_Mad:
                         assert(num_args == 3);
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = mul_op,
                             .operands = mk_nodes(parser->arena, args[0], args[1])
                         });
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = add_op,
-                            .operands = mk_nodes(parser->arena, instr, args[2])
+                            .operands = mk_nodes(parser->arena, value, args[2])
                         });
                         break;
                     case OpenCLstd_Floor:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = floor_op,
                         .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Sqrt:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = sqrt_op,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Fabs:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = abs_op,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Sin:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = sin_op,
                             .operands = shd_singleton(args[0])
                         });
                         break;
                     case OpenCLstd_Cos:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                             .op = cos_op,
                             .operands = shd_singleton(args[0])
                         });
@@ -1191,53 +1220,53 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 switch (ext_instr) {
                     case GLSLstd450Fma:
                         assert(num_args == 3);
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = mul_op,
                                 .operands = mk_nodes(parser->arena, args[0], args[1])
                         });
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = add_op,
-                                .operands = mk_nodes(parser->arena, instr, args[2])
+                                .operands = mk_nodes(parser->arena, value, args[2])
                         });
                         break;
                     case GLSLstd450Floor:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = floor_op,
                                 .operands = shd_singleton(args[0])
                         });
                         break;
                     case GLSLstd450Sqrt:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = sqrt_op,
                                 .operands = shd_singleton(args[0])
                         });
                         break;
                     case GLSLstd450FAbs:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = abs_op,
                                 .operands = shd_singleton(args[0])
                         });
                         break;
                     case GLSLstd450Sin:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = sin_op,
                                 .operands = shd_singleton(args[0])
                         });
                         break;
                     case GLSLstd450Cos:
-                        instr = prim_op(parser->arena, (PrimOp) {
+                        value = prim_op(parser->arena, (PrimOp) {
                                 .op = cos_op,
                                 .operands = shd_singleton(args[0])
                         });
                         break;
-                    case GLSLstd450FMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450SMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450UMin: instr = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450FMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450SMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450UMax: instr = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    case GLSLstd450Exp: instr = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = shd_singleton(args[0]) }); break;
-                    case GLSLstd450Pow: instr = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450FMin: value = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450SMin: value = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450UMin: value = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450FMax: value = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450SMax: value = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450UMax: value = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
+                    case GLSLstd450Exp: value = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = shd_singleton(args[0]) }); break;
+                    case GLSLstd450Pow: value = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
                     default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
                 }
             } else {
@@ -1245,7 +1274,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             }
 
             parser->defs[result].type = Value;
-            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, instr);
+            if (value)
+                parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, value);
+            else
+                shd_error_die();
             break;
         }
         case SpvOpBranch: {
@@ -1262,6 +1294,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             SpvId destinations[2] = { instruction[2], instruction[3] };
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = shd_bld_finish(bb, branch(parser->arena, (Branch) {
+                .mem = shd_bld_mem(bb),
                 .true_jump = jump_helper(parser->arena, shd_bld_mem(bb), get_def_block(parser, destinations[0]),
                                          get_args_from_phi(parser, destinations[0], parser->current_block.id)),
                 .false_jump = jump_helper(parser->arena, shd_bld_mem(bb), get_def_block(parser, destinations[1]),
@@ -1281,11 +1314,44 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             BodyBuilder* bb = parser->current_block.builder;
             parser->current_block.finished = shd_bld_finish(bb, fn_ret(parser->arena, (Return) {
                 .args = args,
+                .mem = shd_bld_mem(bb),
             }));
             parser->current_block.builder = NULL;
             break;
         }
-        default: shd_error("Unsupported op: %d, size: %d", op, size);
+        default: {
+            //bool has_result, has_type;
+            //SpvHasResultAndType(op, &has_result, &has_type);
+            if (has_result && !has_type) {
+                // likely a type ?
+            } else if (has_result && has_type) {
+                parser->defs[result].type = Value;
+                LARRAY(const Node*, operands, size - 3);
+                for (size_t i = 0; i < size - 3; i++)
+                    operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
+                parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
+                    .mem = shd_bld_mem(parser->current_block.builder),
+                    .set = "spirv.core",
+                    .opcode = op,
+                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                    .operands = shd_nodes(a, size - 3, operands),
+                }));
+                break;
+            } else {
+                LARRAY(const Node*, operands, size - 3);
+                for (size_t i = 0; i < size - 3; i++)
+                    operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
+                shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
+                    .mem = shd_bld_mem(parser->current_block.builder),
+                    .set = "spirv.core",
+                    .opcode = op,
+                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                    .operands = shd_nodes(a, size - 3, operands),
+                }));
+                break;
+            }
+            shd_error("Unsupported op: %d, size: %d", op, size);
+        }
     }
 
     if (has_result) {
