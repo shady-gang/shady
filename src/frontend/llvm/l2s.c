@@ -305,10 +305,39 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
     return r;
 }
 
+LLVMFrontendConfig shd_get_default_llvm_frontend_config(void) {
+    return (LLVMFrontendConfig) {
+        .input_cf.restructure_with_heuristics = true,
+    };
+}
+
+#include "../driver/cli.h"
+
+#define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
+F(config->input_cf.restructure_with_heuristics, restructure-everything) \
+F(config->input_cf.add_scope_annotations, add-scope-annotations) \
+F(config->input_cf.has_scope_annotations, has-scope-annotations) \
+
+void shd_parse_llvm_frontend_args(LLVMFrontendConfig* config, int* pargc, char** argv) {
+    int argc = *pargc;
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] == NULL)
+            continue;
+
+        COMPILER_CONFIG_TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
+    }
+
+    shd_pack_remaining_args(pargc, argv);
+}
+
 RewritePass shd_pass_lower_generic_globals;
 RewritePass l2s_promote_byval_params;
+RewritePass shd_pass_lcssa;
+RewritePass shd_pass_scope2control;
+RewritePass shd_pass_remove_critical_edges;
+RewritePass shd_pass_reconvergence_heuristics;
 
-bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
+bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* frontend_config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
     LLVMContextRef context = LLVMContextCreate();
     LLVMModuleRef src;
     LLVMMemoryBufferRef mem = LLVMCreateMemoryBufferWithMemoryRange(data, len, "my_great_buffer", false);
@@ -329,7 +358,7 @@ bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_con
     Module* dirty = shd_new_module(arena, "dirty");
     Parser p = {
         .ctx = context,
-        .config = config,
+        .config = frontend_config,
         .map = shd_new_dict(LLVMValueRef, const Node*, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations = shd_new_dict(LLVMValueRef, ParsedAnnotation, (HashFn) hash_opaque_ptr, (CmpFn) cmp_opaque_ptr),
         .annotations_arena = shd_new_arena(),
@@ -365,8 +394,20 @@ bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_con
     shd_verify_module(*pmod);
     shd_destroy_ir_arena(arena);
 
-    RUN_PASS(shd_pass_lower_generic_globals, config)
-    RUN_PASS(l2s_promote_byval_params, config);
+    RUN_PASS(shd_pass_lower_generic_globals, NULL)
+    RUN_PASS(l2s_promote_byval_params, NULL);
+
+    if (frontend_config->input_cf.has_scope_annotations) {
+        // RUN_PASS(shd_pass_scope_heuristic)
+        // RUN_PASS(shd_pass_lift_everything, config)
+        RUN_PASS(shd_pass_lcssa, config)
+        RUN_PASS(shd_pass_scope2control, config)
+    } else if (frontend_config->input_cf.restructure_with_heuristics) {
+        RUN_PASS(shd_pass_remove_critical_edges, config)
+        RUN_PASS(shd_pass_lcssa, config)
+        // RUN_PASS(shd_pass_lift_everything)
+        RUN_PASS(shd_pass_reconvergence_heuristics, config)
+    }
 
     shd_destroy_dict(p.map);
     shd_destroy_dict(p.annotations);

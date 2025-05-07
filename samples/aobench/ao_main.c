@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
         .runtime_config = shd_rn_default_config(),
     };
 
-    args.compiler_config.input_cf.restructure_with_heuristics = true;
+    //args.compiler_config.input_cf.restructure_with_heuristics = true;
 
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.compiler_config, &argc, argv);

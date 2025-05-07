@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     shd_platform_specific_terminal_init_extras();
 
     DriverConfig args = shd_default_driver_config();
-    VccConfig vcc_options = vcc_init_config(&args.config);
+    VccConfig vcc_options = vcc_init_config();
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.config, &argc, argv);
 

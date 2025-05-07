@@ -18,7 +18,6 @@ typedef struct Context_ {
     bool disable_lowering;
 
     const UsesMap* uses;
-    const CompilerConfig* config;
     Arena* arena;
     struct Dict* alloca_info;
     bool* todo;
@@ -284,14 +283,13 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
-bool shd_opt_demote_alloca(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+bool shd_opt_demote_alloca(SHADY_UNUSED const void* unused, Module** m) {
     bool todo = false;
     Module* src = *m;
     IrArena* a = shd_module_get_arena(src);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .config = config,
         .arena = shd_new_arena(),
         .alloca_info = shd_new_dict(const Node*, AllocaInfo*, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
         .todo = &todo

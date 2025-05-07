@@ -13,7 +13,6 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 typedef struct {
     Rewriter rewriter;
-    const CompilerConfig* config;
     Parser* p;
     Arena* arena;
 } Context;
@@ -107,7 +106,6 @@ void l2s_postprocess(Parser* p, Module* src, Module* dst) {
     assert(src != dst);
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .config = p->config,
         .p = p,
         .arena = shd_new_arena(),
     };

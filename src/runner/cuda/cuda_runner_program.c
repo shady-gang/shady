@@ -13,7 +13,6 @@
 
 #include <stdlib.h>
 
-void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline);
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
 
 static bool emit_cuda_c_code(CudaKernel* spec) {
@@ -32,7 +31,6 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     };
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_normalize_input_cf(pipeline);
     shd_pipeline_add_shader_target_lowering(pipeline, target_config);
     shd_pipeline_add_c_target_passes(pipeline, &emitter_config);
     CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->final_module);

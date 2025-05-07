@@ -143,9 +143,6 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
 F(config->dynamic_scheduling, dynamic-scheduling) \
 F(config->hacks.force_join_point_lifting, lift-join-points) \
 F(config->optimisations.inline_everything, inline-everything) \
-F(config->input_cf.restructure_with_heuristics, restructure-everything) \
-F(config->input_cf.add_scope_annotations, add-scope-annotations) \
-F(config->input_cf.has_scope_annotations, has-scope-annotations) \
 F(config->use_rt_pipelines_for_calls, use-rt-pipelines) \
 
 void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {

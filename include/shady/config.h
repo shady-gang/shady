@@ -89,12 +89,6 @@ struct CompilerConfig_ {
     uint32_t per_thread_stack_size;
 
     struct {
-        bool restructure_with_heuristics;
-        bool add_scope_annotations;
-        bool has_scope_annotations;
-    } input_cf;
-
-    struct {
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;
         bool int64;

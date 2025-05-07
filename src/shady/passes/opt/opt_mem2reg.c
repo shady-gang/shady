@@ -114,7 +114,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-bool shd_opt_mem2reg(SHADY_UNUSED const CompilerConfig* config, Module** m) {
+bool shd_opt_mem2reg(SHADY_UNUSED void* unused, Module** m) {
     Module* src = *m;
     IrArena* a = shd_module_get_arena(src);
 

@@ -10,7 +10,7 @@
 #include "../frontend/slim/parser.h"
 
 #ifdef LLVM_PARSER_PRESENT
-#include "../frontend/llvm/l2s.h"
+#include "shady/fe/llvm.h"
 #endif
 
 #ifdef SPV_PARSER_PRESENT
@@ -45,7 +45,8 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, const 
     switch (lang) {
         case SrcLLVM: {
 #ifdef LLVM_PARSER_PRESENT
-            bool ok = shd_parse_llvm(config, target_config, len, file_contents, name, mod);
+            LLVMFrontendConfig frontend_config = shd_get_default_llvm_frontend_config();
+            bool ok = shd_parse_llvm(config, &frontend_config, target_config, len, file_contents, name, mod);
             assert(ok);
 #else
             assert(false && "LLVM front-end missing in this version");

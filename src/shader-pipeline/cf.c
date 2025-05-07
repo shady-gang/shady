@@ -63,28 +63,3 @@ static CompilationResult restructure(SHADY_UNUSED void* unused, const CompilerCo
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline) {
     shd_pipeline_add_step(pipeline, restructure, NULL, 0);
 }
-
-RewritePass shd_pass_lcssa;
-RewritePass shd_pass_scope2control;
-RewritePass shd_pass_remove_critical_edges;
-RewritePass shd_pass_reconvergence_heuristics;
-
-static CompilationResult normalize_input_cf(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
-    if (config->input_cf.has_scope_annotations) {
-        // RUN_PASS(shd_pass_scope_heuristic)
-        // RUN_PASS(shd_pass_lift_everything, config)
-        RUN_PASS(shd_pass_lcssa, config)
-        RUN_PASS(shd_pass_scope2control, config)
-    } else if (config->input_cf.restructure_with_heuristics) {
-        RUN_PASS(shd_pass_remove_critical_edges, config)
-        RUN_PASS(shd_pass_lcssa, config)
-        // RUN_PASS(shd_pass_lift_everything)
-        RUN_PASS(shd_pass_reconvergence_heuristics, config)
-    }
-
-    return CompilationNoError;
-}
-
-void shd_pipeline_add_normalize_input_cf(ShdPipeline pipeline) {
-    shd_pipeline_add_step(pipeline, normalize_input_cf, NULL, 0);
-}

@@ -13,7 +13,6 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    const CompilerConfig* config;
     Arena* arena;
     const Node* current_fn;
     const Node* current_abstraction;
@@ -272,8 +271,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Context fn_ctx = *ctx;
             ctx = &fn_ctx;
             ctx->current_fn = NULL;
-            if (!(shd_lookup_annotation(node, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
-                break;
 
             ctx->current_fn = node;
             ctx->fwd_cfg = build_fn_cfg(ctx->current_fn);
@@ -288,13 +285,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
             return new;
         }
         case BasicBlock_TAG:
-            if (!ctx->current_fn || !(shd_lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
-                break;
             return process_abstraction(ctx, node);
         case Branch_TAG: {
             Branch payload = node->payload.branch;
-            if (!ctx->current_fn || !(shd_lookup_annotation(ctx->current_fn, "Restructure") || ctx->config->input_cf.restructure_with_heuristics))
-                break;
             assert(ctx->fwd_cfg);
 
             CFNode* cfnode = shd_cfg_lookup(ctx->rev_cfg, ctx->current_abstraction);
@@ -437,7 +430,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_pass_reconvergence_heuristics(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_reconvergence_heuristics(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -445,7 +438,6 @@ Module* shd_pass_reconvergence_heuristics(const CompilerConfig* config, SHADY_UN
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .config = config,
         .current_fn = NULL,
         .fwd_cfg = NULL,
         .rev_cfg = NULL,

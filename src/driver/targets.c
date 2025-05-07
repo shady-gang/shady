@@ -118,7 +118,6 @@ static ExecutionModel get_execution_model_for_entry_point(String entry_point, co
     return shd_execution_model_from_entry_point(decl);
 }
 
-void shd_pipeline_add_normalize_input_cf(ShdPipeline);
 void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig);
 void shd_pipeline_add_feature_lowering(ShdPipeline, TargetConfig);
 
@@ -135,8 +134,6 @@ TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mo
 }
 
 void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig* target_config, Module* mod) {
-    shd_pipeline_add_normalize_input_cf(pipeline);
-
     TargetConfig specialized_target_config = shd_driver_specialize_target_config(*target_config, mod, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
 
     shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config);

@@ -55,14 +55,14 @@ void vcc_check_clang(void) {
         shd_error("clang not present in path or otherwise broken (retval=%d)", clang_retval);
 }
 
-VccConfig vcc_init_config(CompilerConfig* compiler_config) {
+VccConfig vcc_init_config() {
     VccConfig vcc_config = {
         .only_run_clang = false,
         .clang_options = shd_new_list(const char*),
     };
 
     // magic!
-    compiler_config->input_cf.restructure_with_heuristics = true;
+    vcc_config.frontend_config.input_cf.restructure_with_heuristics = true;
     //compiler_config->input_cf.add_scope_annotations = true;
     //compiler_config->input_cf.has_scope_annotations = true;
 
@@ -160,7 +160,7 @@ Module* vcc_parse_back_into_module(const CompilerConfig* config, const TargetCon
     if (!shd_read_file(vcc_options->tmp_filename, &len, &llvm_ir))
         exit(InputFileIOError);
     Module* mod;
-    shd_driver_load_source_file(config, target_config, SrcLLVM, len, llvm_ir, module_name, &mod);
+    shd_parse_llvm(config, &vcc_options->frontend_config, target_config, len, llvm_ir, module_name, &mod);
     free(llvm_ir);
 
     if (vcc_options->delete_tmp_file)

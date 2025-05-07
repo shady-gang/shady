@@ -1,7 +1,7 @@
 #ifndef SHADY_L2S_PRIVATE_H
 #define SHADY_L2S_PRIVATE_H
 
-#include "l2s.h"
+#include "shady/fe/llvm.h"
 
 #include "shady/config.h"
 
@@ -14,7 +14,7 @@
 #include <string.h>
 
 typedef struct {
-    const CompilerConfig* config;
+    const LLVMFrontendConfig* config;
     LLVMContextRef ctx;
     struct Dict* map;
     struct Dict* annotations;
