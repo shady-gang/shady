@@ -55,6 +55,7 @@ SpvId spvb_vector_type(SpvbFileBuilder*, SpvId component_type, uint32_t dim);
 SpvId spvb_image_type(SpvbFileBuilder*, SpvId component_type, uint32_t dim, uint32_t depth, uint32_t onion, uint32_t multisample, uint32_t sampled, SpvImageFormat image_format);
 SpvId spvb_sampler_type(SpvbFileBuilder*);
 SpvId spvb_sampled_image_type(SpvbFileBuilder*, SpvId image_type);
+SpvId spvb_type(SpvbFileBuilder*, SpvOp op, size_t operands_count, SpvId operands[]);
 
 // Constants and global variables
 SpvId spvb_undef(SpvbFileBuilder*, SpvId type);

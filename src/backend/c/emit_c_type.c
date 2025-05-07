@@ -378,6 +378,9 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             emitted = *shd_c_lookup_existing_type(emitter, type);
             goto type_goes_on_left;
         }
+        case Type_ExtType_TAG: {
+            shd_error("TODO") // matrices etc
+        }
     }
     assert(emitted != NULL);
     shd_c_register_emitted_type(emitter, type, emitted);

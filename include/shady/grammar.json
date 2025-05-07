@@ -733,6 +733,16 @@
         { "name": "opcode", "type": "uint32_t" },
         { "name": "operands", "class": "value", "list": true }
       ]
+    },
+    {
+      "name": "ExtType",
+      "type": false,
+      "class": "type",
+      "ops": [
+        { "name": "set", "class": "string" },
+        { "name": "opcode", "type": "uint32_t" },
+        { "name": "operands", "class": "none", "list": true }
+      ]
     }
   ]
 }

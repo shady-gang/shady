@@ -201,6 +201,8 @@ bool shd_is_physical_data_type(const Type* type) {
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
             return false;
+        case Type_ExtType_TAG:
+            return false;
     }
 }
 
@@ -213,6 +215,8 @@ bool shd_is_data_type(const Type* type) {
         case Type_SampledImageType_TAG:
         case Type_SamplerType_TAG:
         case Type_ImageType_TAG:
+            return true;
+        case Type_ExtType_TAG:
             return true;
         default: return shd_is_physical_data_type(type);
     }

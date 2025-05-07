@@ -437,6 +437,15 @@ SpvId spvb_sampled_image_type(SpvbFileBuilder* file_builder, SpvId image_type) {
     return id;
 }
 
+SpvId spvb_type(SpvbFileBuilder* file_builder, SpvOp op, size_t operands_count, SpvId operands[]) {
+    op(op, 2 + operands_count);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    for (size_t i = 0; i < operands_count; i++)
+        ref_id(operands[i]);
+    return id;
+}
+
 void spvb_bool_constant(SpvbFileBuilder* file_builder, SpvId result, SpvId type, bool value) {
     op(value ? SpvOpConstantTrue : SpvOpConstantFalse, 3);
     ref_id(type);

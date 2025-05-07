@@ -777,6 +777,13 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 Node* global = global_variable_helper(parser->mod, contents_t, as);
                 parser->defs[result].node = global;
 
+                SpvDeco* desc_set = find_decoration(parser, result, -1, SpvDecorationDescriptorSet);
+                if (desc_set)
+                    shd_add_annotation(global, annotation_value_helper(a, "DescriptorSet", shd_uint32_literal(a, desc_set->payload.literals.data[0])));
+                SpvDeco* binding = find_decoration(parser, result, -1, SpvDecorationDescriptorSet);
+                if (binding)
+                    shd_add_annotation(global, annotation_value_helper(a, "Binding", shd_uint32_literal(a, binding->payload.literals.data[0])));
+
                 if (size == 5)
                     global->payload.global_variable.init = get_def_ssa_value(parser, instruction[4]);
             }
@@ -1322,8 +1329,16 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         default: {
             //bool has_result, has_type;
             //SpvHasResultAndType(op, &has_result, &has_type);
-            if (has_result && !has_type) {
-                // likely a type ?
+            if (has_result && !has_type) {parser->defs[result].type = Typ;
+                LARRAY(const Node*, operands, size - 2);
+                for (size_t i = 0; i < size - 2; i++)
+                    operands[i] = get_definition_by_id(parser, instruction[2 + i])->node;
+                parser->defs[result].node = ext_type(a, (ExtType) {
+                    .set = "spirv.core",
+                    .opcode = op,
+                    .operands = shd_nodes(a, size - 2, operands),
+                });
+                break;
             } else if (has_result && has_type) {
                 parser->defs[result].type = Value;
                 LARRAY(const Node*, operands, size - 3);
@@ -1338,19 +1353,18 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 }));
                 break;
             } else {
-                LARRAY(const Node*, operands, size - 3);
-                for (size_t i = 0; i < size - 3; i++)
+                LARRAY(const Node*, operands, size - 1);
+                for (size_t i = 0; i < size - 1; i++)
                     operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
                 shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
                     .set = "spirv.core",
                     .opcode = op,
-                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
-                    .operands = shd_nodes(a, size - 3, operands),
+                    .result_t = unit_type(a),
+                    .operands = shd_nodes(a, size - 1, operands),
                 }));
                 break;
             }
-            shd_error("Unsupported op: %d, size: %d", op, size);
         }
     }
 
