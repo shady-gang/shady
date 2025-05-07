@@ -135,7 +135,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* targe
         exit(result);
     }
     shd_debug_print("Ran all passes successfully\n");
-    shd_log_module(DEBUG, mod);
+    shd_log_module(args->dump_ir ? INFO : DEBUG, mod);
 
     if (args->cfg_output_filename) {
         FILE* f = fopen(args->cfg_output_filename, "wb");

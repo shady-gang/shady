@@ -72,7 +72,7 @@ typedef struct {
     const char* shd_output_filename;
     const char* cfg_output_filename;
     const char* loop_tree_output_filename;
-
+    bool dump_ir;
     struct {
         String entry_point;
         ExecutionModel execution_model;
