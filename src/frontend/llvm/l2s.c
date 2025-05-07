@@ -362,7 +362,7 @@ bool shd_parse_llvm(const CompilerConfig* config, const TargetConfig* target_con
     l2s_postprocess(&p, dirty, *pmod);
     shd_log_fmt(DEBUGVV, "Shady module parsed from LLVM, after cleanup:\n");
     shd_log_module(DEBUGVV, *pmod);
-    shd_verify_module(config, *pmod);
+    shd_verify_module(*pmod);
     shd_destroy_ir_arena(arena);
 
     RUN_PASS(shd_pass_lower_generic_globals, config)

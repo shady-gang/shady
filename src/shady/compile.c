@@ -30,7 +30,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
     *pmod = pass(config, payload, *pmod);
     (*pmod)->sealed = true;
     if (SHADY_RUN_VERIFY)
-        shd_verify_module(config, *pmod);
+        shd_verify_module(*pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
     old_mod = *pmod;
@@ -39,7 +39,7 @@ void shd_run_pass_impl(const CompilerConfig* config, Module** pmod, RewritePass 
     if (log_pass)
         shd_log_module(INFO, *pmod);
     if (SHADY_RUN_VERIFY)
-        shd_verify_module(config, *pmod);
+        shd_verify_module(*pmod);
     if (shd_module_get_arena(old_mod) != shd_module_get_arena(*pmod))
         shd_destroy_ir_arena(shd_module_get_arena(old_mod));
 }

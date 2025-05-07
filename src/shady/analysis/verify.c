@@ -131,7 +131,7 @@ static void verify_bodies(Module* mod) {
     }
 }
 
-void shd_verify_module(SHADY_UNUSED const CompilerConfig* config, Module* mod) {
+void shd_verify_module(Module* mod) {
     verify_same_arena(mod);
     // before we normalize the IR, scopes are broken because decls appear where they should not
     // TODO add a normalized flag to the IR and check grammar is adhered to strictly

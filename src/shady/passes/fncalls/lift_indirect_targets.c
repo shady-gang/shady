@@ -241,7 +241,7 @@ Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, SHADY_UNUSE
         }
         shd_destroy_dict(ctx.lifted);
         shd_destroy_rewriter(&ctx.rewriter);
-        shd_verify_module(config, dst);
+        shd_verify_module(dst);
         src = dst;
         if (oa)
             shd_destroy_ir_arena(oa);
