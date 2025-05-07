@@ -609,10 +609,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpTypeFunction: {
             parser->defs[result].type = Typ;
-            const Type* return_t = get_def_type(parser, instruction[2]);
+            const Type* return_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[2]));
             LARRAY(const Type*, param_ts, size - 3);
             for (size_t i = 0; i < size - 3; i++)
-                param_ts[i] = get_def_type(parser, instruction[3 + i]);
+                param_ts[i] = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[3 + i]));
             parser->defs[result].node = fn_type(parser->arena, (FnType) {
                 .return_types = (return_t == unit_type(parser->arena)) ? shd_empty(parser->arena) : shd_singleton(return_t),
                 .param_types = shd_nodes(parser->arena, size - 3, param_ts)
@@ -795,7 +795,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 name = shd_make_unique_name(parser->arena, name);
 
             Nodes annotations = shd_empty(parser->arena);
-            annotations = shd_nodes_append(parser->arena, annotations, annotation(parser->arena, (Annotation) { .name = "Restructure" }));
             SpvDeco* entry_point_type = find_decoration(parser, result, -1, ShdDecorationEntryPointType);
             SpvDeco* entry_point_name = find_decoration(parser, result, -1, ShdDecorationEntryPointName);
             parser->is_entry_pt = entry_point_type;
@@ -1152,6 +1151,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 }
             }
             Nodes rslts = shd_bld_add_instruction_extract_count(parser->current_block.builder, call(parser->arena, (Call) {
+                .mem = shd_bld_mem(parser->current_block.builder),
                 .callee = callee,
                 .args = shd_nodes(parser->arena, num_args, args)
             }), rslts_count);
