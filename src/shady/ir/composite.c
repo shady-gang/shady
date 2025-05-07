@@ -8,15 +8,21 @@
 #include <assert.h>
 
 const Node* shd_extract_helper(IrArena* a, const Node* base, Nodes selectors) {
-    LARRAY(const Node*, ops, 1 + selectors.count);
-    ops[0] = base;
+    const Node* r = base;
     for (size_t i = 0; i < selectors.count; i++)
-        ops[1 + i] = selectors.nodes[i];
-    return prim_op_helper(a, extract_op, shd_nodes(a, 1 + selectors.count, ops));
+        r = extract_helper(a, r, selectors.nodes[i]);
+    return r;
 }
 
-const Node* shd_extract_single_helper(IrArena* a, const Node* composite, const Node* index) {
-    return prim_op_helper(a, extract_op, mk_nodes(a, composite, index));
+const Node* shd_insert_helper(IrArena* a, const Node* base, Nodes selectors, const Node* replacement) {
+    const Node* r = replacement;
+    for (size_t i = selectors.count - 1; i < selectors.count; i--)
+        r = insert_helper(a, shd_extract_helper(a, base, shd_nodes(a, i, selectors.nodes)), selectors.nodes[i], r);
+    return r;
+}
+
+const Node* shd_extract_literal(IrArena* a, const Node* base, uint32_t selector) {
+    return extract_helper(a, base, shd_uint32_literal(a, selector));
 }
 
 const Node* shd_maybe_tuple_helper(IrArena* a, Nodes values) {
@@ -94,7 +100,7 @@ Nodes shd_deconstruct_composite(IrArena* a, const Node* value, size_t outputs_co
     if (outputs_count > 1) {
         LARRAY(const Node*, extracted, outputs_count);
         for (size_t i = 0; i < outputs_count; i++)
-            extracted[i] = shd_extract_single_helper(a, value, shd_int32_literal(a, i));
+            extracted[i] = extract_helper(a, value, shd_int32_literal(a, i));
         return shd_nodes(a, outputs_count, extracted);
     } else if (outputs_count == 1)
         return shd_singleton(value);

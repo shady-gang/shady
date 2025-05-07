@@ -57,14 +57,14 @@ TreeNode* split(TreeNode* t) {
         return t;
 }
 
-TreeNode* insert(TreeNode* t, TreeNode* x) {
+TreeNode* insert_node(TreeNode* t, TreeNode* x) {
     if (t == NULL) {
         x->depth = 1;
         return x;
     } else if (x->key < t->key) {
-        t->children[0] = insert(t->children[0], x);
+        t->children[0] = insert_node(t->children[0], x);
     } else if (x->key > t->key) {
-        t->children[1] = insert(t->children[1], x);
+        t->children[1] = insert_node(t->children[1], x);
     } else
         assert(false);
 
@@ -148,7 +148,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 TreeNode* t = shd_arena_alloc(arena, sizeof(TreeNode));
                 t->key = shd_get_int_literal_value(*shd_resolve_to_int_literal(literals.nodes[i]), false);
                 t->lam = cases.nodes[i];
-                root = insert(root, t);
+                root = insert_node(root, t);
             }
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));

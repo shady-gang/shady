@@ -181,6 +181,36 @@ const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
     });
 }
 
+const Type* _shd_check_type_extract(IrArena* a, Extract extract) {
+    const Type* t = extract.composite->type;
+    ShdScope scope;
+    if (t->tag == RecordType_TAG && t->payload.record_type.special == MultipleReturn) {
+        t = t->payload.record_type.members.nodes[shd_get_int_value(extract.selector, false)];
+        scope = shd_deconstruct_qualified_type(&t);
+    } else {
+        scope = shd_deconstruct_qualified_type(&t);
+        shd_enter_composite_type(&t, &scope, extract.selector, true);
+    }
+
+    return qualified_type_helper(a, scope, t);
+}
+
+const Type* _shd_check_type_insert(IrArena* a, Insert insert) {
+    const Type* t = insert.composite->type;
+    ShdScope scope;
+
+    scope = shd_deconstruct_qualified_type(&t);
+    shd_enter_composite_type(&t, &scope, insert.selector, true);
+
+    const Type* inserted_data_type = insert.replacement->type;
+    scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&inserted_data_type));
+    assert(shd_is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
+    return qualified_type(a, (QualifiedType) {
+        .scope = scope,
+        .type = shd_get_unqualified_type(insert.composite->type),
+    });
+}
+
 const Type* _shd_check_type_fill(IrArena* arena, Fill payload) {
     assert(shd_is_data_type(payload.type));
     const Node* element_t = shd_get_fill_type_element_type(payload.type);
@@ -419,39 +449,6 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(are_types_identical(2, alternatives_types));
 
             return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(alternatives_types[0], width));
-        }
-        case insert_op:
-        case extract_dynamic_op:
-        case extract_op: {
-            assert(prim_op.operands.count >= 2);
-            const Node* source = shd_first(prim_op.operands);
-
-            size_t indices_start = prim_op.op == insert_op ? 2 : 1;
-            Nodes indices = shd_nodes(arena, prim_op.operands.count - indices_start, &prim_op.operands.nodes[indices_start]);
-
-            const Type* t = source->type;
-            ShdScope scope;
-            if (t->tag == RecordType_TAG && t->payload.record_type.special == MultipleReturn) {
-                assert(indices.count == 1);
-                t = t->payload.record_type.members.nodes[shd_get_int_value(indices.nodes[0], false)];
-                scope = shd_deconstruct_qualified_type(&t);
-            } else {
-                scope = shd_deconstruct_qualified_type(&t);
-                shd_enter_composite_type_indices(&t, &scope, indices, true);
-            }
-
-            if (prim_op.op == insert_op) {
-                const Node* inserted_data = prim_op.operands.nodes[1];
-                const Type* inserted_data_type = inserted_data->type;
-                scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&inserted_data_type));
-                assert(shd_is_subtype(t, inserted_data_type) && "inserting data into a composite, but it doesn't match the target and indices");
-                return qualified_type(arena, (QualifiedType) {
-                    .scope = scope,
-                    .type = shd_get_unqualified_type(source->type),
-                });
-            }
-
-            return qualified_type_helper(arena, scope, t);
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);

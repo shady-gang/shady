@@ -315,10 +315,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                                 .mem = shd_rewrite_node(r, payload.mem)
                             });
                         return mem_and_value(a, (MemAndValue) {
-                            .value = prim_op(a, (PrimOp) {
-                                .op = extract_op,
-                                .operands = mk_nodes(a, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1]))
-                            }),
+                            .value = extract_helper(a, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1])),
                             .mem = shd_rewrite_node(r, payload.mem) }
                         );
                     }

@@ -1030,10 +1030,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < num_indices; i++)
                 ops[1 + i] = shd_int32_literal(parser->arena, instruction[4 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
-                .op = extract_op,
-                .operands = shd_nodes(parser->arena, 1 + num_indices, ops)
-            });
+            parser->defs[result].node = shd_extract_helper(a, ops[0], shd_nodes(a, num_indices, &ops[1]));
             break;
         }
         case SpvOpCompositeInsert: {
@@ -1044,10 +1041,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < num_indices; i++)
                 ops[2 + i] = shd_int32_literal(parser->arena, instruction[5 + i]);
             parser->defs[result].type = Value;
-            parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
-                .op = insert_op,
-                .operands = shd_nodes(parser->arena, 2 + num_indices, ops)
-            });
+            parser->defs[result].node = shd_insert_helper(a, ops[0], shd_nodes(a, num_indices, &ops[2]), ops[1]);
             break;
         }
         case SpvOpVectorShuffle: {
@@ -1068,10 +1062,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     index -= num_components_a;
                     src = src_b;
                 }
-                components[i] = prim_op(parser->arena, (PrimOp) {
-                    .op = extract_op,
-                    .operands = mk_nodes(parser->arena, src, shd_int32_literal(parser->arena, index))
-                });
+                components[i] = extract_helper(a, src, shd_int32_literal(parser->arena, index));
             }
 
             parser->defs[result].type = Value;

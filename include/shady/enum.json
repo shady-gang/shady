@@ -172,15 +172,6 @@
       "name": "select"
     },
     {
-      "name": "extract"
-    },
-    {
-      "name": "extract_dynamic"
-    },
-    {
-      "name": "insert"
-    },
-    {
       "name": "shuffle"
     },
     {

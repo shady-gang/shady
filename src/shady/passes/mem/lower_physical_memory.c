@@ -265,7 +265,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
         case RecordType_TAG: {
             Nodes member_types = element_type->payload.record_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
-                const Node* extracted_value = prim_op_helper(a, extract_op, mk_nodes(a, value, shd_int32_literal(a, i)));
+                const Node* extracted_value = shd_extract_literal(a, value, i);
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
                 field_offset = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), field_offset);
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));

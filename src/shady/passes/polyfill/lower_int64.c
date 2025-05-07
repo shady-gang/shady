@@ -16,8 +16,8 @@ static bool should_convert(Context* ctx, const Type* t) {
 }
 
 static void extract_low_hi_halves(IrArena* a, BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
-    *lo = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 0)) }));
-    *hi = shd_bld_add_instruction(bb, prim_op(a, (PrimOp) { .op = extract_op, .operands = mk_nodes(a, src, shd_int32_literal(a, 1)) }));
+    *lo = shd_extract_literal(a, src, 0);
+    *hi = shd_extract_literal(a, src, 1);
 }
 
 static void extract_low_hi_halves_list(IrArena* a, BodyBuilder* bb, Nodes src, const Node** lows, const Node** his) {

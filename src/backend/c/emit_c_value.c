@@ -455,9 +455,54 @@ static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm exp
 
     String index2 = emitter->backend_config.dialect == CDialect_GLSL ? shd_format_string_arena(arena->arena, "int(%s)", shd_c_to_ssa(emitter, index)) : shd_c_to_ssa(emitter, index);
     if (emitter->backend_config.decay_unsized_arrays && !arr_type->payload.arr_type.size)
-        return shd_format_string_arena(arena->arena, "((&%s)[%s])", shd_c_deref(emitter, expr), index2);
+        return shd_format_string_arena(arena->arena, "((&%s)[%s])", shd_c_to_ssa(emitter, expr), index2);
     else
-        return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_deref(emitter, expr), index2);
+        return shd_format_string_arena(arena->arena, "(%s.arr[%s])", shd_c_to_ssa(emitter, expr), index2);
+}
+
+static String emit_selector_rvalue(Emitter* emitter, FnEmitter* fn, const Type* composite_type, CTerm composite, const Node* selector) {
+    const IntLiteral* static_index = shd_resolve_to_int_literal(selector);
+    switch (is_type(composite_type)) {
+        case NominalType_TAG: {
+            composite_type = composite_type->payload.nom_type.body;
+            SHADY_FALLTHROUGH
+        }
+        case Type_RecordType_TAG: {
+            assert(static_index);
+            return shd_format_string_arena(emitter->arena->arena, "(%s.%s)", shd_c_to_ssa(emitter, composite), shd_c_get_record_field_name(emitter, composite_type, static_index->value));
+        }
+        case Type_PackType_TAG: {
+            assert(static_index);
+            // TODO: non-glsl targets
+            assert(static_index->value < 4 && static_index->value < composite_type->payload.pack_type.width);
+            String suffixes = "xyzw";
+            return shd_format_string_arena(emitter->arena->arena, "(%s.%c)", shd_c_to_ssa(emitter, composite), suffixes[static_index->value]);
+        }
+        case Type_ArrType_TAG: {
+            return index_into_array(emitter, composite_type, composite, shd_c_emit_value(emitter, fn, selector));
+        }
+        default:
+        case NotAType: shd_error("Must be a type");
+    }
+}
+
+static CTerm emit_extract(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instr) {
+    Extract extract = instr->payload.extract;
+    CTerm composite = shd_c_emit_value(emitter, fn, extract.composite);
+
+    return term_from_cvalue(emit_selector_rvalue(emitter, fn, shd_get_unqualified_type(extract.composite->type), composite, extract.selector));
+}
+
+static CTerm emit_insert(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instr) {
+    Insert insert = instr->payload.insert;
+    IrArena* a = emitter->arena;
+
+    String local_variable = shd_make_unique_name(a, "modified");
+    shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, instr->type, local_variable), shd_c_emit_value(emitter, fn, insert.composite));
+    String lhs = emit_selector_rvalue(emitter, fn, shd_get_unqualified_type(insert.composite->type), term_from_cvalue(local_variable), insert.selector);
+
+    shd_print(p, "\n%s = %s;", lhs, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, insert.replacement)));
+    return term_from_cvalue(local_variable);
 }
 
 static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
@@ -630,58 +675,6 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             CValue l = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             CValue r = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));
             term = term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(%s) ? (%s) : (%s)", condition, l, r));
-            break;
-        }
-        case insert_op:
-        case extract_dynamic_op:
-        case extract_op: {
-            CValue acc = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, shd_first(prim_op->operands)));
-            bool insert = prim_op->op == insert_op;
-
-            if (insert) {
-                String dst = shd_make_unique_name(arena, "modified");
-                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, node->type, dst), acc);
-                acc = dst;
-                term = term_from_cvalue(dst);
-            }
-
-            const Type* t = shd_get_unqualified_type(shd_first(prim_op->operands)->type);
-            for (size_t i = (insert ? 2 : 1); i < prim_op->operands.count; i++) {
-                const Node* index = prim_op->operands.nodes[i];
-                const IntLiteral* static_index = shd_resolve_to_int_literal(index);
-
-                switch (is_type(t)) {
-                    case NominalType_TAG: {
-                        t = t->payload.nom_type.body;
-                        SHADY_FALLTHROUGH
-                    }
-                    case Type_RecordType_TAG: {
-                        assert(static_index);
-                        acc = shd_format_string_arena(emitter->arena->arena, "(%s.%s)", acc, shd_c_get_record_field_name(emitter, t, static_index->value));
-                        break;
-                    }
-                    case Type_PackType_TAG: {
-                        assert(static_index);
-                        assert(static_index->value < 4 && static_index->value < t->payload.pack_type.width);
-                        String suffixes = "xyzw";
-                        acc = shd_format_string_arena(emitter->arena->arena, "(%s.%c)", acc, suffixes[static_index->value]);
-                        break;
-                    }
-                    case Type_ArrType_TAG: {
-                        acc = index_into_array(emitter, t, term_from_cvar(acc), shd_c_emit_value(emitter, fn, index));
-                        break;
-                    }
-                    default:
-                    case NotAType: shd_error("Must be a type");
-                }
-            }
-
-            if (insert) {
-                shd_print(p, "\n%s = %s;", acc, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1])));
-                break;
-            }
-
-            term = term_from_cvalue(acc);
             break;
         }
         case shuffle_op: {
@@ -967,47 +960,8 @@ static CTerm emit_ptr_composite_element(Emitter* emitter, FnEmitter* fn, Printer
 
     const Type* pointee_type = shd_get_pointer_type_element(curr_ptr_type);
     const Node* selector = lea.index;
-    scope = shd_combine_scopes(scope, shd_get_qualified_type_scope(selector->type));
-    switch (is_type(pointee_type)) {
-        case ArrType_TAG: {
-            CTerm index = shd_c_emit_value(emitter, fn, selector);
-            acc = term_from_cvar(index_into_array(emitter, pointee_type, acc, index));
-            break;
-        }
-        case NominalType_TAG: {
-            pointee_type = shd_get_nominal_type_body(pointee_type);
-            SHADY_FALLTHROUGH
-        }
-        case RecordType_TAG: {
-            // yet another ISPC bug and workaround
-            // ISPC cannot deal with subscripting if you've done pointer arithmetic (!) inside the expression
-            // so hum we just need to introduce a temporary variable to hold the pointer expression so far, and go again from there
-            // See https://github.com/ispc/ispc/issues/2496
-            if (emitter->backend_config.dialect == CDialect_ISPC) {
-                String interm = shd_make_unique_name(arena, "lea_intermediary_ptr_value");
-                shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, qualified_type_helper(arena, scope, curr_ptr_type), interm), shd_c_to_ssa(emitter, acc));
-                acc = term_from_cvalue(interm);
-            }
 
-            assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a record need to be constant");
-            size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
-            String field_name = shd_c_get_record_field_name(emitter, pointee_type, static_index);
-            acc = term_from_cvar(shd_format_string_arena(arena->arena, "(%s.%s)", shd_c_deref(emitter, acc), field_name));
-            break;
-        }
-        case Type_PackType_TAG: {
-            size_t static_index = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
-            String suffixes = "xyzw";
-            acc = term_from_cvar(shd_format_string_arena(emitter->arena->arena, "(%s.%c)", shd_c_deref(emitter, acc), suffixes[static_index]));
-            break;
-        }
-        default: shd_error("lea can't work on this");
-    }
-
-    // if (emitter->config.dialect == CDialect_ISPC)
-    //     acc = c_bind_intermediary_result(emitter, p, curr_ptr_type, acc);
-
-    return acc;
+    return term_from_cvar(emit_selector_rvalue(emitter, fn, pointee_type, term_from_cvalue(shd_c_deref(emitter, acc)), selector));
 }
 
 static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Printer* p, PtrArrayElementOffset lea) {
@@ -1144,6 +1098,8 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             }
             return shd_c_emit_value(emitter, fn, payload.src);
         }
+        case Instruction_Extract_TAG: return emit_extract(emitter, fn, p, instruction);
+        case Instruction_Insert_TAG: return emit_insert(emitter, fn, p, instruction);
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;
             shd_c_emit_mem(emitter, fn, payload.mem);

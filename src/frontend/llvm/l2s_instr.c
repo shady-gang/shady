@@ -654,10 +654,14 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             goto unimplemented;
         case LLVMVAArg:
             goto unimplemented;
-        case LLVMExtractElement:
-            return prim_op_helper(a, extract_dynamic_op, convert_operands(p, num_ops, instr));
-        case LLVMInsertElement:
-            return prim_op_helper(a, insert_op, convert_operands(p, num_ops, instr));
+        case LLVMExtractElement: {
+            Nodes ops = convert_operands(p, num_ops, instr);
+            return shd_extract_helper(a, ops.nodes[0], shd_nodes(a, num_ops - 1, &ops.nodes[1]));
+        }
+        case LLVMInsertElement: {
+            Nodes ops = convert_operands(p, num_ops, instr);
+            return shd_insert_helper(a, ops.nodes[0], shd_nodes(a, num_ops - 2, &ops.nodes[2]), ops.nodes[1]);
+        }
         case LLVMShuffleVector: {
             Nodes ops = convert_operands(p, num_ops, instr);
             unsigned num_indices = LLVMGetNumMaskElements(instr);

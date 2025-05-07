@@ -326,6 +326,29 @@
       ]
     },
     {
+      "name": "Extract",
+      "class": ["value", "instruction"],
+      "description": [
+        "Extract a field out of a composite"
+      ],
+      "ops": [
+        { "name": "composite", "class": "value" },
+        { "name": "selector", "class": "value" }
+      ]
+    },
+    {
+      "name": "Insert",
+      "class": ["value", "instruction"],
+      "description": [
+        "Change a field of a composite"
+      ],
+      "ops": [
+        { "name": "composite", "class": "value" },
+        { "name": "selector", "class": "value" },
+        { "name": "replacement", "class": "value" }
+      ]
+    },
+    {
       "name": "Fill",
       "class": "value",
       "ops": [

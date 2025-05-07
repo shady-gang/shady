@@ -181,6 +181,30 @@ static SpvId emit_using_entry(Emitter* emitter, FnBuilder* fn_builder, BBBuilder
     return 0;
 }
 
+static SpvId emit_extract(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instr) {
+    Extract extract = instr->payload.extract;
+    SpvId result_t = spv_emit_type(emitter, instr->type);
+    SpvId composite = spv_emit_value(emitter, fn_builder, extract.composite);
+
+    const IntLiteral* selector_literal = shd_resolve_to_int_literal(extract.selector);
+    if (selector_literal) {
+        uint32_t selector = shd_get_int_literal_value(*selector_literal, false);
+        return spvb_extract(bb_builder, result_t, composite, 1, &selector);
+    } else {
+        SpvId selector = spv_emit_value(emitter, fn_builder, extract.selector);
+        return spvb_vector_extract_dynamic(bb_builder, result_t, composite, selector);
+    }
+}
+
+static SpvId emit_insert(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instr) {
+    Insert insert = instr->payload.insert;
+    SpvId result_t = spv_emit_type(emitter, instr->type);
+    SpvId composite = spv_emit_value(emitter, fn_builder, insert.composite);
+    SpvId selector = shd_get_int_value(insert.selector, false);
+    SpvId replacement = spv_emit_value(emitter, fn_builder, insert.replacement);
+    return spvb_insert(bb_builder, result_t, replacement, composite, 1, &selector);
+}
+
 static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instr) {
     PrimOp the_op = instr->payload.prim_op;
     Nodes args = the_op.operands;
@@ -191,38 +215,6 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
         return emitted;
 
     switch (the_op.op) {
-        case insert_op:
-        case extract_dynamic_op:
-        case extract_op: {
-            bool insert = the_op.op == insert_op;
-
-            const Node* src_value = shd_first(args);
-            const Type* result_t = instr->type;
-            size_t indices_start = insert ? 2 : 1;
-            size_t indices_count = args.count - indices_start;
-            assert(args.count > indices_start);
-
-            bool dynamic = the_op.op == extract_dynamic_op;
-
-            if (dynamic) {
-                LARRAY(SpvId, indices, indices_count);
-                for (size_t i = 0; i < indices_count; i++) {
-                    indices[i] = spv_emit_value(emitter, fn_builder, args.nodes[i + indices_start]);
-                }
-                assert(indices_count == 1);
-                return spvb_vector_extract_dynamic(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices[0]);
-            }
-            LARRAY(uint32_t, indices, indices_count);
-            for (size_t i = 0; i < indices_count; i++) {
-                // TODO: fallback to Dynamic variants transparently
-                indices[i] = shd_get_int_literal_value(*shd_resolve_to_int_literal(args.nodes[i + indices_start]), false);
-            }
-
-            if (insert)
-                return spvb_insert(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, args.nodes[1]), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
-            else
-                return spvb_extract(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, src_value), indices_count, indices);
-        }
         case shuffle_op: {
             const Type* result_t = instr->type;
             SpvId a = spv_emit_value(emitter, fn_builder, args.nodes[0]);
@@ -453,6 +445,8 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             SpvId offset = spv_emit_value(emitter, fn_builder, payload.offset);
             return spvb_ptr_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, offset, 0, NULL);
         }
+        case Instruction_Extract_TAG: return emit_extract(emitter, fn_builder, bb_builder, instruction);
+        case Instruction_Insert_TAG: return emit_insert(emitter, fn_builder, bb_builder, instruction);
         case Instruction_DebugPrintf_TAG: {
             DebugPrintf payload = instruction->payload.debug_printf;
             spv_emit_mem(emitter, fn_builder, payload.mem);
