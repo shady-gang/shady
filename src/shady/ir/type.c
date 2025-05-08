@@ -455,52 +455,6 @@ const Type* shd_get_maybe_nominal_type_body(const Type* type) {
     return type;
 }
 
-Nodes shd_get_composite_type_element_types(const Type* type) {
-    switch (is_type(type)) {
-        case NominalType_TAG: {
-            type = shd_get_nominal_type_body(type);
-            assert(type->tag == RecordType_TAG);
-            SHADY_FALLTHROUGH
-        }
-        case RecordType_TAG: {
-            return type->payload.record_type.members;
-        }
-        case Type_ArrType_TAG:
-        case Type_VectorType_TAG:
-        case Type_MatrixType_TAG: {
-            size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_fill_type_size(type)), false);
-            if (size >= 1024) {
-                shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
-            }
-            const Type* element_type = shd_get_fill_type_element_type(type);
-            LARRAY(const Type*, types, size);
-            for (size_t i = 0; i < size; i++) {
-                types[i] = element_type;
-            }
-            return shd_nodes(type->arena, size, types);
-        }
-        default: shd_error("Not a composite type !")
-    }
-}
-
-const Node* shd_get_fill_type_element_type(const Type* composite_t) {
-    switch (composite_t->tag) {
-        case ArrType_TAG: return composite_t->payload.arr_type.element_type;
-        case VectorType_TAG: return composite_t->payload.vector_type.element_type;
-        case MatrixType_TAG: return composite_t->payload.matrix_type.element_type;
-        default: shd_error("fill values need to be either array or vector or matrix types")
-    }
-}
-
-const Node* shd_get_fill_type_size(const Type* composite_t) {
-    switch (composite_t->tag) {
-        case ArrType_TAG: return composite_t->payload.arr_type.size;
-        case VectorType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.vector_type.width);
-        case MatrixType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.matrix_type.columns);
-        default: shd_error("fill values need to be either array or vector or matrix types")
-    }
-}
-
 Type* shd_nominal_type(Module* mod, NominalType payload) {
     IrArena* arena = shd_module_get_arena(mod);
     Node node;
