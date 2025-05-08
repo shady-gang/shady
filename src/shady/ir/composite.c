@@ -42,7 +42,7 @@ const Node* shd_tuple_helper(IrArena* a, Nodes contents) {
     return composite_helper(a, t, contents);
 }
 
-void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node* selector, bool allow_entering_vector) {
+void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node* selector) {
     const Type* current_type = *datatype;
 
     if (selector->arena->config.check_types) {
@@ -69,14 +69,13 @@ void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node
             goto try_again;
         }
         case VectorType_TAG: {
-            assert(allow_entering_vector);
             assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a pack type need to be constant");
             size_t selector_value = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
             assert(selector_value < current_type->payload.vector_type.width);
             current_type = current_type->payload.vector_type.element_type;
             break;
         }
-            // also remember to assert literals for the selectors !
+        // also remember to assert literals for the selectors !
         default: {
             shd_log_fmt(ERROR, "Trying to enter non-composite type '");
             shd_log_node(ERROR, current_type);
@@ -89,10 +88,10 @@ void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node
     *datatype = current_type;
 }
 
-void shd_enter_composite_type_indices(const Type** datatype, ShdScope* s, Nodes indices, bool allow_entering_vector) {
+void shd_enter_composite_type_indices(const Type** datatype, ShdScope* s, Nodes indices) {
     for(size_t i = 0; i < indices.count; i++) {
         const Node* selector = indices.nodes[i];
-        shd_enter_composite_type(datatype, s, selector, allow_entering_vector);
+        shd_enter_composite_type(datatype, s, selector);
     }
 }
 

@@ -189,7 +189,7 @@ const Type* _shd_check_type_extract(IrArena* a, Extract extract) {
         scope = shd_deconstruct_qualified_type(&t);
     } else {
         scope = shd_deconstruct_qualified_type(&t);
-        shd_enter_composite_type(&t, &scope, extract.selector, true);
+        shd_enter_composite_type(&t, &scope, extract.selector);
     }
 
     return qualified_type_helper(a, scope, t);
@@ -200,7 +200,7 @@ const Type* _shd_check_type_insert(IrArena* a, Insert insert) {
     ShdScope scope;
 
     scope = shd_deconstruct_qualified_type(&t);
-    shd_enter_composite_type(&t, &scope, insert.selector, true);
+    shd_enter_composite_type(&t, &scope, insert.selector);
 
     const Type* inserted_data_type = insert.replacement->type;
     scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&inserted_data_type));
@@ -783,7 +783,7 @@ const Type* _shd_check_type_ptr_composite_element(IrArena* a, PtrCompositeElemen
     assert(base_ptr_type->tag == PtrType_TAG && "lea expects a ptr or ref as a base");
     const Type* pointee_type = base_ptr_type->payload.ptr_type.pointed_type;
 
-    shd_enter_composite_type(&pointee_type, &s, lea.index, true);
+    shd_enter_composite_type(&pointee_type, &s, lea.index);
 
     return qualified_type(a, (QualifiedType) {
         .scope = s,
