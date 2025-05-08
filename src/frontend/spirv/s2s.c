@@ -1419,7 +1419,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             } else {
                 LARRAY(const Node*, operands, size - 1);
                 for (size_t i = 0; i < size - 1; i++)
-                    operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
+                    operands[i] = get_def_ssa_value(parser, instruction[1 + i]);
                 shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
                     .set = "spirv.core",
