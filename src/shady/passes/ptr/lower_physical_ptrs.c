@@ -28,7 +28,7 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
         switch (actual_type->tag) {
             case RecordType_TAG:
             case ArrType_TAG:
-            case PackType_TAG: {
+            case VectorType_TAG: {
                 ptr = lea_helper(a, ptr, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, 0)));
                 continue;
             }

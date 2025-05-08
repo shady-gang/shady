@@ -36,8 +36,8 @@ typedef enum {
 static OperandClass classify_operand_type(const Type* type) {
     assert(is_type(type) && shd_is_data_type(type));
 
-    if (type->tag == PackType_TAG)
-        return classify_operand_type(type->payload.pack_type.element_type);
+    if (type->tag == VectorType_TAG)
+        return classify_operand_type(type->payload.vector_type.element_type);
 
     switch (type->tag) {
         case Int_TAG:     return type->payload.int_type.is_signed ? Signed : Unsigned;
@@ -261,7 +261,7 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
                 assert(shd_get_arena_config(emitter->arena)->target.memory.exec_mask_size == IntTy64);
-                const Type* i32x4 = pack_type(emitter->arena, (PackType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
+                const Type* i32x4 = vector_type(emitter->arena, (VectorType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
                 SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(operands)));
                 // TODO: why are we doing this in SPIR-V and not the IR ?
                 SpvId low32 = spvb_extract(bb_builder, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), raw_result, 1, (uint32_t[]) { 0 });

@@ -182,7 +182,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             return composite_helper(a, element_type, shd_nodes(a, member_types.count, loaded));
         }
         case ArrType_TAG:
-        case PackType_TAG: {
+        case VectorType_TAG: {
             const Node* size = shd_get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
                 shd_error_print("Size of type ");
@@ -278,7 +278,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             return;
         }
         case ArrType_TAG:
-        case PackType_TAG: {
+        case VectorType_TAG: {
             const Node* size = shd_get_fill_type_size(element_type);
             if (size->tag != IntLiteral_TAG) {
                 shd_error_print("Size of type ");

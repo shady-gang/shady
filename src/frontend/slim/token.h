@@ -47,7 +47,7 @@ TEXT_TOKEN(f16) \
 TEXT_TOKEN(f32) \
 TEXT_TOKEN(f64) \
 TEXT_TOKEN(composite) \
-TEXT_TOKEN(pack) \
+TEXT_TOKEN(vec) \
 TOKEN(const, "const") \
 TOKEN(bool, "bool") \
 TOKEN(true, "true") \

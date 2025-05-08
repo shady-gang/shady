@@ -25,7 +25,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
 
     const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
     switch (pointed_type->tag) {
-        case PackType_TAG:
+        case VectorType_TAG:
         case ArrType_TAG: {
             const Type* element_type = shd_get_fill_type_element_type(pointed_type);
 

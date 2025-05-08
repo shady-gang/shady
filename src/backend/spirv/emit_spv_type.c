@@ -240,10 +240,10 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
             break;
         }
-        case PackType_TAG: {
-            assert(type->payload.pack_type.width >= 2);
-            SpvId element_type = spv_emit_type(emitter, type->payload.pack_type.element_type);
-            new = spvb_vector_type(emitter->file_builder, element_type, type->payload.pack_type.width);
+        case VectorType_TAG: {
+            assert(type->payload.vector_type.width >= 2);
+            SpvId element_type = spv_emit_type(emitter, type->payload.vector_type.element_type);
+            new = spvb_vector_type(emitter->file_builder, element_type, type->payload.vector_type.width);
             break;
         }
         case RecordType_TAG: {

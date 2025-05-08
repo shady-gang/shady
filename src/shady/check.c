@@ -53,8 +53,8 @@ const Type* _shd_check_type_arr_type(IrArena* arena, ArrType type) {
     return NULL;
 }
 
-const Type* _shd_check_type_pack_type(IrArena* arena, PackType pack_type) {
-    assert(shd_is_data_type(pack_type.element_type));
+const Type* _shd_check_type_vector_type(IrArena* arena, VectorType vector_type) {
+    assert(shd_is_data_type(vector_type.element_type));
     return NULL;
 }
 
@@ -261,7 +261,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
-            assert(shd_is_arithm_type(shd_get_maybe_packed_type_element(shd_get_unqualified_type(type))));
+            assert(shd_is_arithm_type(shd_get_maybe_vector_type_element(shd_get_unqualified_type(type))));
             return type;
         }
         case rshift_arithm_op:
@@ -274,14 +274,14 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             ShdScope result_scope = shd_deconstruct_qualified_type(&first_operand_type);
             result_scope = shd_combine_scopes(result_scope, shd_deconstruct_qualified_type(&second_operand_type));
 
-            size_t value_simd_width = shd_deconstruct_maybe_packed_type(&first_operand_type);
-            size_t shift_simd_width = shd_deconstruct_maybe_packed_type(&second_operand_type);
+            size_t value_simd_width = shd_deconstruct_maybe_vector_type(&first_operand_type);
+            size_t shift_simd_width = shd_deconstruct_maybe_vector_type(&second_operand_type);
             assert(value_simd_width == shift_simd_width);
 
             assert(first_operand_type->tag == Int_TAG);
             assert(second_operand_type->tag == Int_TAG);
 
-            return qualified_type_helper(arena, result_scope, shd_maybe_packed_type_helper(first_operand_type, value_simd_width));
+            return qualified_type_helper(arena, result_scope, shd_maybe_vector_type_helper(first_operand_type, value_simd_width));
         }
         case add_carry_op:
         case sub_borrow_op:
@@ -302,7 +302,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_is_arithm_type(shd_get_maybe_packed_type_element(operand_type)));
+                assert(shd_is_arithm_type(shd_get_maybe_vector_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_scope = shd_combine_scopes(result_scope, operand_scope);
@@ -320,7 +320,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
 
             const Type* type = shd_first(prim_op.operands)->type;
-            assert(shd_has_boolean_ops(shd_get_maybe_packed_type_element(shd_get_unqualified_type(type))));
+            assert(shd_has_boolean_ops(shd_get_maybe_vector_type_element(shd_get_unqualified_type(type))));
             return type;
         }
         case or_op:
@@ -335,7 +335,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_has_boolean_ops(shd_get_maybe_packed_type_element(operand_type)));
+                assert(shd_has_boolean_ops(shd_get_maybe_vector_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_scope = shd_combine_scopes(result_scope, operand_scope);
@@ -351,7 +351,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
         case neq_op: {
             assert(prim_op.operands.count == 2);
             const Type* first_operand_type = shd_get_unqualified_type(shd_first(prim_op.operands)->type);
-            size_t first_operand_width = shd_get_maybe_packed_type_width(first_operand_type);
+            size_t first_operand_width = shd_get_maybe_vector_type_width(first_operand_type);
 
             ShdScope result_scope = shd_get_arena_config(arena)->target.scopes.constants;
             for (size_t i = 0; i < prim_op.operands.count; i++) {
@@ -359,13 +359,13 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
-                assert((ordered ? shd_is_ordered_type : shd_is_comparable_type)(shd_get_maybe_packed_type_element(operand_type)));
+                assert((ordered ? shd_is_ordered_type : shd_is_comparable_type)(shd_get_maybe_vector_type_element(operand_type)));
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_scope = shd_combine_scopes(result_scope, operand_scope);
             }
 
-            return qualified_type_helper(arena, result_scope, shd_maybe_packed_type_helper(bool_type(arena), first_operand_width));
+            return qualified_type_helper(arena, result_scope, shd_maybe_vector_type_helper(bool_type(arena), first_operand_width));
         }
         case sqrt_op:
         case inv_sqrt_op:
@@ -380,9 +380,9 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             ShdScope scope = shd_deconstruct_qualified_type(&src_type);
-            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
+            size_t width = shd_deconstruct_maybe_vector_type(&src_type);
             assert(src_type->tag == Float_TAG);
-            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
+            return qualified_type_helper(arena, scope, shd_maybe_vector_type_helper(src_type, width));
         }
         case pow_op: {
             assert(prim_op.operands.count == 2);
@@ -394,7 +394,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(shd_get_maybe_vector_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_scope = shd_combine_scopes(result_scope, operand_scope);
@@ -412,7 +412,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 const Type* operand_type = arg->type;
                 ShdScope operand_scope = shd_deconstruct_qualified_type(&operand_type);
 
-                assert(shd_get_maybe_packed_type_element(operand_type)->tag == Float_TAG);
+                assert(shd_get_maybe_vector_type_element(operand_type)->tag == Float_TAG);
                 assert(first_operand_type == operand_type &&  "operand type mismatch");
 
                 result_scope = shd_combine_scopes(result_scope, operand_scope);
@@ -426,21 +426,21 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 1);
             const Node* src_type = shd_first(prim_op.operands)->type;
             ShdScope scope = shd_deconstruct_qualified_type(&src_type);
-            size_t width = shd_deconstruct_maybe_packed_type(&src_type);
+            size_t width = shd_deconstruct_maybe_vector_type(&src_type);
             assert(src_type->tag == Float_TAG || (src_type->tag == Int_TAG && src_type->payload.int_type.is_signed));
-            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(src_type, width));
+            return qualified_type_helper(arena, scope, shd_maybe_vector_type_helper(src_type, width));
         }
         case select_op: {
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
             ShdScope scope = shd_deconstruct_qualified_type(&condition_type);
-            size_t width = shd_deconstruct_maybe_packed_type(&condition_type);
+            size_t width = shd_deconstruct_maybe_vector_type(&condition_type);
 
             const Type* alternatives_types[2];
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
                 scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&alternatives_types[i]));
-                size_t alternative_width = shd_deconstruct_maybe_packed_type(&alternatives_types[i]);
+                size_t alternative_width = shd_deconstruct_maybe_vector_type(&alternatives_types[i]);
                 assert(alternative_width == width);
             }
 
@@ -448,7 +448,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return qualified_type_helper(arena, scope, shd_maybe_packed_type_helper(alternatives_types[0], width));
+            return qualified_type_helper(arena, scope, shd_maybe_vector_type_helper(alternatives_types[0], width));
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);
@@ -458,10 +458,10 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* rhs_t = rhs->type;
             ShdScope lhs_scope = shd_deconstruct_qualified_type(&lhs_t);
             ShdScope rhs_scope = shd_deconstruct_qualified_type(&rhs_t);
-            assert(lhs_t->tag == PackType_TAG && rhs_t->tag == PackType_TAG);
-            int64_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
-            const Type* element_t = lhs_t->payload.pack_type.element_type;
-            assert(element_t == rhs_t->payload.pack_type.element_type);
+            assert(lhs_t->tag == VectorType_TAG && rhs_t->tag == VectorType_TAG);
+            int64_t total_size = lhs_t->payload.vector_type.width + rhs_t->payload.vector_type.width;
+            const Type* element_t = lhs_t->payload.vector_type.element_type;
+            assert(element_t == rhs_t->payload.vector_type.element_type);
 
             size_t indices_count = prim_op.operands.count - 2;
             const Node** indices = &prim_op.operands.nodes[2];
@@ -471,7 +471,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
                 int64_t index = shd_get_int_literal_value(*shd_resolve_to_int_literal(indices[i]), true);
                 assert(index < 0 /* poison */ || (index >= 0 && index < total_size && "shuffle element out of range"));
             }
-            return qualified_type_helper(arena, scope, pack_type(arena, (PackType) {.element_type = element_t, .width = indices_count}));
+            return qualified_type_helper(arena, scope, vector_type(arena, (VectorType) {.element_type = element_t, .width = indices_count}));
         }
         // Mask management
         case empty_mask_op: {
@@ -724,24 +724,24 @@ const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
 const Type* _shd_check_type_load(IrArena* a, Load load) {
     const Node* ptr_type = load.ptr->type;
     ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
-    size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
+    size_t width = shd_deconstruct_maybe_vector_type(&ptr_type);
 
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* node_ptr_type_ = &ptr_type->payload.ptr_type;
     const Type* elem_type = node_ptr_type_->pointed_type;
-    elem_type = shd_maybe_packed_type_helper(elem_type, width);
+    elem_type = shd_maybe_vector_type_helper(elem_type, width);
     return qualified_type_helper(a, shd_combine_scopes(ptr_scope, shd_get_addr_space_scope(ptr_type->payload.ptr_type.address_space)), elem_type);
 }
 
 const Type* _shd_check_type_store(IrArena* a, Store store) {
     const Node* ptr_type = store.ptr->type;
     shd_deconstruct_qualified_type(&ptr_type);
-    size_t width = shd_deconstruct_maybe_packed_type(&ptr_type);
+    size_t width = shd_deconstruct_maybe_vector_type(&ptr_type);
     assert(ptr_type->tag == PtrType_TAG);
     const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
     const Type* elem_type = ptr_type_payload->pointed_type;
     assert(elem_type);
-    elem_type = shd_maybe_packed_type_helper(elem_type, width);
+    elem_type = shd_maybe_vector_type_helper(elem_type, width);
     const Type* expected_stored_type = qualified_type(a, (QualifiedType) {
         .scope = shd_get_arena_config(a)->target.scopes.bottom,
         .type = elem_type

@@ -245,7 +245,7 @@
       ]
     },
     {
-      "name": "PackType",
+      "name": "VectorType",
       "class": "type",
       "ops": [
         { "name": "element_type", "class": "type" },

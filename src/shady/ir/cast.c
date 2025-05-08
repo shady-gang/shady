@@ -22,7 +22,7 @@ const Node* shd_bld_conversion(BodyBuilder* bb, const Type* dst, const Node* src
 }
 
 static bool is_arithm_or_vector_thereof(const Type* t) {
-    shd_deconstruct_maybe_packed_type(&t);
+    shd_deconstruct_maybe_vector_type(&t);
     return shd_is_arithm_type(t);
 }
 
@@ -44,8 +44,8 @@ bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {
 
 bool shd_is_conversion_legal(const Type* src_type, const Type* dst_type) {
     assert(shd_is_data_type(src_type) && shd_is_data_type(dst_type));
-    size_t src_width = shd_deconstruct_maybe_packed_type(&src_type);
-    size_t dst_width = shd_deconstruct_maybe_packed_type(&dst_type);
+    size_t src_width = shd_deconstruct_maybe_vector_type(&src_type);
+    size_t dst_width = shd_deconstruct_maybe_vector_type(&dst_type);
     if (src_width != dst_width)
         return false;
     if (!shd_is_arithm_type(src_type))

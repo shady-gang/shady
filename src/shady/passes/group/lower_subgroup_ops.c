@@ -59,9 +59,9 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
         case Int_TAG: return true;
         // TODO allow 16-bit floats specifically !
         case Float_TAG: return true;
-        case PackType_TAG:
+        case VectorType_TAG:
             if (allow_vectors)
-                return is_extended_type(a, t->payload.pack_type.element_type, false);
+                return is_extended_type(a, t->payload.vector_type.element_type, false);
             return false;
         default: return false;
     }

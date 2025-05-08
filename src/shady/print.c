@@ -494,12 +494,12 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
-        case PackType_TAG: {
-            printf("pack");
+        case VectorType_TAG: {
+            printf("vec");
             printf(RESET);
-            printf("(%d", node->payload.pack_type.width);
+            printf("(%d", node->payload.vector_type.width);
             printf(", ");
-            print_node(node->payload.pack_type.element_type);
+            print_node(node->payload.vector_type.element_type);
             printf(")");
             break;
         }

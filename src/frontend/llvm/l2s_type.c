@@ -123,7 +123,7 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMVectorTypeKind: {
             unsigned width = LLVMGetVectorSize(t);
             const Type* elem_t = l2s_convert_type(p, LLVMGetElementType(t));
-            return pack_type(a, (PackType) { .element_type = elem_t, .width = (size_t) width });
+            return vector_type(a, (VectorType) { .element_type = elem_t, .width = (size_t) width });
         }
         case LLVMMetadataTypeKind:
             assert(false && "why are we typing metadata");

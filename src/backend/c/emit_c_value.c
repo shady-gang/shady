@@ -189,7 +189,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
                     emitted = shd_format_string_arena(emitter->arena->arena, "((%s) { %s })", shd_c_emit_type(emitter, value->type, NULL), emitted);
                     break;
                 case CDialect_GLSL:
-                    if (type->tag != PackType_TAG)
+                    if (type->tag != VectorType_TAG)
                         goto no_compound_literals;
                     // GLSL doesn't have compound literals, but it does have constructor syntax for vectors
                     emitted = shd_format_string_arena(emitter->arena->arena, "%s(%s)", shd_c_emit_type(emitter, value->type, NULL), emitted);
@@ -274,7 +274,7 @@ CTerm shd_c_bind_intermediary_result(Emitter* emitter, Printer* p, const Type* t
 static const Type* get_first_op_scalar_type(Nodes ops) {
     const Type* t = shd_first(ops)->type;
     shd_deconstruct_qualified_type(&t);
-    shd_deconstruct_maybe_packed_type(&t);
+    shd_deconstruct_maybe_vector_type(&t);
     return t;
 }
 
@@ -471,10 +471,10 @@ static String emit_selector_rvalue(Emitter* emitter, FnEmitter* fn, const Type* 
             assert(static_index);
             return shd_format_string_arena(emitter->arena->arena, "(%s.%s)", shd_c_to_ssa(emitter, composite), shd_c_get_record_field_name(emitter, composite_type, static_index->value));
         }
-        case Type_PackType_TAG: {
+        case Type_VectorType_TAG: {
             assert(static_index);
             // TODO: non-glsl targets
-            assert(static_index->value < 4 && static_index->value < composite_type->payload.pack_type.width);
+            assert(static_index->value < 4 && static_index->value < composite_type->payload.vector_type.width);
             String suffixes = "xyzw";
             return shd_format_string_arena(emitter->arena->arena, "(%s.%c)", shd_c_to_ssa(emitter, composite), suffixes[static_index->value]);
         }
@@ -687,7 +687,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             const Type* rhs_t = rhs->type;
             shd_deconstruct_qualified_type(&lhs_t);
             shd_deconstruct_qualified_type(&rhs_t);
-            size_t left_size = lhs_t->payload.pack_type.width;
+            size_t left_size = lhs_t->payload.vector_type.width;
             // size_t total_size = lhs_t->payload.pack_type.width + rhs_t->payload.pack_type.width;
             String suffixes = "xyzw";
             shd_print(p, "\n%s = vec%d(", shd_c_emit_type(emitter, node->type, dst), prim_op->operands.count - 2);

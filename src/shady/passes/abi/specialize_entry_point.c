@@ -22,7 +22,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case PrimOp_TAG: {
             Builtin b;
             if (shd_is_builtin_load_op(node, &b) && b == BuiltinWorkgroupSize) {
-                const Type* t = pack_type(a, (PackType) { .element_type = shd_uint32_type(a), .width = 3 });
+                const Type* t = vector_type(a, (VectorType) { .element_type = shd_uint32_type(a), .width = 3 });
                 uint32_t wg_size[3];
                 wg_size[0] = a->config.specializations.workgroup_size[0];
                 wg_size[1] = a->config.specializations.workgroup_size[1];

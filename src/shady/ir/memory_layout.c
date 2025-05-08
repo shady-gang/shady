@@ -64,8 +64,8 @@ size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t
             assert(element_layout.size_in_bytes > 0);
             return element_layout.size_in_bytes * i;
         }
-        case PackType_TAG: {
-            TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.pack_type.element_type);
+        case VectorType_TAG: {
+            TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.vector_type.element_type);
             assert(element_layout.size_in_bytes > 0);
             return element_layout.size_in_bytes * i;
         }
@@ -120,9 +120,9 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
                 .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
-        case PackType_TAG: {
-            size_t width = type->payload.pack_type.width;
-            TypeMemLayout element_layout = shd_get_mem_layout(a, type->payload.pack_type.element_type);
+        case VectorType_TAG: {
+            size_t width = type->payload.vector_type.width;
+            TypeMemLayout element_layout = shd_get_mem_layout(a, type->payload.vector_type.element_type);
             return (TypeMemLayout) {
                 .type = type,
                 .size_in_bytes = width * element_layout.size_in_bytes /* TODO Vulkan vec3 -> vec4 alignment rules ? */,

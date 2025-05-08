@@ -654,7 +654,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpTypeVector: {
             parser->defs[result].type = Typ;
             const Type* element_t = get_def_type(parser, instruction[2]);
-            parser->defs[result].node = pack_type(parser->arena, (PackType) {
+            parser->defs[result].node = vector_type(parser->arena, (VectorType) {
                 .element_type = element_t,
                 .width = instruction[3],
             });
@@ -1050,8 +1050,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
 
             const Type* src_a_t = get_definition_by_id(parser, instruction[3])->result_type;
             // deconstruct_qualified_type(&src_a_t);
-            assert(src_a_t->tag == PackType_TAG);
-            size_t num_components_a = src_a_t->payload.pack_type.width;
+            assert(src_a_t->tag == VectorType_TAG);
+            size_t num_components_a = src_a_t->payload.vector_type.width;
 
             int num_components = size - 5;
             LARRAY(const Node*, components, num_components);
@@ -1066,8 +1066,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             }
 
             parser->defs[result].type = Value;
-            parser->defs[result].node = composite_helper(parser->arena, pack_type(parser->arena, (PackType) {
-                    .element_type = src_a_t->payload.pack_type.element_type,
+            parser->defs[result].node = composite_helper(parser->arena, vector_type(parser->arena, (VectorType) {
+                    .element_type = src_a_t->payload.vector_type.element_type,
                     .width = num_components,
                 }), shd_nodes(parser->arena, num_components, components));
             break;

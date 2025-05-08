@@ -343,9 +343,9 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         }
-        case Type_PackType_TAG: {
-            int width = type->payload.pack_type.width;
-            const Type* element_type = type->payload.pack_type.element_type;
+        case Type_VectorType_TAG: {
+            int width = type->payload.vector_type.width;
+            const Type* element_type = type->payload.vector_type.element_type;
             switch (emitter->backend_config.dialect) {
                 case CDialect_CUDA:
                     assert(element_type->tag == Int_TAG);

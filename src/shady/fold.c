@@ -276,7 +276,7 @@ static const Node* try_enter_composite(const Node* composite_ptr) {
 
     if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
         return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
-    } else if (src_type->tag == PackType_TAG) {
+    } else if (src_type->tag == VectorType_TAG) {
         return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
     } else if (src_type->tag == ArrType_TAG) {
         return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));

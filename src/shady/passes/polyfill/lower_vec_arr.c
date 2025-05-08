@@ -13,7 +13,7 @@ static const Node* scalarify_primop(Context* ctx, const Node* old) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* dst_type = old->type;
     shd_deconstruct_qualified_type(&dst_type);
-    size_t width = shd_deconstruct_maybe_packed_type(&dst_type);
+    size_t width = shd_deconstruct_maybe_vector_type(&dst_type);
     if (width == 1)
         return shd_recreate_node(&ctx->rewriter, old);
     LARRAY(const Node*, elements, width);
@@ -36,10 +36,10 @@ static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     switch (node->tag) {
-        case PackType_TAG: {
+        case VectorType_TAG: {
             return arr_type(a, (ArrType) {
-                .element_type = shd_rewrite_node(&ctx->rewriter, node->payload.pack_type.element_type),
-                .size = shd_int32_literal(a, node->payload.pack_type.width)
+                .element_type = shd_rewrite_node(&ctx->rewriter, node->payload.vector_type.element_type),
+                .size = shd_int32_literal(a, node->payload.vector_type.width)
             });
         }
         case PrimOp_TAG: {

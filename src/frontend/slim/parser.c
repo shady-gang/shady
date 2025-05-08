@@ -508,7 +508,7 @@ static const Type* accept_unqualified_type(ctxparams) {
             .element_type = elem_type,
             .size = size
         });
-    } else if (accept_token(ctx, pack_tok)) {
+    } else if (accept_token(ctx, vec_tok)) {
         expect(accept_token(ctx, lsbracket_tok), "'['");
         const Type* elem_type = accept_unqualified_type(ctx);
         expect(elem_type, "packed element type");
@@ -517,7 +517,7 @@ static const Type* accept_unqualified_type(ctxparams) {
         size = accept_numerical_literal(ctx);
         expect(size && size->tag == UntypedNumber_TAG, "number");
         expect(accept_token(ctx, rsbracket_tok), "']'");
-        return pack_type(arena, (PackType) {
+        return vector_type(arena, (VectorType) {
             .element_type = elem_type,
             .width = strtoll(size->payload.untyped_number.plaintext, NULL, 10)
         });

@@ -111,10 +111,10 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return true;
             return supertype->payload.arr_type.size == type->payload.arr_type.size || !supertype->payload.arr_type.size;
         }
-        case PackType_TAG: {
-            if (!shd_is_subtype(supertype->payload.pack_type.element_type, type->payload.pack_type.element_type))
+        case VectorType_TAG: {
+            if (!shd_is_subtype(supertype->payload.vector_type.element_type, type->payload.vector_type.element_type))
                 return false;
-            return supertype->payload.pack_type.width == type->payload.pack_type.width;
+            return supertype->payload.vector_type.width == type->payload.vector_type.width;
         }
         case NominalType_TAG: {
             return false;
@@ -173,8 +173,8 @@ bool shd_is_physical_data_type(const Type* type) {
         case Type_ArrType_TAG:
             // array types _must_ be sized to be real data types
             return type->payload.arr_type.size != NULL;
-        case Type_PackType_TAG:
-            return shd_is_data_type(type->payload.pack_type.element_type);
+        case Type_VectorType_TAG:
+            return shd_is_data_type(type->payload.vector_type.element_type);
         case Type_RecordType_TAG: {
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 if (!shd_is_data_type(type->payload.record_type.members.nodes[i]))
@@ -382,48 +382,48 @@ Nodes shd_add_qualifiers(IrArena* arena, Nodes tys, ShdScope scope) {
     return shd_nodes(arena, tys.count, arr);
 }
 
-const Type* shd_get_packed_type_element(const Type* type) {
+const Type* shd_get_vector_type_element(const Type* type) {
     const Type* t = type;
-    shd_deconstruct_packed_type(&t);
+    shd_deconstruct_vector_type(&t);
     return t;
 }
 
-size_t shd_get_packed_type_width(const Type* type) {
+size_t shd_get_vector_type_width(const Type* type) {
     const Type* t = type;
-    return shd_deconstruct_packed_type(&t);
+    return shd_deconstruct_vector_type(&t);
 }
 
-size_t shd_deconstruct_packed_type(const Type** type) {
-    assert((*type)->tag == PackType_TAG);
-    return shd_deconstruct_maybe_packed_type(type);
+size_t shd_deconstruct_vector_type(const Type** type) {
+    assert((*type)->tag == VectorType_TAG);
+    return shd_deconstruct_maybe_vector_type(type);
 }
 
-const Type* shd_get_maybe_packed_type_element(const Type* type) {
+const Type* shd_get_maybe_vector_type_element(const Type* type) {
     const Type* t = type;
-    shd_deconstruct_maybe_packed_type(&t);
+    shd_deconstruct_maybe_vector_type(&t);
     return t;
 }
 
-size_t shd_get_maybe_packed_type_width(const Type* type) {
+size_t shd_get_maybe_vector_type_width(const Type* type) {
     const Type* t = type;
-    return shd_deconstruct_maybe_packed_type(&t);
+    return shd_deconstruct_maybe_vector_type(&t);
 }
 
-size_t shd_deconstruct_maybe_packed_type(const Type** type) {
+size_t shd_deconstruct_maybe_vector_type(const Type** type) {
     const Type* t = *type;
     assert(shd_is_data_type(t));
-    if (t->tag == PackType_TAG) {
-        *type = t->payload.pack_type.element_type;
-        return t->payload.pack_type.width;
+    if (t->tag == VectorType_TAG) {
+        *type = t->payload.vector_type.element_type;
+        return t->payload.vector_type.width;
     }
     return 1;
 }
 
-const Type* shd_maybe_packed_type_helper(const Type* type, size_t width) {
+const Type* shd_maybe_vector_type_helper(const Type* type, size_t width) {
     assert(width > 0);
     if (width == 1)
         return type;
-    return pack_type(type->arena, (PackType) {
+    return vector_type(type->arena, (VectorType) {
         .width = width,
         .element_type = type,
     });
@@ -464,7 +464,7 @@ Nodes shd_get_composite_type_element_types(const Type* type) {
             return type->payload.record_type.members;
         }
         case Type_ArrType_TAG:
-        case Type_PackType_TAG: {
+        case Type_VectorType_TAG: {
             size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_fill_type_size(type)), false);
             if (size >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
@@ -483,16 +483,16 @@ Nodes shd_get_composite_type_element_types(const Type* type) {
 const Node* shd_get_fill_type_element_type(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.element_type;
-        case PackType_TAG: return composite_t->payload.pack_type.element_type;
-        default: shd_error("fill values need to be either array or pack types")
+        case VectorType_TAG: return composite_t->payload.vector_type.element_type;
+        default: shd_error("fill values need to be either array or vector types")
     }
 }
 
 const Node* shd_get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.size;
-        case PackType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.pack_type.width);
-        default: shd_error("fill values need to be either array or pack types")
+        case VectorType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.vector_type.width);
+        default: shd_error("fill values need to be either array or vector types")
     }
 }
 
@@ -520,7 +520,7 @@ const Node* shd_get_default_value(IrArena* a, const Type* t) {
         case Type_QualifiedType_TAG: return shd_get_default_value(a, t->payload.qualified_type.type);
         case Type_RecordType_TAG:
         case Type_ArrType_TAG:
-        case Type_PackType_TAG:
+        case Type_VectorType_TAG:
         case NominalType_TAG: {
             Nodes elem_tys = shd_get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {

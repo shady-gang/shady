@@ -85,8 +85,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             break;
         }
         case LLVMConstantDataVectorValueKind: {
-            assert(t->tag == PackType_TAG);
-            size_t width = t->payload.pack_type.width;
+            assert(t->tag == VectorType_TAG);
+            size_t width = t->payload.vector_type.width;
             assert(width >= 0 && width < INT32_MAX && "sanity check");
             r = data_composite(t, width, v);
             break;
@@ -105,8 +105,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             break;
         }
         case LLVMConstantVectorValueKind: {
-            assert(t->tag == PackType_TAG);
-            size_t size = t->payload.pack_type.width;
+            assert(t->tag == VectorType_TAG);
+            size_t size = t->payload.vector_type.width;
             LARRAY(const Node*, elements, size);
             for (size_t i = 0; i < size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);

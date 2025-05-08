@@ -74,19 +74,19 @@ ShdScope shd_combine_scopes(ShdScope, ShdScope);
 Nodes shd_strip_qualifiers(IrArena*, Nodes);
 Nodes shd_add_qualifiers(IrArena*, Nodes, ShdScope);
 
-// Pack (vector) type helpers
-const Type* shd_get_packed_type_element(const Type* type);
-size_t shd_get_packed_type_width(const Type* type);
-size_t shd_deconstruct_packed_type(const Type** type);
+// vector type helpers
+const Type* shd_get_vector_type_element(const Type* type);
+size_t shd_get_vector_type_width(const Type* type);
+size_t shd_deconstruct_vector_type(const Type** type);
 
-/// Helper for creating pack types, wraps type in a pack_type if width > 1
-const Type* shd_maybe_packed_type_helper(const Type* type, size_t width);
+/// Helper for creating vector types, wraps the type in a vector_type if width > 1
+const Type* shd_maybe_vector_type_helper(const Type* type, size_t width);
 
-/// 'Maybe' variants that work with any types, and assume width=1 for non-packed types
+/// 'Maybe' variants that work with any types, and assume width=1 for non-vector types
 /// Useful for writing generic type checking code !
-const Type* shd_get_maybe_packed_type_element(const Type* type);
-size_t shd_get_maybe_packed_type_width(const Type* type);
-size_t shd_deconstruct_maybe_packed_type(const Type** type);
+const Type* shd_get_maybe_vector_type_element(const Type* type);
+size_t shd_get_maybe_vector_type_width(const Type* type);
+size_t shd_deconstruct_maybe_vector_type(const Type** type);
 
 // Pointer type helpers
 const Type* shd_get_pointer_type_element(const Type* type);

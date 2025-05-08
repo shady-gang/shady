@@ -4,11 +4,11 @@
 #include "shady/ir/base.h"
 #include "shady/ir/enum.h"
 
-#define shd_u32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_uint32_type(arena) })
-#define shd_i32vec3_type(arena) pack_type(arena, (PackType) { .width = 3, .element_type = shd_int32_type(arena) })
-#define shd_i32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = shd_int32_type(arena) })
+#define shd_u32vec3_type(arena) vector_type(arena, (VectorType) { .width = 3, .element_type = shd_uint32_type(arena) })
+#define shd_i32vec3_type(arena) vector_type(arena, (VectorType) { .width = 3, .element_type = shd_int32_type(arena) })
+#define shd_i32vec4_type(arena) vector_type(arena, (VectorType) { .width = 4, .element_type = shd_int32_type(arena) })
 
-#define shd_f32vec4_type(arena) pack_type(arena, (PackType) { .width = 4, .element_type = shd_fp32_type(arena) })
+#define shd_f32vec4_type(arena) vector_type(arena, (VectorType) { .width = 4, .element_type = shd_fp32_type(arena) })
 
 #define SHADY_BUILTINS() \
 BUILTIN(BaseInstance,              AsInput,  Invocation, shd_uint32_type(arena)  )\
