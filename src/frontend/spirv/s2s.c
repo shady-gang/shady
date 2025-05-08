@@ -1319,6 +1319,54 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->current_block.builder = NULL;
             break;
         }
+        case SpvOpSwitch: {
+            BodyBuilder* bb = parser->current_block.builder;
+
+            const Node* selector = get_def_ssa_value(parser, instruction[1]);
+
+            const Type* selector_type = shd_get_unqualified_type(selector->type);
+            assert(selector_type->tag == Int_TAG);
+            Int selector_int_type = selector_type->payload.int_type;
+            bool is64 = selector_int_type.width == IntTy64;
+            int case_size = is64 ? 3 : 2;
+
+            const Node* default_jump = jump_helper(a, shd_bld_mem(bb), get_def_block(parser, instruction[2]), get_args_from_phi(parser, instruction[2], parser->current_block.id));
+
+            int destination_count = (size - 3);
+            assert(destination_count % case_size == 0);
+            destination_count /= case_size;
+
+            LARRAY(const Node*, literals, destination_count);
+            LARRAY(const Node*, jumps, destination_count);
+            size_t offset = 3;
+
+            for (int i = 0; i < destination_count; i++) {
+                if (is64) {
+                    uint64_t literal = 0;
+                    literal |= instruction[offset];
+                    literal |= ((uint64_t) instruction[offset]) << 32;
+                    offset += 2;
+                    literals[i] = int_literal_helper(a, IntTy64, selector_int_type.is_signed, literal);
+                } else {
+                    literals[i] = int_literal_helper(a, selector_int_type.width, selector_int_type.is_signed, instruction[offset]);
+                    offset += 1;
+                }
+                SpvId destination = instruction[offset];
+                offset += 1;
+                jumps[i] = jump_helper(a, shd_bld_mem(bb), get_def_block(parser, destination), get_args_from_phi(parser, destination, parser->current_block.id));
+            }
+
+            parser->current_block.finished = shd_bld_finish(bb, br_switch(parser->arena, (Switch) {
+                .mem = shd_bld_mem(bb),
+                .switch_value = selector,
+                .default_jump = default_jump,
+                .case_values = shd_nodes(a, destination_count, literals),
+                .case_jumps = shd_nodes(a, destination_count, jumps),
+            }));
+
+            parser->current_block.builder = NULL;
+            break;
+        }
         case SpvOpReturn:
         case SpvOpReturnValue: {
             Nodes args;
