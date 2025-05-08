@@ -1,5 +1,5 @@
-#ifndef CLI_H
-#define CLI_H
+#ifndef SHADY_CLI_H
+#define SHADY_CLI_H
 
 #include <string.h>
 

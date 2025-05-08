@@ -1,4 +1,4 @@
-#include "cli.h"
+#include "shady/cli.h"
 
 #include "shady/driver.h"
 #include "shady/ir.h"
@@ -10,17 +10,6 @@
 #include "portability.h"
 #include "list.h"
 #include "util.h"
-
-void shd_pack_remaining_args(int* pargc, char** argv) {
-    LARRAY(char*, nargv, *pargc);
-    int nargc = 0;
-    for (size_t i = 0; i < *pargc; i++) {
-        if (argv[i] == NULL) continue;
-        nargv[nargc++] = argv[i];
-    }
-    memcpy(argv,nargv, sizeof(char*) * nargc);
-    *pargc = nargc;
-}
 
 void shd_parse_common_args(int* pargc, char** argv) {
     int argc = *pargc;

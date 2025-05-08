@@ -1,5 +1,5 @@
 #include "runner_private.h"
-#include "../driver/cli.h"
+#include "shady/cli.h"
 
 #include "log.h"
 

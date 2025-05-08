@@ -311,7 +311,7 @@ LLVMFrontendConfig shd_get_default_llvm_frontend_config(void) {
     };
 }
 
-#include "../driver/cli.h"
+#include "shady/cli.h"
 
 #define COMPILER_CONFIG_TOGGLE_OPTIONS(F) \
 F(config->input_cf.restructure_with_heuristics, restructure-everything) \
