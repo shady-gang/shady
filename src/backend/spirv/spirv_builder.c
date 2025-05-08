@@ -408,6 +408,15 @@ SpvId spvb_vector_type(SpvbFileBuilder* file_builder, SpvId component_type, uint
     return id;
 }
 
+SpvId spvb_matrix_type(SpvbFileBuilder* file_builder, SpvId component_type, uint32_t dim) {
+    op(SpvOpTypeMatrix, 4);
+    SpvId id = spvb_fresh_id(file_builder);
+    ref_id(id);
+    ref_id(component_type);
+    literal_int(dim);
+    return id;
+}
+
 SpvId spvb_image_type(SpvbFileBuilder* file_builder, SpvId component_type, uint32_t dim, uint32_t depth, uint32_t onion, uint32_t multisample, uint32_t sampled, SpvImageFormat image_format) {
     op(SpvOpTypeImage, 9);
     SpvId id = spvb_fresh_id(file_builder);

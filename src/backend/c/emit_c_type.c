@@ -357,7 +357,7 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                     String base;
                     switch (element_type->tag) {
                         case Bool_TAG: base = "bvec"; break;
-                        case Int_TAG: base = "uvec";  break; // TODO not every int is 32-bit
+                        case Int_TAG: base = element_type->payload.int_type.is_signed ? "ivec": "uvec"; break; // TODO not every int is 32-bit
                         case Float_TAG: base = "vec"; break;
                         default: shd_error("not a valid GLSL vector type");
                     }
@@ -368,6 +368,41 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 case CDialect_C11: {
                     emitted = shd_c_emit_type(emitter, element_type, NULL);
                     emitted = shd_format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * sizeof(%s) ))) %s", width, emitted, emitted);
+                    break;
+                }
+            }
+            break;
+        }
+        case Type_MatrixType_TAG: {
+            int columns = type->payload.matrix_type.columns;
+            const Type* element_type = type->payload.matrix_type.element_type;
+            int rows = shd_deconstruct_vector_type(&element_type);
+            switch (emitter->backend_config.dialect) {
+                case CDialect_CUDA:
+                    assert(element_type->tag == Int_TAG);
+                    emitted = cuda_int_type(emitter->arena, element_type->payload.int_type, columns * rows);
+                    break;
+                case CDialect_GLSL: {
+                    assert(is_glsl_scalar_type(element_type));
+                    assert(columns > 1);
+                    String base;
+                    switch (element_type->tag) {
+                        // this is pure fiction, glsl doesn't have non-float matrices ... yet ?
+                        case Bool_TAG: base = "bmat"; break;
+                        case Int_TAG: base = element_type->payload.int_type.is_signed ? "imat": "umat"; break; // TODO not every int is 32-bit
+                        case Float_TAG: base = "mat"; break;
+                        default: shd_error("not a valid GLSL vector type");
+                    }
+                    if (columns == rows)
+                        emitted = shd_format_string_arena(emitter->arena->arena, "%s%d", base, columns);
+                    else
+                        emitted = shd_format_string_arena(emitter->arena->arena, "%s%dx%d", base, columns, rows);
+                    break;
+                }
+                case CDialect_ISPC: shd_error("Please lower to something else")
+                case CDialect_C11: {
+                    emitted = shd_c_emit_type(emitter, element_type, NULL);
+                    emitted = shd_format_string_arena(emitter->arena->arena, "__attribute__ ((vector_size (%d * %d * sizeof(%s) ))) %s", columns, rows, emitted, emitted);
                     break;
                 }
             }

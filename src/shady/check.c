@@ -54,7 +54,14 @@ const Type* _shd_check_type_arr_type(IrArena* arena, ArrType type) {
 }
 
 const Type* _shd_check_type_vector_type(IrArena* arena, VectorType vector_type) {
+    assert(vector_type.width >= 2);
     assert(shd_is_data_type(vector_type.element_type));
+    return NULL;
+}
+
+const Type* _shd_check_type_matrix_type(IrArena* arena, MatrixType matrix_type) {
+    assert(matrix_type.element_type->tag == VectorType_TAG);
+    assert(matrix_type.columns >= 2);
     return NULL;
 }
 

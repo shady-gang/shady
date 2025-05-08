@@ -253,6 +253,14 @@
       ]
     },
     {
+      "name": "MatrixType",
+      "class": "type",
+      "ops": [
+        { "name": "element_type", "class": "type" },
+        { "name": "columns", "type": "uint32_t" }
+      ]
+    },
+    {
       "name": "Param",
       "class": ["value", "param"],
       "nominal": true,

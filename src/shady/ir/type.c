@@ -175,6 +175,8 @@ bool shd_is_physical_data_type(const Type* type) {
             return type->payload.arr_type.size != NULL;
         case Type_VectorType_TAG:
             return shd_is_data_type(type->payload.vector_type.element_type);
+        case Type_MatrixType_TAG:
+            return shd_is_data_type(type->payload.matrix_type.element_type);
         case Type_RecordType_TAG: {
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 if (!shd_is_data_type(type->payload.record_type.members.nodes[i]))
@@ -464,7 +466,8 @@ Nodes shd_get_composite_type_element_types(const Type* type) {
             return type->payload.record_type.members;
         }
         case Type_ArrType_TAG:
-        case Type_VectorType_TAG: {
+        case Type_VectorType_TAG:
+        case Type_MatrixType_TAG: {
             size_t size = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_fill_type_size(type)), false);
             if (size >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really big array of composites of types (size=%d)!\n", size);
@@ -484,7 +487,8 @@ const Node* shd_get_fill_type_element_type(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.element_type;
         case VectorType_TAG: return composite_t->payload.vector_type.element_type;
-        default: shd_error("fill values need to be either array or vector types")
+        case MatrixType_TAG: return composite_t->payload.matrix_type.element_type;
+        default: shd_error("fill values need to be either array or vector or matrix types")
     }
 }
 
@@ -492,7 +496,8 @@ const Node* shd_get_fill_type_size(const Type* composite_t) {
     switch (composite_t->tag) {
         case ArrType_TAG: return composite_t->payload.arr_type.size;
         case VectorType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.vector_type.width);
-        default: shd_error("fill values need to be either array or vector types")
+        case MatrixType_TAG: return shd_int32_literal(composite_t->arena, composite_t->payload.matrix_type.columns);
+        default: shd_error("fill values need to be either array or vector or matrix types")
     }
 }
 
@@ -521,6 +526,7 @@ const Node* shd_get_default_value(IrArena* a, const Type* t) {
         case Type_RecordType_TAG:
         case Type_ArrType_TAG:
         case Type_VectorType_TAG:
+        case Type_MatrixType_TAG:
         case NominalType_TAG: {
             Nodes elem_tys = shd_get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {

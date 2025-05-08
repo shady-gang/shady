@@ -75,6 +75,13 @@ void shd_enter_composite_type(const Type** datatype, ShdScope* scope, const Node
             current_type = current_type->payload.vector_type.element_type;
             break;
         }
+        case MatrixType_TAG: {
+            assert(selector->tag == IntLiteral_TAG && "selectors when indexing into a pack type need to be constant");
+            size_t selector_value = shd_get_int_literal_value(*shd_resolve_to_int_literal(selector), false);
+            assert(selector_value < current_type->payload.vector_type.width);
+            current_type = current_type->payload.vector_type.element_type;
+            break;
+        }
         // also remember to assert literals for the selectors !
         default: {
             shd_log_fmt(ERROR, "Trying to enter non-composite type '");

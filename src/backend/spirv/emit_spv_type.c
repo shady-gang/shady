@@ -246,6 +246,12 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_vector_type(emitter->file_builder, element_type, type->payload.vector_type.width);
             break;
         }
+        case Type_MatrixType_TAG: {
+            assert(type->payload.matrix_type.columns >= 2);
+            SpvId element_type = spv_emit_type(emitter, type->payload.matrix_type.element_type);
+            new = spvb_matrix_type(emitter->file_builder, element_type, type->payload.matrix_type.columns);
+            break;
+        }
         case RecordType_TAG: {
             if (type->payload.record_type.members.count == 0) {
                 new = emitter->void_t;

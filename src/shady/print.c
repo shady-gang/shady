@@ -497,10 +497,27 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
         case VectorType_TAG: {
             printf("vec");
             printf(RESET);
-            printf("(%d", node->payload.vector_type.width);
-            printf(", ");
+            printf("[");
             print_node(node->payload.vector_type.element_type);
-            printf(")");
+            printf("; ");
+            printf("%d", node->payload.vector_type.width);
+            printf("]");
+            break;
+        }
+        case MatrixType_TAG: {
+            printf("mat");
+            const Type* et = node->payload.matrix_type.element_type;
+            int rows = shd_deconstruct_vector_type(&et);
+            int cols = node->payload.matrix_type.columns;
+            printf(RESET);
+            printf("[");
+            print_node(et);
+            printf("; ");
+            if (cols == rows)
+                printf("%d", cols);
+            else
+                printf("%dx%d", cols, rows);
+            printf("]");
             break;
         }
         case Type_ImageType_TAG: {

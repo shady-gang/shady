@@ -660,6 +660,15 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             });
             break;
         }
+        case SpvOpTypeMatrix: {
+            parser->defs[result].type = Typ;
+            const Type* element_t = get_def_type(parser, instruction[2]);
+            parser->defs[result].node = matrix_type(parser->arena, (MatrixType) {
+                .element_type = element_t,
+                .columns = instruction[3],
+            });
+            break;
+        }
         case SpvOpTypeImage: {
             parser->defs[result].type = Typ;
             const Type* sampled_type = get_def_type(parser, instruction[2]);
@@ -1162,7 +1171,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpExtInst: {
             String set = get_def_string(parser, instruction[3]);
             assert(set);
-            uint32_t ext_instr = instruction[4];
+            uint32_t opcode = instruction[4];
             size_t num_args = size - 5;
             LARRAY(const Node*, args, num_args);
             for (size_t i = 0; i < num_args; i++)
@@ -1170,7 +1179,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
 
             const Node* value = NULL;
             if (strcmp(set, "OpenCL.std") == 0) {
-                switch (ext_instr) {
+                switch (opcode) {
                     case OpenCLstd_Mad:
                         assert(num_args == 3);
                         value = prim_op(parser->arena, (PrimOp) {
@@ -1212,10 +1221,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                             .operands = shd_singleton(args[0])
                         });
                         break;
-                    default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                    default: break;
                 }
             } else if (strcmp(set, "GLSL.std.450") == 0) {
-                switch (ext_instr) {
+                switch (opcode) {
                     case GLSLstd450Fma:
                         assert(num_args == 3);
                         value = prim_op(parser->arena, (PrimOp) {
@@ -1265,17 +1274,22 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     case GLSLstd450UMax: value = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
                     case GLSLstd450Exp: value = prim_op(parser->arena, (PrimOp) { .op = exp_op, .operands = shd_singleton(args[0]) }); break;
                     case GLSLstd450Pow: value = prim_op(parser->arena, (PrimOp) { .op = pow_op, .operands = mk_nodes(parser->arena, args[0], args[1]) }); break;
-                    default: shd_error("unhandled extended instruction %d in set '%s'", ext_instr, set);
+                    default: break;
                 }
-            } else {
-                shd_error("Unknown extended instruction set '%s'", set);
             }
 
+            BodyBuilder* bb = parser->current_block.builder;
             parser->defs[result].type = Value;
             if (value)
-                parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, value);
+                parser->defs[result].node = value;
             else
-                shd_error_die();
+                parser->defs[result].node = shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
+                    .mem = shd_bld_mem(bb),
+                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                    .set = set,
+                    .opcode = opcode,
+                    .operands = shd_nodes(a, num_args, args),
+                }));
             break;
         }
         case SpvOpBranch: {
