@@ -1334,6 +1334,14 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->current_block.builder = NULL;
             break;
         }
+        case SpvOpUnreachable: {
+            BodyBuilder* bb = parser->current_block.builder;
+            parser->current_block.finished = shd_bld_finish(bb, unreachable(parser->arena, (Unreachable) {
+                .mem = shd_bld_mem(bb),
+            }));
+            parser->current_block.builder = NULL;
+            break;
+        }
         default: {
             //bool has_result, has_type;
             //SpvHasResultAndType(op, &has_result, &has_type);
