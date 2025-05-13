@@ -102,12 +102,14 @@ add_subdirectory(vcc)
 
 add_subdirectory(zhady)
 
-include(CTest)
-if (BUILD_TESTING)
-  add_subdirectory(test)
+if (PROJECT_IS_TOP_LEVEL)
+    include(CTest)
+    if (BUILD_TESTING)
+      add_subdirectory(test)
+    endif()
+    add_subdirectory(samples)
 endif()
 
-add_subdirectory(samples)
 add_subdirectory(nasl)
 
 include(CMakePackageConfigHelpers)
