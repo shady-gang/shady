@@ -1117,6 +1117,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             break;
         }
         case SpvOpSelectionMerge:
+        case SpvOpLoopMerge:
             break;
         case SpvOpLifetimeStart:
         case SpvOpLifetimeStop:
