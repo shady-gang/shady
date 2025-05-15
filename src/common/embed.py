@@ -39,6 +39,8 @@ if mode == "string":
         c = buffer[pos]
         if c == "\"".encode()[0]:
             dst.write("\\\"".encode())
+        elif c == "\r".encode()[0]:
+            1
         elif c == "\n".encode()[0]:
             dst.write("\\n\"\n\"".encode())
         else:
