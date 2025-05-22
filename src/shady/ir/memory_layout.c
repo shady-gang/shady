@@ -129,6 +129,15 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
                 .alignment_in_bytes = element_layout.alignment_in_bytes
             };
         }
+        case MatrixType_TAG: {
+            size_t width = type->payload.matrix_type.columns;
+            TypeMemLayout element_layout = shd_get_mem_layout(a, type->payload.matrix_type.element_type);
+            return (TypeMemLayout) {
+                .type = type,
+                .size_in_bytes = width * element_layout.size_in_bytes /* TODO Vulkan vec3 -> vec4 alignment rules ? */,
+                .alignment_in_bytes = element_layout.alignment_in_bytes
+            };
+        }
         case QualifiedType_TAG: return shd_get_mem_layout(a, type->payload.qualified_type.type);
         case NominalType_TAG: return shd_get_mem_layout(a, type->payload.nom_type.body);
         case RecordType_TAG: return shd_get_record_layout(a, type, NULL);
