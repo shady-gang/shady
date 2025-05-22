@@ -1,4 +1,4 @@
-if (NOT TARGET shady_fe_llvm)
+if (NOT TARGET frontend_llvm)
     message("LLVM front-end unavailable. Skipping Vcc.")
 else()
     option(SHADY_ENABLE_VCC "Allows compiling C and C++ code with Shady." ON)
