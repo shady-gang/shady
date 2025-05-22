@@ -11,6 +11,7 @@ if (SHADY_ENABLE_VCC)
     target_link_libraries(vcc_lib PUBLIC driver api)
 
     add_executable(vcc vcc.c)
+    add_executable(shady::vcc ALIAS vcc)
     target_compile_definitions(vcc_lib PRIVATE "VCC_CLANG_EXECUTABLE_NAME=${VCC_CLANG_EXECUTABLE_NAME}")
     target_link_libraries(vcc PRIVATE api vcc_lib)
     install(TARGETS vcc_lib vcc EXPORT shady_export_set)

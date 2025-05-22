@@ -5,6 +5,7 @@ target_link_libraries(driver PRIVATE shader_pipeline)
 set_target_properties(driver PROPERTIES OUTPUT_NAME "shady_driver")
 
 add_executable(slim slim.c)
+add_executable(shady::slim ALIAS slim)
 target_link_libraries(slim PRIVATE driver)
 install(TARGETS slim EXPORT shady_export_set)
 
