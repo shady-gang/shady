@@ -47,8 +47,6 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     assert(!fn || fn->type == fn_type);
     Nodes codom = fn_type->payload.fn_type.return_types;
 
-    const Node* entry_point = fn ? shd_lookup_annotation(fn, "EntryPoint") : NULL;
-
     Growy* paramg = shd_new_growy();
     Printer* paramp = shd_new_printer_from_growy(paramg);
     Nodes dom = fn_type->payload.fn_type.param_types;
@@ -57,11 +55,6 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     else if (fn) {
         Nodes params = fn->payload.fun.params;
         assert(params.count == dom.count);
-        if (emitter->use_private_globals && !entry_point) {
-            shd_print(paramp, "__shady_PrivateGlobals* __shady_private_globals");
-            if (params.count > 0)
-                shd_print(paramp, ", ");
-        }
         for (size_t i = 0; i < dom.count; i++) {
             String param_name;
             String variable_name = shd_get_node_name_unsafe(fn->payload.fun.params.nodes[i]);
@@ -72,11 +65,6 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
             }
         }
     } else {
-        if (emitter->use_private_globals) {
-            shd_print(paramp, "__shady_PrivateGlobals*");
-            if (dom.count > 0)
-                shd_print(paramp, ", ");
-        }
         for (size_t i = 0; i < dom.count; i++) {
             shd_print(paramp, shd_c_emit_type(emitter, dom.nodes[i], ""));
             if (i + 1 < dom.count) {

@@ -923,11 +923,6 @@ static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValu
 static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* callee, Nodes args, const Type* result_type) {
     Growy* g = shd_new_growy();
     Printer* paramsp = shd_new_printer_from_growy(g);
-    if (emitter->use_private_globals) {
-        shd_print(paramsp, "__shady_private_globals");
-        if (args.count > 0)
-            shd_print(paramsp, ", ");
-    }
     for (size_t i = 0; i < args.count; i++) {
         shd_print(paramsp, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
         if (i + 1 < args.count)
