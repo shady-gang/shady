@@ -111,9 +111,19 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             }
             break;
         }
+        case ArrType_TAG: {
+            TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, type->payload.arr_type.element_type);
+            spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
+            break;
+        }
         case NominalType_TAG: assert(false);
         case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
+            if (emitter->target->memory.address_spaces[payload.address_space].physical) {
+                TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, shd_get_pointer_type_element(type));
+                if (elem_mem_layout.size_in_bytes > 0)
+                    spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
+            }
             break;
         }
         default: break;
@@ -205,11 +215,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             spv_register_emitted(emitter, NULL, type, new);
             emit_type_layout(emitter, type);
-
-            if (emitter->target->memory.address_spaces[type->payload.ptr_type.address_space].physical && type->payload.ptr_type.pointed_type->tag == ArrType_TAG && type->payload.ptr_type.pointed_type->payload.arr_type.size) {
-                TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, type->payload.ptr_type.pointed_type);
-                spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) {elem_mem_layout.size_in_bytes});
-            }
             break;
         }
         case NoRet_TAG:
@@ -236,8 +241,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
-            TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, type->payload.arr_type.element_type);
-            spvb_decorate(emitter->file_builder, new, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
+            spv_emit_type_layout(emitter, type, new);
             break;
         }
         case VectorType_TAG: {
