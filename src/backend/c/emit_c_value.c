@@ -224,6 +224,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             break;
         }
         case Value_FnAddr_TAG: {
+            shd_c_emit_function(emitter, value->payload.fn_addr.fn);
             emitted = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(value->payload.fn_addr.fn));
             emitted = shd_format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
