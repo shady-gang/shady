@@ -31,7 +31,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
 
             const Node* element_t_size = size_of_helper(a, element_type);
 
-            const Node* new_index = shd_bld_convert_int_extend_according_to_src_t(bb, emulated_ptr_t, index);
+            const Node* new_index = shd_convert_int_extend_according_to_src_t(a, emulated_ptr_t, index);
             const Node* physical_offset = prim_op_helper(a, mul_op, mk_nodes(a, new_index, element_t_size));
 
             return prim_op_helper(a, add_op, mk_nodes(a, base, physical_offset));
@@ -71,7 +71,7 @@ static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* p
 
         const Node* element_t_size = size_of_helper(a, element_type);
 
-        const Node* new_offset = shd_bld_convert_int_extend_according_to_src_t(bb, emulated_ptr_t, offset);
+        const Node* new_offset = shd_convert_int_extend_according_to_src_t(a, emulated_ptr_t, offset);
         const Node* physical_offset = prim_op_helper(a, mul_op, mk_nodes(a, new_offset, element_t_size));
 
         ptr = prim_op_helper(a, add_op, mk_nodes(a, ptr, physical_offset));

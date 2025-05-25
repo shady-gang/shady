@@ -46,7 +46,7 @@ static const Node* process(Context* ctx, const Node* old) {
             });
             src_addr = shd_bld_bitcast(bb, src_addr_type, src_addr);
 
-            const Node* num_in_bytes = shd_bld_convert_int_extend_according_to_dst_t(bb, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
+            const Node* num_in_bytes = shd_convert_int_extend_according_to_dst_t(a, size_t_type(a), shd_rewrite_node(&ctx->rewriter, payload.count));
             const Node* num_in_words = shd_bld_conversion(bb, shd_uint32_type(a), shd_bytes_to_words(bb, num_in_bytes));
 
             begin_loop_helper_t l = shd_bld_begin_loop_helper(bb, shd_empty(a), shd_singleton(shd_uint32_type(a)), shd_singleton(shd_uint32_literal(a, 0)));
@@ -86,7 +86,7 @@ static const Node* process(Context* ctx, const Node* old) {
             // widen convert the pattern to match the word size...
             size_t value_size = int_size_in_bytes(src_type->payload.int_type.width);
             size_t req_value__size = int_size_in_bytes(a->config.target.memory.word_size);
-            src_value = shd_bld_convert_int_zero_extend(bb, word_type, src_value);
+            src_value = shd_convert_int_zero_extend(a, word_type, src_value);
             assert(value_size <= req_value__size);
             while (value_size < req_value__size) {
                 const Node* shifted = prim_op_helper(a, lshift_op, mk_nodes(a, src_value, int_literal_helper(a, a->config.target.memory.word_size, false, value_size * 8)));

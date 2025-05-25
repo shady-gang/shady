@@ -81,9 +81,9 @@ static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* off
         return offset;
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupSize);
-    subgroup_size = shd_bld_convert_int_zero_extend(bb, shd_get_unqualified_type(offset->type), subgroup_size);
+    subgroup_size = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_size);
     const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupLocalInvocationId);
-    subgroup_local_id = shd_bld_convert_int_zero_extend(bb, shd_get_unqualified_type(offset->type), subgroup_local_id);
+    subgroup_local_id = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_local_id);
     return add(mul(offset, subgroup_size), subgroup_local_id);
 }
 
@@ -175,7 +175,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
-                field_offset = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), field_offset);
+                field_offset = shd_convert_int_zero_extend(a, get_shortptr_type(ctx, as), field_offset);
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 loaded[i] = gen_load_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset);
             }
@@ -196,7 +196,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             for (size_t i = 0; i < components_count; i++) {
                 components[i] = gen_load_for_type(ctx, bb, component_type, as, offset);
                 const Node* component_type_width = size_of_helper(a, component_type);
-                component_type_width = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), component_type_width);
+                component_type_width = shd_convert_int_zero_extend(a, get_shortptr_type(ctx, as), component_type_width);
                 offset = add(offset, component_type_width);
             }
             return composite_helper(a, element_type, shd_nodes(a, components_count, components));
@@ -215,7 +215,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             assert(element_type->tag == Int_TAG);
             // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
             const Type* element_t_unsigned = int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
-            value = shd_bld_convert_int_extend_according_to_src_t(bb, element_t_unsigned, value);
+            value = shd_convert_int_extend_according_to_src_t(a, element_t_unsigned, value);
 
             // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
             size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
@@ -267,7 +267,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = shd_extract_literal(a, value, i);
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
-                field_offset = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), field_offset);
+                field_offset = shd_convert_int_zero_extend(a, get_shortptr_type(ctx, as), field_offset);
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 gen_store_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset, extracted_value);
             }
@@ -291,7 +291,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             for (size_t i = 0; i < components_count; i++) {
                 gen_store_for_type(ctx, bb, component_type, as, offset, shd_extract_helper(a, value, shd_singleton(shd_int32_literal(a, i))));
                 const Node* component_type_width = size_of_helper(a, component_type);
-                component_type_width = shd_bld_convert_int_zero_extend(bb, get_shortptr_type(ctx, as), component_type_width);
+                component_type_width = shd_convert_int_zero_extend(a, get_shortptr_type(ctx, as), component_type_width);
                 offset = add(offset, component_type_width);
             }
             return;
@@ -335,7 +335,7 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScop
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
     // convert the pointer to the internal size here
     const Type* shortptr_t = get_shortptr_type(ctx, as);
-    address_param = shd_bld_convert_int_zero_extend(bb, shortptr_t, address_param);
+    address_param = shd_convert_int_zero_extend(a, shortptr_t, address_param);
     if (ser) {
         gen_store_for_type(ctx, bb, element_type, as, address_param, value_param);
         shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));

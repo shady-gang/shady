@@ -64,36 +64,33 @@ int64_t shd_get_int_value(const Node* node, bool sign_extend) {
     return shd_get_int_literal_value(*lit, sign_extend);
 }
 
-const Node* shd_bld_convert_int_extend_according_to_src_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    IrArena* a = shd_get_bb_arena(bb);
+const Node* shd_convert_int_extend_according_to_src_t(IrArena* a, const Type* dst_type, const Node* src) {
     const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 
     // first convert to final bitsize then bitcast
-    const Type* extended_src_t = int_type(shd_get_bb_arena(bb), (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
+    const Type* extended_src_t = int_type(a, (Int) { .width = dst_type->payload.int_type.width, .is_signed = src_type->payload.int_type.is_signed });
     const Node* val = src;
     val = conversion_helper(a, extended_src_t, val);
     val = bit_cast_helper(a, dst_type, val);
     return val;
 }
 
-const Node* shd_bld_convert_int_extend_according_to_dst_t(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    IrArena* a = shd_get_bb_arena(bb);
+const Node* shd_convert_int_extend_according_to_dst_t(IrArena* a, const Type* dst_type, const Node* src) {
     const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
 
     // first bitcast then convert to final bitsize
-    const Type* reinterpreted_src_t = int_type(shd_get_bb_arena(bb), (Int) { .width = src_type->payload.int_type.width, .is_signed = dst_type->payload.int_type.is_signed });
+    const Type* reinterpreted_src_t = int_type(a, (Int) { .width = src_type->payload.int_type.width, .is_signed = dst_type->payload.int_type.is_signed });
     const Node* val = src;
     val = bit_cast_helper(a, reinterpreted_src_t, val);
     val = conversion_helper(a, dst_type, val);
     return val;
 }
 
-const Node* shd_bld_convert_int_zero_extend(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    IrArena* a = shd_get_bb_arena(bb);
+const Node* shd_convert_int_zero_extend(IrArena* a, const Type* dst_type, const Node* src) {
     const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);
@@ -105,8 +102,7 @@ const Node* shd_bld_convert_int_zero_extend(BodyBuilder* bb, const Type* dst_typ
     return val;
 }
 
-const Node* shd_bld_convert_int_sign_extend(BodyBuilder* bb, const Type* dst_type, const Node* src) {
-    IrArena* a = shd_get_bb_arena(bb);
+const Node* shd_convert_int_sign_extend(IrArena* a, const Type* dst_type, const Node* src) {
     const Type* src_type = shd_get_unqualified_type(src->type);
     assert(src_type->tag == Int_TAG);
     assert(dst_type->tag == Int_TAG);

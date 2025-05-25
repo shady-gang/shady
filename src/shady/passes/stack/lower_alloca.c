@@ -118,7 +118,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_destroy_list(vctx.members);
             ctx2.num_slots = vctx.num_slots;
             ctx2.frame_size = size_of_helper(a, vctx.nom_t);
-            ctx2.frame_size = shd_bld_convert_int_extend_according_to_src_t(bb, ctx->stack_ptr_t, ctx2.frame_size);
+            ctx2.frame_size = shd_convert_int_extend_according_to_src_t(a, ctx->stack_ptr_t, ctx2.frame_size);
 
             // make sure to use the new mem from then on
             shd_register_processed(r, shd_get_abstraction_mem(node), shd_bld_mem(bb));
@@ -145,7 +145,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 }
 
                 //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
-                const Node* converted_offset = shd_bld_convert_int_extend_according_to_dst_t(bb, ctx->stack_ptr_t, found_slot->offset);
+                const Node* converted_offset = shd_convert_int_extend_according_to_dst_t(a, ctx->stack_ptr_t, found_slot->offset);
                 const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
                 const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
                 slot = shd_bld_bitcast(bb, ptr_t, slot);
