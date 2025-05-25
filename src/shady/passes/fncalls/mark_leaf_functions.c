@@ -74,6 +74,14 @@ static bool is_leaf_fn(Context* ctx, CGNode* fn_node) {
         }
     }
 
+    for (const Use* use = shd_get_first_use(ctx->uses, fn_node->fn); use; use = use->next_use) {
+        if (use->user->tag == FnAddr_TAG) {
+            shd_debugv_print("Function %s can't be a leaf function because its address leaks.\n", shd_get_node_name_safe(fn_node->fn));
+            info->is_leaf = false;
+            info->done = true;
+        }
+    }
+
     // by analysing the callees, the dict might have been regrown so we must refetch this to update the ptr if needed
     info = shd_dict_find_value(const Node*, FnInfo, ctx->fns, fn_node->fn);
 
