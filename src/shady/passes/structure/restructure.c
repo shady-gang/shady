@@ -391,7 +391,7 @@ static const Node* process(Context* ctx, const Node* node) {
     // assert(!is_terminator(node) && !is_instruction(node));
 
     switch (node->tag) {
-        case IndirectCall_TAG: {
+        /*case IndirectCall_TAG: {
             const Node* callee = node->payload.indirect_call.callee;
             if (callee->tag == FnAddr_TAG) {
                 const Node* fn = shd_rewrite_node(&ctx->rewriter, callee->payload.fn_addr.fn);
@@ -403,7 +403,7 @@ static const Node* process(Context* ctx, const Node* node) {
             // if we don't manage that, give up :(
             assert(false); // actually that should not come up.
             bail(ctx);
-        }
+        }*/
         case BasicBlock_TAG: shd_error("All basic blocks should be processed explicitly")
         default: break;
     }
