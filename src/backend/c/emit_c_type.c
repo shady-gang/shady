@@ -99,22 +99,6 @@ String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, 
     free_tmp_str(parameters);
 
     String c_decl = shd_c_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, codom), center);
-    if (entry_point) {
-        switch (emitter->backend_config.dialect) {
-            case CDialect_C11:
-                break;
-            case CDialect_GLSL:
-                break;
-            case CDialect_ISPC:
-                c_decl = shd_format_string_arena(emitter->arena->arena, "export %s", c_decl);
-                break;
-            case CDialect_CUDA:
-                c_decl = shd_format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", c_decl);
-                break;
-        }
-    } else if (emitter->backend_config.dialect == CDialect_CUDA) {
-        c_decl = shd_format_string_arena(emitter->arena->arena, "__device__ %s", c_decl);
-    }
 
     return c_decl;
 }

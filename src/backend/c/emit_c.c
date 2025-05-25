@@ -246,6 +246,25 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
     CTerm emit_as = term_from_cvalue(name);
     shd_c_register_emitted(emitter, NULL, decl, emit_as);
     String head = shd_c_emit_fn_head(emitter, decl->type, name, decl);
+
+    const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
+    if (entry_point) {
+        switch (emitter->backend_config.dialect) {
+            case CDialect_C11:
+                break;
+            case CDialect_GLSL:
+                break;
+            case CDialect_ISPC:
+                head = shd_format_string_arena(emitter->arena->arena, "export %s", head);
+            break;
+            case CDialect_CUDA:
+                head = shd_format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", head);
+            break;
+        }
+    } else if (emitter->backend_config.dialect == CDialect_CUDA) {
+        head = shd_format_string_arena(emitter->arena->arena, "__device__ %s", head);
+    }
+
     const Node* body = decl->payload.fun.body;
     if (body) {
         FnEmitter fn = {
