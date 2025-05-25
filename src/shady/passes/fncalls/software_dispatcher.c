@@ -184,9 +184,9 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     if (ctx->config->printf_trace.top_function) {
         const Node* resume_at = shd_bld_load(loop_body_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0), mk_nodes(a, local_id)));
         if (count_iterations)
-            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d iteration=%d next_fn=%d next_mask=%lx resume_at=%d\n", mk_nodes(a, sid, local_id, iterations_count_param, next_function, next_mask, resume_at));
+            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d iteration=%d next_fn=%lu next_mask=%lx resume_at=%lu\n", mk_nodes(a, sid, local_id, iterations_count_param, next_function, next_mask, resume_at));
         else
-            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d next_fn=%d next_mask=%lx resume_at=%d\n", mk_nodes(a, sid, local_id, next_function, next_mask, resume_at));
+            shd_bld_debug_printf(loop_body_builder, "trace: top loop, thread:%d:%d next_fn=%lu next_mask=%lx resume_at=%lu\n", mk_nodes(a, sid, local_id, next_function, next_mask, resume_at));
     }
 
     const Node* iteration_count_plus_one = NULL;
@@ -273,10 +273,10 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         if (ctx->config->printf_trace.top_function) {
             const Node* resume_at = shd_bld_load(if_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0),mk_nodes(a, local_id)));
             String ptrn = NULL;
-            if (shd_get_node_name_unsafe(ofunction))
-                ptrn = shd_fmt_string_irarena(a, "trace: ran %d(%s)%s\n", fn_ptr, shd_get_node_name_unsafe(ofunction), ", thread:%d:%d next_fn=%d next_mask=%lx resume_at=%d");
-            else
-                ptrn = shd_fmt_string_irarena(a, "trace: ran %d%s\n", fn_ptr, ", thread:%d:%d next_fn=%d next_mask=%lx resume_at=%d");
+            //if (shd_get_node_name_unsafe(ofunction))
+            //    ptrn = shd_fmt_string_irarena(a, "trace: ran %d(%s)%s\n", fn_ptr, shd_get_node_name_unsafe(ofunction), ", thread:%d:%d next_fn=%lu next_mask=%lx resume_at=%lu");
+            //else
+                ptrn = shd_fmt_string_irarena(a, "trace: ran %d%s\n", fn_ptr, ", thread:%d:%d next_fn=%lu next_mask=%lx resume_at=%lu");
             const Node* next_function2 = shd_bld_load(if_builder, shd_find_or_process_decl(r, "next_fn"));
             shd_bld_debug_printf(if_builder, ptrn, mk_nodes(a, sid, local_id, next_function2, next_mask, resume_at));
         }

@@ -193,6 +193,7 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
                 shd_print(block_printer, "\nreturn %s;", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[0])));
             } else {
                 String packed = shd_make_unique_name(emitter->arena, "pack_return");
+                shd_c_emit_variable_declaration(emitter, block_printer, shd_maybe_multiple_return(emitter->arena, shd_get_values_types(emitter->arena, args)), packed, true, NULL);
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
                     values[i] = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i]));

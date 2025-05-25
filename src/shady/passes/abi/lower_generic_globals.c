@@ -15,7 +15,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
     switch (node->tag) {
         case GlobalVariable_TAG: {
             if (node->payload.global_variable.address_space == AsGeneric) {
-                if (shd_lookup_annotation(node, "Exported") || shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
+                if (shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
                     break;
                 GlobalVariable payload = node->payload.global_variable;
                 // we need to re-promote this in case it was demoted, because we will cast the global to a generic pointer still
