@@ -232,16 +232,16 @@ static const Node* process(Context* ctx, const Node* node) {
             FnType payload = shd_recreate_node(r, node)->payload.fn_type;
 
             for (size_t i = 0; i < ctx->promoted_to_copy.old.count; i++) {
-                const Type* t = shd_rewrite_node(r, ctx->promoted_to_copy.old.nodes[i]->type);
-                assert(t->tag == QualifiedType_TAG);
+                const Type* t = shd_rewrite_node(r, ctx->promoted_to_copy.old.nodes[i]->payload.global_variable.type);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
                 payload.param_types = shd_nodes_prepend(a, payload.param_types, t);
                 payload.return_types = shd_nodes_prepend(a, payload.return_types, t);
             }
             for (size_t i = 0; i < ctx->promoted_to_alloca.old.count; i++) {
                 const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
-                const Type* t = shd_rewrite_node(r, opromoted->type);
-                t = shd_get_unqualified_type(t);
+                const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
                 t = ptr_type_helper(a, ctx->pass_config.dst_as, t, !physical);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
                 payload.param_types = shd_nodes_prepend(a, payload.param_types, t);
             }
 
