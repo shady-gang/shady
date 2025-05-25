@@ -135,13 +135,13 @@ void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, c
 
 void shd_c_emit_pack_code(Printer* p, Strings src, String dst) {
     for (size_t i = 0; i < src.count; i++) {
-        shd_print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
+        shd_print(p, "\n%s->_%d = %s", dst, (int) i, src.strings[i]);
     }
 }
 
 void shd_c_emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
-        shd_print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
+        shd_print(p, "\n%s = %s->_%d", dst.strings[i], src, (int) i);
     }
 }
 
