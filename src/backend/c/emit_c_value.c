@@ -510,6 +510,22 @@ static CTerm emit_insert(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
     return term_from_cvalue(local_variable);
 }
 
+static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Type* dst_type, const Node* src) {
+    IrArena* arena = emitter->arena;
+    CTerm esrc = shd_c_emit_value(emitter, fn, src);
+    const Type* src_type = shd_get_unqualified_type(src->type);
+    if (emitter->backend_config.dialect == CDialect_GLSL) {
+        if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
+            CType t = shd_c_emit_type(emitter, dst_type, NULL);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, esrc)));
+        } else
+            assert(false);
+    } else {
+        CType t = shd_c_emit_type(emitter, dst_type, NULL);
+        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, esrc)));
+    }
+}
+
 static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
     IrArena* arena = emitter->arena;
     BitCast payload = node->payload.bit_cast;
@@ -519,6 +535,8 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     switch (emitter->backend_config.dialect) {
         case CDialect_CUDA:
         case CDialect_C11: {
+            if (src_type->tag == PtrType_TAG && src_type->payload.ptr_type.address_space == AsCode)
+                return emit_conversion(emitter, fn, p, dst_type, payload.src);
             String src = shd_make_unique_name(arena, "bitcast_src");
             String dst = shd_make_unique_name(arena, "bitcast_result");
             shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, src_type, src), shd_c_to_ssa(emitter, src_value));
@@ -586,22 +604,6 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
         }
     }
     SHADY_UNREACHABLE;
-}
-
-static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Type* dst_type, const Node* src) {
-    IrArena* arena = emitter->arena;
-    CTerm esrc = shd_c_emit_value(emitter, fn, src);
-    const Type* src_type = shd_get_unqualified_type(src->type);
-    if (emitter->backend_config.dialect == CDialect_GLSL) {
-        if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-            CType t = shd_c_emit_type(emitter, dst_type, NULL);
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, esrc)));
-        } else
-            assert(false);
-    } else {
-        CType t = shd_c_emit_type(emitter, dst_type, NULL);
-        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, esrc)));
-    }
 }
 
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
