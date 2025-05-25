@@ -491,7 +491,11 @@ static CTerm emit_extract(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     Extract extract = instr->payload.extract;
     CTerm composite = shd_c_emit_value(emitter, fn, extract.composite);
 
-    return term_from_cvalue(emit_selector_rvalue(emitter, fn, shd_get_unqualified_type(extract.composite->type), composite, extract.selector));
+    const Type* composite_type = extract.composite->type;
+    if (composite_type->tag == QualifiedType_TAG)
+        composite_type = shd_get_unqualified_type(composite_type);
+
+    return term_from_cvalue(emit_selector_rvalue(emitter, fn, composite_type, composite, extract.selector));
 }
 
 static CTerm emit_insert(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instr) {
