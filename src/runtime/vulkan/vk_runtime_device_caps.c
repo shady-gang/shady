@@ -184,6 +184,11 @@ void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_
         caps->features.rt_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         register_ext_feature(caps->features.rt_pipeline_features);
     }
+
+    if (caps->supported_extensions[ShadySupportsKHR_shader_maximal_reconvergence]) {
+        caps->features.maximal_reconvergence_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR;
+        register_ext_feature(caps->features.maximal_reconvergence_features);
+    }
 }
 
 static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {

@@ -14,6 +14,10 @@ typedef struct {
     } target_version;
 
     struct {
+        bool maximal_reconvergence;
+    } features;
+
+    struct {
         bool shuffle_instead_of_broadcast_first;
         bool avoid_spirv_cross_broken_bda_pointers;
     } hacks;
