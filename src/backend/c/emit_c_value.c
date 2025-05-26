@@ -66,7 +66,7 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
             const Type* t = shd_get_unqualified_type(value_type);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
         }
-        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
+        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value));
     }
 }
 
@@ -793,6 +793,18 @@ ExtISelEntry ext_isel_glsl_entries[] = {
 
 };
 
+ExtISelEntry ext_isel_cuda_entries[] = {
+    {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "__shady_iadd_reduce" }},
+    // rest
+    {{ "spirv.core", SpvOpGroupNonUniformAllEqual, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_all_equal" }},
+    {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_ballot" }},
+
+    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_broadcast_first" }},
+    {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
+
+};
+
 #include "spirv/unified1/GLSL.std.450.h"
 
 ExtISelEntry ext_isel_entries[] = {
@@ -847,6 +859,7 @@ static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
     switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
+        case CDialect_CUDA: scan_entries(ext_isel_cuda_entries); break;
         default: break;
     }
     scan_entries(ext_isel_entries);

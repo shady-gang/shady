@@ -165,12 +165,11 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
         case CDialect_CUDA:
             switch (as) {
                 case AsPrivate:
-                    assert(false);
-                    // Note: this requires many hacks.
-                    prefix = "__device__ ";
-                    name = shd_format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", name);
+                    shd_error("CUDA backend does not support top-level, invocation-private variables.");
+                case AsShared:
+                    prefix = "__shared__ ";
+                    init = NULL;
                     break;
-                case AsShared: prefix = "__shared__ "; break;
                 case AsGlobal: {
                     if (constant)
                         prefix = "__constant__ ";
@@ -292,7 +291,7 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
         } else if (emitter->backend_config.dialect == CDialect_CUDA) {
             if (shd_lookup_annotation(decl, "EntryPoint")) {
                 // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
-                fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
+                fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_cuda_init();%s", fn_body);
             }
         }
         shd_print(emitter->fn_defs, "\n%s { ", head);
@@ -455,7 +454,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
 
     switch (emitter.backend_config.dialect) {
         case CDialect_ISPC: {
-            shd_print(emitter.fn_defs, shady_ispc_runtime_src);
+            shd_print(emitter.fn_defs, "%s", shady_ispc_runtime_src);
             break;
         }
         case CDialect_C11:
@@ -473,7 +472,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
             shd_print(finalp, "#define uchar uint\n");
             shd_print(finalp, "#define ulong uint\n");
             if (emitter.backend_config.glsl_version <= 120)
-                shd_print(finalp, shady_glsl_runtime_120_src);
+                shd_print(finalp, "%s", shady_glsl_runtime_120_src);
             break;
         case CDialect_CUDA: {
             size_t total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
@@ -485,13 +484,13 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
             for (size_t i = 0; i < total_workgroup_size; i++)
                 shd_print(finalp, "v, ");
             shd_print(finalp, "}\n");
-            shd_print(finalp, shady_cuda_prelude_src);
+            shd_print(finalp, "%s", shady_cuda_prelude_src);
 
             shd_print(emitter.type_decls, "\ntypedef %s;\n", shd_c_emit_type(&emitter, arr_type(arena, (ArrType) {
                 .size = shd_int32_literal(arena, 3),
                 .element_type = shd_uint32_type(arena)
             }), "uvec3"));
-            shd_print(emitter.fn_defs, shady_cuda_runtime_src);
+            shd_print(emitter.fn_defs, "%s", shady_cuda_runtime_src);
             break;
         }
         default: break;
