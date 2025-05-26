@@ -35,7 +35,7 @@ static CodegenTarget guess_target_through_name(const char* filename) {
     exit(InvalidTarget);
 }
 
-static void configure_target(TargetConfig* target_config, CodegenTarget target_type, CompilerConfig* compiler_config, DriverConfig* driver_config) {
+static void configure_target(TargetConfig* target_config, CodegenTarget target_type, const CompilerConfig* compiler_config, DriverConfig* driver_config) {
     if (target_type == TgtAuto) {
         if (driver_config && driver_config->output_filename) {
             target_type = driver_config->target_type = guess_target_through_name(driver_config->output_filename);
@@ -49,6 +49,8 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
         case TgtSPV:
             if (driver_config)
                 driver_config->backend_type = BackendSPV;
+            // Default to 64-wide to support GCN cards.
+            target_config->subgroup_size = 64;
             add_default_shading_language_limitations(target_config);
             // default to assuming BDA support on Vulkan
             target_config->memory.address_spaces[AsGlobal].physical = true;
@@ -77,6 +79,7 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
                 driver_config->backend_type = BackendC;
                 driver_config->backend_config.c.dialect = CDialect_ISPC;
             }
+            target_config->subgroup_size = 8;
             add_default_shading_language_limitations(target_config);
             for (size_t i = 0; i < NumAddressSpaces; i++) {
                 if (i != AsGeneric && shd_get_addr_space_scope(i) < ShdScopeSubgroup) {

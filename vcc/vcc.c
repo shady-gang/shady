@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
 
     TargetConfig target_config = shd_default_target_config();
 
+    args.target_type = TgtSPV;
     shd_driver_configure_target(&target_config, &args);
     shd_parse_target_args(&target_config, &argc, argv);
 

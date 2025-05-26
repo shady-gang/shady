@@ -353,6 +353,7 @@ bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* fron
     aconfig.check_types = false;
     aconfig.allow_fold = false;
     aconfig.optimisations.inline_single_use_bbs = false;
+    aconfig.optimisations.weaken_non_leaking_allocas = false;
 
     IrArena* arena = shd_new_ir_arena(&aconfig);
     Module* dirty = shd_new_module(arena, "dirty");

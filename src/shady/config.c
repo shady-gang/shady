@@ -45,11 +45,11 @@ TargetConfig shd_default_target_config(void) {
         .memory = {
             .word_size = IntTy32,
             .ptr_size = IntTy64,
-            .fn_ptr_size = IntTy32,
+            .fn_ptr_size = IntTy64,
             .exec_mask_size = IntTy64
         },
 
-        .subgroup_size = 8,
+        .subgroup_size = 0,
 
         .scopes = {
             .constants = ShdScopeTop,
