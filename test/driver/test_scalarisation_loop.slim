@@ -1,7 +1,22 @@
 @Internal @Builtin("SubgroupLocalInvocationId")
 var input u32 subgroup_local_id;
 
-@EntryPoint("Compute") @WorkgroupSize(32, 1, 1) fn main() {
+fn subgroup_elect_first varying bool() {
+    return (ext_instr["spirv.core", 333, varying bool](3));
+}
+
+@Alias type mask_t = u64;
+
+fn subgroup_active_mask uniform mask_t() {
+    return (ext_instr["spirv.core", 339, uniform mask_t](3, true));
+}
+
+fn subgroup_broadcast_first uniform u32(varying u32 x) {
+    return (ext_instr["spirv.core", 338, uniform u32](3, x));
+}
+
+
+@Exported @EntryPoint("Compute") @WorkgroupSize(32, 1, 1) fn main() {
     val tid = subgroup_local_id;
     val x = tid / u32 4;
     debug_printf("tid = %d x = %d\n", tid, x);
@@ -16,6 +31,5 @@ var input u32 subgroup_local_id;
             break();
         }
     }
-    debug_printf("Done SP=%d.\n", get_stack_size());
     return ();
 }
