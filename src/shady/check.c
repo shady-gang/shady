@@ -245,12 +245,13 @@ const Type* _shd_check_type_mem_and_value(IrArena* arena, MemAndValue mav) {
 const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
     assert(fn_addr.fn->type->tag == FnType_TAG);
     assert(fn_addr.fn->tag == Function_TAG);
+    AddressSpace as = AsCode;
     return qualified_type(arena, (QualifiedType) {
         .scope = shd_get_arena_config(arena)->target.scopes.constants,
         .type = ptr_type(arena, (PtrType) {
             .pointed_type = fn_addr.fn->type,
-            .address_space = AsCode /* the actual AS does not matter because these are opaque anyways */,
-            .is_reference = !shd_get_arena_config(arena)->target.memory.address_spaces[AsCode].physical,
+            .address_space = as /* the actual AS does not matter because these are opaque anyways */,
+            .is_reference = !shd_get_arena_config(arena)->target.memory.address_spaces[as].physical,
         })
     });
 }
@@ -618,7 +619,7 @@ const Type* _shd_check_type_indirect_call(IrArena* arena, IndirectCall call) {
     const Type* callee_type = call.callee->type;
     SHADY_UNUSED bool callee_uniform = shd_deconstruct_qualified_type(&callee_type);
     AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
-    assert(as == AsCode);
+    assert(as == AsCode || as == AsGeneric);
 
     Nodes args = call.args;
     for (size_t i = 0; i < args.count; i++) {
@@ -634,7 +635,7 @@ const Type* _shd_check_type_indirect_tail_call(IrArena* arena, IndirectTailCall 
     const Type* callee_type = tail_call.callee->type;
     shd_deconstruct_qualified_type(&callee_type);
     AddressSpace as = shd_deconstruct_pointer_type(&callee_type);
-    assert(as == AsCode);
+    assert(as == AsCode || as == AsGeneric);
 
     Nodes args = tail_call.args;
     for (size_t i = 0; i < args.count; i++) {

@@ -112,6 +112,14 @@ const Node* shd_resolve_node_to_definition(const Node* node, NodeResolveConfig c
                 }
                 break;
             }
+            case GenericPtrCast_TAG: {
+                GenericPtrCast payload = node->payload.generic_ptr_cast;
+                if (config.allow_incompatible_types) {
+                    node = payload.src;
+                    continue;
+                }
+                break;
+            }
             default: break;
         }
         break;

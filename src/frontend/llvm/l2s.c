@@ -189,8 +189,10 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
         .jumps_todo = shd_new_list(JumpTodo),
     };
     const Node* r = fn_addr_helper(a, f);
-    r = bit_cast_helper(a, ptr_type(a, (PtrType) { .address_space = AsCode, .pointed_type = unit_type(a) }), r);
-    //r = prim_op_helper(a, convert_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
+    //r = fn_ptr_promote_generic_helper(a, r);
+    r = generic_ptr_cast_helper(a, r);
+    r = bit_cast_helper(a, ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) }), r);
+    // r = prim_op_helper(a, convert_op, singleton(ptr_type(a, (PtrType) { .address_space = AsGeneric, .pointed_type = unit_type(a) })), singleton(r));
     shd_dict_insert(LLVMValueRef, const Node*, p->map, fn, r);
 
     size_t bb_count = LLVMCountBasicBlocks(fn);
