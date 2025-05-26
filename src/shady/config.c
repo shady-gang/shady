@@ -32,6 +32,11 @@ CompilerConfig shd_default_compiler_config(void) {
         shd_configure_bool_flag_in_list(trace_opts, "scratch-base-addr", &config.printf_trace.scratch_base_addr);
     }
 
+    String max_top_iterations = getenv("SHADY_MAX_TOP_ITERATIONS");
+    if (max_top_iterations) {
+        config.shader_diagnostics.max_top_iterations = strtoll(max_top_iterations, NULL, 10);
+    }
+
     return config;
 }
 
