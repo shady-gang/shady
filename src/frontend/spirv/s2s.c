@@ -158,7 +158,12 @@ static const Type* get_def_decl(SpvParser* parser, SpvId id) {
 
 static String get_def_string(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
-    assert(def->type == Str);
+    assert(def->type == Str || def->type == Value);
+    if (def->type == Value) {
+        const Node* v = def->node;
+        assert(v && v->tag == StringLiteral_TAG);
+        return v->payload.string_lit.string;
+    }
     return def->str;
 }
 
@@ -472,8 +477,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         // these are basically just strings and we can infer how to handle them from ctx at the uses
         case SpvOpExtInstImport:
         case SpvOpString: {
-            parser->defs[result].type = Str;
-            parser->defs[result].str = decode_spv_string_literal(parser, instruction + 2);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = string_lit_helper(a, decode_spv_string_literal(parser, instruction + 2));
             break;
         }
         case SpvOpExtension: {
