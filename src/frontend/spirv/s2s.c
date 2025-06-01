@@ -794,7 +794,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 SpvDeco* desc_set = find_decoration(parser, result, -1, SpvDecorationDescriptorSet);
                 if (desc_set)
                     shd_add_annotation(global, annotation_value_helper(a, "DescriptorSet", shd_uint32_literal(a, desc_set->payload.literals.data[0])));
-                SpvDeco* binding = find_decoration(parser, result, -1, SpvDecorationDescriptorSet);
+                SpvDeco* binding = find_decoration(parser, result, -1, SpvDecorationBinding);
                 if (binding)
                     shd_add_annotation(global, annotation_value_helper(a, "Binding", shd_uint32_literal(a, binding->payload.literals.data[0])));
                 SpvDeco* location = find_decoration(parser, result, -1, SpvDecorationLocation);
