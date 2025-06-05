@@ -602,6 +602,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].node = bool_type(parser->arena);
             break;
         }
+        case SpvOpTypeForwardPointer: break;
         case SpvOpTypePointer: {
             AddressSpace as = convert_storage_class(instruction[2]);
             const Type* element_t = get_def_type(parser, instruction[3]);
@@ -1448,7 +1449,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
 static SpvDef* get_definition_by_id(SpvParser* parser, size_t id) {
     assert(id > 0 && id < parser->header.bound);
     if (parser->defs[id].type == Nothing)
-    shd_error("there is no Op that defines result %zu", id);
+        shd_error("there is no Op that defines result %zu", id);
     if (parser->defs[id].type == Forward)
         parse_spv_instruction_at(parser, parser->defs[id].instruction_offset);
     assert(parser->defs[id].type != Forward);
