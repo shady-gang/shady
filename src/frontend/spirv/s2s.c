@@ -238,30 +238,44 @@ static AddressSpace convert_storage_class(SpvStorageClass class) {
     shd_error("s2s: Unsupported storage class: %d\n", class);
 }
 
+typedef enum {
+    VALID = 0x1,
+    /// adds a bitcast to the result to ensure it matches the SPIR-V result type
+    /// SPIR-V allows an unsigned op to yield a signed value, we don't
+    CAST_RESULT = 0x2,
+    /// Forcefully casts all operands to signed integers
+    OP_SIGNED = 0x4,
+    /// Forcefully casts all operands to unsigned integers
+    OP_UNSIGNED = 0x8,
+} SpvShdOpMappingFlags;
+
 typedef struct {
-    bool valid;
+    SpvShdOpMappingFlags flags;
     Op op;
     int ops_offset;
 } SpvShdOpMapping;
 
 static SpvShdOpMapping spv_shd_op_mapping[] = {
     // 3.42.13 Arithmetic operations
-    [SpvOpSNegate] = { 1, neg_op, 3 },
-    [SpvOpFNegate] = { 1, neg_op, 3 },
-    [SpvOpIAdd] = { 1, add_op, 3 },
-    [SpvOpFAdd] = { 1, add_op, 3 },
-    [SpvOpISub] = { 1, sub_op, 3 },
-    [SpvOpFSub] = { 1, sub_op, 3 },
-    [SpvOpIMul] = { 1, mul_op, 3 },
-    [SpvOpFMul] = { 1, mul_op, 3 },
-    [SpvOpUDiv] = { 1, div_op, 3 },
-    [SpvOpSDiv] = { 1, div_op, 3 },
-    [SpvOpFDiv] = { 1, div_op, 3 },
-    [SpvOpUMod] = { 1, mod_op, 3 },
-    [SpvOpSRem] = { 1, mod_op, 3 },
-    [SpvOpSMod] = { 1, mod_op, 3 }, /* TODO: this is slightly incorrect! rem and mod are different ops for signed numbers. */
-    [SpvOpFRem] = { 1, mod_op, 3 },
-    [SpvOpFMod] = { 1, mod_op, 3 }, /* TODO ditto */
+    [SpvOpSNegate] = { VALID | CAST_RESULT | OP_SIGNED, neg_op, 3 },
+    [SpvOpFNegate] = { VALID, neg_op, 3 },
+    // These 'I' operands are so-called because they don't care about signedness, at all.
+    // Currently, we do care that it matches between the operands, so the simple fix is to cast to unsigned, then cast back
+    // TODO: cleanup this mess with folding ops and loosen our rules ?
+    [SpvOpIAdd] = {VALID | CAST_RESULT | OP_UNSIGNED, add_op, 3 },
+    [SpvOpFAdd] = {VALID, add_op, 3 },
+    [SpvOpISub] = {VALID | CAST_RESULT | OP_UNSIGNED, sub_op, 3 },
+    [SpvOpFSub] = {VALID, sub_op, 3 },
+    [SpvOpIMul] = {VALID | CAST_RESULT | OP_UNSIGNED, mul_op, 3 },
+    [SpvOpFMul] = {VALID, mul_op, 3 },
+    [SpvOpUDiv] = {VALID | CAST_RESULT | OP_UNSIGNED, div_op, 3 },
+    [SpvOpSDiv] = {VALID | CAST_RESULT | OP_SIGNED, div_op, 3 },
+    [SpvOpFDiv] = {VALID, div_op, 3 },
+    [SpvOpUMod] = {VALID | CAST_RESULT | OP_UNSIGNED, mod_op, 3 },
+    [SpvOpSRem] = {VALID | CAST_RESULT | OP_SIGNED, mod_op, 3 },
+    [SpvOpSMod] = {VALID | CAST_RESULT | OP_SIGNED, mod_op, 3 }, /* TODO: this is slightly incorrect! rem and mod are different ops for signed numbers. */
+    [SpvOpFRem] = {VALID, mod_op, 3 },
+    [SpvOpFMod] = {VALID, mod_op, 3 }, /* TODO ditto */
     [SpvOpVectorTimesScalar] = { 0 },
     [SpvOpMatrixTimesScalar] = { 0 },
     [SpvOpVectorTimesMatrix] = { 0 },
@@ -269,10 +283,10 @@ static SpvShdOpMapping spv_shd_op_mapping[] = {
     [SpvOpMatrixTimesMatrix] = { 0 },
     [SpvOpOuterProduct] = { 0 },
     [SpvOpDot] = { 0 },
-    [SpvOpIAddCarry] = { 1, add_carry_op, 3},
-    [SpvOpISubBorrow] = { 1, sub_borrow_op, 3},
-    [SpvOpUMulExtended] = { 1, mul_extended_op, 3},
-    [SpvOpSMulExtended] = { 1, mul_extended_op, 3},
+    [SpvOpIAddCarry] = {VALID, add_carry_op, 3},
+    [SpvOpISubBorrow] = {VALID, sub_borrow_op, 3},
+    [SpvOpUMulExtended] = {VALID /* TODO cast only first result */ | OP_UNSIGNED, mul_extended_op, 3},
+    [SpvOpSMulExtended] = {VALID /* TODO cast only first result */ | OP_SIGNED, mul_extended_op, 3},
     [SpvOpSDot] = { 0 },
     [SpvOpUDot] = { 0 },
     [SpvOpSUDot] = { 0 },
@@ -280,13 +294,14 @@ static SpvShdOpMapping spv_shd_op_mapping[] = {
     [SpvOpUDotAccSat] = { 0 },
     [SpvOpSUDotAccSat] = { 0 },
     // 3.42.14 Bit instructions
-    [SpvOpShiftRightLogical] = { 1, rshift_logical_op, 3 },
-    [SpvOpShiftRightArithmetic] = { 1, rshift_arithm_op, 3 },
-    [SpvOpShiftLeftLogical] = { 1, lshift_op, 3 },
-    [SpvOpBitwiseOr] = { 1, or_op, 3 },
-    [SpvOpBitwiseXor] = { 1, xor_op, 3 },
-    [SpvOpBitwiseAnd] = { 1, and_op, 3 },
-    [SpvOpNot] = { 1, not_op, 3 },
+    [SpvOpShiftRightLogical] = { VALID, rshift_logical_op, 3 },
+    [SpvOpShiftRightArithmetic] = { VALID, rshift_arithm_op, 3 },
+    [SpvOpShiftLeftLogical] = { VALID, lshift_op, 3 },
+    // We treat all bitwise logical operations on integers as unsigned internally
+    [SpvOpBitwiseOr] = {VALID | CAST_RESULT | OP_UNSIGNED, or_op, 3 },
+    [SpvOpBitwiseXor] = {VALID | CAST_RESULT | OP_UNSIGNED, xor_op, 3 },
+    [SpvOpBitwiseAnd] = {VALID | CAST_RESULT | OP_UNSIGNED, and_op, 3 },
+    [SpvOpNot /* Bitwise! See also LogicalNot */] = {VALID | CAST_RESULT | OP_UNSIGNED, not_op, 3 },
     [SpvOpBitFieldInsert] = { 0 },
     [SpvOpBitFieldSExtract] = { 0 },
     [SpvOpBitFieldUExtract] = { 0 },
@@ -303,34 +318,36 @@ static SpvShdOpMapping spv_shd_op_mapping[] = {
     [SpvOpLessOrGreater] = { 0 },
     [SpvOpOrdered] = { 0 },
     [SpvOpUnordered] = { 0 },
-    [SpvOpLogicalEqual] = { 1, eq_op, 3 },
-    [SpvOpLogicalNotEqual] = { 1, neq_op, 3 },
-    [SpvOpLogicalOr] = { 1, or_op, 3 },
-    [SpvOpLogicalAnd] = { 1, and_op, 3 },
-    [SpvOpLogicalNot] = { 1, not_op, 3 },
-    [SpvOpSelect] = { 1, select_op, 3 },
-    [SpvOpIEqual] = { 1, eq_op, 3 },
-    [SpvOpINotEqual] = { 1, neq_op, 3 },
-    [SpvOpUGreaterThan] = { 1, gt_op, 3 },
-    [SpvOpSGreaterThan] = { 1, gt_op, 3 },
-    [SpvOpUGreaterThanEqual] = { 1, gte_op, 3 },
-    [SpvOpSGreaterThanEqual] = { 1, gte_op, 3 },
-    [SpvOpULessThan] = { 1, lt_op, 3 },
-    [SpvOpSLessThan] = { 1, lt_op, 3 },
-    [SpvOpULessThanEqual] = { 1, lte_op, 3 },
-    [SpvOpSLessThanEqual] = { 1, lte_op, 3 },
-    [SpvOpFOrdEqual] = { 1, eq_op, 3 },
-    [SpvOpFUnordEqual] = { 1, eq_op, 3 }, /* TODO again these are not the same */
-    [SpvOpFOrdNotEqual] = { 1, neq_op, 3 },
-    [SpvOpFUnordNotEqual] = { 1, neq_op, 3 }, /* ditto */
-    [SpvOpFOrdLessThan] = { 1, lt_op, 3 },
-    [SpvOpFUnordLessThan] = { 1, lt_op, 3 },
-    [SpvOpFOrdLessThanEqual] = { 1, lte_op, 3 },
-    [SpvOpFUnordLessThanEqual] = { 1, lte_op, 3 },
-    [SpvOpFOrdGreaterThan] = { 1, gt_op, 3 },
-    [SpvOpFUnordGreaterThan] = { 1, gt_op, 3 },
-    [SpvOpFOrdGreaterThanEqual] = { 1, gte_op, 3 },
-    [SpvOpFUnordGreaterThanEqual] = { 1, gte_op, 3 },
+    [SpvOpLogicalEqual] = {VALID, eq_op, 3 },
+    [SpvOpLogicalNotEqual] = {VALID, neq_op, 3 },
+    [SpvOpLogicalOr] = {VALID, or_op, 3 },
+    [SpvOpLogicalAnd] = {VALID, and_op, 3 },
+    [SpvOpLogicalNot] = {VALID, not_op, 3 },
+    [SpvOpSelect] = { VALID, select_op, 3 },
+    // comparison ops
+    // Like earlier, 'I' instructions are deemed unsigned internally. It doesn't really matter.
+    [SpvOpIEqual] = {VALID | OP_UNSIGNED, eq_op, 3 },
+    [SpvOpINotEqual] = {VALID | OP_UNSIGNED, neq_op, 3 },
+    [SpvOpUGreaterThan] = {VALID | OP_UNSIGNED, gt_op, 3 },
+    [SpvOpSGreaterThan] = {VALID | OP_SIGNED, gt_op, 3 },
+    [SpvOpUGreaterThanEqual] = {VALID | OP_UNSIGNED, gte_op, 3 },
+    [SpvOpSGreaterThanEqual] = {VALID | OP_SIGNED, gte_op, 3 },
+    [SpvOpULessThan] = {VALID | OP_UNSIGNED, lt_op, 3 },
+    [SpvOpSLessThan] = {VALID | OP_SIGNED, lt_op, 3 },
+    [SpvOpULessThanEqual] = {VALID | OP_UNSIGNED, lte_op, 3 },
+    [SpvOpSLessThanEqual] = {VALID | OP_SIGNED, lte_op, 3 },
+    [SpvOpFOrdEqual] = {VALID, eq_op, 3 },
+    [SpvOpFUnordEqual] = {VALID, eq_op, 3 }, /* TODO again these are not the same */
+    [SpvOpFOrdNotEqual] = {VALID, neq_op, 3 },
+    [SpvOpFUnordNotEqual] = {VALID, neq_op, 3 }, /* ditto */
+    [SpvOpFOrdLessThan] = {VALID, lt_op, 3 },
+    [SpvOpFUnordLessThan] = {VALID, lt_op, 3 },
+    [SpvOpFOrdLessThanEqual] = {VALID, lte_op, 3 },
+    [SpvOpFUnordLessThanEqual] = {VALID, lte_op, 3 },
+    [SpvOpFOrdGreaterThan] = {VALID, gt_op, 3 },
+    [SpvOpFUnordGreaterThan] = {VALID, gt_op, 3 },
+    [SpvOpFOrdGreaterThanEqual] = {VALID, gte_op, 3 },
+    [SpvOpFUnordGreaterThanEqual] = {VALID, gte_op, 3 },
     // 3.42.16 Derivative Instructions
     // honestly none of those are implemented ...
 };
@@ -339,7 +356,7 @@ static const SpvShdOpMapping* convert_spv_op(SpvOp src) {
     const int nentries = sizeof(spv_shd_op_mapping) / sizeof(*spv_shd_op_mapping);
     if (src >= nentries)
         return NULL;
-    if (spv_shd_op_mapping[src].valid)
+    if (spv_shd_op_mapping[src].flags & VALID)
         return &spv_shd_op_mapping[src];
     return NULL;
 }
@@ -453,19 +470,50 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
 
     instruction_offset += size;
 
-    if (convert_spv_op(op)) {
+    SpvShdOpMapping* mapping = convert_spv_op(op);
+    if (mapping) {
         assert(parser->current_block.builder);
-        SpvShdOpMapping shd_op = *convert_spv_op(op);
-        int num_ops = size - shd_op.ops_offset;
+        const Type* result_type = has_type ? get_def_type(parser, result_t) : NULL;
+        const Type* cast_result = NULL;
+
+        // Change the result type if the flags need us to
+        if (mapping->flags & CAST_RESULT) {
+            assert(result_type);
+            cast_result = result_type;
+            //size_t width = shd_deconstruct_maybe_vector_type(&result_type);
+            //assert(result_type->tag == Int_TAG);
+            //Int payload = result_type->payload.int_type;
+            //payload.is_signed = mapping->flags & RESULT_SIGNED;
+            //cast_result = int_type(a, payload);
+            //cast_result = shd_maybe_vector_type_helper(result_type, width);
+        }
+
+        int num_ops = size - mapping->ops_offset;
         LARRAY(const Node*, ops, num_ops);
-        for (size_t i = 0; i < num_ops; i++)
-            ops[i] = get_def_ssa_value(parser, instruction[shd_op.ops_offset + i]);
+        for (size_t i = 0; i < num_ops; i++) {
+            ops[i] = get_def_ssa_value(parser, instruction[mapping->ops_offset + i]);
+            // bitcast the inputs on request
+            if (mapping->flags & OP_UNSIGNED || mapping->flags & OP_SIGNED) {
+                assert(result_type);
+                const Type* op_type = ops[i]->type;
+                shd_deconstruct_qualified_type(&op_type);
+                size_t width = shd_deconstruct_maybe_vector_type(&op_type);
+                assert(op_type->tag == Int_TAG);
+                Int payload = op_type->payload.int_type;
+                payload.is_signed = mapping->flags & OP_SIGNED;
+                const Type* cast_op_to = int_type(a, payload);
+                cast_op_to = shd_maybe_vector_type_helper(cast_op_to, width);
+                ops[i] = bit_cast_helper(a, cast_op_to, ops[i]);
+            }
+        }
         if (has_result) {
             parser->defs[result].type = Value;
             parser->defs[result].node = prim_op(parser->arena, (PrimOp) {
-                .op = shd_op.op,
+                .op = mapping->op,
                 .operands = shd_nodes(parser->arena, num_ops, ops)
             });
+            if (cast_result)
+                parser->defs[result].node = bit_cast_helper(a, result_type, parser->defs[result].node);
         }
         return size;
     }
