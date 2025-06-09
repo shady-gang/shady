@@ -1,5 +1,7 @@
 #include "generator.h"
 
+#include <json-c/json_tokener.h>
+
 inline static bool should_include_instruction(json_object* instruction) {
     String class = json_object_get_string(json_object_object_get(instruction, "class"));
     if (strcmp(class, "@exclude") == 0)

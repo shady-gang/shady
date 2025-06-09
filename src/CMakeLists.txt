@@ -1,6 +1,11 @@
+
 add_subdirectory(common)
 add_subdirectory(shady)
-add_subdirectory(runtime)
+
+if (${BUILD_RUNTIME})
+    add_subdirectory(runtime)
+endif ()
+
 add_subdirectory(driver)
 add_subdirectory(frontend)
 add_subdirectory(backend)
