@@ -1396,6 +1396,21 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->current_block.builder = NULL;
             break;
         }
+        case SpvOpTerminateInvocation:
+        case SpvOpKill: {
+            LARRAY(const Node*, operands, size - 1);
+            for (size_t i = 0; i < size - 1; i++)
+                operands[i] = get_definition_by_id(parser, instruction[1 + i])->node;
+            BodyBuilder* bb = parser->current_block.builder;
+            parser->current_block.finished = shd_bld_finish(bb, ext_terminator(parser->arena, (ExtTerminator) {
+                .mem = shd_bld_mem(bb),
+                .set = "spirv.core",
+                .opcode = op,
+                .operands = shd_nodes(a, size - 1, operands),
+            }));
+            parser->current_block.builder = NULL;
+            break;
+        }
         default: {
             //bool has_result, has_type;
             //SpvHasResultAndType(op, &has_result, &has_type);
