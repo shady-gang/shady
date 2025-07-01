@@ -607,6 +607,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             });
             break;
         }
+        case SpvOpTypeForwardPointer: {
+            break;
+        }
         case SpvOpTypeFunction: {
             parser->defs[result].type = Typ;
             const Type* return_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[2]));
@@ -645,6 +648,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Node* array_size = NULL;
             if (op != SpvOpTypeRuntimeArray)
                 array_size = get_def_ssa_value(parser, instruction[3]);
+            else
+                array_size = shd_uint32_literal(parser->arena, 0);
             parser->defs[result].node = arr_type(parser->arena, (ArrType) {
                 .element_type = element_t,
                 .size = array_size,

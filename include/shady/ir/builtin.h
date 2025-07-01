@@ -15,7 +15,7 @@ BUILTIN(BaseInstance,              AsInput,  Invocation, shd_uint32_type(arena) 
 BUILTIN(BaseVertex,                AsInput,  Invocation, shd_uint32_type(arena)  )\
 BUILTIN(DeviceIndex,               AsInput,  Invocation, shd_uint32_type(arena)  )\
 BUILTIN(DrawIndex,                 AsInput,  Invocation, shd_uint32_type(arena)  )\
-BUILTIN(VertexIndex,               AsInput,  Invocation, shd_uint32_type(arena)  )\
+BUILTIN(VertexIndex,               AsInput,  Invocation, shd_int32_type(arena)  )\
 BUILTIN(FragCoord,                 AsInput,  Invocation, shd_f32vec4_type(arena) )\
 BUILTIN(FragDepth,                 AsOutput, Invocation, shd_fp32_type(arena)    )\
 BUILTIN(InstanceId,                AsInput,  Invocation, shd_uint32_type(arena)  )\
