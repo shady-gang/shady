@@ -1,0 +1,35 @@
+@Internal @Builtin("SubgroupLocalInvocationId")
+var input u32 subgroup_local_id;
+
+fn subgroup_min varying u32(varying u32 x) {
+    return (ext_instr["spirv.core", /* OpGroupNonUniformUMin */ 354, varying u32](3, 0, x));
+}
+
+fn subgroup_shuffle varying u32(varying u32 x, varying u32 i) {
+    return (ext_instr["spirv.core", /* OpGroupNonUniformShuffle */ 345, varying u32](3, x, i));
+}
+
+fn subgroup_elect_first varying bool() {
+    val tid = subgroup_local_id;
+    //return (tid == subgroup_min(tid));
+    return (ext_instr["spirv.core", 333, varying bool](3));
+}
+
+@Alias type mask_t = u64;
+
+fn subgroup_active_mask uniform mask_t() {
+    return (ext_instr["spirv.core", 339, uniform mask_t](3, true));
+}
+
+fn subgroup_broadcast_first uniform u64(varying u64 x) {
+    return (ext_instr["spirv.core", 338, uniform u64](3, x));
+}
+
+@Exported @EntryPoint("Compute") @WorkgroupSize(32, 1, 1) fn main() {
+    val tid = subgroup_local_id;
+    val x = convert[u64](tid) * u64 33333333 + u64 111111111;
+    val y = subgroup_broadcast_first(x);
+    debug_printf("tid = %d x = %lu, y = %lu\n", tid, x, y);
+
+    return ();
+}

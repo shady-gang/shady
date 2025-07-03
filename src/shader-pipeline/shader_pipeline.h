@@ -1,6 +1,7 @@
 #include "shady/pipeline/pipeline.h"
 #include "shady/pass.h"
 
+void shd_pipeline_add_target_specialization(ShdPipeline pipeline, TargetConfig em);
 void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ExecutionModel em);
 void shd_pipeline_add_specialize_entry_point(ShdPipeline pipeline, String entry_point);
 

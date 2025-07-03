@@ -66,7 +66,7 @@ static CTerm broadcast_first(Emitter* emitter, CValue value, const Type* value_t
             const Type* t = shd_get_unqualified_type(value_type);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "subgroupBroadcastFirst(%s)", value));
         }
-        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_subgroup_first(%s)", value));
+        default: term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "__shady_broadcast_first(%s)", value));
     }
 }
 
@@ -224,6 +224,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             break;
         }
         case Value_FnAddr_TAG: {
+            shd_c_emit_function(emitter, value->payload.fn_addr.fn);
             emitted = shd_c_legalize_identifier(emitter, shd_get_node_name_safe(value->payload.fn_addr.fn));
             emitted = shd_format_string_arena(emitter->arena->arena, "(&%s)", emitted);
             break;
@@ -490,7 +491,11 @@ static CTerm emit_extract(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     Extract extract = instr->payload.extract;
     CTerm composite = shd_c_emit_value(emitter, fn, extract.composite);
 
-    return term_from_cvalue(emit_selector_rvalue(emitter, fn, shd_get_unqualified_type(extract.composite->type), composite, extract.selector));
+    const Type* composite_type = extract.composite->type;
+    if (composite_type->tag == QualifiedType_TAG)
+        composite_type = shd_get_unqualified_type(composite_type);
+
+    return term_from_cvalue(emit_selector_rvalue(emitter, fn, composite_type, composite, extract.selector));
 }
 
 static CTerm emit_insert(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instr) {
@@ -505,6 +510,22 @@ static CTerm emit_insert(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
     return term_from_cvalue(local_variable);
 }
 
+static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Type* dst_type, const Node* src) {
+    IrArena* arena = emitter->arena;
+    CTerm esrc = shd_c_emit_value(emitter, fn, src);
+    const Type* src_type = shd_get_unqualified_type(src->type);
+    if (emitter->backend_config.dialect == CDialect_GLSL) {
+        if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
+            CType t = shd_c_emit_type(emitter, dst_type, NULL);
+            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, esrc)));
+        } else
+            assert(false);
+    } else {
+        CType t = shd_c_emit_type(emitter, dst_type, NULL);
+        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, esrc)));
+    }
+}
+
 static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
     IrArena* arena = emitter->arena;
     BitCast payload = node->payload.bit_cast;
@@ -514,6 +535,8 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
     switch (emitter->backend_config.dialect) {
         case CDialect_CUDA:
         case CDialect_C11: {
+            if (src_type->tag == PtrType_TAG && src_type->payload.ptr_type.address_space == AsCode)
+                return emit_conversion(emitter, fn, p, dst_type, payload.src);
             String src = shd_make_unique_name(arena, "bitcast_src");
             String dst = shd_make_unique_name(arena, "bitcast_result");
             shd_print(p, "\n%s = %s;", shd_c_emit_type(emitter, src_type, src), shd_c_to_ssa(emitter, src_value));
@@ -581,22 +604,6 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
         }
     }
     SHADY_UNREACHABLE;
-}
-
-static CTerm emit_conversion(Emitter* emitter, FnEmitter* fn, Printer* p, const Type* dst_type, const Node* src) {
-    IrArena* arena = emitter->arena;
-    CTerm esrc = shd_c_emit_value(emitter, fn, src);
-    const Type* src_type = shd_get_unqualified_type(src->type);
-    if (emitter->backend_config.dialect == CDialect_GLSL) {
-        if (is_glsl_scalar_type(src_type) && is_glsl_scalar_type(dst_type)) {
-            CType t = shd_c_emit_type(emitter, dst_type, NULL);
-            return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", t, shd_c_to_ssa(emitter, esrc)));
-        } else
-            assert(false);
-    } else {
-        CType t = shd_c_emit_type(emitter, dst_type, NULL);
-        return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "((%s) %s)", t, shd_c_to_ssa(emitter, esrc)));
-    }
 }
 
 static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* node) {
@@ -786,6 +793,18 @@ ExtISelEntry ext_isel_glsl_entries[] = {
 
 };
 
+ExtISelEntry ext_isel_cuda_entries[] = {
+    {{ "spirv.core", SpvOpGroupIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "subgroupAdd" }},
+    {{ "spirv.core", SpvOpGroupNonUniformIAdd, subgroup_reduction }, { IsMono, OsCall, .op = "__shady_iadd_reduce" }},
+    // rest
+    {{ "spirv.core", SpvOpGroupNonUniformAllEqual, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_all_equal" }},
+    {{ "spirv.core", SpvOpGroupNonUniformBallot, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_ballot" }},
+
+    {{ "spirv.core", SpvOpGroupNonUniformBroadcastFirst, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_broadcast_first" }},
+    {{ "spirv.core", SpvOpGroupNonUniformElect, mk_prefix(SpvScopeSubgroup) }, { IsMono, OsCall, .op = "__shady_elect_first" }},
+
+};
+
 #include "spirv/unified1/GLSL.std.450.h"
 
 ExtISelEntry ext_isel_entries[] = {
@@ -840,6 +859,7 @@ static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
     switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
+        case CDialect_CUDA: scan_entries(ext_isel_cuda_entries); break;
         default: break;
     }
     scan_entries(ext_isel_entries);
@@ -923,11 +943,6 @@ static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValu
 static CTerm emit_call(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* callee, Nodes args, const Type* result_type) {
     Growy* g = shd_new_growy();
     Printer* paramsp = shd_new_printer_from_growy(g);
-    if (emitter->use_private_globals) {
-        shd_print(paramsp, "__shady_private_globals");
-        if (args.count > 0)
-            shd_print(paramsp, ", ");
-    }
     for (size_t i = 0; i < args.count; i++) {
         shd_print(paramsp, shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i])));
         if (i + 1 < args.count)

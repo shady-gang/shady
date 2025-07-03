@@ -135,13 +135,13 @@ void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, c
 
 void shd_c_emit_pack_code(Printer* p, Strings src, String dst) {
     for (size_t i = 0; i < src.count; i++) {
-        shd_print(p, "\n%s->_%d = %s", dst, src.strings[i], i);
+        shd_print(p, "\n%s._%d = %s;", dst, (int) i, src.strings[i]);
     }
 }
 
 void shd_c_emit_unpack_code(Printer* p, String src, Strings dst) {
     for (size_t i = 0; i < dst.count; i++) {
-        shd_print(p, "\n%s = %s->_%d", dst.strings[i], src, i);
+        shd_print(p, "\n%s = %s->_%d;", dst.strings[i], src, (int) i);
     }
 }
 
@@ -165,12 +165,11 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
         case CDialect_CUDA:
             switch (as) {
                 case AsPrivate:
-                    assert(false);
-                    // Note: this requires many hacks.
-                    prefix = "__device__ ";
-                    name = shd_format_string_arena(emitter->arena->arena, "__shady_private_globals.%s", name);
+                    shd_error("CUDA backend does not support top-level, invocation-private variables.");
+                case AsShared:
+                    prefix = "__shared__ ";
+                    init = NULL;
                     break;
-                case AsShared: prefix = "__shared__ "; break;
                 case AsGlobal: {
                     if (constant)
                         prefix = "__constant__ ";
@@ -246,6 +245,25 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
     CTerm emit_as = term_from_cvalue(name);
     shd_c_register_emitted(emitter, NULL, decl, emit_as);
     String head = shd_c_emit_fn_head(emitter, decl->type, name, decl);
+
+    const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
+    if (entry_point) {
+        switch (emitter->backend_config.dialect) {
+            case CDialect_C11:
+                break;
+            case CDialect_GLSL:
+                break;
+            case CDialect_ISPC:
+                head = shd_format_string_arena(emitter->arena->arena, "export %s", head);
+            break;
+            case CDialect_CUDA:
+                head = shd_format_string_arena(emitter->arena->arena, "extern \"C\" __global__ %s", head);
+            break;
+        }
+    } else if (emitter->backend_config.dialect == CDialect_CUDA) {
+        head = shd_format_string_arena(emitter->arena->arena, "__device__ %s", head);
+    }
+
     const Node* body = decl->payload.fun.body;
     if (body) {
         FnEmitter fn = {
@@ -273,10 +291,7 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
         } else if (emitter->backend_config.dialect == CDialect_CUDA) {
             if (shd_lookup_annotation(decl, "EntryPoint")) {
                 // fn_body = format_string_arena(emitter->arena->arena, "\n__shady_entry_point_init();%s", fn_body);
-                if (emitter->use_private_globals) {
-                    fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_PrivateGlobals __shady_private_globals_alloc;\n __shady_PrivateGlobals* __shady_private_globals = &__shady_private_globals_alloc;\n%s", fn_body);
-                }
-                fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_prepare_builtins();%s", fn_body);
+                fn_body = shd_format_string_arena(emitter->arena->arena, "\n__shady_cuda_init();%s", fn_body);
             }
         }
         shd_print(emitter->fn_defs, "\n%s { ", head);
@@ -329,11 +344,6 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
             if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->backend_config.dialect == CDialect_CUDA) {
-                if (emitter->use_private_globals) {
-                    shd_c_register_emitted(emitter, NULL, decl, term_from_cvar(shd_format_string_arena(emitter->arena->arena, "__shady_private_globals->%s", name)));
-                    // HACK
-                    return;
-                }
                 emit_as = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "__shady_thread_local_access(%s)", name));
                 if (init)
                     init = shd_fmt_string_irarena(emitter->arena, "__shady_replicate_thread_local(%s)", init);
@@ -411,33 +421,6 @@ void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CBackendConfig
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CBackendConfig));
 }
 
-static String collect_private_globals_in_struct(Emitter* emitter, Module* m) {
-    Growy* g = shd_new_growy();
-    Printer* p = shd_new_printer_from_growy(g);
-
-    shd_print(p, "typedef struct __shady_PrivateGlobals {\n");
-    Nodes decls = shd_module_collect_reachable_globals(m);
-    size_t count = 0;
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        AddressSpace as = decl->payload.global_variable.address_space;
-        if (as != AsPrivate)
-            continue;
-        CTerm eglobal = shd_c_emit_value(emitter, NULL, decl);
-        assert(eglobal.var);
-        shd_print(p, "%s;\n", shd_c_emit_type(emitter, decl->payload.global_variable.type, eglobal.var));
-        count++;
-    }
-    shd_print(p, "} __shady_PrivateGlobals;\n");
-
-    if (count == 0) {
-        shd_destroy_printer(p);
-        shd_destroy_growy(g);
-        return NULL;
-    }
-    return shd_printer_growy_unwrap(p);
-}
-
 CBackendConfig shd_default_c_backend_config(void) {
     return (CBackendConfig) {
         .glsl_version = 420,
@@ -471,7 +454,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
 
     switch (emitter.backend_config.dialect) {
         case CDialect_ISPC: {
-            shd_print(emitter.fn_defs, shady_ispc_runtime_src);
+            shd_print(emitter.fn_defs, "%s", shady_ispc_runtime_src);
             break;
         }
         case CDialect_C11:
@@ -489,7 +472,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
             shd_print(finalp, "#define uchar uint\n");
             shd_print(finalp, "#define ulong uint\n");
             if (emitter.backend_config.glsl_version <= 120)
-                shd_print(finalp, shady_glsl_runtime_120_src);
+                shd_print(finalp, "%s", shady_glsl_runtime_120_src);
             break;
         case CDialect_CUDA: {
             size_t total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
@@ -501,20 +484,13 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
             for (size_t i = 0; i < total_workgroup_size; i++)
                 shd_print(finalp, "v, ");
             shd_print(finalp, "}\n");
-            shd_print(finalp, shady_cuda_prelude_src);
+            shd_print(finalp, "%s", shady_cuda_prelude_src);
 
             shd_print(emitter.type_decls, "\ntypedef %s;\n", shd_c_emit_type(&emitter, arr_type(arena, (ArrType) {
                 .size = shd_int32_literal(arena, 3),
                 .element_type = shd_uint32_type(arena)
             }), "uvec3"));
-            shd_print(emitter.fn_defs, shady_cuda_runtime_src);
-
-            String private_globals = collect_private_globals_in_struct(&emitter, mod);
-            if (private_globals) {
-                emitter.use_private_globals = true;
-                shd_print(emitter.type_decls, private_globals);
-                free((void*) private_globals);
-            }
+            shd_print(emitter.fn_defs, "%s", shady_cuda_runtime_src);
             break;
         }
         default: break;

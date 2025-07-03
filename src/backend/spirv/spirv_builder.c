@@ -837,7 +837,7 @@ SpvId spvb_op(SpvbBasicBlockBuilder* bb_builder, SpvOp op, SpvId result_type, si
     ref_id(result_type);
     ref_id(id);
     for (size_t i = 0; i < operands_count; i++)
-        ref_id(operands[i]);
+        literal_int(operands[i]);
     return id;
 }
 

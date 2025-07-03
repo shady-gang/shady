@@ -107,13 +107,13 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
         case Type_Int_TAG: {
             if (t->payload.int_type.width == IntTy64) {
                 const Node* hi = prim_op_helper(a, rshift_logical_op, mk_nodes(a, param, shd_int32_literal(a, 32)));
-                hi = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), hi);
-                const Node* lo = shd_bld_convert_int_zero_extend(bb, shd_int32_type(a), param);
+                hi = shd_convert_int_zero_extend(a, shd_int32_type(a), hi);
+                const Node* lo = shd_convert_int_zero_extend(a, shd_int32_type(a), param);
                 hi = rebuild_op(ctx, bb, op, hi, false);
                 lo = rebuild_op(ctx, bb, op, lo, false);
                 const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
-                hi = shd_bld_convert_int_zero_extend(bb, it, hi);
-                lo = shd_bld_convert_int_zero_extend(bb, it, lo);
+                hi = shd_convert_int_zero_extend(a, it, hi);
+                lo = shd_convert_int_zero_extend(a, it, lo);
                 hi = prim_op_helper(a, lshift_op, mk_nodes(a, hi, shd_int32_literal(a, 32)));
                 return prim_op_helper(a, or_op, mk_nodes(a, lo, hi));
             }

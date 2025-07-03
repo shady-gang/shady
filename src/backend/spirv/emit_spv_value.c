@@ -249,9 +249,12 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 if (emitter->spirv_tgt.hacks.shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
                     const Node* b = shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId);
+                    SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(operands));
+                    SpvId src = spv_emit_value(emitter, fn_builder, operands.nodes[1]);
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
+                    local_id = spvb_op(bb_builder, SpvOpGroupNonUniformUMin, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 3, (uint32_t[]) { scope, SpvGroupOperationReduce, local_id});
                     assert(shd_get_int_value(shd_first(operands), false) == SpvScopeSubgroup);
-                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, result_t), spv_emit_value(emitter, fn_builder, shd_first(operands)), spv_emit_value(emitter, fn_builder, operands.nodes[1]), local_id);
+                    return spvb_group_shuffle(bb_builder, spv_emit_type(emitter, result_t), scope, src, local_id);
                 }
                 break;
             }

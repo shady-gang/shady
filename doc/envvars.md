@@ -28,6 +28,10 @@
    * `top-function`: prints on every iteration of the top function
    * `scratch-base-addr`: prints the computed base address for the subgroup in scratch
 
+## Shader diagnostics
+
+ * `SHADY_MAX_TOP_ITERATIONS=N`: Artificially caps the number of iterations of the top function
+
 ## Dumping
 
  * `SHADY_CFG_SCOPE_ONLY`: Do not print basic block contents when generating a CFG.

@@ -1,3 +1,5 @@
+#include <ir_private.h>
+
 #include "l2s_private.h"
 
 #include "shady/ir/memory_layout.h"
@@ -635,12 +637,16 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
 
             if (!r) {
                 Nodes ops = convert_operands(p, num_ops, instr);
+                const Node* callee = ops.nodes[num_args];
+                //callee = bit_cast_helper(a, size_t_type(a), callee);
+                //callee = shd_convert_int_zero_extend(a, int_type_helper(a, a->config.target.memory.fn_ptr_size, false), callee);
+                callee = bit_cast_helper(a, ptr_type(a, (PtrType) {
+                        .address_space = AsGeneric,
+                        .pointed_type = l2s_convert_type(p, callee_type)
+                    }), callee);
                 r = shd_bld_add_instruction(b, indirect_call(a, (IndirectCall) {
                     .mem = shd_bld_mem(b),
-                    .callee = bit_cast_helper(a, ptr_type(a, (PtrType) {
-                        .address_space = AsCode,
-                        .pointed_type = l2s_convert_type(p, callee_type)
-                    }), ops.nodes[num_args]),
+                    .callee = callee,
                     .args = shd_nodes(a, num_args, ops.nodes),
                 }));
             }

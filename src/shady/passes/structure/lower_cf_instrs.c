@@ -1,6 +1,7 @@
 #include "shady/pass.h"
-
-#include "analysis/cfg.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/function.h"
+#include "shady/ir/debug.h"
 
 #include "log.h"
 #include "portability.h"
@@ -10,40 +11,33 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    bool disable_lowering;
-    Node* current_fn;
 
-    struct Dict* structured_join_tokens;
-    CFG* cfg;
+    const Node* nearest_if_join;
+    const Node* nearest_continue_join;
+    const Node* nearest_break_join;
 } Context;
 
 static const Node* process_node(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    Context sub_ctx = *ctx;
     if (node->tag == Function_TAG) {
-        Node* fun = shd_recreate_node_head(&ctx->rewriter, node);
-        sub_ctx.disable_lowering = shd_lookup_annotation(fun, "Structured");
-        sub_ctx.current_fn = fun;
-        sub_ctx.cfg = build_fn_cfg(node);
+        Node* fun = shd_recreate_node_head(r, node);
+        Context sub_ctx = *ctx;
+        sub_ctx.rewriter = shd_create_children_rewriter(r);
+        sub_ctx.nearest_if_join = NULL;
+        sub_ctx.nearest_continue_join = NULL;
+        sub_ctx.nearest_break_join = NULL;
         shd_set_abstraction_body(fun, shd_rewrite_node(&sub_ctx.rewriter, node->payload.fun.body));
-        shd_destroy_cfg(sub_ctx.cfg);
+        shd_destroy_rewriter(&sub_ctx.rewriter);
         return fun;
-    } else if (node->tag == Constant_TAG) {
-        sub_ctx.cfg = NULL;
-        sub_ctx.current_fn = NULL;
-        ctx = &sub_ctx;
     }
-
-    if (ctx->disable_lowering)
-        return shd_recreate_node(&ctx->rewriter, node);
 
     switch (node->tag) {
         case If_TAG: {
             If payload = node->payload.if_instr;
             bool has_false_branch = payload.if_false;
-            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.if_instr.yield_types);
+            Nodes yield_types = shd_rewrite_nodes(r, node->payload.if_instr.yield_types);
             const Node* nmem = shd_rewrite_node(r, node->payload.if_instr.mem);
 
             const Type* jp_type = qualified_type(a, (QualifiedType) {
@@ -52,20 +46,24 @@ static const Node* process_node(Context* ctx, const Node* node) {
             });
             const Node* jp = param_helper(a, jp_type);
             shd_set_debug_name(jp, "if_join");
-            Nodes jps = shd_singleton(jp);
-            shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            const Node* true_block = shd_rewrite_node(r, payload.if_true);
+            Context sub_ctx = *ctx;
+            sub_ctx.rewriter = shd_create_children_rewriter(r);
+            sub_ctx.nearest_if_join = jp;
+
+            const Node* true_block = shd_rewrite_node(&sub_ctx.rewriter, payload.if_true);
 
             const Node* false_block;
             if (has_false_branch) {
-                false_block = shd_rewrite_node(r, payload.if_false);
+                false_block = shd_rewrite_node(&sub_ctx.rewriter, payload.if_false);
             } else {
                 assert(yield_types.count == 0);
                 false_block = basic_block_helper(a, shd_nodes(a, 0, NULL));
                 shd_set_debug_name(false_block, "if_false");
                 shd_set_abstraction_body((Node*) false_block, join(a, (Join) { .join_point = jp, .args = shd_nodes(a, 0, NULL), .mem = shd_get_abstraction_mem(false_block) }));
             }
+
+            shd_destroy_rewriter(&sub_ctx.rewriter);
 
             Node* control_case = basic_block_helper(a, shd_singleton(jp));
             const Node* control_body = branch(a, (Branch) {
@@ -85,8 +83,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Loop payload = node->payload.loop_instr;
             const Node* old_loop_block = payload.body;
 
-            Nodes yield_types = shd_rewrite_nodes(&ctx->rewriter, node->payload.loop_instr.yield_types);
-            Nodes param_types = shd_rewrite_nodes(&ctx->rewriter, shd_get_param_types(a, get_abstraction_params(old_loop_block)));
+            Nodes yield_types = shd_rewrite_nodes(r, node->payload.loop_instr.yield_types);
+            Nodes param_types = shd_rewrite_nodes(r, shd_get_param_types(a, get_abstraction_params(old_loop_block)));
             param_types = shd_strip_qualifiers(a, param_types);
 
             const Type* break_jp_type = qualified_type(a, (QualifiedType) {
@@ -101,19 +99,24 @@ static const Node* process_node(Context* ctx, const Node* node) {
             shd_set_debug_name(break_point, "loop_break_point");
             const Node* continue_point = param_helper(a, continue_jp_type);
             shd_set_debug_name(continue_jp_type, "loop_continue_point");
-            Nodes jps = mk_nodes(a, break_point, continue_point);
-            shd_dict_insert(const Node*, Nodes, ctx->structured_join_tokens, node, jps);
 
-            Nodes new_params = shd_recreate_params(&ctx->rewriter, get_abstraction_params(old_loop_block));
+            Context sub_ctx = *ctx;
+            sub_ctx.rewriter = shd_create_children_rewriter(r);
+            sub_ctx.nearest_if_join = NULL;
+            sub_ctx.nearest_continue_join = continue_point;
+            sub_ctx.nearest_break_join = break_point;
+
+            Nodes new_params = shd_recreate_params(r, get_abstraction_params(old_loop_block));
             Node* loop_header_block = basic_block_helper(a, new_params);
             shd_set_debug_name(loop_header_block, "loop_header");
 
             BodyBuilder* inner_bb = shd_bld_begin(a, shd_get_abstraction_mem(loop_header_block));
             Node* inner_control_case = basic_block_helper(a, shd_singleton(continue_point));
             shd_set_debug_name(inner_control_case, "inner_control");
-            shd_set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case),
-                                                                     shd_rewrite_node(r, old_loop_block), new_params));
+            shd_set_abstraction_body(inner_control_case, jump_helper(a, shd_get_abstraction_mem(inner_control_case), shd_rewrite_node(&sub_ctx.rewriter, old_loop_block), new_params));
             Nodes args = shd_bld_control(inner_bb, param_types, inner_control_case);
+
+            shd_destroy_rewriter(&sub_ctx.rewriter);
 
             shd_set_abstraction_body(loop_header_block, shd_bld_finish(inner_bb, jump(a, (Jump) { .target = loop_header_block, .args = args, .mem = shd_bld_mem(inner_bb) })));
 
@@ -132,109 +135,40 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         case MergeSelection_TAG: {
             MergeSelection payload = node->payload.merge_selection;
-            const Node* root_mem = shd_get_original_mem(payload.mem);
-            assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
-            CFNode* dom = cfnode->idom;
-            const Node* selection_instr = NULL;
-            while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
-                if(body->tag == If_TAG || body->tag == Match_TAG) {
-                    selection_instr = body;
-                    break;
-                }
-                dom = dom->idom;
-            }
-
-            if (!selection_instr) {
-                shd_error_print("Scoping error: Failed to find a dominating selection construct for ");
-                shd_log_node(ERROR, node);
-                shd_error_print(".\n");
-                shd_error_die();
-            }
-
-            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, selection_instr);
-            assert(jps && jps->count == 1);
-            const Node* jp = shd_first(*jps);
+            const Node* jp = ctx->nearest_if_join;
             assert(jp);
             const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(r, payload.args),
                 .mem = nmem
             });
         }
         case MergeContinue_TAG: {
             MergeContinue payload = node->payload.merge_continue;
-            const Node* root_mem = shd_get_original_mem(payload.mem);
-            assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
-            CFNode* dom = cfnode->idom;
-            const Node* loop_start = NULL;
-            while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
-                if (body->tag == Loop_TAG) {
-                    loop_start = body;
-                    break;
-                }
-                dom = dom->idom;
-            }
-
-            if (!loop_start) {
-                shd_error_print("Scoping error: Failed to find a dominating loop construct for ");
-                shd_log_node(ERROR, node);
-                shd_error_print(".\n");
-                shd_error_die();
-            }
-
-            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
-            assert(jps && jps->count == 2);
-            const Node* jp = jps->nodes[1];
+            const Node* jp = ctx->nearest_continue_join;
             assert(jp);
             const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(r, payload.args),
                 .mem = nmem,
             });
         }
         case MergeBreak_TAG: {
             MergeBreak payload = node->payload.merge_break;
-            const Node* root_mem = shd_get_original_mem(payload.mem);
-            assert(root_mem->tag == AbsMem_TAG);
-            CFNode* cfnode = shd_cfg_lookup(ctx->cfg, root_mem->payload.abs_mem.abs);
-            CFNode* dom = cfnode->idom;
-            const Node* loop_start = NULL;
-            while (dom) {
-                const Node* body = get_abstraction_body(dom->node);
-                if (body->tag == Loop_TAG) {
-                    loop_start = body;
-                    break;
-                }
-                dom = dom->idom;
-            }
-
-            if (!loop_start) {
-                shd_error_print("Scoping error: Failed to find a dominating loop construct for ");
-                shd_log_node(ERROR, node);
-                shd_error_print(".\n");
-                shd_error_die();
-            }
-
-            Nodes* jps = shd_dict_find_value(const Node*, Nodes, ctx->structured_join_tokens, loop_start);
-            assert(jps && jps->count == 2);
-            const Node* jp = shd_first(*jps);
+            const Node* jp = ctx->nearest_break_join;
             assert(jp);
             const Node* nmem = shd_rewrite_node(r, payload.mem);
             return join(a, (Join) {
                 .join_point = jp,
-                .args = shd_rewrite_nodes(&ctx->rewriter, payload.args),
+                .args = shd_rewrite_nodes(r, payload.args),
                 .mem = nmem,
             });
         }
         default: break;
     }
-    return shd_recreate_node(&ctx->rewriter, node);
+    return shd_recreate_node(r, node);
 }
 
 KeyHash shd_hash_node(const Node**);
@@ -246,11 +180,9 @@ Module* shd_pass_lower_cf_instrs(SHADY_UNUSED const CompilerConfig* config, SHAD
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
-        .structured_join_tokens = shd_new_dict(const Node*, Nodes, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
-    shd_destroy_dict(ctx.structured_join_tokens);
     return dst;
 }
 

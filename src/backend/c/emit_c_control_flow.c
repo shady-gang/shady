@@ -193,6 +193,9 @@ static void emit_terminator(Emitter* emitter, FnEmitter* fn, Printer* block_prin
                 shd_print(block_printer, "\nreturn %s;", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[0])));
             } else {
                 String packed = shd_make_unique_name(emitter->arena, "pack_return");
+                const Type* fn_type = fn->cfg->entry->node->type;
+                assert(fn_type->tag == FnType_TAG);
+                shd_c_emit_variable_declaration(emitter, block_printer, shd_maybe_multiple_return(emitter->arena, fn_type->payload.fn_type.return_types), packed, true, NULL);
                 LARRAY(CValue, values, args.count);
                 for (size_t i = 0; i < args.count; i++)
                     values[i] = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, args.nodes[i]));

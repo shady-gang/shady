@@ -69,6 +69,7 @@ X(0, KHR_8bit_storage) \
 X(0, KHR_16bit_storage) \
 X(0, KHR_driver_properties) \
 X(0, KHR_ray_tracing_pipeline) \
+X(0, KHR_shader_maximal_reconvergence) \
 
 #define E(is_required, name) ShadySupports##name,
 typedef enum {
@@ -112,6 +113,7 @@ typedef struct {
         VkPhysicalDevice8BitStorageFeatures storage8;
         VkPhysicalDevice16BitStorageFeatures storage16;
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rt_pipeline_features;
+        VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR maximal_reconvergence_features;
     } features;
     struct {
         VkPhysicalDeviceProperties2 base;

@@ -48,7 +48,6 @@ typedef struct {
     struct Dict* emitted_terms;
     struct Dict* emitted_types;
 
-    bool use_private_globals;
     Printer* entrypoint_prelude;
 
     bool need_64b_ext;

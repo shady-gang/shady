@@ -199,6 +199,12 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case PtrType_TAG: {
             if (old->payload.ptr_type.address_space == AsGeneric) {
+                if (old->payload.ptr_type.pointed_type->tag == FnType_TAG) {
+                    PtrType npayload = old->payload.ptr_type;
+                    npayload.pointed_type = shd_rewrite_node(r, npayload.pointed_type);
+                    npayload.address_space = AsCode;
+                    return ptr_type(a, npayload);
+                }
                 return ctx->generic_ptr_type;
             }
             break;
@@ -239,6 +245,16 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_src = payload.src;
             const Type* old_src_t = old_src->type;
             shd_deconstruct_qualified_type(&old_src_t);
+
+            if (old_src_t->payload.ptr_type.address_space == AsCode)
+                return bit_cast_helper(a, size_t_type(a), shd_rewrite_node(r, old_src));
+
+            if (old_src_t->payload.ptr_type.pointed_type->tag == FnType_TAG) {
+                PtrType npayload = old_src_t->payload.ptr_type;
+                npayload.pointed_type = shd_rewrite_node(r, npayload.pointed_type);
+                npayload.address_space = AsCode;
+                return bit_cast_helper(a, ptr_type(a, npayload), shd_rewrite_node(r, old_src));
+            }
 
             // cast _into_ generic
             AddressSpace src_as = old_src_t->payload.ptr_type.address_space;

@@ -23,6 +23,10 @@ SPVBackendConfig shd_default_spirv_backend_config(void) {
             .major = 1,
             .minor = 4
         },
+
+        .features = {
+            .maximal_reconvergence = true,
+        }
     };
     return config;
 }
@@ -293,6 +297,11 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             assert(exported_name);
             spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
+
+            if (emitter->spirv_tgt.features.maximal_reconvergence) {
+                spvb_extension(emitter->file_builder, "SPV_KHR_maximal_reconvergence");
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeMaximallyReconvergesKHR, 0, NULL);
+            }
 
             const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
             if (execution_model == EmCompute)

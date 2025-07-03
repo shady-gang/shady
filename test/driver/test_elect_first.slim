@@ -1,7 +1,31 @@
 @Internal @Builtin("SubgroupLocalInvocationId")
 var input u32 subgroup_local_id;
 
-@EntryPoint("Compute") @WorkgroupSize(64, 1, 1) fn main() {
+fn subgroup_min varying u32(varying u32 x) {
+    return (ext_instr["spirv.core", /* OpGroupNonUniformUMin */ 354, varying u32](3, 0, x));
+}
+
+fn subgroup_shuffle varying u32(varying u32 x, varying u32 i) {
+    return (ext_instr["spirv.core", /* OpGroupNonUniformShuffle */ 345, varying u32](3, x, i));
+}
+
+fn subgroup_elect_first varying bool() {
+    val tid = subgroup_local_id;
+    //return (tid == subgroup_min(tid));
+    return (ext_instr["spirv.core", 333, varying bool](3));
+}
+
+@Alias type mask_t = u64;
+
+fn subgroup_active_mask uniform mask_t() {
+    return (ext_instr["spirv.core", 339, uniform mask_t](3, true));
+}
+
+fn subgroup_broadcast_first uniform u32(varying u32 x) {
+    return (ext_instr["spirv.core", 338, uniform u32](3, x));
+}
+
+@Exported @EntryPoint("Compute") @WorkgroupSize(32, 1, 1) fn main() {
     val tid = subgroup_local_id;
     val x = tid / u32 4;
     debug_printf("tid = %d x = %d\n", tid, x);
@@ -10,13 +34,27 @@ var input u32 subgroup_local_id;
         debug_printf("not-loop: electing x = %d, mask = %lx\n", x, subgroup_active_mask());
     }
 
+    if ((x > u32 2) & (x < u32 5)) {
+        if (subgroup_elect_first()) {
+            debug_printf("nested-if: electing x = %d, mask = %lx\n", x, subgroup_active_mask());
+        }
+    }
+
+    var u32 i = 0;
     loop() {
-        if (subgroup_broadcast_first(x) == x) {
+        val leader = subgroup_min(tid);
+        val leader_x = subgroup_shuffle(x, leader);
+        val y = subgroup_broadcast_first(x);
+        //val y = leader_x;
+        /*debug_printf("loop: i = %d, leader = %d, %d y = %d\n", i, leader, leader_x, y);*/
+        if (y == x) {
             if (subgroup_elect_first()) {
-                debug_printf("loop: electing x = %d, mask = %lx\n", x, subgroup_active_mask());
+                debug_printf("loop: electing x = %d, y = %d, mask = %lx\n", x, y, subgroup_active_mask());
             }
+            /*debug_printf("y == x, loop: i = %d x = %d, y = %d, mask = %lx\n", i, x, y, subgroup_active_mask());*/
             break();
         }
+        i = i + u32 1;
     }
     return ();
 }
