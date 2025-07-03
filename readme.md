@@ -1,6 +1,6 @@
 # Shady
 
-![](logo.png)
+![](doc/logo.svg)
 
 `shady` is a small intermediate shading language and compiler for research purposes. It strives to be a testbed for improved GPU programming models, and also provide support for emulating features either missing from SPIR-V, or suffering from poor support.
 
