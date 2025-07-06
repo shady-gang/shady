@@ -24,6 +24,10 @@ if (WIN32)
 endif()
 
 add_subdirectory(SPIRV-Headers)
+set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/SPIRV-Headers/")
+set(SKIP_SPIRV_TOOLS_INSTALL TRUE)
+set(SPIRV_SKIP_TESTS TRUE)
+add_subdirectory(SPIRV-Tools)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
     FetchContent_Declare(
