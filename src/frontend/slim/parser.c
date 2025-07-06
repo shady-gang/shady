@@ -1332,12 +1332,13 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
         const Node* oea = shd_lookup_annotation(decl, "Exported");
         String exported_name = NULL;
         if (oea) {
-            if (oea->tag != AnnotationValue_TAG) {
+            // if we specify a different export name with the annotation
+            if (oea->tag == AnnotationValue_TAG) {
+                exported_name = shd_get_exported_name(decl);
+            } else {
                 shd_remove_annotation_by_name(decl, "Exported");
                 exported_name = shd_get_node_name_unsafe(decl);
                 assert(exported_name);
-            } else {
-                exported_name = shd_get_exported_name(decl);
             }
         }
 
