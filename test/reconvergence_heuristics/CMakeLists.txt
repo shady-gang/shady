@@ -1,0 +1,8 @@
+shady_unit_test(NAME reconv_heuristic_acyclic1 COMPILER slim FILES acyclic1.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_acyclic2 COMPILER slim FILES acyclic2.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_acyclic_diamond COMPILER slim FILES acyclic_evil.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_acyclic_simple_with_arg COMPILER slim FILES acyclic_simple_with_arg.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_loops1 COMPILER slim FILES loops1.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_loops2 COMPILER slim FILES loops2.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_multi_exit_loop COMPILER slim FILES multi_exit_loop.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(NAME reconv_heuristic_nested_loops COMPILER slim FILES nested_loops.slim VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
