@@ -401,6 +401,13 @@ void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const TargetConf
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_spv_backend_transforms, &config, sizeof(config));
 }
 
+static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
+    switch (node->tag) {
+        case QualifiedType_TAG: return shd_rewrite_node(r, node->payload.qualified_type.type);
+        default: return shd_recreate_node(r, node);
+    }
+}
+
 void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config, Module* mod, size_t* output_size, char** output) {
     mod = shd_import(config, mod);
     IrArena* arena = shd_module_get_arena(mod);
@@ -409,8 +416,16 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
     spvb_set_version(file_builder, target_config.target_version.major, target_config.target_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelLogical);
 
+    ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.target);
+    dummy_arena_config.check_types = false;
+    IrArena* dummy_arena = shd_new_ir_arena(&dummy_arena_config);
+    Module* dummy_module = shd_new_module(dummy_arena, "dummy");
+
+    Rewriter normalizer = shd_create_node_rewriter(mod, dummy_module, rewrite_normalize);
+
     Emitter emitter = {
         .module = mod,
+        .normalizer = &normalizer,
         .arena = arena,
         .configuration = config,
         .target = &arena->config.target,
@@ -450,4 +465,6 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
     shd_destroy_node_set(emitter.types_with_layouts);
 
     shd_destroy_ir_arena(arena);
+    shd_destroy_rewriter(&normalizer);
+    shd_destroy_ir_arena(dummy_arena);
 }

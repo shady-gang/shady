@@ -1,0 +1,16 @@
+@Exported
+fn identity uniform i32(uniform i32 i) {
+    return(i);
+}
+
+@Exported
+fn identity2 uniform i32(uniform i32 i) {
+    return (identity(i));
+}
+
+@Exported
+fn f varying i32 (uniform i32 i) {
+    val j = identity2(i);
+    val k = add(j, 1);
+    return(k);
+}

@@ -1,0 +1,11 @@
+@Exported
+fn pair varying i32 varying i32(varying i32 i) {
+    return(i, i);
+}
+
+@Exported
+fn f varying i32 (varying i32 i) {
+    val j, k = pair(i);
+    val l = add(j, k);
+    return(l);
+}

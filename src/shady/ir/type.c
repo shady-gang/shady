@@ -181,8 +181,14 @@ bool shd_is_physical_data_type(const Type* type) {
             for (size_t i = 0; i < type->payload.record_type.members.count; i++)
                 if (!shd_is_data_type(type->payload.record_type.members.nodes[i]))
                     return false;
-            // multi-return record types are the results of instructions, but are not values themselves
+            // Let's not have Block values I guess ?
             return type->payload.record_type.special == ShdRecordFlagNone;
+        }
+        case TupleType_TAG: {
+            //for (size_t i = 0; i < type->payload.tuple_type.members.count; i++)
+            //    if (!shd_is_data_type(type->payload.tuple_type.members.nodes[i]))
+            //        return false;
+            return false;
         }
         case NominalType_TAG:
             return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
@@ -305,10 +311,8 @@ const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types) {
     switch (types.count) {
         case 0: return empty_multiple_return_type(arena);
         case 1: return types.nodes[0];
-        default: return record_type(arena, (RecordType) {
+        default: return tuple_type(arena, (TupleType) {
                 .members = types,
-                .names = shd_strings(arena, 0, NULL),
-                .special = ShdRecordFlagMultipleReturn,
             });
     }
     SHADY_UNREACHABLE;
@@ -316,9 +320,8 @@ const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types) {
 
 Nodes shd_unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     switch (type->tag) {
-        case RecordType_TAG:
-            if (type->payload.record_type.special == ShdRecordFlagMultipleReturn)
-                return type->payload.record_type.members;
+        case TupleType_TAG:
+            return type->payload.tuple_type.members;
             // fallthrough
         default:
             assert(shd_is_value_type(type));

@@ -22,16 +22,14 @@ String shd_c_get_record_field_name(Emitter* emitter, const Type* t, size_t i) {
         return shd_c_legalize_identifier(emitter, r.names.strings[i]);
 }
 
-void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
-    assert(type->tag == RecordType_TAG);
+static void make_struct_type(Emitter* emitter, String name, Nodes member_types, String member_names[]) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
 
     shd_print(p, "\n%s {", name);
     shd_printer_indent(p);
-    for (size_t i = 0; i < type->payload.record_type.members.count; i++) {
-        String member_identifier = shd_c_get_record_field_name(emitter, type, i);
-        shd_print(p, "\n%s;", shd_c_emit_type(emitter, type->payload.record_type.members.nodes[i], member_identifier));
+    for (size_t i = 0; i < member_types.count; i++) {
+        shd_print(p, "\n%s;", shd_c_emit_type(emitter, member_types.nodes[i], member_names[i]));
     }
     shd_printer_deindent(p);
     shd_print(p, "\n};\n");
@@ -40,6 +38,19 @@ void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* typ
     shd_print(emitter->type_decls, shd_growy_data(g));
     shd_destroy_growy(g);
     shd_destroy_printer(p);
+}
+
+void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
+    assert(type->tag == RecordType_TAG);
+    RecordType payload = type->payload.record_type;
+    Growy* g = shd_new_growy();
+    Printer* p = shd_new_printer_from_growy(g);
+
+    LARRAY(String, member_names, payload.members.count);
+    for (size_t i = 0; i < payload.members.count; i++)
+        member_names[i] = shd_c_get_record_field_name(emitter, type, i);
+
+    make_struct_type(emitter, name, payload.members, member_names);
 }
 
 String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn) {
@@ -239,15 +250,28 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             }
             break;
         case Type_RecordType_TAG: {
-            RecordType payload = type->payload.record_type;
-            if (payload.members.count == 0 && payload.special == ShdRecordFlagMultipleReturn) {
+            emitted = shd_make_unique_name(emitter->arena, "Record");
+            String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
+            shd_c_emit_nominal_type_body(emitter, prefixed, type);
+            // C puts structs in their own namespace so we always need the prefix
+            if (emitter->backend_config.dialect == CDialect_C11)
+                emitted = prefixed;
+
+            break;
+        }
+        case Type_TupleType_TAG: {
+            TupleType payload = type->payload.tuple_type;
+            if (payload.members.count == 0) {
                 emitted = "void";
                 break;
             }
 
-            emitted = shd_make_unique_name(emitter->arena, "Record");
+            emitted = shd_make_unique_name(emitter->arena, "Tuple");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
-            shd_c_emit_nominal_type_body(emitter, prefixed, type);
+            LARRAY(String, member_names, payload.members.count);
+            for (unsigned i = 0; i < payload.members.count; i++)
+                member_names[i] = shd_format_string_arena(emitter->arena->arena, "_%d", i);
+            make_struct_type(emitter, prefixed, payload.members, member_names);
             // C puts structs in their own namespace so we always need the prefix
             if (emitter->backend_config.dialect == CDialect_C11)
                 emitted = prefixed;

@@ -23,9 +23,8 @@ static inline Node* basic_block_helper(IrArena* a, Nodes params) {
 
 /// For typing instructions that return nothing (equivalent to C's void f())
 static inline const Type* empty_multiple_return_type(IrArena* arena) {
-    return record_type(arena, (RecordType) {
+    return tuple_type(arena, (TupleType) {
         .members = shd_empty(arena),
-        .special = ShdRecordFlagMultipleReturn,
     });
 }
 

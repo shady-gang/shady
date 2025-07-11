@@ -26,6 +26,7 @@ typedef struct {
 
 typedef struct Emitter_ {
     Module* module;
+    Rewriter* normalizer;
     IrArena* arena;
     const CompilerConfig* configuration;
     const TargetConfig* target;

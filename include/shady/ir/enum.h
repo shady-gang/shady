@@ -21,8 +21,6 @@ typedef enum {
 
 typedef enum {
     ShdRecordFlagNone,
-    /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
-    ShdRecordFlagMultipleReturn,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
     ShdRecordFlagBlock
 } ShdRecordFlags;

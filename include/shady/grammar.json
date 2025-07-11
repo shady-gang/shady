@@ -193,6 +193,14 @@
       ]
     },
     {
+      "name": "TupleType",
+      "description": "Non-first class aggregate, cannot be stored in memory",
+      "class": "type",
+      "ops": [
+        { "name": "members", "class": "type", "list": true }
+      ]
+    },
+    {
       "name": "FnType",
       "snake_name": "fn_type",
       "class": "type",

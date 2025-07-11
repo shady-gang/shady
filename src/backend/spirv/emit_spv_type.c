@@ -43,41 +43,13 @@ SpvStorageClass spv_emit_addr_space(Emitter* emitter, AddressSpace address_space
     }
 }
 
-static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
-    if (!is_type(node) || shd_is_node_nominal(node)) {
-        shd_register_processed(r, node, node);
-        return node;
-    }
-    IrArena* a = r->dst_arena;
-
-    switch (node->tag) {
-        case QualifiedType_TAG: return shd_rewrite_node(r, node->payload.qualified_type.type);
-        //case FnType_TAG: return node;
-        case RecordType_TAG: {
-            RecordType payload = node->payload.record_type;
-            if (payload.special == ShdRecordFlagMultipleReturn) {
-                //if (payload.members.count == 0)
-                //    return unit_type(a);
-                payload.members = shd_rewrite_nodes(r, payload.members);
-                payload.special = 0;
-            } else {
-                payload.members = shd_rewrite_nodes(r, payload.members);
-            }
-            return record_type(a, payload);
-        }
-        default: return shd_recreate_node(r, node);
-    }
-}
-
 const Type* spv_normalize_type(Emitter* emitter, const Type* type) {
-    Rewriter rewriter = shd_create_node_rewriter(emitter->module, emitter->module, rewrite_normalize);
-    const Node* rewritten = shd_rewrite_node(&rewriter, type);
-    shd_destroy_rewriter(&rewriter);
+    const Node* rewritten = shd_rewrite_node(emitter->normalizer, type);
     return rewritten;
 }
 
 SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types) {
-    //return spv_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, return_types));
+    return spv_emit_type(emitter, shd_maybe_multiple_return(emitter->arena, return_types));
     switch (return_types.count) {
         case 0: return emitter->void_t;
         case 1: return spv_emit_type(emitter, return_types.nodes[0]);
@@ -89,7 +61,7 @@ SpvId spv_types_to_codom(Emitter* emitter, Nodes return_types) {
                 if (stripped[i]->tag == QualifiedType_TAG)
                     stripped[i] = shd_get_unqualified_type(stripped[i]);
             }
-            const Type* codom_ret_type = record_type(emitter->arena, (RecordType) { .members = shd_nodes(a, return_types.count, stripped), .special = 0 });
+            const Type* codom_ret_type = tuple_type(emitter->arena, (TupleType) { .members = shd_nodes(a, return_types.count, stripped) });
             return spv_emit_type(emitter, codom_ret_type);
         }
     }
@@ -130,11 +102,6 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
     }
 }
 
-static void emit_type_layout(Emitter* emitter, const Type* type) {
-    SpvId id = spv_emit_type(emitter, type);
-    spv_emit_type_layout(emitter, type, id);
-}
-
 void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id) {
     if (type->tag != RecordType_TAG)
         shd_error("not a suitable nominal type body (tag=%s)", shd_get_node_tag_string(type->tag));
@@ -153,9 +120,14 @@ void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id) {
 SpvId spv_emit_type(Emitter* emitter, const Type* type) {
     // Some types in shady lower to the same spir-v type, but spir-v is unhappy with having duplicates of the same types
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
-    type = spv_normalize_type(emitter, type);
 
-    SpvId* existing = spv_search_emitted(emitter, NULL, type);
+    // Only non-aggregate, non-pointer types require being unique, and we can just emit all QualifiedTypes their bodies
+    // This is only an issue for function types, which need to have
+    const Type* key = type;
+    if (type->arena == emitter->arena)
+        key = spv_normalize_type(emitter, type);
+
+    SpvId* existing = spv_search_emitted(emitter, NULL, key);
     if (existing)
         return *existing;
 
@@ -201,8 +173,8 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             const Type* pointed_type = payload.pointed_type;
             if (pointed_type->tag == NominalType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
-                spv_register_emitted(emitter, NULL, type, new);
-                emit_type_layout(emitter, type);
+                spv_register_emitted(emitter, NULL, key, new);
+                spv_emit_type_layout(emitter, type, new);
                 SpvId pointee = spv_emit_type(emitter, pointed_type);
                 spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
                 return new;
@@ -213,20 +185,20 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
 
             SpvId pointee = spv_emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
-            spv_register_emitted(emitter, NULL, type, new);
-            emit_type_layout(emitter, type);
+            spv_register_emitted(emitter, NULL, key, new);
+            spv_emit_type_layout(emitter, type, new);
             break;
         }
         case NoRet_TAG:
         case LamType_TAG:
         case BBType_TAG: shd_error("we can't emit arrow types that aren't those of shd_first-class functions")
         case FnType_TAG: {
-            const FnType* fnt = &type->payload.fn_type;
-            LARRAY(SpvId, params, fnt->param_types.count);
-            for (size_t i = 0; i < fnt->param_types.count; i++)
-                params[i] = spv_emit_type(emitter, fnt->param_types.nodes[i]);
+            FnType payload = type->payload.fn_type;
+            LARRAY(SpvId, params, payload.param_types.count);
+            for (size_t i = 0; i < payload.param_types.count; i++)
+                params[i] = spv_emit_type(emitter, payload.param_types.nodes[i]);
 
-            new = spvb_fn_type(emitter->file_builder, fnt->param_types.count, params, spv_types_to_codom(emitter, fnt->return_types));
+            new = spvb_fn_type(emitter->file_builder, payload.param_types.count, params, spv_types_to_codom(emitter, payload.return_types));
             break;
         }
         case QualifiedType_TAG: {
@@ -257,19 +229,28 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case RecordType_TAG: {
-            if (type->payload.record_type.members.count == 0) {
+            new = spvb_fresh_id(emitter->file_builder);
+            spv_emit_record_type_body(emitter, type, new);
+            spv_emit_type_layout(emitter, type, new);
+            return new;
+        }
+        case TupleType_TAG: {
+            TupleType payload = type->payload.tuple_type;
+            if (payload.members.count == 0) {
                 new = emitter->void_t;
                 break;
             }
             new = spvb_fresh_id(emitter->file_builder);
-            spv_register_emitted(emitter, NULL, type, new);
-            spv_emit_record_type_body(emitter, type, new);
-            emit_type_layout(emitter, type);
-            return new;
+            LARRAY(SpvId, members, payload.members.count);
+            for (size_t i = 0; i < payload.members.count; i++)
+                members[i] = spv_emit_type(emitter, payload.members.nodes[i]);
+            spvb_struct_type(emitter->file_builder, new, payload.members.count, members);
+            spv_emit_type_layout(emitter, type, new);
+            break;
         }
         case NominalType_TAG: {
             new = spv_emit_decl(emitter, type);
-            emit_type_layout(emitter, type);
+            spv_emit_type_layout(emitter, type, new);
             break;
         }
         case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
@@ -300,6 +281,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         }
     }
 
-    spv_register_emitted(emitter, NULL, type, new);
+    spv_register_emitted(emitter, NULL, key, new);
     return new;
 }
