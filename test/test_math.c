@@ -44,25 +44,25 @@ static void check_int_literal_against_reference(IrArena* a, const Node* lit, Int
 
 static void test_int_literals(IrArena* a) {
     IntLiteral ref_zero_u8 = {
-        .width = IntTy8,
+        .width = ShdIntSize8,
         .is_signed = false,
         .value = 0
     };
     check_int_literal_against_reference(a, shd_uint8_literal(a, 0), ref_zero_u8);
     IntLiteral ref_one_u8 = {
-        .width = IntTy8,
+        .width = ShdIntSize8,
         .is_signed = false,
         .value = 1
     };
     check_int_literal_against_reference(a, shd_uint8_literal(a, 1), ref_one_u8);
     IntLiteral ref_one_i8 = {
-        .width = IntTy8,
+        .width = ShdIntSize8,
         .is_signed = true,
         .value = 1
     };
     check_int_literal_against_reference(a, shd_int8_literal(a, 1), ref_one_i8);
     IntLiteral ref_minus_one_i8 = {
-        .width = IntTy8,
+        .width = ShdIntSize8,
         .is_signed = true,
         .value = 255
     };
@@ -73,7 +73,7 @@ static void test_int_literals(IrArena* a) {
         int64_t test_value = i64_test_values[i];
         IntLiteral reference_literal = {
             .value = test_value,
-            .width = IntTy64,
+            .width = ShdIntSize64,
             .is_signed = true
         };
         uint64_t extracted_literal_value = shd_get_int_literal_value(reference_literal, true);

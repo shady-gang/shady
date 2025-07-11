@@ -12,18 +12,18 @@ void shd_rt_materialize_constant_at(unsigned char* tgt, const Node* value) {
     switch (value->tag) {
         case IntLiteral_TAG: {
             switch (value->payload.int_literal.width) {
-                case IntTy8: *((uint8_t*) tgt) = (uint8_t) (value->payload.int_literal.value & 0xFF); break;
-                case IntTy16: *((uint16_t*) tgt) = (uint16_t) (value->payload.int_literal.value & 0xFFFF); break;
-                case IntTy32: *((uint32_t*) tgt) = (uint32_t) (value->payload.int_literal.value & 0xFFFFFFFF); break;
-                case IntTy64: *((uint64_t*) tgt) = (uint64_t) (value->payload.int_literal.value); break;
+                case ShdIntSize8: *((uint8_t*) tgt) = (uint8_t) (value->payload.int_literal.value & 0xFF); break;
+                case ShdIntSize16: *((uint16_t*) tgt) = (uint16_t) (value->payload.int_literal.value & 0xFFFF); break;
+                case ShdIntSize32: *((uint32_t*) tgt) = (uint32_t) (value->payload.int_literal.value & 0xFFFFFFFF); break;
+                case ShdIntSize64: *((uint64_t*) tgt) = (uint64_t) (value->payload.int_literal.value); break;
             }
             break;
         }
         case FloatLiteral_TAG: {
             switch (value->payload.float_literal.width) {
-                case FloatTy16: *((uint16_t*) tgt) = (uint16_t) (value->payload.float_literal.value & 0xFFFF); break;
-                case FloatTy32: *((uint32_t*) tgt) = (uint32_t) (value->payload.float_literal.value & 0xFFFFFFFF); break;
-                case FloatTy64: *((uint64_t*) tgt) = (uint64_t) (value->payload.float_literal.value); break;
+                case ShdFloatFormat16: *((uint16_t*) tgt) = (uint16_t) (value->payload.float_literal.value & 0xFFFF); break;
+                case ShdFloatFormat32: *((uint32_t*) tgt) = (uint32_t) (value->payload.float_literal.value & 0xFFFFFFFF); break;
+                case ShdFloatFormat64: *((uint64_t*) tgt) = (uint64_t) (value->payload.float_literal.value); break;
             }
             break;
         }

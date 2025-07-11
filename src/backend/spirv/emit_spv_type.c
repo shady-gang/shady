@@ -55,7 +55,7 @@ static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
         //case FnType_TAG: return node;
         case RecordType_TAG: {
             RecordType payload = node->payload.record_type;
-            if (payload.special == MultipleReturn) {
+            if (payload.special == ShdRecordFlagMultipleReturn) {
                 //if (payload.members.count == 0)
                 //    return unit_type(a);
                 payload.members = shd_rewrite_nodes(r, payload.members);
@@ -145,7 +145,7 @@ void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id) {
         members[i] = spv_emit_type(emitter, member_types.nodes[i]);
     spvb_struct_type(emitter->file_builder, id, member_types.count, members);
 
-    if (payload.special == DecorateBlock) {
+    if (payload.special == ShdRecordFlagBlock) {
         spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
     }
 }
@@ -165,14 +165,14 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         case Int_TAG: {
             int width;
             switch (type->payload.int_type.width) {
-                case IntTy8:
+                case ShdIntSize8:
                     spvb_capability(emitter->file_builder, SpvCapabilityInt8);
                     width = 8;  break;
-                case IntTy16:
+                case ShdIntSize16:
                     spvb_capability(emitter->file_builder, SpvCapabilityInt16);
                     width = 16; break;
-                case IntTy32: width = 32; break;
-                case IntTy64:
+                case ShdIntSize32: width = 32; break;
+                case ShdIntSize64:
                     spvb_capability(emitter->file_builder, SpvCapabilityInt64);
                     width = 64; break;
                 default: assert(false);
@@ -185,11 +185,11 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         } case Float_TAG: {
             int width;
             switch (type->payload.float_type.width) {
-                case FloatTy16:
+                case ShdFloatFormat16:
                     spvb_capability(emitter->file_builder, SpvCapabilityFloat16);
                     width = 16; break;
-                case FloatTy32: width = 32; break;
-                case FloatTy64:
+                case ShdFloatFormat32: width = 32; break;
+                case ShdFloatFormat64:
                     spvb_capability(emitter->file_builder, SpvCapabilityFloat64);
                     width = 64; break;
             }

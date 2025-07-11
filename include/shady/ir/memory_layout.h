@@ -33,7 +33,7 @@ static inline const Node* size_t_literal(IrArena* a, uint64_t value) {
 /// Divides the address in bytes to be an address in words. Result type matches that of bytes.
 const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes);
 uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes);
-IntSizes shd_float_to_int_width(FloatSizes width);
+ShdIntSize shd_float_to_int_width(ShdFloatFormat width);
 
 size_t shd_get_type_bitwidth(const Type* t);
 

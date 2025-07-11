@@ -25,7 +25,7 @@ static inline Node* basic_block_helper(IrArena* a, Nodes params) {
 static inline const Type* empty_multiple_return_type(IrArena* arena) {
     return record_type(arena, (RecordType) {
         .members = shd_empty(arena),
-        .special = MultipleReturn,
+        .special = ShdRecordFlagMultipleReturn,
     });
 }
 

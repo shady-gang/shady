@@ -263,7 +263,7 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 assert(operands.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
-                assert(shd_get_arena_config(emitter->arena)->target.memory.exec_mask_size == IntTy64);
+                assert(shd_get_arena_config(emitter->arena)->target.memory.exec_mask_size == ShdIntSize64);
                 const Type* i32x4 = vector_type(emitter->arena, (VectorType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
                 SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, operands.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(operands)));
                 // TODO: why are we doing this in SPIR-V and not the IR ?
@@ -485,7 +485,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = spv_emit_type(emitter, node->type);
             // 64-bit constants take two spirv words, anything else fits in one
-            if (node->payload.int_literal.width == IntTy64) {
+            if (node->payload.int_literal.width == ShdIntSize64) {
                 uint32_t arr[] = { node->payload.int_literal.value & 0xFFFFFFFF, node->payload.int_literal.value >> 32 };
                 spvb_constant(emitter->file_builder, new, ty, 2, arr);
             } else {
@@ -498,17 +498,17 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             new = spvb_fresh_id(emitter->file_builder);
             SpvId ty = spv_emit_type(emitter, node->type);
             switch (node->payload.float_literal.width) {
-                case FloatTy16: {
+                case ShdFloatFormat16: {
                     uint32_t arr[] = { node->payload.float_literal.value & 0xFFFF };
                     spvb_constant(emitter->file_builder, new, ty, 1, arr);
                     break;
                 }
-                case FloatTy32: {
+                case ShdFloatFormat32: {
                     uint32_t arr[] = { node->payload.float_literal.value };
                     spvb_constant(emitter->file_builder, new, ty, 1, arr);
                     break;
                 }
-                case FloatTy64: {
+                case ShdFloatFormat64: {
                     uint32_t arr[] = { node->payload.float_literal.value & 0xFFFFFFFF, node->payload.float_literal.value >> 32 };
                     spvb_constant(emitter->file_builder, new, ty, 2, arr);
                     break;

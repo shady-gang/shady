@@ -14,22 +14,22 @@ static const Node* data_composite(const Type* t, size_t size, LLVMValueRef v) {
         switch (et->tag) {
             case Int_TAG: {
                 switch (et->payload.int_type.width) {
-                    case IntTy8:  elements[i] = shd_uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
-                    case IntTy16: elements[i] = shd_uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
-                    case IntTy32: elements[i] = shd_uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
-                    case IntTy64: elements[i] = shd_uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
+                    case ShdIntSize8:  elements[i] = shd_uint8_literal(a, ((uint8_t*) raw_bytes)[i]); break;
+                    case ShdIntSize16: elements[i] = shd_uint16_literal(a, ((uint16_t*) raw_bytes)[i]); break;
+                    case ShdIntSize32: elements[i] = shd_uint32_literal(a, ((uint32_t*) raw_bytes)[i]); break;
+                    case ShdIntSize64: elements[i] = shd_uint64_literal(a, ((uint64_t*) raw_bytes)[i]); break;
                 }
                 break;
             }
             case Float_TAG: {
                 switch (et->payload.float_type.width) {
-                    case FloatTy16:
+                    case ShdFloatFormat16:
                         elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint16_t*) raw_bytes)[i] });
                         break;
-                    case FloatTy32:
+                    case ShdFloatFormat32:
                         elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint32_t*) raw_bytes)[i] });
                         break;
-                    case FloatTy64:
+                    case ShdFloatFormat64:
                         elements[i] = float_literal(a, (FloatLiteral) { .width = et->payload.float_type.width, .value = ((uint64_t*) raw_bytes)[i] });
                         break;
                 }
@@ -143,10 +143,10 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             assert(t->tag == Int_TAG);
             unsigned long long value = LLVMConstIntGetZExtValue(v);
             switch (t->payload.int_type.width) {
-                case IntTy8:  r = shd_uint8_literal(a, value);  break;
-                case IntTy16: r = shd_uint16_literal(a, value); break;
-                case IntTy32: r = shd_uint32_literal(a, value); break;
-                case IntTy64: r = shd_uint64_literal(a, value); break;
+                case ShdIntSize8:  r = shd_uint8_literal(a, value);  break;
+                case ShdIntSize16: r = shd_uint16_literal(a, value); break;
+                case ShdIntSize32: r = shd_uint32_literal(a, value); break;
+                case ShdIntSize64: r = shd_uint64_literal(a, value); break;
             }
             break;
         }
@@ -157,15 +157,15 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             uint64_t u = 0;
             static_assert(sizeof(u) == sizeof(d), "");
             switch (t->payload.float_type.width) {
-                case FloatTy16: shd_error("todo")
-                case FloatTy32: {
+                case ShdFloatFormat16: shd_error("todo")
+                case ShdFloatFormat32: {
                     float f = (float) d;
                     static_assert(sizeof(f) == sizeof(uint32_t), "");
                     memcpy(&u, &f, sizeof(f));
                     r = float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
                     break;
                 }
-                case FloatTy64: {
+                case ShdFloatFormat64: {
                     memcpy(&u, &d, sizeof(double));
                     r = float_literal(a, (FloatLiteral) { .width = t->payload.float_type.width, .value = u });
                     break;

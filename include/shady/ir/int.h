@@ -4,16 +4,16 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/builder.h"
 
-static inline int int_size_in_bytes(IntSizes s) {
+static inline int int_size_in_bytes(ShdIntSize s) {
     switch (s) {
-        case IntTy8: return 1;
-        case IntTy16: return 2;
-        case IntTy32: return 4;
-        case IntTy64: return 8;
+        case ShdIntSize8: return 1;
+        case ShdIntSize16: return 2;
+        case ShdIntSize32: return 4;
+        case ShdIntSize64: return 8;
     }
 }
 
-const Type* shd_int_type_helper(IrArena* a, bool s, IntSizes w);
+const Type* shd_int_type_helper(IrArena* a, bool s, ShdIntSize w);
 
 const Type* shd_int8_type(IrArena* arena);
 const Type* shd_int16_type(IrArena* arena);

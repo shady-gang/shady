@@ -163,7 +163,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "width", "type": "IntSizes" },
+        { "name": "width", "type": "ShdIntSize" },
         { "name": "is_signed", "type": "bool" }
       ]
     },
@@ -173,7 +173,7 @@
       "class": "type",
       "type": false,
       "ops": [
-        { "name": "width", "type": "FloatSizes" }
+        { "name": "width", "type": "ShdFloatFormat" }
       ]
     },
     {
@@ -189,7 +189,7 @@
       "ops": [
         { "name": "members", "class": "type", "list": true },
         { "name": "names", "class": "string", "list": true },
-        { "name": "special", "type": "RecordSpecialFlag" }
+        { "name": "special", "type": "ShdRecordFlags" }
       ]
     },
     {
@@ -282,7 +282,7 @@
       "name": "IntLiteral",
       "class": "value",
       "ops": [
-        { "name": "width", "type": "IntSizes" },
+        { "name": "width", "type": "ShdIntSize" },
         { "name": "is_signed", "type": "bool" },
         { "name": "value", "type": "uint64_t" }
       ]
@@ -292,7 +292,7 @@
       "class": "value",
       "description": "C lacks sized float types, so let's just store the raw bits for them",
       "ops": [
-        { "name": "width", "type": "FloatSizes" },
+        { "name": "width", "type": "ShdFloatFormat" },
         { "name": "value", "type": "uint64_t" }
       ]
     },

@@ -160,11 +160,11 @@ uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes) {
     return bytes / word_width;
 }
 
-IntSizes shd_float_to_int_width(FloatSizes width) {
+ShdIntSize shd_float_to_int_width(ShdFloatFormat width) {
     switch (width) {
-        case FloatTy16: return IntTy16;
-        case FloatTy32: return IntTy32;
-        case FloatTy64: return IntTy64;
+        case ShdFloatFormat16: return ShdIntSize16;
+        case ShdFloatFormat32: return ShdIntSize32;
+        case ShdFloatFormat64: return ShdIntSize64;
     }
 }
 

@@ -89,7 +89,7 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
                 unsigned type_id = (offset >> 4) & 0x3;
                 const Type* sampled_type = NULL;
                 switch (type_id) {
-                    case 0x0: sampled_type = float_type(a, (Float) {.width = FloatTy32}); break;
+                    case 0x0: sampled_type = float_type(a, (Float) {.width = ShdFloatFormat32}); break;
                     case 0x1: sampled_type = shd_int32_type(a); break;
                     case 0x2: sampled_type = shd_uint32_type(a); break;
                     default: assert(false);

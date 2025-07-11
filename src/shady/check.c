@@ -35,7 +35,7 @@ const Type* _shd_check_type_record_type(IrArena* arena, RecordType type) {
     assert(type.names.count == 0 || type.names.count == type.members.count);
     for (size_t i = 0; i < type.members.count; i++) {
         // member types are value types iff this is a return tuple
-        if (type.special == MultipleReturn)
+        if (type.special == ShdRecordFlagMultipleReturn)
             assert(shd_is_value_type(type.members.nodes[i]));
         else
             assert(shd_is_data_type(type.members.nodes[i]));
@@ -79,7 +79,7 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         const Node* maybe_record_type = ptr_type.pointed_type;
         if (maybe_record_type->tag == NominalType_TAG)
             maybe_record_type = shd_get_nominal_type_body(maybe_record_type);
-        if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == DecorateBlock) {
+        if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == ShdRecordFlagBlock) {
             return NULL;
         }
         switch (ptr_type.pointed_type->tag) {
@@ -90,9 +90,9 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
                 return NULL; // allows pointer to unsized arrays
             case RecordType_TAG:
                 switch (ptr_type.pointed_type->payload.record_type.special) {
-                    case NotSpecial: break;
-                    case DecorateBlock: return NULL; // explicitly OK even if the pointee is not a datatype
-                    case MultipleReturn: shd_error("Pointers to multiple-return definitions are not allowed")
+                    case ShdRecordFlagNone: break;
+                    case ShdRecordFlagBlock: return NULL; // explicitly OK even if the pointee is not a datatype
+                    case ShdRecordFlagMultipleReturn: shd_error("Pointers to multiple-return definitions are not allowed")
                 }
                 break;
             default:
@@ -191,7 +191,7 @@ const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
 const Type* _shd_check_type_extract(IrArena* a, Extract extract) {
     const Type* t = extract.composite->type;
     ShdScope scope;
-    if (t->tag == RecordType_TAG && t->payload.record_type.special == MultipleReturn) {
+    if (t->tag == RecordType_TAG && t->payload.record_type.special == ShdRecordFlagMultipleReturn) {
         t = t->payload.record_type.members.nodes[shd_get_int_value(extract.selector, false)];
         scope = shd_deconstruct_qualified_type(&t);
     } else {

@@ -69,7 +69,7 @@ static bool is_extended_type(SHADY_UNUSED IrArena* a, const Type* t, bool allow_
 
 static bool is_supported_natively(Context* ctx, SHADY_UNUSED SubgroupOp op, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
-    if (element_type->tag == Int_TAG && element_type->payload.int_type.width <= IntTy32) {
+    if (element_type->tag == Int_TAG && element_type->payload.int_type.width <= ShdIntSize32) {
         return true;
     } else if (element_type->tag == Float_TAG /* TODO is it */) {
         return true;
@@ -105,13 +105,13 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
             return composite_helper(a, original_t, shd_nodes(a, element_types.count, elements));
         }
         case Type_Int_TAG: {
-            if (t->payload.int_type.width == IntTy64) {
+            if (t->payload.int_type.width == ShdIntSize64) {
                 const Node* hi = prim_op_helper(a, rshift_logical_op, mk_nodes(a, param, shd_int32_literal(a, 32)));
                 hi = shd_convert_int_zero_extend(a, shd_int32_type(a), hi);
                 const Node* lo = shd_convert_int_zero_extend(a, shd_int32_type(a), param);
                 hi = rebuild_op(ctx, bb, op, hi, false);
                 lo = rebuild_op(ctx, bb, op, lo, false);
-                const Node* it = int_type(a, (Int) { .width = IntTy64, .is_signed = t->payload.int_type.is_signed });
+                const Node* it = int_type(a, (Int) { .width = ShdIntSize64, .is_signed = t->payload.int_type.is_signed });
                 hi = shd_convert_int_zero_extend(a, it, hi);
                 lo = shd_convert_int_zero_extend(a, it, lo);
                 hi = prim_op_helper(a, lshift_op, mk_nodes(a, hi, shd_int32_literal(a, 32)));

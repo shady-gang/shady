@@ -181,7 +181,7 @@ Module* shd_pass_lower_alloca(SHADY_UNUSED const CompilerConfig* config, SHADY_U
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
-        .stack_ptr_t = int_type(a, (Int) { .is_signed = false, .width = IntTy32 }),
+        .stack_ptr_t = int_type(a, (Int) { .is_signed = false, .width = ShdIntSize32 }),
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

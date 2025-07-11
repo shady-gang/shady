@@ -72,7 +72,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     const Type* type = record_type(a, (RecordType) {
         .members = shd_nodes(a, params.count, types),
         .names = shd_strings(a, params.count, names),
-        .special = DecorateBlock,
+        .special = ShdRecordFlagBlock,
     });
 
     String name = shd_fmt_string_irarena(a, "__%s_args", shd_get_node_name_safe(old_entry_point));

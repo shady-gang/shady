@@ -208,14 +208,14 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                         break;
                     }
                     switch (type->payload.int_type.width) {
-                        case IntTy8:  shd_warn_print("vanilla GLSL does not support 8-bit integers\n");
+                        case ShdIntSize8:  shd_warn_print("vanilla GLSL does not support 8-bit integers\n");
                             emitted = sign ? "byte" : "ubyte";
                             break;
-                        case IntTy16: shd_warn_print("vanilla GLSL does not support 16-bit integers\n");
+                        case ShdIntSize16: shd_warn_print("vanilla GLSL does not support 16-bit integers\n");
                             emitted = sign ? "short" : "ushort";
                             break;
-                        case IntTy32: emitted = sign ? "int" : "uint"; break;
-                        case IntTy64:
+                        case ShdIntSize32: emitted = sign ? "int" : "uint"; break;
+                        case ShdIntSize64:
                             emitter->need_64b_ext = true;
                             shd_warn_print("vanilla GLSL does not support 64-bit integers\n");
                             emitted = sign ? "int64_t" : "uint64_t";
@@ -227,20 +227,20 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         }
         case Float_TAG:
             switch (type->payload.float_type.width) {
-                case FloatTy16:
+                case ShdFloatFormat16:
                     assert(false);
                     break;
-                case FloatTy32:
+                case ShdFloatFormat32:
                     emitted = "float";
                     break;
-                case FloatTy64:
+                case ShdFloatFormat64:
                     emitted = "double";
                     break;
             }
             break;
         case Type_RecordType_TAG: {
             RecordType payload = type->payload.record_type;
-            if (payload.members.count == 0 && payload.special == MultipleReturn) {
+            if (payload.members.count == 0 && payload.special == ShdRecordFlagMultipleReturn) {
                 emitted = "void";
                 break;
             }

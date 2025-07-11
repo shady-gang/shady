@@ -34,8 +34,8 @@ static bool is_as_emulated(Context* ctx, AddressSpace as) {
 
 /// The emulated memory arrays are not realistically going to be bigger than 4GiB, therefore all the address computations
 /// should be done on 32-bit for improved performance. Emulated ptr size for ABI purposes is still dictated by the target
-static IntSizes get_shortptr_type_size(Context* ctx, AddressSpace as) {
-    return IntTy32;
+static ShdIntSize get_shortptr_type_size(Context* ctx, AddressSpace as) {
+    return ShdIntSize32;
 }
 
 static const Type* get_shortptr_type(Context* ctx, AddressSpace as) {
@@ -55,12 +55,12 @@ static const Node** get_emulated_as_word_array(Context* ctx, AddressSpace as) {
     }
 }
 
-static IntSizes bytes_to_int_size(int bytes) {
+static ShdIntSize bytes_to_int_size(int bytes) {
     switch (bytes) {
-        case 1: return IntTy8;
-        case 2: return IntTy16;
-        case 4: return IntTy32;
-        case 8: return IntTy64;
+        case 1: return ShdIntSize8;
+        case 2: return ShdIntSize16;
+        case 4: return ShdIntSize32;
+        case 8: return ShdIntSize64;
         default: shd_error("TODO");
     }
 }
@@ -95,11 +95,11 @@ static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as,
         offset = swizzle_offset(ctx, bb, offset);
     const Node* arr = *get_emulated_as_word_array(ctx, as);
     const Node* value = shd_bld_load(bb, ptr_composite_element_helper(a, arr, offset));
-    IntSizes width = a->config.target.memory.word_size;
+    ShdIntSize width = a->config.target.memory.word_size;
     if (ctx->config->printf_trace.memory_accesses) {
-        String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
+        String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", width == ShdIntSize64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
         const Node* widened = value;
-        if (width < IntTy32)
+        if (width < ShdIntSize32)
             widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
         shd_bld_debug_printf(bb, template, mk_nodes(a, widened, offset));
     }
@@ -112,11 +112,11 @@ static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const
     // swizzle the address here !
     if (ctx->config->lower.use_scratch_for_private)
         offset = swizzle_offset(ctx, bb, offset);
-    IntSizes width = a->config.target.memory.word_size;
+    ShdIntSize width = a->config.target.memory.word_size;
     if (ctx->config->printf_trace.memory_accesses) {
-        String template = shd_fmt_string_irarena(a, "storing %s at %s:0x%s\n", width == IntTy64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
+        String template = shd_fmt_string_irarena(a, "storing %s at %s:0x%s\n", width == ShdIntSize64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
         const Node* widened = value;
-        if (width < IntTy32)
+        if (width < ShdIntSize32)
             widened = shd_bld_conversion(bb, shd_uint32_type(a), value);
         shd_bld_debug_printf(bb, template, mk_nodes(a, widened, offset));
     }
@@ -156,7 +156,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
         }
         case PtrType_TAG: {
             TypeMemLayout layout = shd_get_mem_layout(a, element_type);
-            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            assert(layout.size_in_bytes <= int_size_in_bytes(ShdIntSizeMax));
             const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
             const Node* unsigned_int = gen_load_for_type(ctx, bb, ptr_int_t, as, address);
             return shd_bld_bitcast(bb, element_type, unsigned_int);
@@ -252,7 +252,7 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
         }
         case PtrType_TAG: {
             TypeMemLayout layout = shd_get_mem_layout(a, element_type);
-            assert(layout.size_in_bytes <= int_size_in_bytes(IntSizeMax));
+            assert(layout.size_in_bytes <= int_size_in_bytes(ShdIntSizeMax));
             const Type* ptr_int_t = int_type(a, (Int) { .width = bytes_to_int_size(layout.size_in_bytes), .is_signed = false });
             const Node* unsigned_value = bit_cast_helper(a, ptr_int_t, value);
             return gen_store_for_type(ctx, bb, ptr_int_t, as, address, unsigned_value);

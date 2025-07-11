@@ -615,12 +615,12 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpTypeInt: {
             uint32_t width = instruction[2];
             bool is_signed = instruction[3];
-            IntSizes w;
+            ShdIntSize w;
             switch (width) {
-                case  8: w = IntTy8;  break;
-                case 16: w = IntTy16; break;
-                case 32: w = IntTy32; break;
-                case 64: w = IntTy64; break;
+                case  8: w = ShdIntSize8;  break;
+                case 16: w = ShdIntSize16; break;
+                case 32: w = ShdIntSize32; break;
+                case 64: w = ShdIntSize64; break;
                 default: shd_error("unhandled int width");
             }
             parser->defs[result].type = Typ;
@@ -632,11 +632,11 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpTypeFloat: {
             uint32_t width = instruction[2];
-            FloatSizes w;
+            ShdFloatFormat w;
             switch (width) {
-                case 16: w = FloatTy16; break;
-                case 32: w = FloatTy32; break;
-                case 64: w = FloatTy64; break;
+                case 16: w = ShdFloatFormat16; break;
+                case 32: w = ShdFloatFormat32; break;
+                case 64: w = ShdFloatFormat64; break;
                 default: shd_error("unhandled float width");
             }
             parser->defs[result].type = Typ;
@@ -1384,7 +1384,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Type* selector_type = shd_get_unqualified_type(selector->type);
             assert(selector_type->tag == Int_TAG);
             Int selector_int_type = selector_type->payload.int_type;
-            bool is64 = selector_int_type.width == IntTy64;
+            bool is64 = selector_int_type.width == ShdIntSize64;
             int case_size = is64 ? 3 : 2;
 
             const Node* default_jump = jump_helper(a, shd_bld_mem(bb), get_def_block(parser, instruction[2]), get_args_from_phi(parser, instruction[2], parser->current_block.id));
@@ -1403,7 +1403,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     literal |= instruction[offset];
                     literal |= ((uint64_t) instruction[offset]) << 32;
                     offset += 2;
-                    literals[i] = int_literal_helper(a, IntTy64, selector_int_type.is_signed, literal);
+                    literals[i] = int_literal_helper(a, ShdIntSize64, selector_int_type.is_signed, literal);
                 } else {
                     literals[i] = int_literal_helper(a, selector_int_type.width, selector_int_type.is_signed, instruction[offset]);
                     offset += 1;

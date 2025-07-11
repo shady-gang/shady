@@ -167,7 +167,7 @@ const char* shd_get_string_literal(IrArena* arena, const Node* node) {
             LARRAY(char, chars, contents.count);
             for (size_t i = 0; i < contents.count; i++) {
                 const Node* value = contents.nodes[i];
-                assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == IntTy8);
+                assert(value->tag == IntLiteral_TAG && value->payload.int_literal.width == ShdIntSize8);
                 chars[i] = (unsigned char) shd_get_int_literal_value(*shd_resolve_to_int_literal(value), false);
             }
             assert(chars[contents.count - 1] == 0);

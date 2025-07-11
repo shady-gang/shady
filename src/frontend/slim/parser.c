@@ -221,14 +221,14 @@ static const Node* accept_numerical_literal(ctxparams) {
             Float payload = num_type->payload.float_type;
             uint64_t v;
             switch (payload.width) {
-                case FloatTy16:
+                case ShdFloatFormat16:
                 shd_error("TODO: implement fp16 parsing");
-                case FloatTy32:
+                case ShdFloatFormat32:
                     assert(sizeof(float) == sizeof(uint32_t));
                     float f = strtof(str, NULL);
                     memcpy(&v, &f, sizeof(uint32_t));
                     break;
-                case FloatTy64:
+                case ShdFloatFormat64:
                     assert(sizeof(double) == sizeof(uint64_t));
                     double d = strtod(str, NULL);
                     memcpy(&v, &d, sizeof(uint64_t));
@@ -543,7 +543,7 @@ static const Type* accept_unqualified_type(ctxparams) {
         return record_type(arena, (RecordType) {
             .names = names2,
             .members = elem_types,
-            .special = NotSpecial,
+            .special = ShdRecordFlagNone,
         });
     } else {
         String id = accept_identifier(ctx);

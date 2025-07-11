@@ -182,7 +182,7 @@ bool shd_is_physical_data_type(const Type* type) {
                 if (!shd_is_data_type(type->payload.record_type.members.nodes[i]))
                     return false;
             // multi-return record types are the results of instructions, but are not values themselves
-            return type->payload.record_type.special == NotSpecial;
+            return type->payload.record_type.special == ShdRecordFlagNone;
         }
         case NominalType_TAG:
             return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
@@ -308,7 +308,7 @@ const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types) {
         default: return record_type(arena, (RecordType) {
                 .members = types,
                 .names = shd_strings(arena, 0, NULL),
-                .special = MultipleReturn,
+                .special = ShdRecordFlagMultipleReturn,
             });
     }
     SHADY_UNREACHABLE;
@@ -317,7 +317,7 @@ const Type* shd_maybe_multiple_return(IrArena* arena, Nodes types) {
 Nodes shd_unwrap_multiple_yield_types(IrArena* arena, const Type* type) {
     switch (type->tag) {
         case RecordType_TAG:
-            if (type->payload.record_type.special == MultipleReturn)
+            if (type->payload.record_type.special == ShdRecordFlagMultipleReturn)
                 return type->payload.record_type.members;
             // fallthrough
         default:

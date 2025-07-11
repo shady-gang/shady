@@ -58,15 +58,15 @@ void shd_parse_common_args(int* pargc, char** argv) {
     shd_pack_remaining_args(pargc, argv);
 }
 
-static IntSizes parse_int_size(String argv) {
+static ShdIntSize parse_int_size(String argv) {
     if (strcmp(argv, "8") == 0)
-        return IntTy8;
+        return ShdIntSize8;
     if (strcmp(argv, "16") == 0)
-        return IntTy16;
+        return ShdIntSize16;
     if (strcmp(argv, "32") == 0)
-        return IntTy32;
+        return ShdIntSize32;
     if (strcmp(argv, "64") == 0)
-        return IntTy64;
+        return ShdIntSize64;
     shd_error("Valid pointer sizes are 8, 16, 32 or 64.");
 }
 
@@ -99,10 +99,10 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
             target->memory.address_spaces[AsGlobal].allowed = false;
         } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
             target->capabilities.native_tailcalls = true;
-            target->memory.fn_ptr_size = IntTy64;
+            target->memory.fn_ptr_size = ShdIntSize64;
         } else if (strcmp(argv[i], "--use-native-fncalls") == 0) {
             target->capabilities.native_fncalls = true;
-            target->memory.fn_ptr_size = IntTy64;
+            target->memory.fn_ptr_size = ShdIntSize64;
         } else if (strcmp(argv[i], "--force-memory-emulation") == 0) {
             target->memory.address_spaces[AsPrivate].physical = false;
             target->memory.address_spaces[AsSubgroup].physical = false;

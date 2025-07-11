@@ -12,7 +12,7 @@ typedef struct {
 
 static bool should_convert(Context* ctx, const Type* t) {
     t = shd_get_unqualified_type(t);
-    return t->tag == Int_TAG && t->payload.int_type.width == IntTy64 && ctx->config->lower.int64;
+    return t->tag == Int_TAG && t->payload.int_type.width == ShdIntSize64 && ctx->config->lower.int64;
 }
 
 static void extract_low_hi_halves(IrArena* a, BodyBuilder* bb, const Node* src, const Node** lo, const Node** hi) {
@@ -33,13 +33,13 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case Int_TAG:
-            if (node->payload.int_type.width == IntTy64 && ctx->config->lower.int64)
+            if (node->payload.int_type.width == ShdIntSize64 && ctx->config->lower.int64)
                 return record_type(a, (RecordType) {
                     .members = mk_nodes(a, shd_int32_type(a), shd_int32_type(a))
                 });
             break;
         case IntLiteral_TAG:
-            if (node->payload.int_literal.width == IntTy64 && ctx->config->lower.int64) {
+            if (node->payload.int_literal.width == ShdIntSize64 && ctx->config->lower.int64) {
                 uint64_t raw = node->payload.int_literal.value;
                 const Node* lower = shd_uint32_literal(a, (uint32_t) raw);
                 const Node* upper = shd_uint32_literal(a, (uint32_t) (raw >> 32));

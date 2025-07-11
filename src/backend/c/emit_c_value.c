@@ -92,7 +92,7 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
             else
                 emitted = shd_format_string_arena(emitter->arena->arena, "%" PRIu64, value->payload.int_literal.value);
 
-            bool is_long = value->payload.int_literal.width == IntTy64;
+            bool is_long = value->payload.int_literal.width == ShdIntSize64;
             bool is_signed = value->payload.int_literal.is_signed;
             if (emitter->backend_config.dialect == CDialect_GLSL && emitter->backend_config.glsl_version >= 130) {
                 if (!is_signed)
@@ -106,15 +106,15 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_FloatLiteral_TAG: {
             uint64_t v = value->payload.float_literal.value;
             switch (value->payload.float_literal.width) {
-                case FloatTy16:
+                case ShdFloatFormat16:
                     assert(false);
-                case FloatTy32: {
+                case ShdFloatFormat32: {
                     float f;
                     memcpy(&f, &v, sizeof(uint32_t));
                     double d = (double) f;
                     emitted = shd_format_string_arena(emitter->arena->arena, "%#.9gf", d); break;
                 }
-                case FloatTy64: {
+                case ShdFloatFormat64: {
                     double d;
                     memcpy(&d, &v, sizeof(uint64_t));
                     emitted = shd_format_string_arena(emitter->arena->arena, "%.17g", d); break;
@@ -550,10 +550,10 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
             if (dst_type->tag == Float_TAG) {
                 assert(src_type->tag == Int_TAG);
                 switch (dst_type->payload.float_type.width) {
-                    case FloatTy16: break;
-                    case FloatTy32: conv_fn = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
+                    case ShdFloatFormat16: break;
+                    case ShdFloatFormat32: conv_fn = src_type->payload.int_type.is_signed ? "intBitsToFloat" : "uintBitsToFloat";
                         break;
-                    case FloatTy64: break;
+                    case ShdFloatFormat64: break;
                 }
             } else if (dst_type->tag == Int_TAG) {
                 if (src_type->tag == Int_TAG) {
@@ -564,10 +564,10 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
                 } else {
                     assert(src_type->tag == Float_TAG);
                     switch (src_type->payload.float_type.width) {
-                        case FloatTy16: break;
-                        case FloatTy32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
+                        case ShdFloatFormat16: break;
+                        case ShdFloatFormat32: conv_fn = dst_type->payload.int_type.is_signed ? "floatBitsToInt" : "floatBitsToUint";
                             break;
-                        case FloatTy64: break;
+                        case ShdFloatFormat64: break;
                     }
                 }
             }
@@ -586,11 +586,11 @@ static CTerm emit_bitcast(Emitter* emitter, FnEmitter* fn, Printer* p, const Nod
                 assert(src_type->tag == Int_TAG);
                 String n;
                 switch (dst_type->payload.float_type.width) {
-                    case FloatTy16: n = "float16bits";
+                    case ShdFloatFormat16: n = "float16bits";
                         break;
-                    case FloatTy32: n = "floatbits";
+                    case ShdFloatFormat32: n = "floatbits";
                         break;
-                    case FloatTy64: n = "doublebits";
+                    case ShdFloatFormat64: n = "doublebits";
                         break;
                 }
                 return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "%s(%s)", n, shd_c_to_ssa(emitter, src_value)));
@@ -670,7 +670,7 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
             const Node* offset = prim_op->operands.nodes[1];
             CValue c_offset = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, offset));
             if (emitter->backend_config.dialect == CDialect_GLSL) {
-                if (shd_get_unqualified_type(offset->type)->payload.int_type.width == IntTy64)
+                if (shd_get_unqualified_type(offset->type)->payload.int_type.width == ShdIntSize64)
                     c_offset = shd_format_string_arena(arena->arena, "int(%s)", c_offset);
             }
             term = term_from_cvalue(shd_format_string_arena(arena->arena, "(%s %s %s)", src, prim_op->op == lshift_op ? "<<" : ">>", c_offset));

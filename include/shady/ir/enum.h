@@ -2,30 +2,30 @@
 #define SHADY_IR_ENUM_H
 
 typedef enum {
-    IntTy8,
-    IntTy16,
-    IntTy32,
-    IntTy64,
-} IntSizes;
+    ShdIntSize8,
+    ShdIntSize16,
+    ShdIntSize32,
+    ShdIntSize64,
+} ShdIntSize;
 
 enum {
-    IntSizeMin = IntTy8,
-    IntSizeMax = IntTy64,
+    ShdIntSizeMin = ShdIntSize8,
+    ShdIntSizeMax = ShdIntSize64,
 };
 
 typedef enum {
-    FloatTy16,
-    FloatTy32,
-    FloatTy64
-} FloatSizes;
+    ShdFloatFormat16,
+    ShdFloatFormat32,
+    ShdFloatFormat64
+} ShdFloatFormat;
 
 typedef enum {
-    NotSpecial,
+    ShdRecordFlagNone,
     /// for instructions with multiple yield values. Must be deconstructed by a let, cannot appear anywhere else
-    MultipleReturn,
+    ShdRecordFlagMultipleReturn,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
-    DecorateBlock
-} RecordSpecialFlag;
+    ShdRecordFlagBlock
+} ShdRecordFlags;
 
 typedef enum {
     ShdScopeTop,

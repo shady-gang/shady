@@ -43,10 +43,10 @@ CompilerConfig shd_default_compiler_config(void) {
 TargetConfig shd_default_target_config(void) {
     TargetConfig config = {
         .memory = {
-            .word_size = IntTy32,
-            .ptr_size = IntTy64,
-            .fn_ptr_size = IntTy64,
-            .exec_mask_size = IntTy64
+            .word_size = ShdIntSize32,
+            .ptr_size = ShdIntSize64,
+            .fn_ptr_size = ShdIntSize64,
+            .exec_mask_size = ShdIntSize64
         },
 
         .subgroup_size = 0,

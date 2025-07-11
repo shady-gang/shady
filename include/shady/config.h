@@ -14,12 +14,12 @@ typedef enum {
 } ShdFeatureSupport;
 
 typedef struct {
-    IntSizes ptr_size;
+    ShdIntSize ptr_size;
     /// The base type for emulated memory
-    IntSizes word_size;
+    ShdIntSize word_size;
 
-    IntSizes fn_ptr_size;
-    IntSizes exec_mask_size;
+    ShdIntSize fn_ptr_size;
+    ShdIntSize exec_mask_size;
 
     uint64_t max_align;
 

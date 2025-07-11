@@ -214,14 +214,14 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
             if (expected_type->tag == Float_TAG) {
                 uint64_t v;
                 switch (expected_type->payload.float_type.width) {
-                    case FloatTy16:
+                    case ShdFloatFormat16:
                         shd_error("TODO: implement fp16 parsing");
-                    case FloatTy32:
+                    case ShdFloatFormat32:
                         assert(sizeof(float) == sizeof(uint32_t));
                         float f = strtof(node->payload.untyped_number.plaintext, NULL);
                         memcpy(&v, &f, sizeof(uint32_t));
                         break;
-                    case FloatTy64:
+                    case ShdFloatFormat64:
                         assert(sizeof(double) == sizeof(uint64_t));
                         double d = strtod(node->payload.untyped_number.plaintext, NULL);
                         memcpy(&v, &d, sizeof(uint64_t));

@@ -406,9 +406,9 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("f");
             switch (node->payload.float_type.width) {
                 // case FloatTy8:  printf("8");  break;
-                case FloatTy16: printf("16"); break;
-                case FloatTy32: printf("32"); break;
-                case FloatTy64: printf("64"); break;
+                case ShdFloatFormat16: printf("16"); break;
+                case ShdFloatFormat32: printf("32"); break;
+                case ShdFloatFormat64: printf("64"); break;
                 default: shd_error("Not a known valid float width")
             }
             break;
@@ -422,10 +422,10 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
         case Int_TAG:
             printf(node->payload.int_type.is_signed ? "i" : "u");
             switch (node->payload.int_type.width) {
-                case IntTy8:  printf("8");  break;
-                case IntTy16: printf("16"); break;
-                case IntTy32: printf("32"); break;
-                case IntTy64: printf("64"); break;
+                case ShdIntSize8:  printf("8");  break;
+                case ShdIntSize16: printf("16"); break;
+                case ShdIntSize32: printf("32"); break;
+                case ShdIntSize64: printf("64"); break;
                 default: shd_error("Not a known valid int width")
             }
             break;
@@ -433,7 +433,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             if (node->payload.record_type.members.count == 0) {
                 printf("unit_t");
                 break;
-            } else if (node->payload.record_type.special & DecorateBlock) {
+            } else if (node->payload.record_type.special & ShdRecordFlagBlock) {
                 printf("block");
             } else {
                 printf("struct");
@@ -595,10 +595,10 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
             printf(LITERAL_COLOR);
             uint64_t v = shd_get_int_literal_value(node->payload.int_literal, false);
             switch (node->payload.int_literal.width) {
-                case IntTy8:  printf("%" PRIu8,  (uint8_t)  v);  break;
-                case IntTy16: printf("%" PRIu16, (uint16_t) v); break;
-                case IntTy32: printf("%" PRIu32, (uint32_t) v); break;
-                case IntTy64: printf("%" PRIu64, v); break;
+                case ShdIntSize8:  printf("%" PRIu8,  (uint8_t)  v);  break;
+                case ShdIntSize16: printf("%" PRIu16, (uint16_t) v); break;
+                case ShdIntSize32: printf("%" PRIu32, (uint32_t) v); break;
+                case ShdIntSize64: printf("%" PRIu64, v); break;
                 default: shd_error("Not a known valid int width")
             }
             printf(RESET);
@@ -606,14 +606,14 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
         case FloatLiteral_TAG:
             printf(LITERAL_COLOR);
             switch (node->payload.float_literal.width) {
-                case FloatTy16: printf("%" PRIu16, (uint16_t) node->payload.float_literal.value); break;
-                case FloatTy32: {
+                case ShdFloatFormat16: printf("%" PRIu16, (uint16_t) node->payload.float_literal.value); break;
+                case ShdFloatFormat32: {
                     float f;
                     memcpy(&f, &node->payload.float_literal.value, sizeof(uint32_t));
                     double d = (double) f;
                     printf("%.9g", d); break;
                 }
-                case FloatTy64: {
+                case ShdFloatFormat64: {
                     double d;
                     memcpy(&d, &node->payload.float_literal.value, sizeof(uint64_t));
                     printf("%.17g", d); break;
@@ -1052,9 +1052,9 @@ void _shd_print_node_operand_Op(PrinterCtx* ctx, SHADY_UNUSED const Node* n, Str
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_RecordSpecialFlag(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, RecordSpecialFlag flags) {
+void _shd_print_node_operand_ShdRecordFlags(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdRecordFlags flags) {
     print_operand_name_helper(ctx, name);
-    if (flags & DecorateBlock)
+    if (flags & ShdRecordFlagBlock)
         shd_print(ctx->printer, "DecorateBlock");
 }
 
@@ -1068,22 +1068,22 @@ void _shd_print_node_operand_uint64_t(PrinterCtx* ctx, SHADY_UNUSED const Node* 
     shd_print(ctx->printer, "%zu", i);
 }
 
-void _shd_print_node_operand_IntSizes(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, IntSizes s) {
+void _shd_print_node_operand_ShdIntSize(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdIntSize s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
-        case IntTy8: shd_print(ctx->printer, "8");  break;
-        case IntTy16: shd_print(ctx->printer, "16"); break;
-        case IntTy32: shd_print(ctx->printer, "32"); break;
-        case IntTy64: shd_print(ctx->printer, "64"); break;
+        case ShdIntSize8: shd_print(ctx->printer, "8");  break;
+        case ShdIntSize16: shd_print(ctx->printer, "16"); break;
+        case ShdIntSize32: shd_print(ctx->printer, "32"); break;
+        case ShdIntSize64: shd_print(ctx->printer, "64"); break;
     }
 }
 
-void _shd_print_node_operand_FloatSizes(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, FloatSizes s) {
+void _shd_print_node_operand_ShdFloatFormat(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdFloatFormat s) {
     print_operand_name_helper(ctx, name);
     switch (s) {
-        case FloatTy16: shd_print(ctx->printer, "16"); break;
-        case FloatTy32: shd_print(ctx->printer, "32"); break;
-        case FloatTy64: shd_print(ctx->printer, "64"); break;
+        case ShdFloatFormat16: shd_print(ctx->printer, "16"); break;
+        case ShdFloatFormat32: shd_print(ctx->printer, "32"); break;
+        case ShdFloatFormat64: shd_print(ctx->printer, "64"); break;
     }
 }
 

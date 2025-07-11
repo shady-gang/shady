@@ -60,12 +60,12 @@ static void emit_match(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_bui
     const Type* inspectee_t = match.inspect->type;
     shd_deconstruct_qualified_type(&inspectee_t);
     assert(inspectee_t->tag == Int_TAG);
-    size_t literal_width = inspectee_t->payload.int_type.width == IntTy64 ? 2 : 1;
+    size_t literal_width = inspectee_t->payload.int_type.width == ShdIntSize64 ? 2 : 1;
     size_t literal_case_entry_size = literal_width + 1;
     LARRAY(uint32_t, literals_and_cases, match.cases.count * literal_case_entry_size);
     for (size_t i = 0; i < match.cases.count; i++) {
         uint64_t value = (uint64_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(match.literals.nodes[i]), false);
-        if (inspectee_t->payload.int_type.width == IntTy64) {
+        if (inspectee_t->payload.int_type.width == ShdIntSize64) {
             literals_and_cases[i * literal_case_entry_size + 0] = (SpvId) (uint32_t) (value & 0xFFFFFFFF);
             literals_and_cases[i * literal_case_entry_size + 1] = (SpvId) (uint32_t) (value >> 32);
         } else {

@@ -31,12 +31,12 @@ static inline const Node* fold_constant_math(const Node* node) {
     PrimOp payload = node->payload.prim_op;
 
     LARRAY(const FloatLiteral*, float_literals, payload.operands.count);
-    FloatSizes float_width;
+    ShdFloatFormat float_width;
     bool all_float_literals = true;
 
     LARRAY(const IntLiteral*, int_literals, payload.operands.count);
     bool all_int_literals = true;
-    IntSizes int_width;
+    ShdIntSize int_width;
     bool is_signed;
     for (size_t i = 0; i < payload.operands.count; i++) {
         int_literals[i] = shd_resolve_to_int_literal(payload.operands.nodes[i]);
