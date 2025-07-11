@@ -246,20 +246,20 @@ void shd_spv_emit_debuginfo(Emitter* emitter, const Node* n, SpvId id) {
         spvb_name(emitter->file_builder, id, name);
 }
 
-static SpvExecutionModel emit_exec_model(Emitter* emitter, ExecutionModel model) {
+static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel model) {
     switch (model) {
-        case EmRayGeneration:
+        case ShdExecutionModelRayGeneration:
             spvb_extension(emitter->file_builder, "SPV_KHR_ray_tracing");
             spvb_capability(emitter->file_builder, SpvCapabilityRayTracingKHR);
             return SpvExecutionModelRayGenerationKHR;
-        case EmCallable:
+        case ShdExecutionModelCallable:
             spvb_extension(emitter->file_builder, "SPV_KHR_ray_tracing");
             spvb_capability(emitter->file_builder, SpvCapabilityRayTracingKHR);
             return SpvExecutionModelCallableKHR;
-        case EmCompute:       return SpvExecutionModelGLCompute;
-        case EmVertex:        return SpvExecutionModelVertex;
-        case EmFragment:      return SpvExecutionModelFragment;
-        case EmNone: shd_error("No execution model but we were asked to emit it anyways");
+        case ShdExecutionModelCompute:       return SpvExecutionModelGLCompute;
+        case ShdExecutionModelVertex:        return SpvExecutionModelVertex;
+        case ShdExecutionModelFragment:      return SpvExecutionModelFragment;
+        case ShdExecutionModelNone: shd_error("No execution model but we were asked to emit it anyways");
     }
 }
 
@@ -290,8 +290,8 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
-            assert(execution_model != EmNone);
+            ShdExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
+            assert(execution_model != ShdExecutionModelNone);
 
             String exported_name = shd_get_exported_name(decl);
             assert(exported_name);
@@ -304,7 +304,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             }
 
             const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
-            if (execution_model == EmCompute)
+            if (execution_model == ShdExecutionModelCompute)
                 assert(workgroup_size);
             if (workgroup_size) {
                 Nodes values = shd_get_annotation_values(workgroup_size);
@@ -316,7 +316,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
             }
 
-            if (execution_model == EmFragment) {
+            if (execution_model == ShdExecutionModelFragment) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOriginUpperLeft, 0, NULL);
             }
         }
@@ -381,7 +381,7 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOpti
     RUN_PASS(shd_pass_eliminate_constants, config)
 
     //if (options->target->capabilities.rt_pipelines) {
-    if (options->target->execution_model == EmRayGeneration) {
+    if (options->target->execution_model == ShdExecutionModelRayGeneration) {
         // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
         RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
         RUN_PASS(shd_pass_mark_leaf_functions, config)

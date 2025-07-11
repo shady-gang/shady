@@ -94,7 +94,7 @@ static const Node* process(Context* ctx, const Node* node) {
             const Node* param = NULL;
 
             // callable shaders aren't real entry point for our purposes, we can modify their interface
-            fn_ctx.real_entry_point = shd_lookup_annotation(node, "EntryPoint") && shd_execution_model_from_entry_point(node) != EmCallable;
+            fn_ctx.real_entry_point = shd_lookup_annotation(node, "EntryPoint") && shd_execution_model_from_entry_point(node) != ShdExecutionModelCallable;
 
             /*if (real_entry_point) {
                 param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, ptr_type_helper(a, ctx->pass_config.dst_as, ctx->t, !physical)));

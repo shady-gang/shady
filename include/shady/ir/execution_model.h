@@ -11,19 +11,19 @@ EM(RayGeneration) \
 EM(Callable     ) \
 
 typedef enum {
-    EmNone,
-#define EM(name) Em##name,
+    ShdExecutionModelNone,
+#define EM(name) ShdExecutionModel##name,
     EXECUTION_MODELS(EM)
 #undef EM
-} ExecutionModel;
+} ShdExecutionModel;
 
-ExecutionModel shd_execution_model_from_string(const char*);
-ExecutionModel shd_execution_model_from_entry_point(const Node* decl);
+ShdExecutionModel shd_execution_model_from_string(const char*);
+ShdExecutionModel shd_execution_model_from_entry_point(const Node* decl);
 
-static inline bool shd_is_rt_execution_model(ExecutionModel em) {
+static inline bool shd_is_rt_execution_model(ShdExecutionModel em) {
     switch (em) {
-        case EmRayGeneration:
-        case EmCallable: return true;
+        case ShdExecutionModelRayGeneration:
+        case ShdExecutionModelCallable: return true;
         default: return false;
     }
 }

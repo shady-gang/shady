@@ -294,15 +294,15 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             i++;
             if (i == argc)
                 shd_error("Missing execution model name");
-            ExecutionModel em = EmNone;
-#define EM(n) if (strcmp(argv[i], #n) == 0) em = Em##n;
+            ShdExecutionModel em = ShdExecutionModelNone;
+#define EM(n) if (strcmp(argv[i], #n) == 0) em = ShdExecutionModel##n;
             EXECUTION_MODELS(EM)
 #undef EM
-            if (em == EmNone)
+            if (em == ShdExecutionModelNone)
                 shd_error("Unknown execution model: %s", argv[i]);
             switch (em) {
-                case EmFragment:
-                case EmVertex:
+                case ShdExecutionModelFragment:
+                case ShdExecutionModelVertex:
                     args->config.dynamic_scheduling = false;
                 break;
                 default: break;

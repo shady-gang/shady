@@ -47,8 +47,8 @@ static void specialize_arena_config(String entry_point, Module* src, ArenaConfig
     if (!ep)
         shd_error("%s is not annotated with @EntryPoint", entry_point);
     switch (shd_execution_model_from_entry_point(old_entry_point_decl)) {
-        case EmNone: shd_error("Unknown entry point type: %s", shd_get_annotation_string_payload(ep))
-        case EmCompute: {
+        case ShdExecutionModelNone: shd_error("Unknown entry point type: %s", shd_get_annotation_string_payload(ep))
+        case ShdExecutionModelCompute: {
             const Node* old_wg_size_annotation = shd_lookup_annotation(old_entry_point_decl, "WorkgroupSize");
             assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3);
             Nodes wg_size_nodes = shd_get_annotation_values(old_wg_size_annotation);

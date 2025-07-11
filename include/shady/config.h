@@ -46,7 +46,7 @@ typedef struct {
         bool rt_pipelines;
     } capabilities;
 
-    ExecutionModel execution_model;
+    ShdExecutionModel execution_model;
     String entry_point;
     uint32_t subgroup_size;
 } TargetConfig;

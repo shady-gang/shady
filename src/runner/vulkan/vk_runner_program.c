@@ -350,7 +350,7 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
 
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
 
-TargetConfig shd_driver_specialize_target_config(TargetConfig, Module*, ExecutionModel, String);
+TargetConfig shd_driver_specialize_target_config(TargetConfig, Module*, ShdExecutionModel, String);
 
 static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
@@ -446,11 +446,11 @@ static VkrSpecProgram* create_specialized_program(SpecProgramKey key, VkrDevice*
     spec_program->arena = shd_new_arena();
 
     switch (key.em) {
-        case EmCompute:
+        case ShdExecutionModelCompute:
             spec_program->stage = VK_SHADER_STAGE_COMPUTE_BIT;
             spec_program->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
             break;
-        case EmRayGeneration:
+        case ShdExecutionModelRayGeneration:
             spec_program->stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
             spec_program->bind_point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
             break;
@@ -478,7 +478,7 @@ VkrSpecProgram* shd_vkr_get_specialized_program(Program* program, String entry_p
     assert(entry_point_decl);
 
     const Node* entry_point_annotation = shd_lookup_annotation(entry_point_decl, "EntryPoint");
-    ExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(entry_point_annotation->arena, shd_get_annotation_value(entry_point_annotation)));
+    ShdExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(entry_point_annotation->arena, shd_get_annotation_value(entry_point_annotation)));
 
     SpecProgramKey key = { .base = program, .entry_point = entry_point, .em = execution_model };
     VkrSpecProgram** found = shd_dict_find_value(SpecProgramKey, VkrSpecProgram*, device->specialized_programs, key);

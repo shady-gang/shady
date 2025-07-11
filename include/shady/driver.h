@@ -75,7 +75,7 @@ typedef struct {
     bool dump_ir;
     struct {
         String entry_point;
-        ExecutionModel execution_model;
+        ShdExecutionModel execution_model;
     } specialization;
 } DriverConfig;
 

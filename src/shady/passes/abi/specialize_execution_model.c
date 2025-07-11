@@ -10,11 +10,11 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
+static void specialize_arena_config(ShdExecutionModel em, TargetConfig* target) {
     target->execution_model = em;
     switch (em) {
-        case EmVertex:
-        case EmFragment: {
+        case ShdExecutionModelVertex:
+        case ShdExecutionModelFragment: {
             target->memory.address_spaces[AsShared].allowed = false;
             target->memory.address_spaces[AsSubgroup].allowed = false;
         }
@@ -22,7 +22,7 @@ static void specialize_arena_config(ExecutionModel em, TargetConfig* target) {
     }
 }
 
-static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* config, ExecutionModel* em, Module* src) {
+static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* config, ShdExecutionModel* em, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(*em, &aconfig.target);
 
@@ -38,11 +38,11 @@ static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* con
     return dst;
 }
 
-static CompilationResult specialize_execution_model_f(ExecutionModel* em, const CompilerConfig* config, Module** pmod) {
+static CompilationResult specialize_execution_model_f(ShdExecutionModel* em, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(specialize_execution_model, em);
     return CompilationNoError;
 }
 
-void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ExecutionModel em) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_execution_model_f, &em, sizeof(ExecutionModel));
+void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ShdExecutionModel em) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_execution_model_f, &em, sizeof(ShdExecutionModel));
 }

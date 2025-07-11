@@ -114,7 +114,7 @@ void shd_driver_configure_target(TargetConfig* target_config, DriverConfig* driv
     configure_target(target_config, driver_config->target_type, &driver_config->config, driver_config);
 }
 
-static ExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
+static ShdExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
     const Node* decl = shd_module_get_exported(mod, entry_point);
     if (!decl)
         shd_error("Cannot specialize: No function named '%s'", entry_point)
@@ -124,14 +124,14 @@ static ExecutionModel get_execution_model_for_entry_point(String entry_point, co
 void shd_pipeline_add_shader_target_lowering(ShdPipeline, TargetConfig);
 void shd_pipeline_add_feature_lowering(ShdPipeline, TargetConfig);
 
-TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mod, ExecutionModel execution_model, String entry_point) {
+TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mod, ShdExecutionModel execution_model, String entry_point) {
     // specialize the target config a bit further based on the module
     TargetConfig specialized_target_config = config;
     specialized_target_config.entry_point = entry_point;
-    if (entry_point && execution_model == EmNone) {
+    if (entry_point && execution_model == ShdExecutionModelNone) {
         execution_model = get_execution_model_for_entry_point(entry_point, mod);
     }
-    if (execution_model != EmNone)
+    if (execution_model != ShdExecutionModelNone)
         specialized_target_config.execution_model = execution_model;
     return specialized_target_config;
 }

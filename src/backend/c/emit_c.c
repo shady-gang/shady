@@ -148,7 +148,7 @@ void shd_c_emit_unpack_code(Printer* p, String src, Strings dst) {
 void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
-    bool is_fs = emitter->target_config->execution_model == EmFragment;
+    bool is_fs = emitter->target_config->execution_model == ShdExecutionModelFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->backend_config.dialect) {
         case CDialect_C11: {
@@ -333,7 +333,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
             const GlobalVariable* gvar = &decl->payload.global_variable;
 
-            if (ass == AsOutput && emitter->target_config->execution_model == EmFragment) {
+            if (ass == AsOutput && emitter->target_config->execution_model == ShdExecutionModelFragment) {
                 int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 shd_c_register_emitted(emitter, NULL, decl, t);
