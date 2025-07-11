@@ -1,0 +1,11 @@
+struct T {
+    f32 x;
+    f32 y;
+};
+
+@Exported @EntryPoint("Compute") @WorkgroupSize(1, 1, 1)
+fn main() {
+    val x = composite T(3, 2);
+    debug_printf("struct: %d, %d\n", x#0, x#1);
+    return ();
+}

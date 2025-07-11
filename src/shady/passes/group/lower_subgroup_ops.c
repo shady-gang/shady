@@ -91,11 +91,10 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp, const N
 static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const Type* t, SubgroupOp op, const Node* param) {
     IrArena* a = ctx->rewriter.dst_arena;
     const Type* original_t = t;
-    t = shd_get_maybe_nominal_type_body(t);
     switch (is_type(t)) {
         case Type_ArrType_TAG:
-        case Type_RecordType_TAG: {
-            assert(t->payload.record_type.special == 0);
+        case Type_StructType_TAG: {
+            assert(t->payload.struct_type.flags == 0);
             Nodes element_types = shd_get_composite_type_element_types(t);
             LARRAY(const Node*, elements, element_types.count);
             for (size_t i = 0; i < element_types.count; i++) {

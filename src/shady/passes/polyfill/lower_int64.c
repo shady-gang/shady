@@ -34,7 +34,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case Int_TAG:
             if (node->payload.int_type.width == ShdIntSize64 && ctx->config->lower.int64)
-                return record_type(a, (RecordType) {
+                return struct_type(a, (StructType) {
                     .members = mk_nodes(a, shd_int32_type(a), shd_int32_type(a))
                 });
             break;

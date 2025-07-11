@@ -14,8 +14,8 @@ void shd_add_scheduler_source(const CompilerConfig* config, Module* dst) {
         .target_config = &shd_get_arena_config(shd_module_get_arena(dst))->target,
     };
     Printer* p = shd_new_printer_from_growy(shd_new_growy());
-    shd_print(p, "@Internal @Alias type fn_ptr_t = u%d;\n", int_size_in_bytes(pconfig.target_config->memory.fn_ptr_size) * 8);
-    shd_print(p, "@Internal @Alias type mask_t = u%d;\n", int_size_in_bytes(pconfig.target_config->memory.exec_mask_size) * 8);
+    shd_print(p, "alias fn_ptr_t = u%d;\n", int_size_in_bytes(pconfig.target_config->memory.fn_ptr_size) * 8);
+    shd_print(p, "alias mask_t = u%d;\n", int_size_in_bytes(pconfig.target_config->memory.exec_mask_size) * 8);
     // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
     // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
     uint32_t wg_size[3];

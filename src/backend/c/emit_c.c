@@ -364,16 +364,16 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             return;
         }
         case Function_TAG: shd_c_emit_function(emitter, decl); break;
-        case NominalType_TAG: {
-            CType emitted = name;
-            shd_c_register_emitted_type(emitter, decl, emitted);
-            switch (emitter->backend_config.dialect) {
-                case CDialect_ISPC:
-                default: shd_print(emitter->type_decls, "\ntypedef %s;", shd_c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
-                case CDialect_GLSL: shd_c_emit_nominal_type_body(emitter, shd_format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
-            }
-            return;
-        }
+        //case NominalType_TAG: {
+        //    CType emitted = name;
+        //    shd_c_register_emitted_type(emitter, decl, emitted);
+        //    switch (emitter->backend_config.dialect) {
+        //        case CDialect_ISPC:
+        //        default: shd_print(emitter->type_decls, "\ntypedef %s;", shd_c_emit_type(emitter, decl->payload.nom_type.body, emitted)); break;
+        //        case CDialect_GLSL: shd_c_emit_nominal_type_body(emitter, shd_format_string_arena(emitter->arena->arena, "struct %s /* nominal */", emitted), decl->payload.nom_type.body); break;
+        //    }
+        //    return;
+        //}
         default: shd_error("not a decl");
     }
 }

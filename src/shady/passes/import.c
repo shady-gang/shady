@@ -60,9 +60,9 @@ static const Node* import_node(Rewriter* r, const Node* node) {
                 case GlobalVariable_TAG:
                     replace_or_compare(weak, &existing->payload.global_variable.init, shd_rewrite_node(r, node->payload.global_variable.init));
                     break;
-                case NominalType_TAG:
-                    replace_or_compare(weak, &existing->payload.nom_type.body, shd_rewrite_node(r, node->payload.nom_type.body));
-                    break;
+                //case NominalType_TAG:
+                //    replace_or_compare(weak, &existing->payload.nom_type.body, shd_rewrite_node(r, node->payload.nom_type.body));
+                //    break;
             }
             return existing;
         }

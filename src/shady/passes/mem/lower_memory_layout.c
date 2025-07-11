@@ -33,7 +33,6 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* n = shd_rewrite_node(&ctx->rewriter, payload.idx);
             const IntLiteral* literal = shd_resolve_to_int_literal(n);
             assert(literal);
-            t = shd_get_maybe_nominal_type_body(t);
             uint64_t offset_in_bytes = (uint64_t) shd_get_record_field_offset_in_bytes(a, t, literal->value);
             const Node* offset_literal = int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = offset_in_bytes });
             return offset_literal;

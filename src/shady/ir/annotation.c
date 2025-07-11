@@ -81,3 +81,14 @@ Nodes shd_filter_out_annotation(IrArena* arena, Nodes annotations, const char* n
     }
     return shd_nodes(arena, new_count, new_annotations);
 }
+
+Nodes shd_remove_annotation(IrArena* arena, Nodes annotations, int j) {
+    LARRAY(const Node*, new_annotations, annotations.count);
+    size_t new_count = 0;
+    for (size_t i = 0; i < annotations.count; i++) {
+        if (i != j) {
+            new_annotations[new_count++] = annotations.nodes[i];
+        }
+    }
+    return shd_nodes(arena, new_count, new_annotations);
+}

@@ -71,10 +71,9 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
     if (shd_node_set_find(emitter->types_with_layouts, type))
         return;
     shd_node_set_insert(emitter->types_with_layouts, type);
-    type = shd_get_maybe_nominal_type_body(type);
     switch (type->tag) {
-        case RecordType_TAG: {
-            RecordType payload = type->payload.record_type;
+        case StructType_TAG: {
+            StructType payload = type->payload.struct_type;
             Nodes member_types = payload.members;
             LARRAY(FieldLayout, fields, member_types.count);
             shd_get_record_layout(emitter->arena, type, fields);
@@ -88,7 +87,6 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
             break;
         }
-        case NominalType_TAG: assert(false);
         case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
             if (emitter->target->memory.address_spaces[payload.address_space].physical) {
@@ -99,21 +97,6 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             break;
         }
         default: break;
-    }
-}
-
-void spv_emit_record_type_body(Emitter* emitter, const Type* type, SpvId id) {
-    if (type->tag != RecordType_TAG)
-        shd_error("not a suitable nominal type body (tag=%s)", shd_get_node_tag_string(type->tag));
-    RecordType payload = type->payload.record_type;
-    Nodes member_types = payload.members;
-    LARRAY(SpvId, members, member_types.count);
-    for (size_t i = 0; i < member_types.count; i++)
-        members[i] = spv_emit_type(emitter, member_types.nodes[i]);
-    spvb_struct_type(emitter->file_builder, id, member_types.count, members);
-
-    if (payload.special == ShdRecordFlagBlock) {
-        spvb_decorate(emitter->file_builder, id, SpvDecorationBlock, 0, NULL);
     }
 }
 
@@ -171,7 +154,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             PtrType payload = type->payload.ptr_type;
             SpvStorageClass sc = spv_emit_addr_space(emitter, payload.address_space);
             const Type* pointed_type = payload.pointed_type;
-            if (pointed_type->tag == NominalType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
+            if (pointed_type->tag == StructType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
                 new = spvb_forward_ptr_type(emitter->file_builder, sc);
                 spv_register_emitted(emitter, NULL, key, new);
                 spv_emit_type_layout(emitter, type, new);
@@ -225,9 +208,16 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             new = spvb_matrix_type(emitter->file_builder, element_type, type->payload.matrix_type.columns);
             break;
         }
-        case RecordType_TAG: {
+        case Type_StructType_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
-            spv_emit_record_type_body(emitter, type, new);
+            StructType payload = type->payload.struct_type;
+            Nodes member_types = payload.members;
+            LARRAY(SpvId, members, member_types.count);
+            for (size_t i = 0; i < member_types.count; i++)
+                members[i] = spv_emit_type(emitter, member_types.nodes[i]);
+            spvb_struct_type(emitter->file_builder, new, member_types.count, members);
+            if (payload.flags & ShdStructFlagBlock)
+                spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
             spv_emit_type_layout(emitter, type, new);
             return new;
         }
@@ -242,11 +232,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             for (size_t i = 0; i < payload.members.count; i++)
                 members[i] = spv_emit_type(emitter, payload.members.nodes[i]);
             spvb_struct_type(emitter->file_builder, new, payload.members.count, members);
-            spv_emit_type_layout(emitter, type, new);
-            break;
-        }
-        case NominalType_TAG: {
-            new = spv_emit_decl(emitter, type);
             spv_emit_type_layout(emitter, type, new);
             break;
         }

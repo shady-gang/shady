@@ -245,12 +245,9 @@ static CTerm c_emit_value_(Emitter* emitter, FnEmitter* fn, Printer* p, const No
         case Value_OffsetOf_TAG: {
             OffsetOf payload = value->payload.offset_of;
             const Type* t = payload.type;
-            while (t->tag == NominalType_TAG) {
-                t = shd_get_nominal_type_body(t);
-            }
             const Node* index = payload.idx;
             uint64_t index_literal = shd_get_int_literal_value(*shd_resolve_to_int_literal(index), false);
-            String member_name = shd_c_get_record_field_name(emitter, t, index_literal);
+            String member_name = shd_get_struct_type_field_name(t, index_literal);
             return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "offsetof(%s, %s)", shd_c_emit_type(emitter, t, NULL), member_name));
         }
         case Value_ExtValue_TAG: return emit_ext_value(emitter, fn, p, value->payload.ext_value);
@@ -464,13 +461,9 @@ static String index_into_array(Emitter* emitter, const Type* arr_type, CTerm exp
 static String emit_selector_rvalue(Emitter* emitter, FnEmitter* fn, const Type* composite_type, CTerm composite, const Node* selector) {
     const IntLiteral* static_index = shd_resolve_to_int_literal(selector);
     switch (is_type(composite_type)) {
-        case NominalType_TAG: {
-            composite_type = composite_type->payload.nom_type.body;
-            SHADY_FALLTHROUGH
-        }
-        case Type_RecordType_TAG: {
+        case Type_StructType_TAG: {
             assert(static_index);
-            return shd_format_string_arena(emitter->arena->arena, "(%s.%s)", shd_c_to_ssa(emitter, composite), shd_c_get_record_field_name(emitter, composite_type, static_index->value));
+            return shd_format_string_arena(emitter->arena->arena, "(%s.%s)", shd_c_to_ssa(emitter, composite), shd_get_struct_type_field_name(composite_type, static_index->value));
         }
         case Type_VectorType_TAG: {
             assert(static_index);

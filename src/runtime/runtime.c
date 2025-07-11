@@ -30,9 +30,8 @@ void shd_rt_materialize_constant_at(unsigned char* tgt, const Node* value) {
         case Composite_TAG: {
             Nodes values = value->payload.composite.contents;
             const Type* struct_t = value->payload.composite.type;
-            struct_t = shd_get_maybe_nominal_type_body(struct_t);
 
-            if (struct_t->tag == RecordType_TAG) {
+            if (struct_t->tag == StructType_TAG) {
                 LARRAY(FieldLayout, fields, values.count);
                 shd_get_record_layout(a, struct_t, fields);
                 for (size_t i = 0; i < values.count; i++) {

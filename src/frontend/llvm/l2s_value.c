@@ -92,9 +92,9 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             break;
         }
         case LLVMConstantStructValueKind: {
-            const Node* actual_t = shd_get_maybe_nominal_type_body(t);
-            assert(actual_t->tag == RecordType_TAG);
-            size_t size = actual_t->payload.record_type.members.count;
+            const Node* actual_t = t;
+            assert(actual_t->tag == StructType_TAG);
+            size_t size = actual_t->payload.struct_type.members.count;
             LARRAY(const Node*, elements, size);
             for (size_t i = 0; i < size; i++) {
                 LLVMValueRef value = LLVMGetOperand(v, i);

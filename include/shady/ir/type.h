@@ -3,22 +3,6 @@
 
 #include "shady/ir/grammar.h"
 
-/// Unit type, carries no information (equivalent to C's void)
-/// There is exactly one possible value of this type: ()
-static inline const Node* unit_type(IrArena* arena) {
-    return tuple_type(arena, (TupleType) {
-        .members = shd_empty(arena),
-    });
-}
-
-Type* shd_nominal_type(Module*, NominalType);
-static inline Node* nominal_type_helper(Module* m) {
-    Node* n = shd_nominal_type(m, (NominalType) {
-        .body = NULL,
-    });
-    return n;
-}
-
 const Type* shd_get_exec_mask_type(IrArena* arena);
 const Node* shd_get_default_value(IrArena* a, const Type* t);
 
@@ -91,10 +75,6 @@ size_t shd_deconstruct_maybe_vector_type(const Type** type);
 // Pointer type helpers
 const Type* shd_get_pointer_type_element(const Type* type);
 AddressSpace shd_deconstruct_pointer_type(const Type** type);
-
-// Nominal type helpers
-const Type* shd_get_nominal_type_body(const Type* type);
-const Type* shd_get_maybe_nominal_type_body(const Type* type);
 
 // Composite type helpers
 Nodes shd_get_composite_type_element_types(const Type* type);

@@ -20,10 +20,10 @@ typedef enum {
 } ShdFloatFormat;
 
 typedef enum {
-    ShdRecordFlagNone,
+    ShdStructFlagNone,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
-    ShdRecordFlagBlock
-} ShdRecordFlags;
+    ShdStructFlagBlock
+} ShdStructFlags;
 
 typedef enum {
     ShdScopeTop,

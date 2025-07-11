@@ -228,12 +228,6 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             // but we also desire to cache reused values instead of emitting them multiple times. This means we can't really "force" an ID for a given value.
             // The ideal fix would be if SPIR-V offered a way to "alias" an ID under a new one. This would allow applying new debug information to the decl ID, separate from the other instances of that value.
             return 0;
-        } case NominalType_TAG: {
-            SpvId given_id = spvb_fresh_id(emitter->file_builder);
-            spv_register_emitted(emitter, NULL, decl, given_id);
-            shd_spv_emit_debuginfo(emitter, decl, given_id);
-            spv_emit_record_type_body(emitter, decl->payload.nom_type.body, given_id);
-            return given_id;
         }
         default: shd_error("");
     }

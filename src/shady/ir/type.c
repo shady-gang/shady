@@ -36,16 +36,16 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return shd_is_subtype(supertype->payload.qualified_type.type, type->payload.qualified_type.type);
         }
-        case RecordType_TAG: {
-            const Nodes* supermembers = &supertype->payload.record_type.members;
-            const Nodes* members = &type->payload.record_type.members;
+        case Type_TupleType_TAG: {
+            const Nodes* supermembers = &supertype->payload.tuple_type.members;
+            const Nodes* members = &type->payload.tuple_type.members;
             if (supermembers->count != members->count)
                 return false;
             for (size_t i = 0; i < members->count; i++) {
                 if (!shd_is_subtype(supermembers->nodes[i], members->nodes[i]))
                     return false;
             }
-            return supertype->payload.record_type.special == type->payload.record_type.special;
+            return true;
         }
         case JoinPointType_TAG: {
             const Nodes* superparams = &supertype->payload.join_point_type.yield_types;
@@ -116,9 +116,6 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return supertype->payload.vector_type.width == type->payload.vector_type.width;
         }
-        case NominalType_TAG: {
-            return false;
-        }
         case Type_ImageType_TAG: {
             if (!shd_is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
                 return false;
@@ -177,22 +174,16 @@ bool shd_is_physical_data_type(const Type* type) {
             return shd_is_data_type(type->payload.vector_type.element_type);
         case Type_MatrixType_TAG:
             return shd_is_data_type(type->payload.matrix_type.element_type);
-        case Type_RecordType_TAG: {
-            for (size_t i = 0; i < type->payload.record_type.members.count; i++)
-                if (!shd_is_data_type(type->payload.record_type.members.nodes[i]))
+        case Type_StructType_TAG: {
+            for (size_t i = 0; i < type->payload.struct_type.members.count; i++)
+                if (!shd_is_data_type(type->payload.struct_type.members.nodes[i]))
                     return false;
-            // Let's not have Block values I guess ?
-            return type->payload.record_type.special == ShdRecordFlagNone;
+            return true;
         }
         case TupleType_TAG: {
-            //for (size_t i = 0; i < type->payload.tuple_type.members.count; i++)
-            //    if (!shd_is_data_type(type->payload.tuple_type.members.nodes[i]))
-            //        return false;
             return false;
         }
-        case NominalType_TAG:
-            return !shd_get_nominal_type_body(type) || shd_is_data_type(shd_get_nominal_type_body(type));
-            // qualified types are not data types because that information is only meant for values
+        // qualified types are not data types because that information is only meant for values
         case Type_QualifiedType_TAG: return false;
             // values cannot contain abstractions
         case Type_FnType_TAG:
@@ -301,7 +292,6 @@ String shd_get_type_name(IrArena* arena, const Type* t) {
         }
         case Type_Float_TAG: return shd_fmt_string_irarena(arena, "f%s", ((String[]) { "16", "32", "64" })[t->payload.float_type.width]);
         case Type_Bool_TAG: return "bool";
-        case NominalType_TAG: return shd_get_node_name_safe(t);
         default: break;
     }
     return shd_make_unique_name(arena, shd_get_node_tag_string(t->tag));
@@ -447,31 +437,6 @@ AddressSpace shd_deconstruct_pointer_type(const Type** type) {
     return t->payload.ptr_type.address_space;
 }
 
-const Type* shd_get_nominal_type_body(const Type* type) {
-    assert(type->tag == NominalType_TAG);
-    return type->payload.nom_type.body;
-}
-
-const Type* shd_get_maybe_nominal_type_body(const Type* type) {
-    if (type->tag == NominalType_TAG)
-        return type->payload.nom_type.body;
-    return type;
-}
-
-Type* shd_nominal_type(Module* mod, NominalType payload) {
-    IrArena* arena = shd_module_get_arena(mod);
-    Node node;
-    memset((void*) &node, 0, sizeof(Node));
-    node = (Node) {
-        .arena = arena,
-        .type = NULL,
-        .tag = NominalType_TAG,
-        .payload.nom_type = payload
-    };
-    Node* decl = _shd_create_node_helper(arena, node, NULL);
-    return decl;
-}
-
 const Node* shd_get_default_value(IrArena* a, const Type* t) {
     switch (is_type(t)) {
         case NotAType: shd_error("")
@@ -480,11 +445,10 @@ const Node* shd_get_default_value(IrArena* a, const Type* t) {
         case Type_Bool_TAG: return false_lit(a);
         case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
         case Type_QualifiedType_TAG: return shd_get_default_value(a, t->payload.qualified_type.type);
-        case Type_RecordType_TAG:
+        case Type_StructType_TAG:
         case Type_ArrType_TAG:
         case Type_VectorType_TAG:
-        case Type_MatrixType_TAG:
-        case NominalType_TAG: {
+        case Type_MatrixType_TAG: {
             Nodes elem_tys = shd_get_composite_type_element_types(t);
             if (elem_tys.count >= 1024) {
                 shd_warn_print("Potential performance issue: creating a really composite full of zero/default values (size=%d)!\n", elem_tys.count);

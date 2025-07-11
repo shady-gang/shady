@@ -67,7 +67,7 @@ void  shd_recreate_node_body(Rewriter*, const Node* old, Node* new);
 Function shd_rewrite_function_head_payload(Rewriter* r, Function old);
 GlobalVariable shd_rewrite_global_head_payload(Rewriter* r, GlobalVariable old);
 Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old);
-NominalType shd_rewrite_nominal_type_head_payload(Rewriter* r, NominalType old);
+StructType shd_rewrite_struct_type_head_payload(Rewriter* r, StructType old);
 BasicBlock shd_rewrite_basic_block_head_payload(Rewriter* r, BasicBlock old);
 
 /// Rewrites a variable under a new identity

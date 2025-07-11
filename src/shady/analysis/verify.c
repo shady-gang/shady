@@ -82,10 +82,6 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             assert(shd_is_subtype(noret_type(n->arena), n->payload.basic_block.body->type));
             break;
         }
-        case NominalType_TAG: {
-            assert(is_type(n->payload.nom_type.body));
-            break;
-        }
         case Constant_TAG: {
             if (n->payload.constant.value) {
                 const Type* t = n->payload.constant.value->type;

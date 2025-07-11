@@ -24,8 +24,8 @@ void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfa
             found = true;
 
             const Type* t = decl->payload.global_variable.type;
-            assert(t->tag == RecordType_TAG);
-            RecordType payload = t->payload.record_type;
+            assert(t->tag == StructType_TAG);
+            StructType payload = t->payload.struct_type;
             LARRAY(FieldLayout, field_layouts, payload.members.count);
             shd_get_record_layout(t->arena, t, field_layouts);
 

@@ -1,6 +1,7 @@
 #include "shady/pass.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
+#include "shady/ir/composite.h"
 
 #include "ir_private.h"
 
@@ -166,12 +167,9 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
             const Node* unsigned_int = gen_load_for_type(ctx, bb, unsigned_int_t, as, address);
             return shd_bld_bitcast(bb, element_type, unsigned_int);
         }
-        case NominalType_TAG:
-        case RecordType_TAG: {
+        case StructType_TAG: {
             const Type* compound_type = element_type;
-            compound_type = shd_get_maybe_nominal_type_body(compound_type);
-
-            Nodes member_types = compound_type->payload.record_type.members;
+            Nodes member_types = compound_type->payload.struct_type.members;
             LARRAY(const Node*, loaded, member_types.count);
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
@@ -262,8 +260,8 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             const Node* unsigned_value = bit_cast_helper(a, unsigned_int_t, value);
             return gen_store_for_type(ctx, bb, unsigned_int_t, as, address, unsigned_value);
         }
-        case RecordType_TAG: {
-            Nodes member_types = element_type->payload.record_type.members;
+        case StructType_TAG: {
+            Nodes member_types = element_type->payload.struct_type.members;
             for (size_t i = 0; i < member_types.count; i++) {
                 const Node* extracted_value = shd_extract_literal(a, value, i);
                 const Node* field_offset = offset_of_helper(a, element_type, size_t_literal(a, i));
@@ -271,10 +269,6 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
                 const Node* adjusted_offset = prim_op_helper(a, add_op, mk_nodes(a, address, field_offset));
                 gen_store_for_type(ctx, bb, member_types.nodes[i], as, adjusted_offset, extracted_value);
             }
-            return;
-        }
-        case NominalType_TAG: {
-            gen_store_for_type(ctx, bb, element_type->payload.nom_type.body, as, address, value);
             return;
         }
         case ArrType_TAG:
@@ -435,7 +429,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     Module* m = r->dst_module;
 
     String as_name = shd_get_address_space_name(as);
-    Node* global_struct_t = nominal_type_helper(m);
+    Node* global_struct_t = struct_type_helper(a, 0);
     shd_set_debug_name(global_struct_t, shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
     shd_add_annotation_named(global_struct_t, "Generated");
 
@@ -464,13 +458,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         shd_register_processed(r, decl, new_address);
     }
 
-    const Type* record_t = record_type(a, (RecordType) {
-        .members = shd_nodes(a, collected.count, member_tys),
-        .names = shd_strings(a, collected.count, member_names)
-    });
-
-    //return record_t;
-    global_struct_t->payload.nom_type.body = record_t;
+    shd_struct_type_set_members_named(global_struct_t, shd_nodes(a, collected.count, member_tys), shd_strings(a, collected.count, member_names));
     return global_struct_t;
 }
 

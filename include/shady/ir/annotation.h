@@ -13,5 +13,6 @@ void shd_remove_annotation_by_name(const Node*, String);
 const char* shd_get_annotation_string_payload(const Node* annotation);
 bool shd_lookup_annotation_with_string_payload(const Node*, const char* annotation_name, const char* expected_payload);
 Nodes shd_filter_out_annotation(IrArena* arena, Nodes annotations, const char* name);
+Nodes shd_remove_annotation(IrArena* arena, Nodes annotations, int i);
 
 #endif

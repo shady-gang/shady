@@ -271,10 +271,8 @@ static uint64_t get_ptr_array_stride(const Type* ptr_type) {
 static const Node* try_enter_composite(const Node* composite_ptr) {
     IrArena* arena = composite_ptr->arena;
     const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(composite_ptr->type));
-    if (src_type->tag == NominalType_TAG)
-        src_type = src_type->payload.nom_type.body;
 
-    if (src_type->tag == RecordType_TAG && src_type->payload.record_type.members.count > 0) {
+    if (src_type->tag == StructType_TAG && src_type->payload.struct_type.members.count > 0) {
         return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
     } else if (src_type->tag == VectorType_TAG) {
         return ptr_composite_element_helper(arena, composite_ptr, shd_uint32_literal(arena, 0));
@@ -465,7 +463,6 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
 
                 while (ptr) {
                     const Node* element_t = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
-                    element_t = shd_get_maybe_nominal_type_body(element_t);
                     TypeMemLayout element_layout = shd_get_mem_layout(arena, element_t);
                     // give up if we overshot the entire element
                     // printf("Known offset: %d / %d\n", rem_offset, element_layout.size_in_bytes);
@@ -473,8 +470,8 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
                         break;
 
                     switch (element_t->tag) {
-                        case RecordType_TAG: {
-                            RecordType record_payload = element_t->payload.record_type;
+                        case StructType_TAG: {
+                            StructType record_payload = element_t->payload.struct_type;
                             LARRAY(FieldLayout, fields, record_payload.members.count);
                             shd_get_record_layout(arena, element_t, fields);
                             size_t i;

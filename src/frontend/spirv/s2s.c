@@ -675,8 +675,11 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpTypeStruct: {
             parser->defs[result].type = Typ;
-            Node* nominal_type_decl = nominal_type_helper(parser->mod);
-            parser->defs[result].node = nominal_type_decl;
+            ShdStructFlags flags = 0;
+            if (find_decoration(parser, result, -1, SpvDecorationBlock))
+                flags |= ShdStructFlagBlock;
+            Node* struct_t = struct_type_helper(a, flags);
+            parser->defs[result].node = struct_t;
             int members_count = size - 2;
             LARRAY(String, member_names, members_count);
             LARRAY(const Type*, member_tys, members_count);
@@ -686,10 +689,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     member_names[i] = shd_format_string_arena(parser->arena->arena, "member%d", i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
             }
-            nominal_type_decl->payload.nom_type.body = record_type(parser->arena, (RecordType) {
-                .members = shd_nodes(parser->arena, members_count, member_tys),
-                .names = shd_strings(parser->arena, members_count, member_names),
-            });
+            shd_struct_type_set_members_named(struct_t, shd_nodes(parser->arena, members_count, member_tys), shd_strings(parser->arena, members_count, member_names));
             break;
         }
         case SpvOpTypeRuntimeArray:

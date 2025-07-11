@@ -136,7 +136,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     IrArena* a = r->dst_arena;
 
     switch (old->tag) {
-        case NominalType_TAG:
+        case StructType_TAG:
         case GlobalVariable_TAG:
         case Constant_TAG: {
             Context not_a_fn_ctx = *ctx;

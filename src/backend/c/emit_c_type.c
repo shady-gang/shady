@@ -12,16 +12,6 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-String shd_c_get_record_field_name(Emitter* emitter, const Type* t, size_t i) {
-    assert(t->tag == RecordType_TAG);
-    RecordType r = t->payload.record_type;
-    assert(i < r.members.count);
-    if (i >= r.names.count)
-        return shd_fmt_string_irarena(t->arena, "_%d", i);
-    else
-        return shd_c_legalize_identifier(emitter, r.names.strings[i]);
-}
-
 static void make_struct_type(Emitter* emitter, String name, Nodes member_types, String member_names[]) {
     Growy* g = shd_new_growy();
     Printer* p = shd_new_printer_from_growy(g);
@@ -41,14 +31,12 @@ static void make_struct_type(Emitter* emitter, String name, Nodes member_types, 
 }
 
 void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type) {
-    assert(type->tag == RecordType_TAG);
-    RecordType payload = type->payload.record_type;
-    Growy* g = shd_new_growy();
-    Printer* p = shd_new_printer_from_growy(g);
+    assert(type->tag == StructType_TAG);
+    StructType payload = type->payload.struct_type;
 
     LARRAY(String, member_names, payload.members.count);
     for (size_t i = 0; i < payload.members.count; i++)
-        member_names[i] = shd_c_get_record_field_name(emitter, type, i);
+        member_names[i] = shd_get_struct_type_field_name(type, i);
 
     make_struct_type(emitter, name, payload.members, member_names);
 }
@@ -249,8 +237,11 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                     break;
             }
             break;
-        case Type_RecordType_TAG: {
-            emitted = shd_make_unique_name(emitter->arena, "Record");
+        case Type_StructType_TAG: {
+            // TODO: implement unique-ing
+            // emitted = shd_get_node_name_unsafe(type);
+            if (!emitted)
+                emitted = shd_make_unique_name(emitter->arena, "Struct");
             String prefixed = shd_format_string_arena(emitter->arena->arena, "struct %s", emitted);
             shd_c_emit_nominal_type_body(emitter, prefixed, type);
             // C puts structs in their own namespace so we always need the prefix
@@ -403,11 +394,6 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
                 }
             }
             break;
-        }
-        case NominalType_TAG: {
-            shd_c_emit_decl(emitter, type);
-            emitted = *shd_c_lookup_existing_type(emitter, type);
-            goto type_goes_on_left;
         }
         case Type_ExtType_TAG: {
             shd_error("TODO") // matrices etc

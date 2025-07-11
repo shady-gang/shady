@@ -21,12 +21,12 @@ static int maxof(int a, int b) {
 }
 
 TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
-    assert(record_type->tag == RecordType_TAG);
+    assert(record_type->tag == StructType_TAG);
 
     size_t offset = 0;
     size_t max_align = 0;
 
-    Nodes member_types = record_type->payload.record_type.members;
+    Nodes member_types = record_type->payload.struct_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
         TypeMemLayout member_layout = shd_get_mem_layout(a, member_types.nodes[i]);
         offset = round_up(offset, member_layout.alignment_in_bytes);
@@ -47,8 +47,8 @@ TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLa
 }
 
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
-    assert(t->tag == RecordType_TAG);
-    Nodes member_types = t->payload.record_type.members;
+    assert(t->tag == StructType_TAG);
+    Nodes member_types = t->payload.struct_type.members;
     assert(i < member_types.count);
     LARRAY(FieldLayout, fields, member_types.count);
     shd_get_record_layout(a, t, fields);
@@ -57,8 +57,7 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
 
 size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
     switch (t->tag) {
-        case NominalType_TAG: return shd_get_composite_index_offset_in_bytes(a, shd_get_nominal_type_body(t), i);
-        case RecordType_TAG: return shd_get_record_field_offset_in_bytes(a, t, i);
+        case StructType_TAG: return shd_get_record_field_offset_in_bytes(a, t, i);
         case ArrType_TAG: {
             TypeMemLayout element_layout = shd_get_mem_layout(a, t->payload.arr_type.element_type);
             assert(element_layout.size_in_bytes > 0);
@@ -139,8 +138,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             };
         }
         case QualifiedType_TAG: return shd_get_mem_layout(a, type->payload.qualified_type.type);
-        case NominalType_TAG: return shd_get_mem_layout(a, type->payload.nom_type.body);
-        case RecordType_TAG: return shd_get_record_layout(a, type, NULL);
+        case StructType_TAG: return shd_get_record_layout(a, type, NULL);
         default: shd_error("not a known type");
     }
 }

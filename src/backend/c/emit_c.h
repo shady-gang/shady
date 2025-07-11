@@ -80,7 +80,6 @@ void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, St
 CTerm shd_c_emit_builtin(Emitter* emitter, ShdBuiltin b);
 
 CType shd_c_emit_type(Emitter* emitter, const Type* type, const char* center);
-String shd_c_get_record_field_name(Emitter*, const Type* t, size_t i);
 String shd_c_emit_fn_head(Emitter* emitter, const Node* fn_type, String center, const Node* fn);
 void shd_c_emit_nominal_type_body(Emitter* emitter, String name, const Type* type);
 

@@ -31,11 +31,11 @@ const Type* _shd_check_type_join_point_type(IrArena* arena, JoinPointType type) 
     return NULL;
 }
 
-const Type* _shd_check_type_record_type(IrArena* arena, RecordType type) {
-    assert(type.names.count == 0 || type.names.count == type.members.count);
-    for (size_t i = 0; i < type.members.count; i++) {
-        assert(shd_is_data_type(type.members.nodes[i]));
-    }
+const Type* _shd_check_type_struct_type(IrArena* arena, StructType type) {
+    //assert(type.names.count == 0 || type.names.count == type.members.count);
+    //for (size_t i = 0; i < type.members.count; i++) {
+    //    assert(shd_is_data_type(type.members.nodes[i]));
+    //}
     return NULL;
 }
 
@@ -79,24 +79,19 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
     }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     const Node* maybe_record_type = ptr_type.pointed_type;
-    if (maybe_record_type->tag == NominalType_TAG)
-        maybe_record_type = shd_get_nominal_type_body(maybe_record_type);
-    if (maybe_record_type && maybe_record_type->tag == RecordType_TAG && maybe_record_type->payload.record_type.special == ShdRecordFlagBlock) {
-        return NULL;
-    }
+
     switch (ptr_type.pointed_type->tag) {
         // these are unconditionally OK
         case FnType_TAG:
             return NULL;
         case ArrType_TAG:
             return NULL; // allows pointer to unsized arrays
-        case RecordType_TAG:
-            switch (ptr_type.pointed_type->payload.record_type.special) {
-                case ShdRecordFlagNone: break;
-                case ShdRecordFlagBlock: return NULL; // explicitly OK even if the pointee is not a datatype
+        case StructType_TAG: {
+            if (ptr_type.pointed_type->payload.struct_type.flags & ShdStructFlagBlock) {
+                return NULL; // explicitly OK even if the pointee is not a datatype
             }
             break;
-        case TupleType_TAG: shd_error("Pointers to multiple-return definitions are not allowed")
+        } case TupleType_TAG: shd_error("Pointers to multiple-return definitions are not allowed")
         default:
             break;
     }
@@ -174,18 +169,14 @@ const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
             .type = composite.type
         });
     }
-    ShdScope scope = shd_get_arena_config(arena)->target.scopes.constants;
     LARRAY(const Type*, member_ts, composite.contents.count);
     for (size_t i = 0; i < composite.contents.count; i++) {
         const Type* element_type = composite.contents.nodes[i]->type;
-        scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&element_type));
+        assert(shd_get_qualified_type_scope(element_type));
         member_ts[i] = element_type;
     }
-    return qualified_type(arena, (QualifiedType) {
-        .scope = scope,
-        .type = record_type(arena, (RecordType) {
-            .members = shd_nodes(arena, composite.contents.count, member_ts)
-        })
+    return tuple_type(arena, (TupleType) {
+        .members = shd_nodes(arena, composite.contents.count, member_ts)
     });
 }
 
@@ -320,7 +311,7 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             const Type* result_t = first_operand_type;
             if (extended) {
                 // TODO: assert unsigned
-                result_t = record_type(arena, (RecordType) {.members = mk_nodes(arena, result_t, result_t)});
+                result_t = tuple_type(arena, (TupleType) {.members = mk_nodes(arena, result_t, result_t)});
             }
             return qualified_type_helper(arena, result_scope, result_t);
         }

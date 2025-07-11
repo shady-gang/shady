@@ -521,30 +521,6 @@ static const Type* accept_unqualified_type(ctxparams) {
             .element_type = elem_type,
             .width = strtoll(size->payload.untyped_number.plaintext, NULL, 10)
         });
-    } else if (accept_token(ctx, struct_tok)) {
-        expect(accept_token(ctx, lbracket_tok), "'{'");
-        struct List* names = shd_new_list(String);
-        struct List* types = shd_new_list(const Type*);
-        while (true) {
-            if (accept_token(ctx, rbracket_tok))
-                break;
-            const Type* elem = accept_unqualified_type(ctx);
-            expect(elem, "struct member type");
-            String id = accept_identifier(ctx);
-            expect(id, "struct member name");
-            shd_list_append(String, names, id);
-            shd_list_append(const Type*, types, elem);
-            expect(accept_token(ctx, semi_tok), "';'");
-        }
-        Nodes elem_types = shd_nodes(arena, shd_list_count(types), shd_read_list(const Type*, types));
-        Strings names2 = shd_strings(arena, shd_list_count(names), shd_read_list(String, names));
-        shd_destroy_list(names);
-        shd_destroy_list(types);
-        return record_type(arena, (RecordType) {
-            .names = names2,
-            .members = elem_types,
-            .special = ShdRecordFlagNone,
-        });
     } else {
         String id = accept_identifier(ctx);
         if (id)
@@ -1178,13 +1154,14 @@ static Nodes accept_annotations(ctxparams) {
     return annotations;
 }
 
-static const Node* accept_const(ctxparams, Nodes annotations) {
+static const Node* accept_const(ctxparams, String* bind_name, Nodes annotations) {
     if (!accept_token(ctx, const_tok))
         return NULL;
 
     const Type* type = accept_unqualified_type(ctx);
     const char* name = accept_identifier(ctx);
     expect(name, "constant name");
+    *bind_name = name;
     expect(accept_token(ctx, equal_tok), "'='");
     BodyBuilder* bb = shd_bld_begin_pure(arena);
     const Node* definition = accept_expr(ctx, bb, max_precedence());
@@ -1204,12 +1181,13 @@ static const Node* make_return_void(const Node* mem) {
     return fn_ret(a, (Return) { .args = shd_empty(a), .mem = mem });
 }
 
-static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
+static const Node* accept_fn_decl(ctxparams, String* bind_name, Nodes annotations) {
     if (!accept_token(ctx, fn_tok))
         return NULL;
 
     const char* name = accept_identifier(ctx);
     expect(name, "function name");
+    *bind_name = name;
     Nodes types = accept_types(ctx, comma_tok, MaybeQualified);
     expect(shd_curr_token(tokenizer).tag == lpar_tok, "')'");
     Nodes parameters;
@@ -1224,7 +1202,7 @@ static const Node* accept_fn_decl(ctxparams, Nodes annotations) {
     return fn;
 }
 
-static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
+static const Node* accept_global_var_decl(ctxparams, String* bind_name, Nodes annotations) {
     if (!accept_token(ctx, var_tok))
         return NULL;
 
@@ -1268,6 +1246,7 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     expect(payload.type, "global variable type");
     String name = accept_identifier(ctx);
     expect(name, "global variable name");
+    *bind_name = name;
 
     const Node* initial_value = NULL;
     if (accept_token(ctx, equal_tok)) {
@@ -1284,23 +1263,49 @@ static const Node* accept_global_var_decl(ctxparams, Nodes annotations) {
     return gv;
 }
 
-static const Node* accept_nominal_type_decl(ctxparams, Nodes annotations) {
-    if (!accept_token(ctx, type_tok))
+static const Node* accept_struct_decl(ctxparams, String* bind_name, Nodes annotations) {
+    if (!accept_token(ctx, struct_tok))
         return NULL;
 
     const char* name = accept_identifier(ctx);
-    expect(name, "nominal type name");
+    expect(name, "struct type name");
+    *bind_name = name;
 
-    expect(accept_token(ctx, equal_tok), "'='");
-
-    Node* nom = nominal_type_helper(mod);
-    nom->annotations = annotations;
-    shd_set_debug_name(nom, name);
-    nom->payload.nom_type.body = accept_unqualified_type(ctx);
-    expect(nom->payload.nom_type.body, "nominal type body");
-
+    expect(accept_token(ctx, lbracket_tok), "'{'");
+    struct List* names = shd_new_list(String);
+    struct List* types = shd_new_list(const Type*);
+    while (true) {
+        if (accept_token(ctx, rbracket_tok))
+            break;
+        const Type* elem = accept_unqualified_type(ctx);
+        expect(elem, "struct member type");
+        String id = accept_identifier(ctx);
+        expect(id, "struct member name");
+        shd_list_append(String, names, id);
+        shd_list_append(const Type*, types, elem);
+        expect(accept_token(ctx, semi_tok), "';'");
+    }
     expect(accept_token(ctx, semi_tok), "';'");
-    return nom;
+    Nodes elem_types = shd_nodes(arena, shd_list_count(types), shd_read_list(const Type*, types));
+    Strings names2 = shd_strings(arena, shd_list_count(names), shd_read_list(String, names));
+    shd_destroy_list(names);
+    shd_destroy_list(types);
+    return shd_struct_type_with_members_named(arena, 0, elem_types, names2);
+}
+
+static const Node* accept_alias(ctxparams, String* bind_name, Nodes annotations) {
+    if (!accept_token(ctx, alias_tok))
+        return NULL;
+
+    const char* name = accept_identifier(ctx);
+    expect(name, "alias type name");
+    *bind_name = name;
+
+    expect(annotations.count == 0, "annotations are not allowed on aliases");
+    expect(accept_token(ctx, equal_tok), "'='");
+    const Type* t = accept_unqualified_type(ctx);
+    expect(accept_token(ctx, semi_tok), "';'");
+    return t;
 }
 
 void slim_parse_string(const SlimParserConfig* config, const char* contents, Module* mod) {
@@ -1321,10 +1326,12 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
         Nodes annotations = accept_annotations(ctx);
         // annotations = shd_nodes_append(arena, annotations, annotation_value_helper(arena, "SlimTopLevelBindings", file_top_level));
 
-        const Node* decl = accept_const(ctx, annotations);
-        if (!decl)  decl = accept_fn_decl(ctx, annotations);
-        if (!decl)  decl = accept_global_var_decl(ctx, annotations);
-        if (!decl)  decl = accept_nominal_type_decl(ctx, annotations);
+        String bind_name = NULL;
+        const Node* decl = accept_const(ctx, &bind_name, annotations);
+        if (!decl)  decl = accept_fn_decl(ctx, &bind_name, annotations);
+        if (!decl)  decl = accept_global_var_decl(ctx, &bind_name, annotations);
+        if (!decl)  decl = accept_struct_decl(ctx, &bind_name, annotations);
+        if (!decl)  decl = accept_alias(ctx, &bind_name, annotations);
 
         if (!decl)
             syntax_error("expected a declaration");
@@ -1342,7 +1349,8 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
             }
         }
 
-        shd_add_annotation(file_top_level, annotation_id_helper(arena, shd_get_node_name_unsafe(decl), decl));
+        assert(bind_name && "top-level things should be named");
+        shd_add_annotation(file_top_level, annotation_id_helper(arena, bind_name, decl));
 
         if (exported_name)
             shd_module_add_export(mod, exported_name, decl);

@@ -50,9 +50,7 @@ static const Type* get_type_for_signature(Context* ctx, const Node* fnt) {
     for (size_t i = 0; i < ret_types.count; i++) {
         members[j++] = shd_rewrite_node(r, shd_get_unqualified_type(ret_types.nodes[i]));
     }
-    const Type* rec = record_type(a, (RecordType) {
-        .members = shd_nodes(a, j, members),
-    });
+    const Type* rec = shd_struct_type_with_members(a, 0, shd_nodes(a, j, members));
     shd_set_debug_name(rec, shd_fmt_string_irarena(a, "%s_io_t", shd_get_type_name(a, fnt)));
     shd_node2node_insert(ctx->signature2type, fnt, rec);
     return rec;

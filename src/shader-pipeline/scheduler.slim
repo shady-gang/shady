@@ -1,11 +1,11 @@
 @Internal
-type TreeNode = struct {
+struct TreeNode {
     mask_t threads;
     u32 depth;
 };
 
 @Exported @Internal
-type JoinPoint = struct {
+struct JoinPoint {
     TreeNode node;
     fn_ptr_t destination;
     u32 payload;

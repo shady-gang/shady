@@ -30,7 +30,6 @@ static inline Node* global_variable_helper(Module* m, const Type* t, AddressSpac
 static inline NodeTag is_declaration(const Node* n) { switch (n->tag) {
     case Function_TAG:
     case GlobalVariable_TAG:
-    case NominalType_TAG:
     case Constant_TAG: return n->tag;
     default: return InvalidNode_TAG;
 }}

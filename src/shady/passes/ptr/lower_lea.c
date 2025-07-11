@@ -36,12 +36,8 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
 
             return prim_op_helper(a, add_op, mk_nodes(a, base, physical_offset));
         }
-        case NominalType_TAG: {
-            pointed_type = pointed_type->payload.nom_type.body;
-            SHADY_FALLTHROUGH
-        }
-        case RecordType_TAG: {
-            Nodes member_types = pointed_type->payload.record_type.members;
+        case StructType_TAG: {
+            Nodes member_types = pointed_type->payload.struct_type.members;
 
             const IntLiteral* selector_value = shd_resolve_to_int_literal(index);
             assert(selector_value && "selector value must be known for LEA into a record");

@@ -154,17 +154,6 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
              ngvar->payload.global_variable.init = infer(ctx, old_payload.init, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, ngvar->payload.global_variable.type));
              return ngvar;
         }
-        case NominalType_TAG: {
-            NominalType payload = node->payload.nom_type;
-            if (shd_lookup_annotation(node, "Alias")) {
-                return infer(ctx, payload.body, NULL);
-            }
-            Node* new = nominal_type_helper(ctx->rewriter.dst_module);
-            shd_register_processed(r, node, new);
-            new->payload.nom_type.body = infer(ctx, payload.body, NULL);
-            shd_rewrite_annotations(r, node, new);
-            return new;
-        }
         default: shd_error("not a decl");
     }
 }
@@ -202,7 +191,6 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
                 expected_type = valid_int ? shd_int32_type(a) : shd_fp32_type(a);
             }
             expected_type = remove_uniformity_qualifier(expected_type);
-            expected_type = shd_get_maybe_nominal_type_body(expected_type);
             if (expected_type->tag == Int_TAG) {
                 // TODO chop off extra bits based on width ?
                 return int_literal(a, (IntLiteral) {
@@ -268,7 +256,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
 
             // Composites are tuples by default
             if (!elem_type)
-                elem_type = record_type(a, (RecordType) { .members = shd_strip_qualifiers(a, shd_get_values_types(a, nmembers)) });
+                elem_type = tuple_type(a, (TupleType) { .members = shd_strip_qualifiers(a, shd_get_values_types(a, nmembers)) });
 
             return composite_helper(a, elem_type, nmembers);
         }

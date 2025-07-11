@@ -95,7 +95,7 @@ static const Node* process(Context* ctx, const Node* node) {
             ctx2.stack_size_on_entry = shd_bld_get_stack_size(bb);
             shd_set_debug_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
-            Node* nom_t = nominal_type_helper(m);
+            Node* nom_t = struct_type_helper(a, 0);
             shd_set_debug_name(nom_t, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_node_name_safe(node)));
             VContext vctx = {
                 .visitor = {
@@ -110,11 +110,7 @@ static const Node* process(Context* ctx, const Node* node) {
             };
             shd_visit_function_bodies_rpo(&vctx.visitor, node);
 
-            vctx.nom_t->payload.nom_type.body = record_type(a, (RecordType) {
-                .members = shd_nodes(a, vctx.num_slots, shd_read_list(const Node*, vctx.members)),
-                .names = shd_strings(a, 0, NULL),
-                .special = 0
-            });
+            shd_struct_type_set_members(nom_t, shd_nodes(a, vctx.num_slots, shd_read_list(const Node*, vctx.members)));
             shd_destroy_list(vctx.members);
             ctx2.num_slots = vctx.num_slots;
             ctx2.frame_size = size_of_helper(a, vctx.nom_t);

@@ -66,14 +66,10 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
             }
 
         types[i] = type;
-        names[i] = shd_get_node_name_safe(params.nodes[i]);
+        names[i] = shd_get_node_name_unsafe(params.nodes[i]);
     }
 
-    const Type* type = record_type(a, (RecordType) {
-        .members = shd_nodes(a, params.count, types),
-        .names = shd_strings(a, params.count, names),
-        .special = ShdRecordFlagBlock,
-    });
+    const Type* type = shd_struct_type_with_members_named(a, ShdStructFlagBlock, shd_nodes(a, params.count, types), shd_strings(a, params.count, names));
 
     String name = shd_fmt_string_irarena(a, "__%s_args", shd_get_node_name_safe(old_entry_point));
     Node* var = global_variable_helper(rewriter->dst_module, type, AsPushConstant);

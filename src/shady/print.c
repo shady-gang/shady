@@ -400,8 +400,8 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
     printf(TYPE_COLOR);
     switch (is_type(node)) {
         case NotAType: assert(false); break;
-        case NoRet_TAG: printf("!"); break;
-        case Bool_TAG: printf("bool"); break;
+        case NoRet_TAG: printf("!"); return true;
+        case Bool_TAG: printf("bool"); return true;
         case Float_TAG:
             printf("f");
             switch (node->payload.float_type.width) {
@@ -411,14 +411,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case ShdFloatFormat64: printf("64"); break;
                 default: shd_error("Not a known valid float width")
             }
-            break;
-        case QualifiedType_TAG:
-            printf(SCOPE_COLOR);
-            print_scope(ctx, node->payload.qualified_type.scope);
-            printf(RESET);
-            printf(" ");
-            print_operand_helper(ctx, NcType, node->payload.qualified_type.type);
-            break;
+            return true;
         case Int_TAG:
             printf(node->payload.int_type.is_signed ? "i" : "u");
             switch (node->payload.int_type.width) {
@@ -428,19 +421,23 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case ShdIntSize64: printf("64"); break;
                 default: shd_error("Not a known valid int width")
             }
-            break;
-        case RecordType_TAG:
-            if (node->payload.record_type.members.count == 0) {
-                printf("unit_t");
-                break;
-            } else if (node->payload.record_type.special & ShdRecordFlagBlock) {
+            return true;
+        case QualifiedType_TAG:
+            printf(SCOPE_COLOR);
+            print_scope(ctx, node->payload.qualified_type.scope);
+            printf(RESET);
+            printf(" ");
+            print_operand_helper(ctx, NcType, node->payload.qualified_type.type);
+            return true;
+        case StructType_TAG:
+            if (node->payload.struct_type.flags & ShdStructFlagBlock) {
                 printf("block");
             } else {
                 printf("struct");
             }
             printf(RESET);
             printf(" {");
-            const Nodes* members = &node->payload.record_type.members;
+            const Nodes* members = &node->payload.struct_type.members;
             for (size_t i = 0; i < members->count; i++) {
                 print_node(members->nodes[i]);
                 printf(RESET);
@@ -551,7 +548,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             break;
     }
     printf(RESET);
-    return true;
+    return false;
 }
 
 static void print_string_lit(PrinterCtx* ctx, const char* string) {
@@ -1052,9 +1049,9 @@ void _shd_print_node_operand_Op(PrinterCtx* ctx, SHADY_UNUSED const Node* n, Str
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_ShdRecordFlags(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdRecordFlags flags) {
+void _shd_print_node_operand_ShdStructFlags(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdStructFlags flags) {
     print_operand_name_helper(ctx, name);
-    if (flags & ShdRecordFlagBlock)
+    if (flags & ShdStructFlagBlock)
         shd_print(ctx->printer, "DecorateBlock");
 }
 

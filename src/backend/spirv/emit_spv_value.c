@@ -127,7 +127,7 @@ static const IselTableEntry isel_table[] = {
 static const Type* get_result_t(Emitter* emitter, IselTableEntry entry, Nodes args, Nodes type_arguments) {
     switch (entry.result_kind) {
         case Same:      return shd_get_unqualified_type(shd_first(args)->type);
-        case SameTuple: return record_type(emitter->arena, (RecordType) { .members = mk_nodes(emitter->arena, shd_get_unqualified_type(shd_first(args)->type), shd_get_unqualified_type(shd_first(args)->type)) });
+        case SameTuple: return tuple_type(emitter->arena, (TupleType) { .members = mk_nodes(emitter->arena, shd_get_unqualified_type(shd_first(args)->type), shd_get_unqualified_type(shd_first(args)->type)) });
         case Bool:      return bool_type(emitter->arena);
         case TyOperand: return shd_first(type_arguments);
         case Void:      return unit_type(emitter->arena);

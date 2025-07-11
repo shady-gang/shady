@@ -50,14 +50,10 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
         }
         case LLVMStructTypeKind: {
             String name = LLVMGetStructName(t);
-            Node* decl = NULL;
-            const Node* result = NULL;
-
-            decl = nominal_type_helper(p->dst);
+            Node* struct_t = struct_type_helper(a, 0);
             if (name && strlen(name) > 0)
-                shd_set_debug_name(decl, name);
-            result = decl;
-            shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, result);
+                shd_set_debug_name(struct_t, name);
+            shd_dict_insert(LLVMTypeRef, const Type*, p->map, t, struct_t);
 
             unsigned size = LLVMCountStructElementTypes(t);
             LARRAY(LLVMTypeRef, elements, size);
@@ -67,14 +63,9 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
                 celements[i] = l2s_convert_type(p, elements[i]);
             }
 
-            const Node* product = record_type(a, (RecordType) {
-                .members = shd_nodes(a, size, celements)
-            });
-            if (decl)
-                decl->payload.nom_type.body = product;
-            else
-                result = product;
-            return result;
+            shd_struct_type_set_members(struct_t, shd_nodes(a, size, celements));
+
+            return struct_t;
         }
         case LLVMArrayTypeKind: {
             unsigned length = LLVMGetArrayLength(t);

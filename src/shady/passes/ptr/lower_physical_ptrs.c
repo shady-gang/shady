@@ -22,11 +22,10 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
         if (expected_type == actual_type)
             break;
 
-        actual_type = shd_get_maybe_nominal_type_body(actual_type);
         assert(expected_type != actual_type && "todo: rework this function if we change how nominal types are handled");
 
         switch (actual_type->tag) {
-            case RecordType_TAG:
+            case StructType_TAG:
             case ArrType_TAG:
             case VectorType_TAG: {
                 ptr = lea_helper(a, ptr, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, 0)));

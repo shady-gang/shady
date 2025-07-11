@@ -16,6 +16,7 @@ TOKEN(string_lit, NULL) \
 TEXT_TOKEN(uniform) \
 TEXT_TOKEN(varying) \
 TOKEN(struct, "struct") \
+TEXT_TOKEN(alias) \
 TOKEN(union, "union") \
 TEXT_TOKEN(array) \
 TOKEN(private, "private") \
@@ -31,7 +32,6 @@ TEXT_TOKEN(var) \
 TEXT_TOKEN(val) \
 TEXT_TOKEN(ptr) \
 TEXT_TOKEN(ref) \
-TEXT_TOKEN(type) \
 TEXT_TOKEN(fn) \
 TEXT_TOKEN(cont) \
 TEXT_TOKEN(lambda) \

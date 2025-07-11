@@ -183,7 +183,7 @@ const Node* shd_search_processed(const Rewriter* r, const Node* old) {
 static bool should_rewrite_at_top_level(const Node* n) {
     switch (n->tag) {
         case Function_TAG:
-        case NominalType_TAG:
+        case StructType_TAG:
         case GlobalVariable_TAG:
         case Constant_TAG:
         case BuiltinRef_TAG: return true;
@@ -376,9 +376,9 @@ Constant shd_rewrite_constant_head_payload(Rewriter* r, Constant old) {
     return new;
 }
 
-NominalType shd_rewrite_nominal_type_head_payload(SHADY_UNUSED Rewriter* r, NominalType old) {
-    NominalType new = old;
-    new.body = NULL;
+StructType shd_rewrite_struct_type_head_payload(SHADY_UNUSED Rewriter* r, StructType old) {
+    StructType new = old;
+    new.members = shd_nodes(r->dst_arena, 0, NULL);
     return new;
 }
 
@@ -391,7 +391,7 @@ BasicBlock shd_rewrite_basic_block_head_payload(Rewriter* r, BasicBlock old) {
 
 Node* shd_recreate_node_head_(Rewriter* r, const Node* old) {
     Node* new = NULL;
-    switch (is_declaration(old)) {
+    switch (old->tag) {
         case GlobalVariable_TAG: {
             new = shd_global_var(r->dst_module, shd_rewrite_global_head_payload(r, old->payload.global_variable));
             break;
@@ -405,8 +405,8 @@ Node* shd_recreate_node_head_(Rewriter* r, const Node* old) {
             shd_register_processed_list(r, old->payload.fun.params, new->payload.fun.params);
             break;
         }
-        case NominalType_TAG: {
-            new = shd_nominal_type(r->dst_module, shd_rewrite_nominal_type_head_payload(r, old->payload.nom_type));
+        case StructType_TAG: {
+            new = struct_type(r->dst_arena, shd_rewrite_struct_type_head_payload(r, old->payload.struct_type));
             break;
         }
         default: shd_error("not a decl");
@@ -423,8 +423,7 @@ Node* shd_recreate_node_head(Rewriter* r, const Node* old) {
 }
 
 void shd_recreate_node_body(Rewriter* r, const Node* old, Node* new) {
-    assert(is_declaration(new));
-    switch (is_declaration(old)) {
+    switch (old->tag) {
         case GlobalVariable_TAG: {
             new->payload.global_variable.init = rewrite_op_helper(r, NcValue, "init", old->payload.global_variable.init);
             break;
@@ -439,8 +438,8 @@ void shd_recreate_node_body(Rewriter* r, const Node* old, Node* new) {
             shd_set_abstraction_body(new, rewrite_op_helper(r, NcTerminator, "body", old->payload.fun.body));
             break;
         }
-        case NominalType_TAG: {
-            new->payload.nom_type.body = rewrite_op_helper(r, NcType, "body", old->payload.nom_type.body);
+        case StructType_TAG: {
+            new->payload.struct_type.members = rewrite_ops_helper(r, NcType, "members", old->payload.struct_type.members);
             break;
         }
         default: shd_error("not a decl");
@@ -472,7 +471,7 @@ const Node* shd_recreate_node(Rewriter* r, const Node* old) {
         case Function_TAG:
         case Constant_TAG:
         case GlobalVariable_TAG:
-        case NominalType_TAG: {
+        case StructType_TAG: {
             Node* new = shd_recreate_node_head(r, old);
             shd_recreate_node_body(r, old, new);
             return new;

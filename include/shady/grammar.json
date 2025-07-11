@@ -183,13 +183,13 @@
       "type": false
     },
     {
-      "name": "RecordType",
-      "snake_name": "record_type",
+      "name": "StructType",
       "class": "type",
+      "nominal": true,
+      "recursive": true,
       "ops": [
-        { "name": "members", "class": "type", "list": true },
-        { "name": "names", "class": "string", "list": true },
-        { "name": "special", "type": "ShdRecordFlags" }
+        { "name": "flags", "type": "ShdStructFlags" },
+        { "name": "members", "class": "type", "list": true, "ignore": true }
       ]
     },
     {
@@ -671,17 +671,6 @@
         { "name": "address_space", "type": "AddressSpace" },
         { "name": "is_ref", "type": "bool" },
         { "name": "init", "class": "value", "nullable": true, "tail": true }
-      ]
-    },
-    {
-      "name": "NominalType",
-      "snake_name": "nom_type",
-      "class": ["type"],
-      "recursive": true,
-      "nominal": true,
-      "type": false,
-      "ops": [
-        { "name": "body", "class": "type", "nullable": true, "tail": true }
       ]
     },
     {
