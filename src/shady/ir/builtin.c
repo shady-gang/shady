@@ -20,8 +20,8 @@ SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-AddressSpace shd_get_builtin_address_space(Builtin builtin) {
-    if (builtin >= BuiltinsCount)
+AddressSpace shd_get_builtin_address_space(ShdBuiltin builtin) {
+    if (builtin >= ShdBuiltinsCount)
         return AsGeneric;
     return builtin_as[builtin];
 }
@@ -32,8 +32,8 @@ SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-ShdScope shd_get_builtin_scope(Builtin builtin) {
-    if (builtin >= BuiltinsCount)
+ShdScope shd_get_builtin_scope(ShdBuiltin builtin) {
+    if (builtin >= ShdBuiltinsCount)
         return ShdScopeBottom;
     return builtin_scope[builtin];
 }
@@ -44,15 +44,15 @@ SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-String shd_get_builtin_name(Builtin builtin) {
-    if (builtin >= BuiltinsCount)
+String shd_get_builtin_name(ShdBuiltin builtin) {
+    if (builtin >= ShdBuiltinsCount)
         return "";
     return builtin_names[builtin];
 }
 
-const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin) {
+const Type* shd_get_builtin_type(IrArena* arena, ShdBuiltin builtin) {
     switch (builtin) {
-#define BUILTIN(name, _, _2, datatype) case Builtin##name: return datatype;
+#define BUILTIN(name, _, _2, datatype) case ShdBuiltin##name: return datatype;
 SHADY_BUILTINS()
 #undef BUILTIN
         default: shd_error("Unhandled builtin")
@@ -66,18 +66,18 @@ SHADY_BUILTINS()
 #undef BUILTIN
 };
 
-Builtin shd_get_builtin_by_name(String s) {
-    for (size_t i = 0; i < BuiltinsCount; i++) {
+ShdBuiltin shd_get_builtin_by_name(String s) {
+    for (size_t i = 0; i < ShdBuiltinsCount; i++) {
         if (strcmp(s, builtin_names[i]) == 0) {
             return i;
         }
     }
-    return BuiltinsCount;
+    return ShdBuiltinsCount;
 }
 
-Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id) {
-    Builtin b = BuiltinsCount;
-    for (size_t i = 0; i < BuiltinsCount; i++) {
+ShdBuiltin shd_get_builtin_by_spv_id(SpvBuiltIn id) {
+    ShdBuiltin b = ShdBuiltinsCount;
+    for (size_t i = 0; i < ShdBuiltinsCount; i++) {
         if (id == spv_builtins[i]) {
             b = i;
             break;
@@ -86,13 +86,13 @@ Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id) {
     return b;
 }
 
-int32_t shd_get_builtin_spv_id(Builtin builtin) {
-    if (builtin >= BuiltinsCount)
+int32_t shd_get_builtin_spv_id(ShdBuiltin builtin) {
+    if (builtin >= ShdBuiltinsCount)
         return 0;
     return spv_builtins[builtin];
 }
 
-bool shd_is_builtin_load_op(const Node* n, Builtin* out) {
+bool shd_is_builtin_load_op(const Node* n, ShdBuiltin* out) {
     assert(is_instruction(n));
     if (n->tag == Load_TAG) {
         const Node* src = n->payload.load.ptr;
@@ -105,10 +105,10 @@ bool shd_is_builtin_load_op(const Node* n, Builtin* out) {
     return false;
 }
 
-const Node* shd_get_or_create_builtin(Module* m, Builtin b) {
+const Node* shd_get_or_create_builtin(Module* m, ShdBuiltin b) {
     return builtin_ref_helper(shd_module_get_arena(m), b);
 }
 
-const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b) {
+const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, ShdBuiltin b) {
     return shd_bld_load(bb, shd_get_or_create_builtin(m, b));
 }

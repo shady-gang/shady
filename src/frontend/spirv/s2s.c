@@ -831,8 +831,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             } else {
                 SpvDeco* builtin = find_decoration(parser, result, -1, SpvDecorationBuiltIn);
                 if (builtin) {
-                    Builtin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
-                    assert(b != BuiltinsCount && "Unsupported builtin");
+                    ShdBuiltin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
+                    assert(b != ShdBuiltinsCount && "Unsupported builtin");
                     parser->defs[result].type = Value;
                     parser->defs[result].node = builtin_ref_helper(a, b);
                     break;

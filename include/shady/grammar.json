@@ -384,7 +384,7 @@
       "class": "value",
       "description": "Provides a reference to a given builtin",
       "ops": [
-        { "name": "builtin", "type": "Builtin" }
+        { "name": "builtin", "type": "ShdBuiltin" }
       ]
     },
     {

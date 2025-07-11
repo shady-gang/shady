@@ -1038,7 +1038,7 @@ void _shd_print_node_operand_AddressSpace(PrinterCtx* ctx, SHADY_UNUSED const No
     shd_print(ctx->printer, RESET);
 }
 
-void _shd_print_node_operand_Builtin(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, Builtin b) {
+void _shd_print_node_operand_ShdBuiltin(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdBuiltin b) {
     print_operand_name_helper(ctx, name);
     shd_print(ctx->printer, BLUE);
     shd_print(ctx->printer, "%s", shd_get_builtin_name(b));

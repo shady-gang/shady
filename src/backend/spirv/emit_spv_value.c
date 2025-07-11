@@ -248,7 +248,7 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformBallot);
                 if (emitter->spirv_tgt.hacks.shuffle_instead_of_broadcast_first) {
                     spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniformShuffle);
-                    const Node* b = shd_get_or_create_builtin(emitter->module, BuiltinSubgroupLocalInvocationId);
+                    const Node* b = shd_get_or_create_builtin(emitter->module, ShdBuiltinSubgroupLocalInvocationId);
                     SpvId scope = spv_emit_value(emitter, fn_builder, shd_first(operands));
                     SpvId src = spv_emit_value(emitter, fn_builder, operands.nodes[1]);
                     SpvId local_id = spvb_op(bb_builder, SpvOpLoad, spv_emit_type(emitter, shd_uint32_type(emitter->arena)), 1, (SpvId []) { spv_emit_value(emitter, fn_builder, b) });
@@ -576,7 +576,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             SpvStorageClass storage_class = spv_emit_addr_space(emitter, as);
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, node->type), storage_class, false, 0);
 
-            if (payload.builtin == BuiltinSubgroupSize || payload.builtin == BuiltinSubgroupId || payload.builtin == BuiltinSubgroupLocalInvocationId)
+            if (payload.builtin == ShdBuiltinSubgroupSize || payload.builtin == ShdBuiltinSubgroupId || payload.builtin == ShdBuiltinSubgroupLocalInvocationId)
                 spvb_capability(emitter->file_builder, SpvCapabilityGroupNonUniform);
 
             SpvBuiltIn d = shd_get_builtin_spv_id(payload.builtin);

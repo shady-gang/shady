@@ -69,31 +69,31 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                         // we need to map to the correct stack...
                         const Node* global_thread_offset;
                         if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model)) {
-                            const Node* launch_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinLaunchSizeKHR);
+                            const Node* launch_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinLaunchSizeKHR);
                             //const Node* launch_width = prim_op_helper(a, extract_op, mk_nodes(a, launch_size, shd_uint32_literal(a, 0)));
                             const Node* launch_height = shd_extract_literal(a, launch_size, 1);
                             const Node* launch_depth = shd_extract_literal(a, launch_size, 2);
 
-                            const Node* launch_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinLaunchIdKHR);
+                            const Node* launch_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinLaunchIdKHR);
                             const Node* launch_x = shd_extract_literal(a, launch_id, 0);
                             const Node* launch_y = shd_extract_literal(a, launch_id, 1);
                             const Node* launch_z = shd_extract_literal(a, launch_id, 2);
                             global_thread_offset = add(launch_z, mul(launch_depth, add(launch_y, mul(launch_height, launch_x))));
                         } else {
                             const Node* total_workgroup_size = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[0] * shd_get_arena_config(a)->specializations.workgroup_size[1] * shd_get_arena_config(a)->specializations.workgroup_size[2]);
-                            const Node* num_workgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinNumWorkgroups);
+                            const Node* num_workgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinNumWorkgroups);
                             //const Node* num_workgroups_x = prim_op_helper(a, extract_op, mk_nodes(a, num_workgroups, shd_uint32_literal(a, 0)));
                             const Node* num_workgroups_y = shd_extract_literal(a, num_workgroups, 1);
                             const Node* num_workgroups_z = shd_extract_literal(a, num_workgroups, 2);
 
-                            const Node* workgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinWorkgroupId);
+                            const Node* workgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinWorkgroupId);
                             const Node* workgroup_id_x = shd_extract_literal(a, workgroup_id, 0);
                             const Node* workgroup_id_y = shd_extract_literal(a, workgroup_id, 1);
                             const Node* workgroup_id_z = shd_extract_literal(a, workgroup_id, 2);
                             const Node* linear_workgroup_id = add(workgroup_id_z, mul(num_workgroups_z, add(workgroup_id_y, mul(num_workgroups_y, workgroup_id_x))));
 
-                            const Node* subgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupSize);
-                            const Node* subgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, BuiltinSubgroupId);
+                            const Node* subgroup_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinSubgroupSize);
+                            const Node* subgroup_id = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinSubgroupId);
 
                             // const Node* thread_size = size_of_helper(a, shd_rewrite_op(r, NcType, "type", old_global->payload.global_variable.type));
                             // thread_size = shd_bld_convert_int_zero_extend(fn_ctx.bb, shd_get_unqualified_type(linear_workgroup_id->type), thread_size);

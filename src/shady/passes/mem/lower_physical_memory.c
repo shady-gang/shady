@@ -80,9 +80,9 @@ static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* off
     if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model))
         return offset;
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupSize);
+    const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupSize);
     subgroup_size = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_size);
-    const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, BuiltinSubgroupLocalInvocationId);
+    const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupLocalInvocationId);
     subgroup_local_id = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_local_id);
     return add(mul(offset, subgroup_size), subgroup_local_id);
 }

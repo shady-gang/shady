@@ -177,10 +177,10 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
     const Node* next_function = shd_bld_load(loop_body_builder, shd_find_or_process_decl(r, "next_fn"));
     const Node* builtin_get_active_threads_mask_fn = shd_find_or_process_decl(r, "builtin_get_active_threads_mask");
     const Node* next_mask = shd_first(shd_bld_call(loop_body_builder, builtin_get_active_threads_mask_fn, shd_empty(a)));
-    const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupLocalInvocationId);
+    const Node* local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, ShdBuiltinSubgroupLocalInvocationId);
     const Node* should_run = prim_op_helper(a, mask_is_thread_active_op, mk_nodes(a, next_mask, local_id));
 
-    const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, BuiltinSubgroupId);
+    const Node* sid = shd_bld_builtin_load(ctx->rewriter.dst_module, loop_body_builder, ShdBuiltinSubgroupId);
     if (ctx->config->printf_trace.top_function) {
         const Node* resume_at = shd_bld_load(loop_body_builder, lea_helper(a, shd_find_or_process_decl(r, "resume_at"), shd_uint32_literal(a, 0), mk_nodes(a, local_id)));
         if (count_iterations)

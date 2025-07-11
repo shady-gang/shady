@@ -77,7 +77,7 @@ void shd_c_emit_variable_declaration(Emitter* emitter, Printer* block_printer, c
 CTerm shd_c_emit_function(Emitter* emitter, const Node* fn);
 void shd_c_emit_decl(Emitter* emitter, const Node* decl);
 void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init);
-CTerm shd_c_emit_builtin(Emitter* emitter, Builtin b);
+CTerm shd_c_emit_builtin(Emitter* emitter, ShdBuiltin b);
 
 CType shd_c_emit_type(Emitter* emitter, const Type* type, const char* center);
 String shd_c_get_record_field_name(Emitter*, const Type* t, size_t i);

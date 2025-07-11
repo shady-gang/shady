@@ -75,7 +75,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, 
 
                 OpRewriteResult* result = shd_new_rewrite_result_none(r);
                 if (ctx->bb) {
-                    const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, BuiltinSubgroupId);
+                    const Node* index = shd_bld_builtin_load(ctx->rewriter.dst_module, ctx->bb, ShdBuiltinSubgroupId);
                     const Node* slice = lea_helper(a, backing_shared_alloc, shd_int32_literal(a, 0), mk_nodes(a, index));
                     shd_rewrite_result_add_mask_rule(result, NcValue, slice);
                 }

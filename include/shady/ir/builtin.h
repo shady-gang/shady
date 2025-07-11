@@ -37,30 +37,30 @@ BUILTIN(SubgroupId,                AsUInput, Subgroup,   shd_uint32_type(arena) 
 BUILTIN(SubgroupSize,              AsInput,  Device,     shd_uint32_type(arena)  )\
 
 typedef enum {
-#define BUILTIN(name, as, scope, datatype) Builtin##name,
+#define BUILTIN(name, as, scope, datatype) ShdBuiltin##name,
 SHADY_BUILTINS()
 #undef BUILTIN
-  BuiltinsCount
-} Builtin;
+  ShdBuiltinsCount
+} ShdBuiltin;
 
-AddressSpace shd_get_builtin_address_space(Builtin builtin);
-String shd_get_builtin_name(Builtin builtin);
-ShdScope shd_get_builtin_scope(Builtin builtin);
+AddressSpace shd_get_builtin_address_space(ShdBuiltin builtin);
+String shd_get_builtin_name(ShdBuiltin builtin);
+ShdScope shd_get_builtin_scope(ShdBuiltin builtin);
 
-const Type* shd_get_builtin_type(IrArena* arena, Builtin builtin);
-Builtin shd_get_builtin_by_name(String s);
+const Type* shd_get_builtin_type(IrArena* arena, ShdBuiltin builtin);
+ShdBuiltin shd_get_builtin_by_name(String s);
 
 #ifdef spirv_H
-Builtin shd_get_builtin_by_spv_id(SpvBuiltIn id);
+ShdBuiltin shd_get_builtin_by_spv_id(SpvBuiltIn id);
 #endif
 
-int32_t shd_get_builtin_spv_id(Builtin builtin);
+int32_t shd_get_builtin_spv_id(ShdBuiltin builtin);
 
-bool shd_is_builtin_load_op(const Node* n, Builtin* out);
+bool shd_is_builtin_load_op(const Node* n, ShdBuiltin* out);
 
-const Node* shd_get_or_create_builtin(Module* m, Builtin b);
+const Node* shd_get_or_create_builtin(Module* m, ShdBuiltin b);
 
 typedef struct BodyBuilder_ BodyBuilder;
-const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, Builtin b);
+const Node* shd_bld_builtin_load(Module* m, BodyBuilder* bb, ShdBuiltin b);
 
 #endif

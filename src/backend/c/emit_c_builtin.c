@@ -4,21 +4,21 @@
 
 #pragma GCC diagnostic error "-Wswitch"
 
-static String ispc_builtins[BuiltinsCount] = {
-    [BuiltinSubgroupLocalInvocationId] = "programIndex",
+static String ispc_builtins[ShdBuiltinsCount] = {
+    [ShdBuiltinSubgroupLocalInvocationId] = "programIndex",
 };
 
-static String glsl_builtins[BuiltinsCount] = {
-    [BuiltinSubgroupLocalInvocationId] = "gl_SubgroupInvocationID",
-    [BuiltinLocalInvocationId] = "gl_LocalInvocationID",
-    [BuiltinWorkgroupId] = "gl_WorkGroupID",
-    [BuiltinNumWorkgroups] = "gl_NumWorkGroups",
-    [BuiltinWorkgroupSize] = "gl_WorkGroupSize",
-    [BuiltinGlobalInvocationId] = "gl_GlobalInvocationID",
-    [BuiltinPosition] = "gl_Position",
+static String glsl_builtins[ShdBuiltinsCount] = {
+    [ShdBuiltinSubgroupLocalInvocationId] = "gl_SubgroupInvocationID",
+    [ShdBuiltinLocalInvocationId] = "gl_LocalInvocationID",
+    [ShdBuiltinWorkgroupId] = "gl_WorkGroupID",
+    [ShdBuiltinNumWorkgroups] = "gl_NumWorkGroups",
+    [ShdBuiltinWorkgroupSize] = "gl_WorkGroupSize",
+    [ShdBuiltinGlobalInvocationId] = "gl_GlobalInvocationID",
+    [ShdBuiltinPosition] = "gl_Position",
 };
 
-CTerm shd_c_emit_builtin(Emitter* emitter, Builtin b) {
+CTerm shd_c_emit_builtin(Emitter* emitter, ShdBuiltin b) {
     String name = NULL;
     switch(emitter->backend_config.dialect) {
         case CDialect_ISPC: name = ispc_builtins[b]; break;

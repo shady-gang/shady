@@ -68,7 +68,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 scope = shd_get_addr_space_scope(payload.address_space);
             }
             if (builtin_annotation) {
-                Builtin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
+                ShdBuiltin b = shd_get_builtin_by_name(shd_get_annotation_string_payload(builtin_annotation));
                 io = shd_get_or_create_builtin(m, b);
                 scope = shd_get_builtin_scope(b);
             } else if (io_annotation) {

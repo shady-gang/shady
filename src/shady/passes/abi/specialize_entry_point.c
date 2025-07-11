@@ -20,8 +20,8 @@ static const Node* process(Context* ctx, const Node* node) {
 
     switch (node->tag) {
         case PrimOp_TAG: {
-            Builtin b;
-            if (shd_is_builtin_load_op(node, &b) && b == BuiltinWorkgroupSize) {
+            ShdBuiltin b;
+            if (shd_is_builtin_load_op(node, &b) && b == ShdBuiltinWorkgroupSize) {
                 const Type* t = vector_type(a, (VectorType) { .element_type = shd_uint32_type(a), .width = 3 });
                 uint32_t wg_size[3];
                 wg_size[0] = a->config.specializations.workgroup_size[0];
