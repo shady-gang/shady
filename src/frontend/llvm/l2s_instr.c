@@ -247,7 +247,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
             const Node* r = shd_bld_add_instruction(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bld_mem(b) }));
             if (UNTYPED_POINTERS) {
-                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = unit_type(a), .address_space = AsPrivate });
+                const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = shd_uword_type(a), .address_space = AsPrivate });
                 r = bit_cast_helper(a, untyped_ptr_t, r);
             }
             return generic_ptr_cast_helper(a, r);

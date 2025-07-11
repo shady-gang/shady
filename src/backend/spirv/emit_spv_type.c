@@ -180,9 +180,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
                 return new;
             }
 
-            if (pointed_type == unit_type(emitter->arena))
-                pointed_type = shd_uint8_type(emitter->arena);
-
             SpvId pointee = spv_emit_type(emitter, pointed_type);
             new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             spv_register_emitted(emitter, NULL, key, new);

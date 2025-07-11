@@ -6,7 +6,7 @@
 /// Unit type, carries no information (equivalent to C's void)
 /// There is exactly one possible value of this type: ()
 static inline const Node* unit_type(IrArena* arena) {
-    return record_type(arena, (RecordType) {
+    return tuple_type(arena, (TupleType) {
         .members = shd_empty(arena),
     });
 }

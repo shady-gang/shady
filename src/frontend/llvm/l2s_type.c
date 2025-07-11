@@ -112,9 +112,10 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
 #if !UNTYPED_POINTERS
             LLVMTypeRef element_type = LLVMGetElementType(t);
             pointee = l2s_convert_type(p, element_type);
-#else
-            pointee = unit_type(a);
 #endif
+            if (!pointee || pointee == unit_type(a))
+                pointee = shd_uword_type(a);
+
             return ptr_type(a, (PtrType) {
                 .address_space = as,
                 .pointed_type = pointee
