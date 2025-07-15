@@ -439,6 +439,15 @@
       ]
     },
     {
+      "name": "AggregateCast",
+      "class": ["value", "instruction"],
+      "description": "Rebuilds an aggregate value into a different, but compatible type",
+      "ops": [
+        { "name": "type", "class": "type" },
+        { "name": "src", "class": "value" }
+      ]
+    },
+    {
       "name": "GenericPtrCast",
       "class": ["value", "instruction"],
       "description": "Promotes a pointer into the generic address space",

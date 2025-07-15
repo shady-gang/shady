@@ -1087,6 +1087,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             shd_print(p, "\nmemset(%s, %s, %s);", shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.dst)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.src)), shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, payload.count)));
             return empty_term();
         }
+        case Instruction_AggregateCast_TAG: shd_error("TODO");
         case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
         case Instruction_GenericPtrCast_TAG: {
             GenericPtrCast payload = instruction->payload.generic_ptr_cast;

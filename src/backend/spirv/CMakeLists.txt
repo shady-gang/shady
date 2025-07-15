@@ -6,6 +6,7 @@ shady_add_component(NAME backend_spirv SOURCES
     spirv_lower_entrypoint_args.c
     spirv_remove_bda_params.c
     spirv_callable_shaders.c
+        spirv_specialize_explicit_layout.c
     spirv_builder.c
 )
 

@@ -219,7 +219,8 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spvb_struct_type(emitter->file_builder, new, member_types.count, members);
             if (payload.flags & ShdStructFlagBlock)
                 spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
-            spv_emit_type_layout(emitter, type, new);
+            if (shd_lookup_annotation(type, "ExplicitLayout"))
+                spv_emit_type_layout(emitter, type, new);
             return new;
         }
         case TupleType_TAG: {

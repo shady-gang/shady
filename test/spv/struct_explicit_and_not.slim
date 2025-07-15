@@ -1,0 +1,13 @@
+struct T {
+    i32 a;
+    i32 b;
+};
+
+var private T b;
+
+// this test validates against a regression where emitted structs are not cached
+@Exported @EntryPoint("Compute") @WorkgroupSize(64, 1, 1)
+fn main(ptr global T a) {
+    b = *a;
+    *a = b;
+}

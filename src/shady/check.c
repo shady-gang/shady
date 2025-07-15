@@ -534,6 +534,19 @@ const Type* _shd_check_type_bit_cast(IrArena* a, BitCast cast) {
     });
 }
 
+const Type* _shd_check_type_aggregate_cast(IrArena* a, AggregateCast cast) {
+    const Type* src_type = cast.src->type;
+    ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
+
+    assert(shd_is_aggregate_t(cast.type));
+    assert(shd_is_aggregate_t(shd_get_unqualified_type(cast.src->type)));
+
+    return qualified_type(a, (QualifiedType) {
+        .scope = src_scope,
+        .type = cast.type
+    });
+}
+
 const Type* _shd_check_type_conversion(IrArena* a, Conversion conversion) {
     const Type* src_type = conversion.src->type;
     ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);

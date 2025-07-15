@@ -345,6 +345,8 @@ RewritePass shd_pass_globals_to_params;
 RewritePass shd_spv_lower_entrypoint_args;
 /// Avoids some implementation bugs
 RewritePass shd_spvbe_pass_remove_bda_params;
+/// Makes sure to only use explicit-layout structs where allowed
+RewritePass shd_spvbe_pass_specialize_explicit_layout;
 
 RewritePass shd_pass_mark_leaf_functions;
 RewritePass shd_pass_eliminate_constants;
@@ -384,6 +386,7 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOpti
         RUN_PASS(shd_lower_to_callable_shaders, config)
     }
 
+    RUN_PASS(shd_spvbe_pass_specialize_explicit_layout, config)
     RUN_PASS(shd_pass_import, config)
 
     return CompilationNoError;

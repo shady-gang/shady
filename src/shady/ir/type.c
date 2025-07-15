@@ -28,6 +28,8 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
         return false;
     if (type == supertype)
         return true;
+    if (shd_is_node_nominal(type))
+        return false;
     switch (is_type(supertype)) {
         case NotAType: shd_error("supplied not a type to is_subtype");
         case QualifiedType_TAG: {

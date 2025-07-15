@@ -11,6 +11,17 @@ static inline const Node* unit_type(IrArena* arena) {
     });
 }
 
+static inline bool shd_is_aggregate_t(const Type* t) {
+    switch (t->tag) {
+        case StructType_TAG:
+        case ArrType_TAG:
+        case VectorType_TAG:
+        case MatrixType_TAG:
+            return true;
+    }
+    return false;
+}
+
 const Node* shd_maybe_tuple_helper(IrArena* a, Nodes values);
 const Node* shd_tuple_helper(IrArena*, Nodes contents);
 
