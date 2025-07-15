@@ -248,6 +248,7 @@
       "name": "ArrType",
       "class": "type",
       "ops": [
+        { "name": "flags", "type": "ShdArrayFlags" },
         { "name": "element_type", "class": "type" },
         { "name": "size", "class": "value", "nullable": true }
       ]

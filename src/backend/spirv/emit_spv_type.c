@@ -180,13 +180,15 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             break;
         }
         case ArrType_TAG: {
-            SpvId element_type = spv_emit_type(emitter, type->payload.arr_type.element_type);
-            if (type->payload.arr_type.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, type->payload.arr_type.size));
+            ArrType payload = type->payload.arr_type;
+            SpvId element_type = spv_emit_type(emitter, payload.element_type);
+            if (payload.size) {
+                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, payload.size));
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
-            spv_emit_type_layout(emitter, type, new);
+            if (payload.flags & ShdArrayFlagExplicitLayout)
+                spv_emit_type_layout(emitter, type, new);
             break;
         }
         case VectorType_TAG: {

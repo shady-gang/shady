@@ -28,6 +28,11 @@ typedef enum {
 } ShdStructFlags;
 
 typedef enum {
+    ShdArrayFlagNone,
+    ShdArrayFlagExplicitLayout = 1,
+} ShdArrayFlags;
+
+typedef enum {
     ShdScopeTop,
     ShdScopeCrossDevice = ShdScopeTop,
     ShdScopeDevice,

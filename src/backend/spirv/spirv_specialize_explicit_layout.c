@@ -18,6 +18,9 @@ typedef struct {
 
 static bool has_explicit_layout(AddressSpace as) {
     switch (as) {
+        case AsInput:
+        case AsUInput:
+        case AsOutput:
         case AsPrivate: return false;
         case AsShared: return false;
         case AsFunction: return false;
@@ -38,9 +41,15 @@ static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
             shd_recreate_node_body(r, t, nst);
             return nst;
         }
+        case Type_ArrType_TAG: {
+            ArrType payload = t->payload.arr_type;
+            payload.element_type = shd_rewrite_node(r, payload.element_type);
+            payload.size = shd_rewrite_node(r, payload.size);
+            payload.flags |= ShdArrayFlagExplicitLayout;
+            return arr_type(a, payload);
+        }
         // derived aggregates
         case Type_QualifiedType_TAG:
-        case Type_ArrType_TAG:
         case Type_VectorType_TAG:
         case Type_MatrixType_TAG:
         case Type_ExtType_TAG:

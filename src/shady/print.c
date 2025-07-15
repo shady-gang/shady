@@ -1053,6 +1053,14 @@ void _shd_print_node_operand_ShdStructFlags(PrinterCtx* ctx, SHADY_UNUSED const 
     print_operand_name_helper(ctx, name);
     if (flags & ShdStructFlagBlock)
         shd_print(ctx->printer, "DecorateBlock");
+    if (flags & ShdStructFlagExplicitLayout)
+        shd_print(ctx->printer, "ExplicitLayout");
+}
+
+void _shd_print_node_operand_ShdArrayFlags(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, ShdArrayFlags flags) {
+    print_operand_name_helper(ctx, name);
+    if (flags & ShdArrayFlagExplicitLayout)
+        shd_print(ctx->printer, "ExplicitLayout");
 }
 
 void _shd_print_node_operand_uint32_t(PrinterCtx* ctx, SHADY_UNUSED const Node* n, String name, uint32_t i) {
