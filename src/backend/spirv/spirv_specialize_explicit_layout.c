@@ -29,8 +29,11 @@ static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
     IrArena* a = r->dst_arena;
     switch (is_type(t)) {
         case Type_StructType_TAG: {
-            Type* nst = shd_recreate_node_head(r, t);
-            shd_add_annotation(nst, annotation_helper(a, "ExplicitLayout"));
+            StructType payload = shd_rewrite_struct_type_head_payload(r, t->payload.struct_type);
+            payload.flags |= ShdStructFlagExplicitLayout;
+            Type* nst = struct_type(a, payload);
+            shd_register_processed(r, t, nst);
+            shd_rewrite_annotations(r, t, nst);
             shd_set_debug_name(nst, shd_fmt_string_irarena(a, "%s_explicit", shd_get_node_name_safe(nst)));
             shd_recreate_node_body(r, t, nst);
             return nst;

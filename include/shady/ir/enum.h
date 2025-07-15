@@ -22,7 +22,9 @@ typedef enum {
 typedef enum {
     ShdStructFlagNone,
     /// Gets the 'Block' SPIR-V annotation, needed for UBO/SSBO variables
-    ShdStructFlagBlock
+    ShdStructFlagBlock = 1,
+    /// Will emit explicit layout annotations
+    ShdStructFlagExplicitLayout = 2,
 } ShdStructFlags;
 
 typedef enum {

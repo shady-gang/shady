@@ -219,7 +219,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spvb_struct_type(emitter->file_builder, new, member_types.count, members);
             if (payload.flags & ShdStructFlagBlock)
                 spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
-            if (shd_lookup_annotation(type, "ExplicitLayout"))
+            if (payload.flags & ShdStructFlagExplicitLayout)
                 spv_emit_type_layout(emitter, type, new);
             return new;
         }
