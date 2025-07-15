@@ -5,6 +5,7 @@
 #include "shady/ir/decl.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/mem.h"
+#include "shady/ir/composite.h"
 
 #include "portability.h"
 #include "log.h"
