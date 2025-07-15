@@ -340,18 +340,8 @@ SpvId spvb_void_type(SpvbFileBuilder* file_builder) {
     return id;
 }
 
-SpvId spvb_ptr_type(SpvbFileBuilder* file_builder, SpvStorageClass storage_class, SpvId element_type) {
-    op(SpvOpTypePointer, 4);
-    SpvId id = spvb_fresh_id(file_builder);
-    ref_id(id);
-    literal_int(storage_class);
-    ref_id(element_type);
-    return id;
-}
-
-SpvId spvb_forward_ptr_type(SpvbFileBuilder* file_builder, SpvStorageClass storage_class) {
+SpvId spvb_forward_ptr_type(SpvbFileBuilder* file_builder, SpvId id, SpvStorageClass storage_class) {
     op(SpvOpTypeForwardPointer, 3);
-    SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     literal_int(storage_class);
     return id;

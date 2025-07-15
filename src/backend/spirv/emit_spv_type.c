@@ -153,21 +153,14 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         } case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
             SpvStorageClass sc = spv_emit_addr_space(emitter, payload.address_space);
-            const Type* pointed_type = payload.pointed_type;
-            if (pointed_type->tag == StructType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
-                new = spvb_forward_ptr_type(emitter->file_builder, sc);
-                spv_register_emitted(emitter, NULL, key, new);
-                spv_emit_type_layout(emitter, type, new);
-                SpvId pointee = spv_emit_type(emitter, pointed_type);
-                spvb_ptr_type_define(emitter->file_builder, new, sc, pointee);
-                return new;
+            new = spvb_fresh_id(emitter->file_builder);
+            if (payload.pointed_type->tag == StructType_TAG && sc == SpvStorageClassPhysicalStorageBuffer) {
+                spvb_forward_ptr_type(emitter->file_builder, new, sc);
             }
-
-            SpvId pointee = spv_emit_type(emitter, pointed_type);
-            new = spvb_ptr_type(emitter->file_builder, sc, pointee);
             spv_register_emitted(emitter, NULL, key, new);
             spv_emit_type_layout(emitter, type, new);
-            break;
+            spvb_ptr_type_define(emitter->file_builder, new, sc, spv_emit_type(emitter, payload.pointed_type));
+            return new;
         }
         case NoRet_TAG:
         case LamType_TAG:
@@ -234,7 +227,6 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             for (size_t i = 0; i < payload.members.count; i++)
                 members[i] = spv_emit_type(emitter, payload.members.nodes[i]);
             spvb_struct_type(emitter->file_builder, new, payload.members.count, members);
-            spv_emit_type_layout(emitter, type, new);
             break;
         }
         case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
