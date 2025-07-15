@@ -109,7 +109,6 @@ String shd_get_exported_name(const Node* node) {
 void shd_module_add_export(Module* m, String name, const Node* node) {
     assert(!m->sealed);
     assert(name);
-    assert(is_declaration(node));
     const Node* conflict = shd_module_get_exported(m, name);
     assert((!conflict || conflict == node) && "duplicate export");
     if (conflict == node)

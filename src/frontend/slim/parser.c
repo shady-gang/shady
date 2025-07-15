@@ -1290,7 +1290,10 @@ static const Node* accept_struct_decl(ctxparams, String* bind_name, Nodes annota
     Strings names2 = shd_strings(arena, shd_list_count(names), shd_read_list(String, names));
     shd_destroy_list(names);
     shd_destroy_list(types);
-    return shd_struct_type_with_members_named(arena, 0, elem_types, names2);
+    Type* st = shd_struct_type_with_members_named(arena, 0, elem_types, names2);
+    st->annotations = annotations;
+    shd_set_debug_name(st, name);
+    return st;
 }
 
 static const Node* accept_alias(ctxparams, String* bind_name, Nodes annotations) {
@@ -1344,7 +1347,7 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
                 exported_name = shd_get_exported_name(decl);
             } else {
                 shd_remove_annotation_by_name(decl, "Exported");
-                exported_name = shd_get_node_name_unsafe(decl);
+                exported_name = bind_name;
                 assert(exported_name);
             }
         }
@@ -1355,10 +1358,9 @@ void slim_parse_string(const SlimParserConfig* config, const char* contents, Mod
         if (exported_name)
             shd_module_add_export(mod, exported_name, decl);
 
-            shd_log_fmt(DEBUGVV, "decl parsed: ");
-            shd_log_node(DEBUGVV, decl);
-            shd_log_fmt(DEBUGVV, "\n");
-            continue;
+        shd_log_fmt(DEBUGVV, "decl parsed: %s = ", exported_name);
+        shd_log_node(DEBUGVV, decl);
+        shd_log_fmt(DEBUGVV, "\n");
     }
 
     shd_destroy_tokenizer(tokenizer);

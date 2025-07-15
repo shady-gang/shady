@@ -164,7 +164,7 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
     if (existing)
         return *existing;
 
-    switch (is_declaration(decl)) {
+    switch (decl->tag) {
         case GlobalVariable_TAG: {
             const GlobalVariable* gvar = &decl->payload.global_variable;
             SpvId given_id = spvb_fresh_id(emitter->file_builder);
@@ -228,6 +228,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             // but we also desire to cache reused values instead of emitting them multiple times. This means we can't really "force" an ID for a given value.
             // The ideal fix would be if SPIR-V offered a way to "alias" an ID under a new one. This would allow applying new debug information to the decl ID, separate from the other instances of that value.
             return 0;
+        } case StructType_TAG: {
+            return spv_emit_type(emitter, decl);
         }
         default: shd_error("");
     }

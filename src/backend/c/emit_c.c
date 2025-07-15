@@ -311,8 +311,6 @@ CTerm shd_c_emit_function(Emitter* emitter, const Node* decl) {
 }
 
 void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
-    assert(is_declaration(decl));
-
     CTerm* found = shd_c_lookup_existing_term(emitter, NULL, decl);
     if (found) return;
 
@@ -324,14 +322,13 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
     switch (decl->tag) {
         case GlobalVariable_TAG: {
+            GlobalVariable payload = decl->payload.global_variable;
             String init = NULL;
-            if (decl->payload.global_variable.init)
+            if (payload.init)
                 init = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, NULL, decl->payload.global_variable.init));
-            AddressSpace ass = decl->payload.global_variable.address_space;
+            AddressSpace ass = payload.address_space;
             if (ass == AsInput || ass == AsOutput)
                 init = NULL;
-
-            const GlobalVariable* gvar = &decl->payload.global_variable;
 
             if (ass == AsOutput && emitter->target_config->execution_model == ShdExecutionModelFragment) {
                 int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
@@ -340,10 +337,10 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
                 return;
             }
 
-            const Type* decl_type = decl->payload.global_variable.type;
+            const Type* decl_type = payload.type;
             // we emit the global variable as a CVar, so we can refer to it's 'address' without explicit ptrs
             emit_as = term_from_cvar(name);
-            if ((decl->payload.global_variable.address_space == AsPrivate) && emitter->backend_config.dialect == CDialect_CUDA) {
+            if ((payload.address_space == AsPrivate) && emitter->backend_config.dialect == CDialect_CUDA) {
                 emit_as = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "__shady_thread_local_access(%s)", name));
                 if (init)
                     init = shd_fmt_string_irarena(emitter->arena, "__shady_replicate_thread_local(%s)", init);
@@ -351,8 +348,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             }
             shd_c_register_emitted(emitter, NULL, decl, emit_as);
 
-            AddressSpace as = decl->payload.global_variable.address_space;
-            shd_c_emit_global_variable_definition(emitter, as, name, decl_type, false, init);
+            shd_c_emit_global_variable_definition(emitter, payload.address_space, name, decl_type, false, init);
             return;
         }
         case Constant_TAG: {
@@ -364,6 +360,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             return;
         }
         case Function_TAG: shd_c_emit_function(emitter, decl); break;
+        case StructType_TAG: shd_c_emit_type(emitter, decl, NULL); break;
         //case NominalType_TAG: {
         //    CType emitted = name;
         //    shd_c_register_emitted_type(emitter, decl, emitted);
