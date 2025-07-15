@@ -210,6 +210,7 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         }
         case Type_StructType_TAG: {
             new = spvb_fresh_id(emitter->file_builder);
+            spv_register_emitted(emitter, NULL, key, new);
             StructType payload = type->payload.struct_type;
             Nodes member_types = payload.members;
             LARRAY(SpvId, members, member_types.count);
