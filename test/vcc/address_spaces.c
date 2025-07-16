@@ -1,3 +1,3 @@
 #include <shady.h>
 
-global int buffer[256];
+static global int buffer[256];
