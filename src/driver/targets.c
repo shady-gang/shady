@@ -58,7 +58,7 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
             if (compiler_config->use_rt_pipelines_for_calls) {
                 target_config->capabilities.native_fncalls = true;
                 target_config->capabilities.rt_pipelines = true;
-                //target_config->memory.fn_ptr_size = IntTy64;
+                target_config->memory.fn_ptr_size = ShdIntSize32;
             }
             break;
         case TgtC:
