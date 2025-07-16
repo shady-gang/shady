@@ -589,7 +589,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             spvb_decorate(emitter->file_builder, given_id, SpvDecorationBuiltIn, 1, decoration_payload);
             if (as == AsUInput || as == AsInput) {
                 const Type* element_type = shd_get_builtin_type(emitter->arena, payload.builtin);
-                if (element_type->tag == Int_TAG)
+                if (element_type->tag == Int_TAG && emitter->target->execution_model == ShdExecutionModelFragment)
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationFlat, 0, NULL);
             }
             shd_spv_register_interface(emitter, node, given_id);
