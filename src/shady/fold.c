@@ -682,6 +682,13 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             }
             break;
         }
+        case AggregateCast_TAG: {
+            AggregateCast payload = node->payload.aggregate_cast;
+            // get rid of identity casts
+            if (shd_get_unqualified_type(payload.src->type) == payload.type)
+                return payload.src;
+            break;
+        }
         case BitCast_TAG: {
             BitCast payload = node->payload.bit_cast;
             // get rid of identity casts
