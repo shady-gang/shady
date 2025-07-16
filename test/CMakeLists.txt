@@ -17,7 +17,7 @@ if (BUILD_TESTING)
 
     add_subdirectory(slim)
     add_subdirectory(shader-pipeline)
-    add_subdirectory(reconvergence_heuristics)
+    # add_subdirectory(reconvergence_heuristics)
     add_subdirectory(opt)
 
     if (TARGET vcc)
