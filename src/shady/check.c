@@ -172,7 +172,7 @@ const Type* _shd_check_type_composite(IrArena* arena, Composite composite) {
     LARRAY(const Type*, member_ts, composite.contents.count);
     for (size_t i = 0; i < composite.contents.count; i++) {
         const Type* element_type = composite.contents.nodes[i]->type;
-        assert(shd_get_qualified_type_scope(element_type));
+        assert(shd_is_value_type(element_type));
         member_ts[i] = element_type;
     }
     return tuple_type(arena, (TupleType) {
