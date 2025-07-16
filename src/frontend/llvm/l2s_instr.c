@@ -543,10 +543,16 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
                 } else if (shd_string_starts_with(intrinsic, "llvm.smax")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, max_op, shd_nodes(a, 2, ops.nodes));
+                    const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                    const Type* signed_t = change_int_t_sign(int_t, true);
+                    r = prim_op_helper(a, max_op, reinterpret_operands(b, shd_nodes(a, 2, ops.nodes), signed_t));
+                    return bit_cast_helper(a, int_t, r);
                 } else if (shd_string_starts_with(intrinsic, "llvm.smin")) {
                     Nodes ops = convert_operands(p, num_ops, instr);
-                    return prim_op_helper(a, min_op, shd_nodes(a, 2, ops.nodes));
+                    const Type* int_t = l2s_convert_type(p, LLVMTypeOf(LLVMGetOperand(instr, 0)));
+                    const Type* signed_t = change_int_t_sign(int_t, true);
+                    r = prim_op_helper(a, min_op, reinterpret_operands(b, shd_nodes(a, 2, ops.nodes), signed_t));
+                    return bit_cast_helper(a, int_t, r);
                 }
 
                 typedef struct {
