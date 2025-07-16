@@ -31,6 +31,14 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
                         memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset, args[idx], resource->interface_item.dst_details.push_constant.size);
                         break;
                     }
+                    case SHD_RII_Src_TmpAllocation: {
+                        VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) resource->tmp_buffer);
+                        memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
+                            &bda,
+                            resource->interface_item.dst_details.push_constant.size);
+                        assert(resource->interface_item.dst_details.push_constant.size == sizeof(VkDeviceAddress));
+                        break;
+                    }
                     case SHD_RII_Src_LiftedConstant: {
                         VkDeviceAddress bda = shd_rn_get_buffer_device_pointer((Buffer*) resource->buffer);
                         memcpy((uint8_t*) push_constant_buffer + resource->interface_item.dst_details.push_constant.offset,
@@ -64,7 +72,7 @@ static void prepare_resources_for_launch(VkrCommand* cmd, VkrSpecProgram* prog, 
                 break;
             }
             case SHD_RII_Dst_Descriptor: {
-                // TODO
+                shd_error("TODO")
                 /*descriptor_buffer_info[write_descriptor_sets_count] = (VkDescriptorBufferInfo) {
                     .buffer = resource->buffer->buffer,
                     .offset = resource->buffer->offset,

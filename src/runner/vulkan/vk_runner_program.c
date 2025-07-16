@@ -407,7 +407,12 @@ static bool prepare_program_resources(VkrSpecProgram* program) {
 
         switch (item->interface_item.src_kind) {
             case SHD_RII_Src_Param:
-                continue;
+                break;
+            case SHD_RII_Src_TmpAllocation: {
+                item->tmp_buffer_size = shd_get_int_value(item->interface_item.src_details.tmp_allocation.size, false);
+                item->tmp_buffer = shd_vkr_allocate_buffer_device(program->device, item->tmp_buffer_size);
+                break;
+            }
             case SHD_RII_Src_LiftedConstant: {
                 size_t size;
                 shd_rt_materialize_constant(item->interface_item.src_details.lifted_constant.constant, &size, NULL);
@@ -505,6 +510,8 @@ void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
             shd_vkr_destroy_buffer(item->buffer);
         if (item->host_owning_ptr)
             shd_free_aligned(item->host_owning_ptr);
+        if (item->tmp_buffer)
+            shd_vkr_destroy_buffer(item->tmp_buffer);
         if (item->scratch)
             shd_vkr_destroy_buffer(item->scratch);
     }

@@ -4,30 +4,43 @@
 #include "shady/ir/base.h"
 #include "vulkan/vulkan.h"
 
+/// Describes how interface items get provided to the shader
 typedef struct {
     enum {
+        /// resource passed as raw bytes in the push constant
         SHD_RII_Dst_PushConstant,
+        /// resource passed as descriptors
         SHD_RII_Dst_Descriptor,
     } dst_kind;
     union {
+        /// range in the push constant where to put the stuff
         struct {
             size_t offset, size;
-            size_t param_idx;
         } push_constant;
+        /// descriptor to fill
         struct {
             uint32_t set, binding;
             VkDescriptorType type;
         } descriptor;
     } dst_details;
     enum {
+        /// resource passed as kernel launch argument
         SHD_RII_Src_Param,
+        /// resource is a dummy allocation in global memory
+        SHD_RII_Src_TmpAllocation,
+        /// resource is a pre-populated allocation in global memory (usually a large constant)
         SHD_RII_Src_LiftedConstant,
+        /// resource is a kernel-size dependant scratch buffer, also in global memory
         SHD_RII_Src_ScratchBuffer
     } src_kind;
     union {
         struct {
+            /// Index of the argument in the kernel launch args list
             size_t param_idx;
         } param;
+        struct {
+            const Node* size;
+        } tmp_allocation;
         struct {
             const Node* constant;
         } lifted_constant;

@@ -33,7 +33,29 @@ void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfa
                 Nodes annotations = decl->annotations;
                 for (size_t k = 0; k < annotations.count; k++) {
                     const Node* an = annotations.nodes[k];
-                    if (strcmp(get_annotation_name(an), "RuntimeProvideMemInPushConstant") == 0) {
+                    if (strcmp(get_annotation_name(an), "RuntimeProvideTmpAllocationInPushConstant") == 0) {
+                        Nodes arr = an->payload.annotation_values.values;
+                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
+                        if (member_idx != j)
+                            continue;
+                        const Node* size = arr.nodes[1];
+                        if (out) {
+                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
+                            out[*count] = (RuntimeInterfaceItem) {
+                                .dst_kind = SHD_RII_Dst_PushConstant,
+                                .dst_details.push_constant = {
+                                    .offset = field_layouts[j].offset_in_bytes,
+                                    .size = layout.size_in_bytes,
+                                },
+                                .src_kind = SHD_RII_Src_TmpAllocation,
+                                .src_details.tmp_allocation = {
+                                    .size = size
+                                },
+                            };
+                        }
+                        (*count)++;
+                        goto next;
+                    } else if (strcmp(get_annotation_name(an), "RuntimeProvideConstantInPushConstant") == 0) {
                         Nodes arr = an->payload.annotation_values.values;
                         size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
                         if (member_idx != j)

@@ -139,12 +139,16 @@ bool shd_vkr_wait_completion(VkrCommand* cmd);
 
 VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String entry_point, int dimx, int dimy, int dimz, int args_count, void** args, ExtraKernelOptions* options);
 
+/// Implementation of RuntimeInterfaceItem
 typedef struct {
     RuntimeInterfaceItem interface_item;
 
     void* host_owning_ptr;
     VkrBuffer* buffer;
     size_t per_invocation_size;
+
+    size_t tmp_buffer_size;
+    VkrBuffer* tmp_buffer;
 
     size_t scratch_size;
     VkrBuffer* scratch;

@@ -200,11 +200,16 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, SH
             }));
         } else if (odecl->payload.global_variable.init) {
             shd_add_annotation(ctx.extra_params.nodes[j], annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeProvideMem",
-                    .values = mk_nodes(a, shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
+                .name = "RuntimeProvideConstant",
+                .values = mk_nodes(a, shd_rewrite_op(&ctx.rewriter, NcValue, "init", odecl->payload.global_variable.init))
             }));
         } else {
-            shd_error("TODO: implement just reserving scratch space for unintialized constants");
+            TypeMemLayout layout = shd_get_mem_layout(a, odecl->payload.global_variable.type);
+            const Node* thread_size = shd_uint32_literal(a, layout.size_in_bytes);
+            shd_add_annotation(ctx.extra_params.nodes[j], annotation_values(a, (AnnotationValues) {
+                .name = "RuntimeProvideTmpAllocation",
+                .values = mk_nodes(a, thread_size)
+            }));
         }
         j++;
     }

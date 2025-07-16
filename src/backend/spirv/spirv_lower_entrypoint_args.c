@@ -36,14 +36,25 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
         if (shd_deconstruct_qualified_type(&type) != shd_get_arena_config(a)->target.scopes.constants)
             shd_error("EntryPoint parameters must be uniform");
 
-            const Node* provide_mem = shd_lookup_annotation(param, "RuntimeProvideMem");
+            const Node* provide_tmp_alloc = shd_lookup_annotation(param, "RuntimeProvideTmpAllocation");
+            const Node* provide_constant = shd_lookup_annotation(param, "RuntimeProvideConstant");
             const Node* provide_scratch = shd_lookup_annotation(param, "RuntimeProvideScratch");
-            if (provide_mem) {
-                Nodes arr = provide_mem->payload.annotation_values.values;
+            if (provide_tmp_alloc) {
+                Nodes arr = provide_tmp_alloc->payload.annotation_values.values;
                 const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
 
                 annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeProvideMemInPushConstant",
+                    .name = "RuntimeProvideTmpAllocationInPushConstant",
+                    .values = mk_nodes(a, shd_int32_literal(a, i), contents)
+                }));
+                synthetic_args_count++;
+                assert(!finished_with_synethic_args);
+            } else if (provide_constant) {
+                Nodes arr = provide_constant->payload.annotation_values.values;
+                const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
+
+                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
+                    .name = "RuntimeProvideConstantInPushConstant",
                     .values = mk_nodes(a, shd_int32_literal(a, i), contents)
                 }));
                 synthetic_args_count++;
