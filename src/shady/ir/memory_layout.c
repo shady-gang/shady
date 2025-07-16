@@ -178,6 +178,10 @@ size_t shd_get_type_bitwidth(const Type* t) {
                 return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
             break;
         }
+        case VectorType_TAG: {
+            VectorType payload = t->payload.vector_type;
+            return shd_get_type_bitwidth(payload.element_type) * payload.width;
+        }
         default: break;
     }
     return SIZE_MAX;
