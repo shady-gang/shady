@@ -28,7 +28,10 @@ static bool is_arithm_or_vector_thereof(const Type* t) {
 
 bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {
     assert(shd_is_data_type(src_type) && shd_is_data_type(dst_type));
-    if (shd_get_type_bitwidth(src_type) != shd_get_type_bitwidth(dst_type))
+    size_t src_bitwidth = shd_get_type_bitwidth(src_type);
+    if (src_bitwidth != shd_get_type_bitwidth(dst_type))
+        return false;
+    if (src_bitwidth == 0 || src_bitwidth == SIZE_MAX)
         return false;
     if (src_type == dst_type)
         return true; // folding will eliminate those, but we need to pass type-checking first :)
