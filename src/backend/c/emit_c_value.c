@@ -671,6 +671,8 @@ static CTerm emit_primop(Emitter* emitter, FnEmitter* fn, Printer* p, const Node
         }
         case select_op: {
             assert(prim_op->operands.count == 3);
+            size_t width = shd_get_maybe_vector_type_width(shd_get_unqualified_type(prim_op->operands.nodes[0]->type));
+            assert(width == 1 && "TODO: implement select with vector condition");
             CValue condition = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[0]));
             CValue l = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[1]));
             CValue r = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, prim_op->operands.nodes[2]));

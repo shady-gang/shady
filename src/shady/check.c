@@ -434,21 +434,26 @@ const Type* _shd_check_type_prim_op(IrArena* arena, PrimOp prim_op) {
             assert(prim_op.operands.count == 3);
             const Type* condition_type = prim_op.operands.nodes[0]->type;
             ShdScope scope = shd_deconstruct_qualified_type(&condition_type);
-            size_t width = shd_deconstruct_maybe_vector_type(&condition_type);
+            size_t condition_width = shd_deconstruct_maybe_vector_type(&condition_type);
+            size_t prev_alternative_width;
 
             const Type* alternatives_types[2];
             for (size_t i = 0; i < 2; i++) {
                 alternatives_types[i] = prim_op.operands.nodes[1 + i]->type;
                 scope = shd_combine_scopes(scope, shd_deconstruct_qualified_type(&alternatives_types[i]));
                 size_t alternative_width = shd_deconstruct_maybe_vector_type(&alternatives_types[i]);
-                assert(alternative_width == width);
+                assert(condition_width == 1 || alternative_width == condition_width);
+                if (i > 0) {
+                    assert(prev_alternative_width == alternative_width);
+                }
+                prev_alternative_width = alternative_width;
             }
 
             assert(shd_is_subtype(bool_type(arena), condition_type));
             // todo find true supertype
             assert(are_types_identical(2, alternatives_types));
 
-            return qualified_type_helper(arena, scope, shd_maybe_vector_type_helper(alternatives_types[0], width));
+            return qualified_type_helper(arena, scope, shd_maybe_vector_type_helper(alternatives_types[0], prev_alternative_width));
         }
         case shuffle_op: {
             assert(prim_op.operands.count >= 2);
