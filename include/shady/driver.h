@@ -10,16 +10,18 @@
 struct List;
 
 typedef enum {
-    NoError,
-    MissingInputArg,
-    MissingOutputArg,
-    InputFileDoesNotExist = 4,
-    InputFileIOError,
-    MissingDumpCfgArg,
-    MissingDumpIrArg,
-    IncorrectLogLevel = 16,
-    InvalidTarget,
-    ClangInvocationFailed,
+    ShdNoError,
+    ShdMissingInputArg,
+    ShdMissingOutputArg,
+    ShdInputFileDoesNotExist = 4,
+    ShdInputFileIOError,
+    ShdMissingDumpCfgArg,
+    ShdMissingDumpIrArg,
+    ShdIncorrectLogLevel = 16,
+    ShdInvalidTarget,
+    ShdClangInvocationFailed,
+    ShdNeedsSpecialization,
+    ShdMissingCapability,
 } ShadyErrorCodes;
 
 typedef enum {
@@ -34,7 +36,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig*, const TargetC
 ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig*, const TargetConfig*, const char* filename, String name, Module** mod);
 
 typedef enum {
-    TgtAuto,
+    TgtNone,
     TgtSPV,
     TgtC,
     TgtGLSL,

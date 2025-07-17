@@ -37,12 +37,18 @@ void shd_pipeline_add_target_specialization(ShdPipeline pipeline, TargetConfig t
 
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt) {
     shd_pipeline_add_target_specialization(pipeline, tgt);
+
     if (tgt.execution_model != ShdExecutionModelNone)
         shd_pipeline_add_specialize_execution_model(pipeline, tgt.execution_model);
     if (tgt.entry_point) {
         if (tgt.execution_model == ShdExecutionModelNone)
             shd_log_fmt(WARN, "Specializing on an entry point but no execution model picked!");
         shd_pipeline_add_specialize_entry_point(pipeline, tgt.entry_point);
+    }
+
+    if (!tgt.capabilities.linkage) {
+        assert(tgt.execution_model != ShdExecutionModelNone);
+        assert(tgt.entry_point);
     }
 
     shd_pipeline_add_fncall_emulation(pipeline, tgt);

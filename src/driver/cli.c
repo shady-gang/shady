@@ -40,7 +40,7 @@ void shd_parse_common_args(int* pargc, char** argv) {
                 shd_error_print("--log-level argument takes one of: ");
                 shd_error_print("debug, info, warn,  error");
                 shd_error_print("\n");
-                exit(IncorrectLogLevel);
+                exit(ShdIncorrectLogLevel);
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
@@ -97,6 +97,8 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
             target->memory.ptr_size = parse_int_size(argv[i]);
         } else if (strcmp(argv[i], "--no-bda") == 0) {
             target->memory.address_spaces[AsGlobal].allowed = false;
+        } else if (strcmp(argv[i], "--allow-linkage") == 0) {
+            target->capabilities.linkage = true;
         } else if (strcmp(argv[i], "--use-native-tailcalls") == 0) {
             target->capabilities.native_tailcalls = true;
             target->memory.fn_ptr_size = ShdIntSize64;
@@ -228,7 +230,7 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
 DriverConfig shd_default_driver_config(void) {
     return (DriverConfig) {
         .config = shd_default_compiler_config(),
-        .target_type = TgtAuto,
+        .target_type = TgtNone,
         .input_filenames = shd_new_list(const char*),
         .output_filename = NULL,
         .cfg_output_filename = NULL,
@@ -252,7 +254,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             i++;
             if (i == argc) {
                 shd_error_print("--output must be followed with a filename");
-                exit(MissingOutputArg);
+                exit(ShdMissingOutputArg);
             }
             args->output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-ir") == 0) {
@@ -264,7 +266,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             i++;
             if (i == argc) {
                 shd_error_print("--dump-cfg must be followed with a filename");
-                exit(MissingDumpCfgArg);
+                exit(ShdMissingDumpCfgArg);
             }
             args->cfg_output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-loop-tree") == 0) {
@@ -272,7 +274,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             i++;
             if (i == argc) {
                 shd_error_print("--dump-loop-tree must be followed with a filename");
-                exit(MissingDumpCfgArg);
+                exit(ShdMissingDumpCfgArg);
             }
             args->loop_tree_output_filename = argv[i];
         } else if (strcmp(argv[i], "--dump-ir") == 0) {
@@ -280,7 +282,7 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
             i++;
             if (i == argc) {
                 shd_error_print("--dump-ir must be followed with a filename");
-                exit(MissingDumpIrArg);
+                exit(ShdMissingDumpIrArg);
             }
             args->shd_output_filename = argv[i];
         } else if (strcmp(argv[i], "--entry-point") == 0) {
@@ -327,13 +329,15 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
                 args->target_type = TgtISPC;
             else if (strcmp(argv[i], "cuda") == 0)
                 args->target_type = TgtCUDA;
+            else if (strcmp(argv[i], "none") == 0)
+                args->target_type = TgtNone;
             else
                 goto invalid_target;
             argv[i] = NULL;
             continue;
             invalid_target:
             shd_error_print("--target must be followed with a valid target (see help for list of targets)");
-            exit(InvalidTarget);
+            exit(ShdInvalidTarget);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             help = true;
 #define EM(name) #name", "

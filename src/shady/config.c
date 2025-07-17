@@ -60,6 +60,8 @@ TargetConfig shd_default_target_config(void) {
         .capabilities = {
             .native_fncalls = true,
             .native_tailcalls = true,
+
+            .linkage = true,
         }
     };
 

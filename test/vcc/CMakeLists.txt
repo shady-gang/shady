@@ -2,7 +2,7 @@ list(APPEND VCC_SIMPLE_TESTS empty.c)
 list(APPEND VCC_SIMPLE_TESTS address_spaces.c)
 list(APPEND VCC_SIMPLE_TESTS alias.c)
 
-set(VCC_TEST_ARGS --vcc-include-path "${PROJECT_BINARY_DIR}/share/vcc/include/")
+set(VCC_TEST_ARGS --target none --vcc-include-path "${PROJECT_BINARY_DIR}/share/vcc/include/")
 
 foreach(T IN LISTS VCC_SIMPLE_TESTS)
     add_test(NAME "${T}" COMMAND vcc ${PROJECT_SOURCE_DIR}/test/vcc/${T} ${VCC_TEST_ARGS})

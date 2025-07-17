@@ -71,7 +71,7 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig* config, const 
             *mod = shd_parse_slim_module(config, &pconfig, (const char*) file_contents, name);
         }
     }
-    return NoError;
+    return ShdNoError;
 }
 
 ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* config, const TargetConfig* target_config, const char* filename, String name, Module** mod) {
@@ -83,12 +83,12 @@ ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* 
     bool ok = shd_read_file(filename, &len, &contents);
     if (!ok) {
         shd_error_print("Failed to read file '%s'\n", filename);
-        err = InputFileIOError;
+        err = ShdInputFileIOError;
         goto exit;
     }
     if (contents == NULL) {
         shd_error_print("file does not exist\n");
-        err = InputFileDoesNotExist;
+        err = ShdInputFileDoesNotExist;
         goto exit;
     }
     err = shd_driver_load_source_file(config, target_config, lang, len, contents, name, mod);
@@ -100,7 +100,7 @@ ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* 
 ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod) {
     if (shd_list_count(input_filenames) == 0) {
         shd_error_print("Missing input file. See --help for proper usage");
-        return MissingInputArg;
+        return ShdMissingInputArg;
     }
 
     size_t num_source_files = shd_list_count(input_filenames);
@@ -115,16 +115,44 @@ ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const
         shd_destroy_ir_arena(shd_module_get_arena(m));
     }
 
-    return NoError;
+    return ShdNoError;
 }
 
-void shd_driver_fill_pipeline(ShdPipeline pipeline, DriverConfig* driver_config, const TargetConfig*, const Module* mod);
+void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig*, const Module* mod);
 
 ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* target_config, Module* mod) {
     mod = shd_import(&args->config, mod);
 
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, mod);
+
+    bool require_specialization = !target_config->capabilities.linkage;
+
+    if (!args->specialization.entry_point && require_specialization) {
+        // TODO: only do this for targets that _require_ specialization
+        Nodes fns = shd_module_get_all_exported(mod);
+        const Node* first_ep = NULL;
+        for (size_t i = 0; i < fns.count; i++) {
+            const Node* fn = fns.nodes[i];
+            if (fn->tag != Function_TAG)
+                continue;
+            if (!shd_lookup_annotation(fn, "EntryPoint"))
+                continue;
+            if (!first_ep)
+                first_ep = fn;
+            else {
+                shd_log_fmt(ERROR, "Selected target requires specialization, but no --entry-point provided and more than one exist in input.\n");
+                exit(ShdNeedsSpecialization);
+            }
+        }
+
+        if (!first_ep) {
+            shd_log_fmt(ERROR, "Selected target requires specialization, but there are no entry points to specialize on in this file.\n");
+            exit(ShdNeedsSpecialization);
+        }
+
+        args->specialization.entry_point = shd_get_exported_name(first_ep);
+    }
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
     shd_driver_fill_pipeline(pipeline, args, target_config, mod);
@@ -184,5 +212,5 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* targe
         fclose(f);
     }
     shd_destroy_ir_arena(shd_module_get_arena(mod));
-    return NoError;
+    return ShdNoError;
 }

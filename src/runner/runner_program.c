@@ -29,7 +29,7 @@ Program* shd_rt_load_program(Runner* runtime, const CompilerConfig* base_config,
     TargetConfig target_config = shd_default_target_config();
 
     int err = shd_driver_load_source_file(base_config, &target_config, SrcShadyIR, strlen(program_src), program_src, "my_module", &module);
-    if (err != NoError) {
+    if (err != ShdNoError) {
         return NULL;
     }
 
@@ -43,7 +43,7 @@ Program* shd_rt_load_program_from_disk(Runner* runtime, const CompilerConfig* ba
     TargetConfig target_config = shd_default_target_config();
 
     int err = shd_driver_load_source_file_from_filename(base_config, &target_config, path, "my_module", &module);
-    if (err != NoError) {
+    if (err != ShdNoError) {
         return NULL;
     }
 

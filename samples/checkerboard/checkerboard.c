@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     ArenaConfig aconfig = shd_default_arena_config(&target_config);
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* m;
-    if (shd_driver_load_source_file(&compiler_config, &target_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != NoError)
+    if (shd_driver_load_source_file(&compiler_config, &target_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != ShdNoError)
         shd_error("Failed to load checkerboard module");
     Program* program = shd_rn_new_program_from_module(runtime, &compiler_config, m);
 

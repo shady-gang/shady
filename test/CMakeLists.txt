@@ -7,7 +7,7 @@ if (BUILD_TESTING)
     target_link_libraries(test_builder driver)
     add_test(NAME test_builder COMMAND test_builder)
 
-    set(SHADY_SPV_VAL_VK_ARGS "--target-env;vulkan1.3;--allow-linkage")
+    set(SHADY_SPV_VAL_VK_ARGS "--target-env;vulkan1.3")
 
     function(shady_unit_test)
         cmake_parse_arguments(PARSE_ARGV 0 "ARG" "VALSPV" "NAME;COMPILER" "FILES;ARGS;SPV_VAL_ARGS" )

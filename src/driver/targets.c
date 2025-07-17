@@ -20,6 +20,7 @@ static void add_default_shading_language_limitations(TargetConfig* target_config
     target_config->capabilities.native_tailcalls = false;
     target_config->capabilities.native_memcpy = false;
     target_config->capabilities.native_stack = false;
+    target_config->capabilities.linkage = false;
 }
 
 static CodegenTarget guess_target_through_name(const char* filename) {
@@ -32,11 +33,11 @@ static CodegenTarget guess_target_through_name(const char* filename) {
     else if (shd_string_ends_with(filename, "ispc"))
         return TgtISPC;
     shd_error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
-    exit(InvalidTarget);
+    exit(ShdInvalidTarget);
 }
 
 static void configure_target(TargetConfig* target_config, CodegenTarget target_type, const CompilerConfig* compiler_config, DriverConfig* driver_config) {
-    if (target_type == TgtAuto) {
+    if (target_type == TgtNone) {
         if (driver_config && driver_config->output_filename) {
             target_type = driver_config->target_type = guess_target_through_name(driver_config->output_filename);
         } else {
@@ -45,7 +46,7 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
     }
 
     switch (target_type) {
-        case TgtAuto: /* no target */  break;
+        case TgtNone: /* no target */  break;
         case TgtSPV:
             if (driver_config)
                 driver_config->backend_type = BackendSPV;
@@ -101,6 +102,7 @@ static void configure_target(TargetConfig* target_config, CodegenTarget target_t
             //target_config->capabilities.native_memcpy = true;
             //target_config->memory.max_align = 8;
             add_default_shading_language_limitations(target_config);
+            target_config->capabilities.linkage = true;
             target_config->memory.address_spaces[AsGlobal].physical = true;
             break;
     }
@@ -136,10 +138,11 @@ TargetConfig shd_driver_specialize_target_config(TargetConfig config, Module* mo
     return specialized_target_config;
 }
 
-void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig* target_config, Module* mod) {
+void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig* target_config, const Module* mod) {
     TargetConfig specialized_target_config = shd_driver_specialize_target_config(*target_config, mod, driver_config->specialization.execution_model, driver_config->specialization.entry_point);
 
-    shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config);
+    if (driver_config->target_type != TgtNone)
+        shd_pipeline_add_shader_target_lowering(pipeline, specialized_target_config);
 
     switch (driver_config->backend_type) {
         case BackendNone: /* do nothing */ break;

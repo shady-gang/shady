@@ -1,4 +1,8 @@
-execute_process(COMMAND ${COMPILER} ${FILES} ${COMP_ARGS} -o ${DST}/${NAME}.spv COMMAND_ERROR_IS_FATAL ANY COMMAND_ECHO STDOUT)
+if (VALSPV)
+    list(APPEND COMP_ARGS -o ${DST}/${NAME}.spv)
+endif()
+
+execute_process(COMMAND ${COMPILER} ${FILES} ${COMP_ARGS} COMMAND_ERROR_IS_FATAL ANY COMMAND_ECHO STDOUT)
 
 if (VALSPV)
     #find_program(SPIRV_VALIDATOR "spirv-val")

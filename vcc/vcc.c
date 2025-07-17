@@ -17,11 +17,12 @@ int main(int argc, char** argv) {
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.config, &argc, argv);
 
+    // default to emitting SPIR-V but allow overriding it
+    args.target_type = TgtSPV;
     shd_parse_driver_args(&args, &argc, argv);
 
     TargetConfig target_config = shd_default_target_config();
 
-    args.target_type = TgtSPV;
     shd_driver_configure_target(&target_config, &args);
     shd_parse_target_args(&target_config, &argc, argv);
 
@@ -31,7 +32,7 @@ int main(int argc, char** argv) {
 
     if (shd_list_count(args.input_filenames) == 0) {
         shd_error_print("Missing input file. See --help for proper usage");
-        exit(MissingInputArg);
+        exit(ShdMissingInputArg);
     }
 
     ArenaConfig aconfig = shd_default_arena_config(&target_config);

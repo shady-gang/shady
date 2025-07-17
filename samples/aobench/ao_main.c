@@ -117,7 +117,7 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     TargetConfig target_config = shd_default_target_config();
     Module* m;
-    CHECK(shd_driver_load_source_file_from_filename(&args->compiler_config, &target_config, path, "aobench", &m) == NoError, return);
+    CHECK(shd_driver_load_source_file_from_filename(&args->compiler_config, &target_config, path, "aobench", &m) == ShdNoError, return);
     Program* program = shd_rn_new_program_from_module(runtime, &args->compiler_config, m);
 
     // run it twice to compile everything and benefit from caches

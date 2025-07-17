@@ -151,14 +151,14 @@ void vcc_run_clang(VccConfig* vcc_options, String filename) {
     shd_info_print("Clang returned %d and replied: \n%s", clang_returned, llvm_result);
     free(llvm_result);
     if (clang_returned)
-        exit(ClangInvocationFailed);
+        exit(ShdClangInvocationFailed);
 }
 
 Module* vcc_parse_back_into_module(const CompilerConfig* config, const TargetConfig* target_config, VccConfig* vcc_options, String module_name) {
     size_t len;
     char* llvm_ir;
     if (!shd_read_file(vcc_options->tmp_filename, &len, &llvm_ir))
-        exit(InputFileIOError);
+        exit(ShdInputFileIOError);
     Module* mod;
     shd_parse_llvm(config, &vcc_options->frontend_config, target_config, len, llvm_ir, module_name, &mod);
     free(llvm_ir);

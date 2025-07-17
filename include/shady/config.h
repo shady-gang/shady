@@ -44,6 +44,7 @@ typedef struct {
         bool native_fncalls;
         bool native_tailcalls;
         bool rt_pipelines;
+        bool linkage;
     } capabilities;
 
     ShdExecutionModel execution_model;
