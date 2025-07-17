@@ -24,6 +24,7 @@ shady_unit_test(COMPILER vcc NAME vcc_native_swizzle FILES native_vec_swizzle.c 
 shady_unit_test(COMPILER vcc NAME vcc_trivial_comp FILES empty.comp.c  ARGS ${VCC_TEST_ARGS} --entry-point main VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
 
 shady_unit_test(COMPILER vcc NAME vcc_simple_frag FILES simple.frag.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
+shady_unit_test(COMPILER vcc NAME vcc_flat_decoration_frag FILES flat_decoration.frag.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
 shady_unit_test(COMPILER vcc NAME vcc_checker_frag FILES checkerboard.frag.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
 shady_unit_test(COMPILER vcc NAME vcc_textured_frag FILES textured.frag.c ARGS ${VCC_TEST_ARGS} --entry-point main --execution-model Fragment VALSPV SPV_VAL_ARGS ${SHADY_SPV_VAL_VK_ARGS})
 
