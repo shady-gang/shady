@@ -1,19 +1,16 @@
 #include "cuda_runner_private.h"
 
 #include "shady/driver.h"
-#include "shady/pipeline/pipeline.h"
+#include "shady/pipeline/shader_pipeline.h"
 #include "shady/be/c.h"
 #include "shady/pass.h"
 
 #include "log.h"
-#include "portability.h"
 #include "dict.h"
 #include "util.h"
 #include "list.h"
 
 #include <stdlib.h>
-
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
 
 static bool emit_cuda_c_code(CudaKernel* spec) {
     CompilerConfig config = *spec->key.base->base_config;
@@ -31,7 +28,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     };
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_shader_target_lowering(pipeline, target_config);
+    shd_pipeline_add_shader_target_lowering(pipeline, target_config, &config);
     shd_pipeline_add_c_target_passes(pipeline, &emitter_config);
     CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->final_module);
     shd_destroy_pipeline(pipeline);

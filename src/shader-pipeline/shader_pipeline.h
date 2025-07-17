@@ -1,5 +1,7 @@
-#include "shady/pipeline/pipeline.h"
+#include "shady/pipeline/shader_pipeline.h"
 #include "shady/pass.h"
+
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt, CompilerConfig* hacky_bs);
 
 void shd_pipeline_add_target_specialization(ShdPipeline pipeline, TargetConfig em);
 void shd_pipeline_add_specialize_execution_model(ShdPipeline pipeline, ShdExecutionModel em);

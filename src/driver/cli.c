@@ -302,13 +302,6 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
 #undef EM
             if (em == ShdExecutionModelNone)
                 shd_error("Unknown execution model: %s", argv[i]);
-            switch (em) {
-                case ShdExecutionModelFragment:
-                case ShdExecutionModelVertex:
-                    args->config.dynamic_scheduling = false;
-                break;
-                default: break;
-            }
             args->specialization.execution_model = em;
         } else if (strcmp(argv[i], "--glsl-version") == 0) {
             argv[i] = NULL;

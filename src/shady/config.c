@@ -74,6 +74,19 @@ TargetConfig shd_default_target_config(void) {
     return config;
 }
 
+void shd_target_apply_execution_model_restrictions(TargetConfig* target) {
+    switch (target->execution_model) {
+        case ShdExecutionModelVertex:
+        case ShdExecutionModelFragment: {
+            target->memory.address_spaces[AsShared].allowed = false;
+        }
+        default: break;
+    }
+
+    if (!target->memory.address_spaces[AsShared].allowed)
+        target->memory.address_spaces[AsSubgroup].allowed = false;
+}
+
 ArenaConfig shd_default_arena_config(const TargetConfig* target) {
     ArenaConfig config = {
         .name_bound = true,

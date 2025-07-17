@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     }
 
     if (!vcc_options.only_run_clang) {
-        shd_driver_compile(&args, &target_config, m);
+        shd_driver_compile(&args, target_config, m);
     }
 
     shd_destroy_ir_arena(shd_module_get_arena(m));

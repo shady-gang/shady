@@ -1,6 +1,7 @@
 #include "vk_runner_private.h"
 
 #include "shady/driver.h"
+#include "shady/pipeline/shader_pipeline.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/runtime/runtime.h"
 #include "shady/rewrite.h"
@@ -318,6 +319,7 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
+// TODO: delete this once all lowering/target-specific stuff is stripped out of CompilerConfig
 static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* config, SPVBackendConfig* spv_config) {
     assert(device->caps.subgroup_size.max > 0);
     // config.per_thread_stack_size = ...
@@ -348,23 +350,19 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
 #include "shady/pipeline/pipeline.h"
 #include "shady/pass.h"
 
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt);
-
-TargetConfig shd_driver_specialize_target_config(TargetConfig, Module*, ShdExecutionModel, String);
-
 static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
     spec->specialized_module = shd_import(&spec->specialized_config, spec->key.base->module);
 
     spec->specialized_target = shd_vkr_get_device_target_config(&spec->specialized_config, spec->device);
+    spec->specialized_target.entry_point = spec->key.entry_point;
+    spec->specialized_target.execution_model = spec->key.em;
 
     spec->backend_config = shd_default_spirv_backend_config();
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spec->backend_config);
 
-    spec->specialized_target = shd_driver_specialize_target_config(spec->specialized_target, spec->key.base->module, spec->key.em, spec->key.entry_point);
-
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target);
+    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target, &spec->specialized_config);
     shd_pipeline_add_spirv_target_passes(pipeline, &spec->specialized_target, &spec->backend_config);
     CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
     shd_destroy_pipeline(pipeline);

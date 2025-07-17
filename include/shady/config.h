@@ -54,6 +54,8 @@ typedef struct {
 
 TargetConfig shd_default_target_config(void);
 
+void shd_target_apply_execution_model_restrictions(TargetConfig*);
+
 typedef struct ArenaConfig_ ArenaConfig;
 struct ArenaConfig_ {
     bool name_bound;

@@ -35,7 +35,7 @@ void shd_pipeline_add_target_specialization(ShdPipeline pipeline, TargetConfig t
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_target_config_step, &target_config, sizeof(TargetConfig));
 }
 
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig tgt) {
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const TargetConfig tgt, CompilerConfig* hacky_bs) {
     shd_pipeline_add_target_specialization(pipeline, tgt);
 
     if (tgt.execution_model != ShdExecutionModelNone)
@@ -50,6 +50,9 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, TargetConfig 
         assert(tgt.execution_model != ShdExecutionModelNone);
         assert(tgt.entry_point);
     }
+
+    if (!tgt.memory.address_spaces[AsSubgroup].allowed)
+        hacky_bs->dynamic_scheduling = false;
 
     shd_pipeline_add_fncall_emulation(pipeline, tgt);
     shd_pipeline_add_feature_lowering(pipeline, tgt);

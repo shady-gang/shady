@@ -10,21 +10,10 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-static void specialize_arena_config(ShdExecutionModel em, TargetConfig* target) {
-    target->execution_model = em;
-    switch (em) {
-        case ShdExecutionModelVertex:
-        case ShdExecutionModelFragment: {
-            target->memory.address_spaces[AsShared].allowed = false;
-            target->memory.address_spaces[AsSubgroup].allowed = false;
-        }
-        default: break;
-    }
-}
-
 static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* config, ShdExecutionModel* em, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    specialize_arena_config(*em, &aconfig.target);
+    aconfig.target.execution_model = *em;
+    shd_target_apply_execution_model_restrictions(&aconfig.target);
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

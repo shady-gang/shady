@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     if (err)
         exit(err);
 
-    err = shd_driver_compile(&args, &target_config, mod);
+    err = shd_driver_compile(&args, target_config, mod);
     if (err)
         exit(err);
     shd_info_print("Compilation successful\n");

@@ -94,7 +94,7 @@ void shd_driver_configure_defaults_for_target(TargetConfig*, const CompilerConfi
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv);
 
 ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod);
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig*, Module* mod);
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig, Module* mod);
 
 typedef enum CompilationResult_ {
     CompilationNoError

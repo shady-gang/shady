@@ -17,6 +17,8 @@
 #include "shady/fe/spirv.h"
 #endif
 
+#include "shady/pipeline/shader_pipeline.h"
+
 #include "list.h"
 #include "util.h"
 #include "log.h"
@@ -118,17 +120,36 @@ ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const
     return ShdNoError;
 }
 
-void shd_driver_fill_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig*, const Module* mod);
+/// Fills the pipeline with the required passes for the selected backends
+static void assemble_pipeline(ShdPipeline pipeline, /* hack: mutable */ DriverConfig* driver_config, const TargetConfig* target_config) {
+    if (driver_config->target_type != TgtNone)
+        shd_pipeline_add_shader_target_lowering(pipeline, *target_config, &driver_config->config);
 
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* target_config, Module* mod) {
-    mod = shd_import(&args->config, mod);
+    switch (driver_config->backend_type) {
+        case BackendNone: /* do nothing */ break;
+        case BackendC:
+            shd_pipeline_add_c_target_passes(pipeline, &driver_config->backend_config.c);
+            break;
+        case BackendSPV:
+            shd_pipeline_add_spirv_target_passes(pipeline, target_config, &driver_config->backend_config.spirv);
+            break;
+    }
+}
 
-    shd_debugv_print("Parsed program successfully: \n");
-    shd_log_module(DEBUGV, mod);
+static ShdExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
+    const Node* decl = shd_module_get_exported(mod, entry_point);
+    if (!decl)
+    shd_error("Cannot specialize: No function named '%s'", entry_point)
+    return shd_execution_model_from_entry_point(decl);
+}
 
-    bool require_specialization = !target_config->capabilities.linkage;
+/// Makes a specialized TargetConfig that knows about the entry point and execution model
+static TargetConfig specialize_target_config(const DriverConfig* args, TargetConfig target_config, const Module* mod) {
+    target_config.entry_point = args->specialization.entry_point;
+    target_config.execution_model = args->specialization.execution_model;
 
-    if (!args->specialization.entry_point && require_specialization) {
+    bool require_specialization = !target_config.capabilities.linkage;
+    if (!target_config.entry_point && require_specialization) {
         // TODO: only do this for targets that _require_ specialization
         Nodes fns = shd_module_get_all_exported(mod);
         const Node* first_ep = NULL;
@@ -151,11 +172,28 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const TargetConfig* targe
             exit(ShdNeedsSpecialization);
         }
 
-        args->specialization.entry_point = shd_get_exported_name(first_ep);
+        target_config.entry_point = shd_get_exported_name(first_ep);
     }
 
+    if (target_config.entry_point && target_config.execution_model == ShdExecutionModelNone) {
+        target_config.execution_model = get_execution_model_for_entry_point(target_config.entry_point, mod);
+    }
+
+    shd_target_apply_execution_model_restrictions(&target_config);
+
+    return target_config;
+}
+
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig target_config, Module* mod) {
+    mod = shd_import(&args->config, mod);
+
+    shd_debugv_print("Parsed program successfully: \n");
+    shd_log_module(DEBUGV, mod);
+
+    target_config = specialize_target_config(args, target_config, mod);
+
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_driver_fill_pipeline(pipeline, args, target_config, mod);
+    assemble_pipeline(pipeline, args, &target_config);
     CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
     shd_destroy_pipeline(pipeline);
     if (result != CompilationNoError) {
