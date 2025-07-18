@@ -15,8 +15,15 @@ function(shady_add_component)
 
     add_library(shady::${F_NAME} ALIAS ${F_NAME})
 
-    if (F_ALLOW_UNDEFINED_SYMBOLS AND APPLE)
-        target_link_options(${F_NAME} PRIVATE -undefined dynamic_lookup)
+    if (APPLE)
+        if (F_ALLOW_UNDEFINED_SYMBOLS)
+            target_link_options(${F_NAME} PRIVATE -undefined dynamic_lookup)
+        endif ()
+    elseif (WIN32)
+    else ()
+        if (NOT F_ALLOW_UNDEFINED_SYMBOLS)
+        target_link_options(${F_NAME} PRIVATE -Wl,--no-undefined)
+        endif ()
     endif ()
 endfunction()
 
