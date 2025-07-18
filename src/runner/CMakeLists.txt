@@ -1,7 +1,7 @@
 option(SHADY_ENABLE_RUNNER "Framework for running compute applications. Some samples and tests depend on it." ON)
 
 if (SHADY_ENABLE_RUNNER)
-    shady_add_component(NAME runner SOURCES runner.c runner_program.c runner_cli.c)
+    shady_add_component(NAME runner SOURCES runner.c runner_program.c runner_cli.c ALLOW_UNDEFINED_SYMBOLS)
     target_link_libraries(runner PUBLIC driver)
 
     add_subdirectory(vulkan)

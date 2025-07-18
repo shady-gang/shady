@@ -1,7 +1,7 @@
 option(SHADY_USE_OBJECT_LIBS "Whether to use object libraries for shady components")
 
 function(shady_add_component)
-    cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME" "SOURCES")
+    cmake_parse_arguments(PARSE_ARGV 0 F "ALLOW_UNDEFINED_SYMBOLS" "NAME" "SOURCES")
 
     if (SHADY_USE_OBJECT_LIBS)
         add_library(${F_NAME} OBJECT ${F_SOURCES})
@@ -14,6 +14,10 @@ function(shady_add_component)
     install(TARGETS ${F_NAME} EXPORT shady_export_set ARCHIVE DESTINATION ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 
     add_library(shady::${F_NAME} ALIAS ${F_NAME})
+
+    if (F_ALLOW_UNDEFINED_SYMBOLS AND APPLE)
+        target_link_options(${F_NAME} PRIVATE -undefined dynamic_lookup)
+    endif ()
 endfunction()
 
 add_subdirectory(common)
