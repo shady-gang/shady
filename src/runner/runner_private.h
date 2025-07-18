@@ -54,9 +54,6 @@ struct Buffer_ {
 
 void shd_rn_unload_program(Program* program);
 
-__attribute__((weak))
-Backend* shd_vkr_init(Runner* base);
-__attribute__((weak))
-Backend* shd_cur_init(Runner* base);
+void shd_rn_register_backends(Runner* runtime);
 
 #endif

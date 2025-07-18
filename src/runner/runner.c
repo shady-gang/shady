@@ -14,16 +14,7 @@ Runner* shd_rn_initialize(RunnerConfig config) {
     runtime->devices = shd_new_list(Device*);
     runtime->programs = shd_new_list(Program*);
 
-#if VK_BACKEND_PRESENT
-    Backend* vk_backend = shd_vkr_init(runtime);
-    if (vk_backend)
-        shd_list_append(Backend*, runtime->backends, vk_backend);
-#endif
-#if CUDA_BACKEND_PRESENT
-    Backend* cuda_backend = shd_cur_init(runtime);
-    if (cuda_backend)
-        shd_list_append(Backend*, runtime->backends, cuda_backend);
-#endif
+    shd_rn_register_backends(runtime);
 
     shd_info_print("Shady runtime successfully initialized !\n");
     return runtime;
