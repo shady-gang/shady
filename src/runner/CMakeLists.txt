@@ -9,6 +9,11 @@ if (SHADY_ENABLE_RUNNER)
     target_link_libraries(runner PUBLIC runner_base)
     target_link_libraries(runner PRIVATE common)
 
+    # needed to resolve those symbols at build-time on certain platforms
+    if (NOT BUILD_SHARED_LIBS)
+        target_link_libraries(runner_base PRIVATE runner)
+    endif()
+
     add_subdirectory(vulkan)
     add_subdirectory(cuda)
 
