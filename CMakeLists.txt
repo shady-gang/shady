@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
+
+# SPIRV-Tools doesn't build otherwise since /W3 is the old default
+cmake_policy(SET CMP0092 NEW)
+
 project (shady C)
 
 include(ExternalProject)
