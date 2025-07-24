@@ -1,7 +1,7 @@
 option(SHADY_USE_OBJECT_LIBS "Whether to use object libraries for shady components")
 
 function(shady_add_component)
-    cmake_parse_arguments(PARSE_ARGV 0 F "ALLOW_UNDEFINED_SYMBOLS" "NAME" "SOURCES")
+    cmake_parse_arguments(PARSE_ARGV 0 F "" "NAME" "SOURCES")
 
     if (SHADY_USE_OBJECT_LIBS)
         add_library(${F_NAME} OBJECT ${F_SOURCES})
@@ -16,12 +16,9 @@ function(shady_add_component)
     add_library(shady::${F_NAME} ALIAS ${F_NAME})
 
     if (APPLE)
-        if (F_ALLOW_UNDEFINED_SYMBOLS)
-            target_link_options(${F_NAME} PRIVATE -undefined dynamic_lookup)
-        endif ()
     elseif (WIN32)
     else ()
-        if (NOT F_ALLOW_UNDEFINED_SYMBOLS AND NOT ${CMAKE_C_FLAGS} MATCHES "-fsanitize=address")
+        if (NOT ${CMAKE_C_FLAGS} MATCHES "-fsanitize=address")
             target_link_options(${F_NAME} PRIVATE -Wl,--no-undefined)
         endif ()
     endif ()

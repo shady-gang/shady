@@ -54,6 +54,6 @@ struct Buffer_ {
 
 void shd_rn_unload_program(Program* program);
 
-void shd_rn_register_backends(Runner* runtime);
+Runner* shd_rn_initialize_base(RunnerConfig config);
 
 #endif

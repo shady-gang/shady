@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-Runner* shd_rn_initialize(RunnerConfig config) {
+Runner* shd_rn_initialize_base(RunnerConfig config) {
     Runner* runtime = malloc(sizeof(Runner));
     memset(runtime, 0, sizeof(Runner));
     runtime->config = config;
@@ -14,13 +14,11 @@ Runner* shd_rn_initialize(RunnerConfig config) {
     runtime->devices = shd_new_list(Device*);
     runtime->programs = shd_new_list(Program*);
 
-    shd_rn_register_backends(runtime);
-
-    shd_info_print("Shady runtime successfully initialized !\n");
+    shd_info_print("shady: Runner initialized.\n");
     return runtime;
 
     init_fail_free:
-    shd_error_print("Failed to initialise the runtime.\n");
+    shd_error_print("shady: runner initialization failed.\n");
     free(runtime);
     return NULL;
 }
