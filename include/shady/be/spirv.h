@@ -24,6 +24,7 @@ typedef struct {
 } SPVBackendConfig;
 
 SPVBackendConfig shd_default_spirv_backend_config(void);
+void shd_spv_apply_target_config(SPVBackendConfig* spv_config, const TargetConfig* target_config);
 
 void shd_pipeline_add_spirv_target_passes(ShdPipeline, const TargetConfig*, const SPVBackendConfig*);
 void shd_emit_spirv(const CompilerConfig*, SPVBackendConfig, Module*, size_t* output_size, char** output);

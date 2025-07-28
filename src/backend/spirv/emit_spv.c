@@ -31,6 +31,10 @@ SPVBackendConfig shd_default_spirv_backend_config(void) {
     return config;
 }
 
+void shd_spv_apply_target_config(SPVBackendConfig* spv_config, const TargetConfig* target_config) {
+    spv_config->features.maximal_reconvergence = target_config->capabilities.maximal_reconvergence;
+}
+
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 

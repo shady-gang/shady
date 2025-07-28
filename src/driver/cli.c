@@ -72,6 +72,7 @@ static ShdIntSize parse_int_size(String argv) {
 
 #define TARGET_CONFIG_TOGGLE_OPTIONS(F) \
 F(target->memory.address_spaces[AsGeneric].allowed, native-generic-pointers) \
+F(target->capabilities.maximal_reconvergence, maximal-reconvergence) \
 
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
     int argc = *pargc;

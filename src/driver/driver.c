@@ -238,6 +238,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig target_confi
         switch (args->backend_type) {
             case BackendNone: SHADY_UNREACHABLE;
             case BackendSPV:
+                shd_spv_apply_target_config(&args->backend_config.spirv, &target_config);
                 shd_emit_spirv(&args->config, args->backend_config.spirv, mod, &output_size, &output_buffer);
                 break;
             case BackendC:

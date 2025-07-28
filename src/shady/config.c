@@ -62,6 +62,7 @@ TargetConfig shd_default_target_config(void) {
             .native_tailcalls = true,
 
             .linkage = true,
+            .maximal_reconvergence = true,
         }
     };
 

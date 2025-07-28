@@ -327,8 +327,6 @@ static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* co
     spv_config->target_version.major = device->caps.spirv_version.major;
     spv_config->target_version.minor = device->caps.spirv_version.minor;
 
-    spv_config->features.maximal_reconvergence = device->caps.supported_extensions[ShadySupportsKHR_shader_maximal_reconvergence];
-
     if (!device->caps.features.subgroup_extended_types.shaderSubgroupExtendedTypes)
         config->lower.emulate_subgroup_ops_extended_types = true;
 
@@ -359,6 +357,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_target.execution_model = spec->key.em;
 
     spec->backend_config = shd_default_spirv_backend_config();
+    shd_spv_apply_target_config(&spec->backend_config, &spec->specialized_target);
     get_compiler_config_for_device(spec->device, &spec->specialized_config, &spec->backend_config);
 
     ShdPipeline pipeline = shd_create_empty_pipeline();

@@ -71,6 +71,14 @@ TargetConfig shd_vkr_get_device_target_config(const CompilerConfig* compiler_con
     TargetConfig target_config = shd_default_target_config();
     shd_driver_configure_defaults_for_target(&target_config, compiler_config, TgtSPV);
     target_config.subgroup_size = device->caps.subgroup_size.max;
+#ifdef VK_KHR_shader_maximal_reconvergence
+    target_config.capabilities.maximal_reconvergence = device->caps.features.maximal_reconvergence_features.shaderMaximalReconvergence;
+    if (!target_config.capabilities.maximal_reconvergence)
+        shd_log_fmt(WARN, "Maximal reconvergence is not supported on this device.\n");
+#else
+    target_config.capabilities.maximal_reconvergence = false;
+    shd_log_fmt(WARN, "Maximal reconvergence is not supported in this build.\n");
+#endif
     return target_config;
 }
 

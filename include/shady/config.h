@@ -45,6 +45,7 @@ typedef struct {
         bool native_tailcalls;
         bool rt_pipelines;
         bool linkage;
+        bool maximal_reconvergence;
     } capabilities;
 
     ShdExecutionModel execution_model;
