@@ -185,10 +185,12 @@ void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_
         register_ext_feature(caps->features.rt_pipeline_features);
     }
 
+#ifdef VK_KHR_shader_maximal_reconvergence
     if (caps->supported_extensions[ShadySupportsKHR_shader_maximal_reconvergence]) {
         caps->features.maximal_reconvergence_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR;
         register_ext_feature(caps->features.maximal_reconvergence_features);
     }
+#endif
 }
 
 static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {

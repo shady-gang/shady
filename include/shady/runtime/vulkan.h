@@ -126,7 +126,11 @@ typedef struct {
         VkPhysicalDevice8BitStorageFeatures storage8;
         VkPhysicalDevice16BitStorageFeatures storage16;
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rt_pipeline_features;
+#ifdef VK_KHR_shader_maximal_reconvergence
         VkPhysicalDeviceShaderMaximalReconvergenceFeaturesKHR maximal_reconvergence_features;
+#else
+#pragma message "The vulkan headers do not define VK_KHR_shader_maximal_reconvergence, they must be severely out of date. Consider using a more recent Vulkan SDK package."
+#endif
     } features;
     struct {
         VkPhysicalDeviceProperties2 base;
