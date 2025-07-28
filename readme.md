@@ -45,8 +45,7 @@ Not all supported features are listed, these are just the more notable ones that
 
 ## Platform support
 
-Shady is written in standard C11 and requires few dependencies to build: SPIRV-Headers and SPIRV-Tools are pulled as submodules,
-LLVM is required to build Vcc, Vulkan and CUDA are optional dependencies for the runner component.
+Shady is written in standard C11 and requires few dependencies to build: CMake, JSON-C and the SPIRV-Headers.
 
  * Compiles on Windows/MacOS/Linux with any C11 compliant toolchain: GCC, Clang and recent versions of MSVC
    * Windows SDKs older than 10.0.20348.0 are missing important C11 features and are unsupported.
