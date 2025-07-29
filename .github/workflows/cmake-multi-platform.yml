@@ -120,7 +120,7 @@ jobs:
     - name: Force Lavapipe (windows)
       if: startsWith(matrix.os, 'windows')
       run: |
-        echo "VK_DRIVER_FILES=C:\Lavapipe\share\vulkan\icd.d" >> $GITHUB_ENV
+        echo "VK_DRIVER_FILES=C:\Lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" >> $env:GITHUB_ENV
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
