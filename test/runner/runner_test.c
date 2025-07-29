@@ -40,6 +40,7 @@ static String strip_extension_suffix(String src) {
 }
 
 int main(int argc, char* argv[]) {
+	shd_platform_specific_terminal_init_extras();
     shd_log_set_level(INFO);
     Args args = {
         .driver_config = shd_default_driver_config(),

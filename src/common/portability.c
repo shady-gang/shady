@@ -18,6 +18,7 @@
 #endif
 
 void shd_platform_specific_terminal_init_extras(void) {
+	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #ifdef NEED_COLOR_FIX
     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
     if (handle != INVALID_HANDLE_VALUE) {
