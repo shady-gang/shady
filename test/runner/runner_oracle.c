@@ -99,7 +99,7 @@ void shd_runner_oracle_prefill(void* dst, const size_t size, const Node* pattern
     shd_rt_materialize_constant_at(dst, pattern);
     size_t offset = pattern_size;
     while (offset < size) {
-        memcpy((void*) ((size_t) dst) + offset, dst, pattern_size);
+        memcpy((void*) ((size_t) dst + offset), dst, pattern_size);
         offset += pattern_size;
     }
 }
