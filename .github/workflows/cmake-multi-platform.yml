@@ -85,7 +85,7 @@ jobs:
     - name: Install Vulkan (apt)
       if: startsWith(matrix.os,'ubuntu')
       run: |
-        sudo apt install libvulkan-dev mesa-vulkan-drivers
+        sudo apt install libvulkan-dev mesa-vulkan-drivers vulkan-tools
 
     - name: ccache
       if: startsWith(matrix.os,'ubuntu')
@@ -121,6 +121,10 @@ jobs:
       if: startsWith(matrix.os, 'windows')
       run: |
         echo "VK_DRIVER_FILES=C:\Lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" >> $env:GITHUB_ENV
+
+    - name: vulkaninfo
+      run: |
+        vulkaninfo
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
