@@ -82,16 +82,27 @@ jobs:
       run: |
         sudo apt install libjson-c-dev
 
-    - name: Enable ASAN (linux)
+    - name: ccache
       if: startsWith(matrix.os,'ubuntu')
-      run: |
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> $GITHUB_ENV
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_CXX_FLAGS=-fsanitize=address" >> $GITHUB_ENV
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: ${{ github.job }}-${{ matrix.os }}  # Eg. "some_build-ubuntu-latest"
 
-    - name: Force LLVM18 (ubuntu)
+    - name: Enable ccache (linux)
       if: startsWith(matrix.os,'ubuntu')
       run: |
-        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-18/cmake" >> $GITHUB_ENV
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+
+    #- name: Enable ASAN (linux)
+    #  if: startsWith(matrix.os,'ubuntu')
+    #  run: |
+    #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> $GITHUB_ENV
+    #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_CXX_FLAGS=-fsanitize=address" >> $GITHUB_ENV
+
+    #- name: Force LLVM18 (ubuntu)
+    #  if: startsWith(matrix.os,'ubuntu')
+    #  run: |
+    #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-18/cmake" >> $GITHUB_ENV
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
