@@ -54,11 +54,14 @@ void shd_rt_materialize_constant_at(unsigned char* tgt, const Node* value) {
     }
 }
 
-
-void shd_rt_materialize_constant(const Node* value, size_t* size, void* data) {
+size_t shd_rt_get_size_of_constant(const Node* value) {
     IrArena* a = value->arena;
     TypeMemLayout value_layout = shd_get_mem_layout(a, shd_get_unqualified_type(value->type));
-    *size = value_layout.size_in_bytes;
+    return value_layout.size_in_bytes;
+}
+
+void shd_rt_materialize_constant(const Node* value, size_t* size, void* data) {
+    *size = shd_rt_get_size_of_constant(value);
     if (data)
         shd_rt_materialize_constant_at(data, value);
 }

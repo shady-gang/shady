@@ -1,0 +1,17 @@
+{
+  "dispatch-size": [64, 1, 1],
+  "dispatch-args": [
+    {
+      "kind": "value",
+      "datatype": "i32",
+      "value": 42
+    },
+    {
+      "kind": "buffer",
+      "per-invocation-size": 4,
+      "datatype": "i32",
+      "pre-pattern": [ 0 ],
+      "post-pattern": [ 0 ]
+    }
+  ]
+}

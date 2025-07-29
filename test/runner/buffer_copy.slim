@@ -1,0 +1,12 @@
+@Builtin("GlobalInvocationId")
+var input vec[u32; 3] global_id;
+
+@Exported @EntryPoint("Compute") @WorkgroupSize(SUBGROUP_SIZE, 1, 1)
+fn main(ptr global i32 a, ptr global i32 b) {
+    val tid = global_id#0;
+    val oa = ptr_array_offset(a, tid);
+    val ob = ptr_array_offset(b, tid);
+    *ob = *oa;
+    //*(b + tid) = *(a + tid);
+    return ();
+}
