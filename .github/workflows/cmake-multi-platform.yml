@@ -85,7 +85,7 @@ jobs:
     - name: Install Vulkan (apt)
       if: startsWith(matrix.os,'ubuntu')
       run: |
-        sudo apt install libvulkan-dev
+        sudo apt install libvulkan-dev mesa-vulkan-drivers
 
     - name: ccache
       if: startsWith(matrix.os,'ubuntu')
