@@ -106,6 +106,12 @@ jobs:
         cache: true
         install_lavapipe: true
 
+    - name: Add Vulkan SDK runtime path (windows)
+      if: startsWith(matrix.os, 'windows')
+      run: |
+        echo "Current PATH:${{ env.GITHUB_PATH }}"
+        echo "${{ env.VULKAN_SDK }}\runtime\x64\" >> $env:GITHUB_PATH
+
     #- name: Enable ASAN (linux)
     #  if: startsWith(matrix.os,'ubuntu')
     #  run: |
@@ -120,7 +126,11 @@ jobs:
     - name: Force Lavapipe (windows)
       if: startsWith(matrix.os, 'windows')
       run: |
+        echo "Current PATH:${{ env.GITHUB_PATH }}"
         echo "VK_DRIVER_FILES=C:\Lavapipe\share\vulkan\icd.d\lvp_icd.x86_64.json" >> $env:GITHUB_ENV
+        echo "VK_LOADER_DEBUG=all" >> $env:GITHUB_ENV
+        ls C:\lavapipe
+        gci -r -Path C:\Lavapipe
 
     - name: vulkaninfo
       run: |
