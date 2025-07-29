@@ -303,17 +303,9 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeMaximallyReconvergesKHR, 0, NULL);
             }
 
-            const Node* workgroup_size = shd_lookup_annotation(decl, "WorkgroupSize");
-            if (execution_model == ShdExecutionModelCompute)
-                assert(workgroup_size);
-            if (workgroup_size) {
-                Nodes values = shd_get_annotation_values(workgroup_size);
-                assert(values.count == 3);
-                uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
-                uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
-                uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
-
-                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, (uint32_t[3]) { wg_x_dim, wg_y_dim, wg_z_dim });
+            uint32_t workgroup_size[3];
+            if (shd_get_workgroup_size_for_entry_point(decl, workgroup_size)) {
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
             }
 
             if (execution_model == ShdExecutionModelFragment) {

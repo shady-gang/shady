@@ -49,12 +49,7 @@ static void specialize_arena_config(String entry_point, Module* src, ArenaConfig
     switch (shd_execution_model_from_entry_point(old_entry_point_decl)) {
         case ShdExecutionModelNone: shd_error("Unknown entry point type: %s", shd_get_annotation_string_payload(ep))
         case ShdExecutionModelCompute: {
-            const Node* old_wg_size_annotation = shd_lookup_annotation(old_entry_point_decl, "WorkgroupSize");
-            assert(old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3);
-            Nodes wg_size_nodes = shd_get_annotation_values(old_wg_size_annotation);
-            target->specializations.workgroup_size[0] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
-            target->specializations.workgroup_size[1] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
-            target->specializations.workgroup_size[2] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
+            shd_get_workgroup_size_for_entry_point(old_entry_point_decl, target->specializations.workgroup_size);
             assert(target->specializations.workgroup_size[0] * target->specializations.workgroup_size[1] * target->specializations.workgroup_size[2] > 0);
             break;
         }
