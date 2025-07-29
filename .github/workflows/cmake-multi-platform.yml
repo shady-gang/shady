@@ -82,6 +82,11 @@ jobs:
       run: |
         sudo apt install libjson-c-dev
 
+    - name: Install Vulkan (apt)
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        sudo apt install libvulkan-dev
+
     - name: ccache
       if: startsWith(matrix.os,'ubuntu')
       uses: hendrikmuhs/ccache-action@v1.2
