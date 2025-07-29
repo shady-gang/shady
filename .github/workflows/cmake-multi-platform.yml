@@ -98,6 +98,14 @@ jobs:
       run: |
         echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
 
+    - name: Install Vulkan SDK (windows)
+      if: startsWith(matrix.os,'windows')
+      uses: jakoch/install-vulkan-sdk-action@v1
+      with:
+        install_runtime: true
+        cache: true
+        install_lavapipe: true
+
     #- name: Enable ASAN (linux)
     #  if: startsWith(matrix.os,'ubuntu')
     #  run: |
