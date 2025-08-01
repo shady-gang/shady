@@ -16,7 +16,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
-option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab dependencies (currently unused)" ON)
+option(SHADY_USE_FETCHCONTENT "Use FetchContent to grab json-c" ON)
 option(SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL "If you install LLVM on windows, it doesn't come with header files. This fixes it" ON)
 
 if (MSVC)
@@ -32,6 +32,22 @@ set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/SPIRV-Headers/")
 set(SKIP_SPIRV_TOOLS_INSTALL TRUE)
 set(SPIRV_SKIP_TESTS TRUE)
 add_subdirectory(SPIRV-Tools)
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24" AND ${SHADY_USE_FETCHCONTENT})
+    FetchContent_Declare(
+        json-c
+        GIT_REPOSITORY https://github.com/json-c/json-c
+        GIT_TAG master
+        OVERRIDE_FIND_PACKAGE
+    )
+
+    FetchContent_MakeAvailable(json-c)
+    add_library(json-c::json-c ALIAS json-c)
+    configure_file(${json-c_SOURCE_DIR}/json.h.cmakein ${json-c_BINARY_DIR}/json-c/json.h @ONLY)
+    target_include_directories(json-c PUBLIC $<BUILD_INTERFACE:${json-c_BINARY_DIR}>)
+else ()
+    message("CMake 3.24 or later is required to use FetchContent")
+endif ()
 
 find_package(LLVM QUIET)
 if (LLVM_FOUND)

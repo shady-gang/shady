@@ -1,7 +1,7 @@
 #define EXTERNAL_FN /* not static */
 
 #include "ao.h"
-#include "../runner/runner_app_common.h"
+#include "../../test/runner/runner_app_common.h"
 
 #include "shady/runner/runner.h"
 #include "shady/driver.h"

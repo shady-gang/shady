@@ -2,7 +2,7 @@
 #define SHADY_RUNTIME_CLI
 
 #include "shady/driver.h"
-#include "runner_private.h"
+#include "shady/runner/runner.h"
 
 #include "log.h"
 
@@ -40,14 +40,32 @@ static void cli_parse_common_app_arguments(CommonAppArgs* args, int* pargc, char
     if (help) {
         shd_error_print("Usage: runtime_test [source.slim]\n");
         shd_error_print("Available arguments: \n");
-        shd_error_print("  --log-level debug[v[v]], info, warn, error]\n");
-        shd_error_print("  --shd_print-builtin\n");
-        shd_error_print("  --shd_print-generated\n");
         shd_error_print("  --device n\n");
         exit(0);
     }
 
     shd_pack_remaining_args(pargc, argv);
 }
+
+typedef struct {
+    enum { ShdRunnerOracleArg_kind_VALUE, ShdRunnerOracleArg_kind_BUFFER } kind;
+    uint32_t buffer_size;
+    const Type* type;
+    const Node* value;
+    const Node* pre_pattern;
+    const Node* post_pattern;
+} ShdRunnerOracleArg;
+
+typedef struct {
+    uint32_t dispatch_size[3];
+    uint32_t num_args;
+    ShdRunnerOracleArg* args;
+} ShdRunnerOracleConfig;
+
+ShdRunnerOracleConfig shd_runner_oracle_parse_config(IrArena* a, String json);
+void shd_runner_oracle_free_config(ShdRunnerOracleConfig*);
+
+void shd_runner_oracle_prefill(void* dst, size_t size, const Node* pattern);
+bool shd_runner_oracle_validate(void* dst, size_t size, const Node* pattern);
 
 #endif

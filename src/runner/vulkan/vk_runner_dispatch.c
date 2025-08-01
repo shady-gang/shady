@@ -312,6 +312,8 @@ void shd_vkr_destroy_command(VkrCommand* cmd) {
         vkDestroyFence(cmd->device->device, cmd->done_fence, NULL);
     if (cmd->query_pool)
         vkDestroyQueryPool(cmd->device->device, cmd->query_pool, NULL);
+    if (cmd->launch_interface_items)
+        free(cmd->launch_interface_items);
     vkFreeCommandBuffers(cmd->device->device, cmd->device->cmd_pool, 1, &cmd->cmd_buf);
     free(cmd);
 }

@@ -182,6 +182,11 @@ static bool create_vk_compute_pipeline(VkrSpecProgram* program) {
     return true;
 }
 
+static void destroy_compute_pipeline(VkrSpecProgram* spec) {
+    vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
+    vkDestroyShaderModule(spec->device->device, spec->compute.shader_module, NULL);
+}
+
 static int count_callables(VkrSpecProgram* program) {
     const Node* entry_point_decl = shd_module_get_exported(program->specialized_module, program->key.entry_point);
     assert(entry_point_decl);
@@ -317,6 +322,16 @@ static bool create_vk_rt_pipeline(VkrSpecProgram* program) {
     printf("stack size set to: %zu bytes\n", program->rt.stack_size);
 
     return true;
+}
+
+static void destroy_rt_pipeline(VkrSpecProgram* spec) {
+    vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
+    vkDestroyShaderModule(spec->device->device, spec->rt.rg_shader_module, NULL);
+    for (size_t i = 0; i < spec->rt.callables_count; i++) {
+        vkDestroyShaderModule(spec->device->device, spec->rt.callable_shader_modules[i], NULL);
+    }
+    shd_vkr_destroy_buffer(spec->rt.rg_sbt_buffer);
+    shd_vkr_destroy_buffer(spec->rt.callables_sbt_buffer);
 }
 
 // TODO: delete this once all lowering/target-specific stuff is stripped out of CompilerConfig
@@ -493,11 +508,14 @@ VkrSpecProgram* shd_vkr_get_specialized_program(Program* program, String entry_p
 }
 
 void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec) {
-    vkDestroyPipeline(spec->device->device, spec->pipeline, NULL);
+    if (spec->bind_point == VK_PIPELINE_BIND_POINT_COMPUTE) {
+        destroy_compute_pipeline(spec);
+    } else if (spec->bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR) {
+        destroy_rt_pipeline(spec);
+    }
     for (size_t set = 0; set < MAX_DESCRIPTOR_SETS; set++)
         vkDestroyDescriptorSetLayout(spec->device->device, spec->set_layouts[set], NULL);
     vkDestroyPipelineLayout(spec->device->device, spec->layout, NULL);
-    //vkDestroyShaderModule(spec->device->device, spec->shader_module, NULL);
     //free(spec->spirv_bytes);
     if (shd_module_get_arena(spec->specialized_module) != shd_module_get_arena(spec->key.base->module))
         shd_destroy_ir_arena(shd_module_get_arena(spec->specialized_module));

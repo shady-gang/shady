@@ -11,8 +11,4 @@ if (SHADY_ENABLE_RUNNER)
 
     add_subdirectory(vulkan)
     add_subdirectory(cuda)
-
-    add_executable(runner_test runner_test.c)
-    target_link_libraries(runner_test PRIVATE common)
-    target_link_libraries(runner_test PRIVATE runner)
 endif()

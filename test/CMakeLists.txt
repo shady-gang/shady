@@ -19,6 +19,7 @@ if (BUILD_TESTING)
     add_subdirectory(shader-pipeline)
     # add_subdirectory(reconvergence_heuristics)
     add_subdirectory(opt)
+    add_subdirectory(runner)
 
     if (TARGET vcc)
         add_subdirectory(vcc)

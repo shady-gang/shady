@@ -11,4 +11,6 @@ void shd_rt_materialize_constant_at(unsigned char* target, const Node* value);
 /// data must be at least as big as size
 void shd_rt_materialize_constant(const Node* value, size_t* size, void* data);
 
+size_t shd_rt_get_size_of_constant(const Node* value);
+
 #endif
