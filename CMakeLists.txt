@@ -49,6 +49,8 @@ else ()
     message("CMake 3.24 or later is required to use FetchContent")
 endif ()
 
+find_package(json-c REQUIRED)
+
 find_package(LLVM QUIET)
 if (LLVM_FOUND)
     message("LLVM ${LLVM_VERSION} found")
