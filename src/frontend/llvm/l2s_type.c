@@ -88,17 +88,22 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
                     default: assert(false);
                 }
                 bool arrayed = (offset >> 6) & 1;
-
-                return sampled_image_type(a, (SampledImageType) {.image_type = image_type(a, (ImageType) {
+                bool is_storage = (offset >> 8) & 1;
+				
+                const Type* img_type = image_type(a, (ImageType) {
                         //.sampled_type = pack_type(a, (PackType) { .element_type = float_type(a, (Float) { .width = FloatTy32 }), .width = 4 }),
                         .sampled_type = sampled_type,
                         .dim = dim,
                         .depth = 0,
                         .arrayed = arrayed,
                         .ms = 0,
-                        .sampled = 1,
+                        .sampled = is_storage ? 2 : 1,
                         .imageformat = 0
-                })});
+                });
+                if (is_storage) {
+                    return img_type;
+                }
+                return sampled_image_type(a, (SampledImageType) {.image_type = img_type});
             }
             AddressSpace as = l2s_convert_llvm_address_space(llvm_as);
             const Type* pointee = NULL;
