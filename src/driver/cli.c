@@ -258,10 +258,6 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
                 exit(ShdMissingOutputArg);
             }
             args->output_filename = argv[i];
-        } else if (strcmp(argv[i], "--dump-ir") == 0) {
-            argv[i] = NULL;
-            args->dump_ir = true;
-            continue;
         } else if (strcmp(argv[i], "--dump-cfg") == 0) {
             argv[i] = NULL;
             i++;
