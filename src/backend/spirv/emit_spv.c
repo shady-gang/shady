@@ -181,6 +181,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
             spvb_global_variable(emitter->file_builder, given_id, spv_emit_type(emitter, decl->type), storage_class, false, init);
             spv_emit_aliased_restrict(emitter, given_id, decl->type);
 
+            bool is_descriptor_binding = false;
+
             for (size_t i = 0; i < decl->annotations.count; i++) {
                 const Node* a = decl->annotations.nodes[i];
                 assert(is_annotation(a));
@@ -193,11 +195,18 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationDescriptorSet, 1, (uint32_t[]) { loc });
+                    is_descriptor_binding = true;
                 } else if (strcmp(name, "DescriptorBinding") == 0) {
                     size_t loc = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(a)), false);
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
+                    is_descriptor_binding = true;
                 }
+            }
+
+            if (is_descriptor_binding && gvar->type->tag == ArrType_TAG && !gvar->type->payload.arr_type.size) {
+                spvb_extension(emitter->file_builder, "SPV_EXT_descriptor_indexing");
+                spvb_capability(emitter->file_builder, SpvCapabilityRuntimeDescriptorArray);
             }
 
             switch (storage_class) {
