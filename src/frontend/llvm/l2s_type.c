@@ -70,6 +70,8 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMArrayTypeKind: {
             unsigned length = LLVMGetArrayLength(t);
             const Type* elem_t = l2s_convert_type(p, LLVMGetElementType(t));
+            if (!shd_is_physical_data_type(elem_t) && length == 0)
+                return arr_type(a, (ArrType) { .element_type = elem_t });
             return arr_type(a, (ArrType) { .element_type = elem_t, .size = shd_uint32_literal(a, length)});
         }
         case LLVMPointerTypeKind: {

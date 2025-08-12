@@ -192,9 +192,8 @@ const Node* l2s_convert_value(Parser* p, LLVMValueRef v) {
             break;
     }
 
-    l2s_apply_debug_info(p, v, r);
-
     if (r) {
+        l2s_apply_debug_info(p, v, r);
         shd_dict_insert(LLVMTypeRef, const Type*, p->map, v, r);
         return r;
     }

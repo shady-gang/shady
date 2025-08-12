@@ -267,7 +267,7 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
         assert(ptr_t->tag == PtrType_TAG);
         AddressSpace as = ptr_t->payload.ptr_type.address_space;
         decl = global_variable_helper(p->dst, type, as);
-        if (value && as != AsUniformConstant)
+        if (value && shd_is_physical_data_type(type))
             decl->payload.global_variable.init = l2s_convert_value(p, value);
 
         if (LLVMIsGlobalConstant(global)) {

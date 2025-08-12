@@ -447,8 +447,12 @@ const Node* shd_get_default_value(IrArena* a, const Type* t) {
         case Type_Bool_TAG: return false_lit(a);
         case Type_PtrType_TAG: return null_ptr(a, (NullPtr) { .ptr_type = t });
         case Type_QualifiedType_TAG: return shd_get_default_value(a, t->payload.qualified_type.type);
+        case Type_ArrType_TAG: {
+            // unsized arrays have no default value
+            if (!t->payload.arr_type.size)
+                return NULL;
+        }
         case Type_StructType_TAG:
-        case Type_ArrType_TAG:
         case Type_VectorType_TAG:
         case Type_MatrixType_TAG: {
             Nodes elem_tys = shd_get_composite_type_element_types(t);
