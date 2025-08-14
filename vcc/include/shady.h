@@ -48,10 +48,10 @@ typedef __attribute__((address_space(0x1001))) struct __shady_builtin_sampler2D*
 typedef __attribute__((address_space(0x1002))) struct __shady_builtin_sampler3D* sampler3D;
 typedef __attribute__((address_space(0x1003))) struct __shady_builtin_sampler3D* samplerCube;
 
-typedef __attribute__((address_space(0x1100))) struct __shady_builtin_image2D *image1D;
-typedef __attribute__((address_space(0x1101))) struct __shady_builtin_image2D *image2D;
-typedef __attribute__((address_space(0x1102))) struct __shady_builtin_image2D *image3D;
-typedef __attribute__((address_space(0x1103))) struct __shady_builtin_image2D *imageCube;
+typedef __attribute__((address_space(0x1100))) struct __shady_builtin_image1D* image1D;
+typedef __attribute__((address_space(0x1101))) struct __shady_builtin_image2D* image2D;
+typedef __attribute__((address_space(0x1102))) struct __shady_builtin_image3D* image3D;
+typedef __attribute__((address_space(0x1103))) struct __shady_builtin_image3D* imageCube;
 
 native_vec4 texture1D(const sampler1D, float)           __asm__("shady::impure_op::spirv.core::87::Invocation");
 native_vec4 texture2D(const sampler2D, native_vec2)     __asm__("shady::impure_op::spirv.core::87::Invocation");
