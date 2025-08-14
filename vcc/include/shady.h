@@ -58,10 +58,20 @@ native_vec4 texture2D(const sampler2D, native_vec2)     __asm__("shady::impure_o
 native_vec4 texture3D(const sampler3D, native_vec3)     __asm__("shady::impure_op::spirv.core::87::Invocation");
 native_vec4 textureCube(const samplerCube, native_vec3) __asm__("shady::impure_op::spirv.core::87::Invocation");
 
-native_ivec2 imageSize(image2D img) __asm__("shady::pure_op::spirv.core::104::Invocation");
-void imageStore(image2D img,
-                native_ivec2 coord,
-                native_vec4 data) __asm__("shady::impure_op::spirv.core::99::Invocation");
+native_vec4 imageLoad1D(const image1D, int) __asm__("shady::impure_op::spirv.core::98::Invocation");
+native_vec4 imageLoad2D(const image2D, native_ivec2) __asm__("shady::impure_op::spirv.core::98::Invocation");
+native_vec4 imageLoad3D(const image3D, native_ivec3) __asm__("shady::impure_op::spirv.core::98::Invocation");
+native_vec4 imageLoadCube(const imageCube, native_ivec3) __asm__("shady::impure_op::spirv.core::98::Invocation");
+
+void imageStore1D(image1D, int, native_vec4) __asm__("shady::impure_op::spirv.core::99::Invocation");
+void imageStore2D(image2D, native_ivec2, native_vec4) __asm__("shady::impure_op::spirv.core::99::Invocation");
+void imageStore3D(image3D, native_ivec3, native_vec4) __asm__("shady::impure_op::spirv.core::99::Invocation");
+void imageStoreCube(imageCube, native_ivec3, native_vec4) __asm__("shady::impure_op::spirv.core::99::Invocation");
+
+int imageSize1D(const image1D) __asm__("shady::pure_op::spirv.core::104::Invocation");
+native_ivec2 imageSize2D(const image2D) __asm__("shady::pure_op::spirv.core::104::Invocation");
+native_ivec3 imageSize3D(const image3D) __asm__("shady::pure_op::spirv.core::104::Invocation");
+native_ivec3 imageSizeCube(const imageCube) __asm__("shady::pure_op::spirv.core::104::Invocation");
 
 #if defined(__cplusplus)
 native_vec4 texture(const sampler1D, float)         __asm__("shady::impure_op::spirv.core::87::Invocation");
