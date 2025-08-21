@@ -439,6 +439,7 @@ static Nodes get_args_from_phi(SpvParser* parser, SpvId block, SpvId predecessor
 }
 
 static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_offset) {
+    assert(instruction_offset < parser->len);
     IrArena* a = parser->arena;
     uint32_t* instruction = parser->words + instruction_offset;
     SpvOp op = instruction[0] & 0xFFFF;
@@ -565,6 +566,12 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 case SpvExecutionModelVertex:
                     type = "Vertex";
                     break;
+                case SpvExecutionModelMeshEXT:
+                    type = "Mesh";
+                    break;
+                case SpvExecutionModelTaskEXT:
+                    type = "Task";
+                    break;
                 default:
                     shd_error("Unsupported execution model %d", instruction[1])
             }
@@ -586,6 +593,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             });
             break;
         }
+        case SpvOpExecutionModeId:
         case SpvOpExecutionMode:
         case SpvOpDecorate:
         case SpvOpMemberDecorate: {
@@ -1450,7 +1458,8 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             break;
         }
         case SpvOpTerminateInvocation:
-        case SpvOpKill: {
+        case SpvOpKill:
+        case SpvOpEmitMeshTasksEXT: {
             LARRAY(const Node*, operands, size - 1);
             for (size_t i = 0; i < size - 1; i++)
                 operands[i] = get_definition_by_id(parser, instruction[1 + i])->node;
