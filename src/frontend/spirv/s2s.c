@@ -663,7 +663,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpTypeFunction: {
             parser->defs[result].type = Typ;
-            const Type* return_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[2]));
+            Nodes return_ts = shd_unwrap_multiple_yield_types(a, get_def_type(parser, instruction[2]));
+            assert(return_ts.count < 2);
+            const Type* return_t = return_ts.count > 1 ? qualified_type_helper(a, a->config.target.scopes.bottom, shd_first(return_ts)) : unit_type(a);
             LARRAY(const Type*, param_ts, size - 3);
             for (size_t i = 0; i < size - 3; i++)
                 param_ts[i] = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[3 + i]));
