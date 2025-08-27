@@ -219,13 +219,14 @@ static AddressSpace convert_storage_class(SpvStorageClass class) {
             break;
         case SpvStorageClassStorageBuffer:         return AsShaderStorageBufferObject;
         case SpvStorageClassUniformConstant:
-        case SpvStorageClassUniform:               return AsGlobal; // TODO: should probably depend on CL/VK flavours!
+        case SpvStorageClassUniform:               return AsUniform; // TODO: should probably depend on CL/VK flavours!
         case SpvStorageClassCallableDataKHR:
         case SpvStorageClassIncomingCallableDataKHR:
         case SpvStorageClassRayPayloadKHR:
         case SpvStorageClassHitAttributeKHR:
         case SpvStorageClassIncomingRayPayloadKHR:
         case SpvStorageClassShaderRecordBufferKHR:
+            return AsGeneric;
             break;
         case SpvStorageClassCodeSectionINTEL:
         case SpvStorageClassDeviceOnlyINTEL:
@@ -571,6 +572,24 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     break;
                 case SpvExecutionModelTaskEXT:
                     type = "Task";
+                    break;
+                case SpvExecutionModelRayGenerationKHR:
+                    type = "RayGeneration";
+                    break;
+                case SpvExecutionModelIntersectionKHR:
+                    type = "Intersection";
+                    break;
+                case SpvExecutionModelAnyHitKHR:
+                    type = "AnyHit";
+                    break;
+                case SpvExecutionModelClosestHitKHR:
+                    type = "ClosestHit";
+                    break;
+                case SpvExecutionModelMissKHR:
+                    type = "Miss";
+                    break;
+                case SpvExecutionModelCallableKHR:
+                    type = "Callable";
                     break;
                 default:
                     shd_error("Unsupported execution model %d", instruction[1])
