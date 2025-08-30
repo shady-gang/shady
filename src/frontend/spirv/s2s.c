@@ -228,6 +228,8 @@ static AddressSpace convert_storage_class(SpvStorageClass class) {
         case SpvStorageClassShaderRecordBufferKHR:
             return AsGeneric;
             break;
+        case SpvStorageClassTaskPayloadWorkgroupEXT:
+            return AsGeneric;
         case SpvStorageClassCodeSectionINTEL:
         case SpvStorageClassDeviceOnlyINTEL:
         case SpvStorageClassHostOnlyINTEL:
