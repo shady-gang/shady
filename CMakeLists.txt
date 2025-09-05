@@ -81,7 +81,7 @@ if(NOT ${LLVM_FOUND} AND WIN32 AND ${SHADY_WIN32_FIX_PARTIAL_LLVM_INSTALL})
         )
         execute_process(
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/llvm-project
-            COMMAND ${GIT_EXECUTABLE} sparse-checkout set --no-cone llvm/include/llvm-c
+            COMMAND ${GIT_EXECUTABLE} sparse-checkout set --no-cone llvm/include
         )
         execute_process(
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/llvm-project
