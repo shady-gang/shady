@@ -118,10 +118,10 @@ jobs:
     #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_C_FLAGS=-fsanitize=address" >> $GITHUB_ENV
     #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=-DCMAKE_CXX_FLAGS=-fsanitize=address" >> $GITHUB_ENV
 
-    #- name: Force LLVM18 (ubuntu)
-    #  if: startsWith(matrix.os,'ubuntu')
-    #  run: |
-    #    echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-18/cmake" >> $GITHUB_ENV
+    - name: Force LLVM18 (ubuntu)
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        echo "CMAKE_PLATFORM_SPECIFIC_ARGS=${{ env.CMAKE_PLATFORM_SPECIFIC_ARGS }} -DLLVM_DIR=/usr/lib/llvm-18/cmake" >> $GITHUB_ENV
 
     - name: Force Lavapipe (windows)
       if: startsWith(matrix.os, 'windows')
