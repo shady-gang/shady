@@ -16,7 +16,6 @@ typedef enum {
     ShdInputFileDoesNotExist = 4,
     ShdInputFileIOError,
     ShdMissingDumpCfgArg,
-    ShdMissingDumpIrArg,
     ShdIncorrectLogLevel = 16,
     ShdInvalidTarget,
     ShdClangInvocationFailed,

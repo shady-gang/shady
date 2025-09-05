@@ -278,12 +278,12 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
                 exit(ShdMissingDumpCfgArg);
             }
             args->loop_tree_output_filename = argv[i];
-        } else if (strcmp(argv[i], "--dump-ir") == 0) {
+        } else if (strcmp(argv[i], "--emit-ir") == 0) {
             argv[i] = NULL;
             i++;
             if (i == argc) {
-                shd_error_print("--dump-ir must be followed with a filename");
-                exit(ShdMissingDumpIrArg);
+                shd_error_print("--emit-ir must be followed with a filename");
+                exit(ShdMissingOutputArg);
             }
             args->shd_output_filename = argv[i];
         } else if (strcmp(argv[i], "--entry-point") == 0) {
