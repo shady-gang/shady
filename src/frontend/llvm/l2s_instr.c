@@ -627,9 +627,16 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         ShdScope shd_scope = parse_scope(scope_str);
                         Nodes ops = convert_operands(p, num_args, instr);
                         uint32_t op = strtol(opcode_str, NULL, 10);
+						
+                        const Type* result_t = NULL;
+                        if (t && t->tag == TupleType_TAG && t->payload.tuple_type.members.count == 0) {
+                            result_t = NULL;
+                        } else if (t) {
+                            result_t = qualified_type_helper(a, shd_scope, t);
+                        }
 
                         free(duped);
-                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
+                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), result_t, set, op, ops));
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();
