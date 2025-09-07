@@ -18,6 +18,7 @@ static inline bool shd_is_aggregate_t(const Type* t) {
         case VectorType_TAG:
         case MatrixType_TAG:
             return true;
+        default: break;
     }
     return false;
 }
