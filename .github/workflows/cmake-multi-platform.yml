@@ -68,8 +68,9 @@ jobs:
     #    mkdir SPIRV-Headers/install
     #    cmake --install SPIRV-Headers/build --prefix SPIRV-Headers/install
 
-    #- name: Install Clang & LLVM (setup-clang)
-    #  uses: egor-tensin/setup-clang@v1.4
+    - name: Install Clang & LLVM (setup-clang)
+      if: startsWith(matrix.os,'ubuntu')
+      uses: egor-tensin/setup-clang@v1.4
 
     #- name: Install LLVM (winlibs)
     #  if: startsWith(matrix.os,'windows')
