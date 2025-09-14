@@ -17,7 +17,9 @@
 
 void shd_platform_specific_terminal_init_extras(void) {
 #ifdef WIN32
+#ifdef _MSC_VER
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
 #if defined(__MINGW32__)
 // Fix for allowing terminal colors on MINGW64
 // See: https://gist.github.com/fleroviux/8343879d95a72140274535dc207f467d
