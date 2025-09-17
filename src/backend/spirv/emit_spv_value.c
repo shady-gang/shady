@@ -287,6 +287,14 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 assert(operands.count == 1);
                 break;
             }
+			case SpvOpImageWrite: {
+				spvb_capability(emitter->file_builder, SpvCapabilityStorageImageWriteWithoutFormat);
+				break;
+			}
+			case SpvOpImageQuerySize: {
+				spvb_capability(emitter->file_builder, SpvCapabilityImageQuery);
+				break;
+			}
             default: break;
         }
         LARRAY(SpvId, ops, operands.count);
