@@ -365,6 +365,7 @@ bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* fron
         .annotations_arena = shd_new_arena(),
         .src = src,
         .dst = dirty,
+        .intrinsics = create_shd_intrinsics(src),
     };
 
     LLVMValueRef global_annotations = LLVMGetNamedGlobal(src, "llvm.global.annotations");
@@ -395,6 +396,9 @@ bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* fron
     shd_verify_module(*pmod);
     shd_destroy_ir_arena(arena);
 
+    destroy_shd_intrinsics(p.intrinsics);
+
+    // TODO: move this stuff outside the parser!
     RUN_PASS(shd_pass_lower_generic_globals, NULL)
     RUN_PASS(l2s_promote_byval_params, NULL);
 

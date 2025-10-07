@@ -1,6 +1,8 @@
 #ifndef SHADY_L2S_PRIVATE_H
 #define SHADY_L2S_PRIVATE_H
 
+#include "shady_meta_intrinsics.h"
+
 #include "shady/fe/llvm.h"
 
 #include "shady/config.h"
@@ -21,6 +23,7 @@ typedef struct {
     Arena* annotations_arena;
     LLVMModuleRef src;
     Module* dst;
+    ShdIntrinsics* intrinsics;
 } Parser;
 
 typedef struct {

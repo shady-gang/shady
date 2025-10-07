@@ -633,12 +633,49 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         const Node* impure_op = shd_make_ext_spv_op(a, set, op, true, qualified_type_helper(a, shd_scope, t), ops.count);
                         return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), impure_op, ops));
                     } else if (strcmp(keyword, "meta_ext_inst") == 0) {
-                        shady_meta_id op = strtol(strtok(NULL, "::"), 0, 10);
-                        Nodes ops = convert_operands(p, num_args, instr);
+                        String meta_def_name = strtok(NULL, "::");
+                        shady_meta_id meta_op = shd_meta_id_from_name(p->intrinsics, meta_def_name);
+
+                        const shady_parsed_meta_instruction* meta_instruction = shd_meta_id_definition(p->intrinsics, meta_op);
+                        assert(meta_instruction);
+
+                        Nodes arguments = convert_operands(p, num_args, instr);
+
+                        Nodes pattern = shd_empty(a);
+                        Nodes reordered_arguments = shd_empty(a);
+                        for (size_t i = 0; i < meta_instruction->ext_op.num_operands; i++) {
+                            const shady_parsed_meta_instruction* operand_info =  shd_meta_id_definition(p->intrinsics, meta_instruction->ext_op.operands[i]);
+                            const Node* append = NULL;
+                            switch (operand_info->meta) {
+                                case SHADY_META_DEFINE_LITERAL_I32: {
+                                    append = shd_uint32_literal(a, operand_info->literal_i32.literal);
+                                    break;
+                                }
+                                case SHADY_META_DEFINE_LITERAL_STRING: {
+                                    append = string_lit_helper(a, operand_info->literal_string.literal);
+                                    break;
+                                }
+                                case SHADY_META_DEFINE_PARAM_REF: {
+                                    append = NULL;
+                                    assert(operand_info->param_ref.param_idx < arguments.count);
+                                    reordered_arguments = shd_nodes_append(a, reordered_arguments, arguments.nodes[operand_info->param_ref.param_idx]);
+                                    break;
+                                }
+                                default: shd_error("TODO");
+                            }
+                            pattern = shd_nodes_append(a, pattern, append);
+                        }
+
+                        const Node* final_op = ext_spv_op(a, (ExtSpvOp) {
+                            .set = "spirv.core",
+                            .has_result = true,
+                            .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, t),
+                            .opcode = meta_instruction->ext_op.op_code,
+                            .ops_pattern = pattern,
+                        });
 
                         free(duped);
-                        abort();
-                        //return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
+                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), final_op, reordered_arguments));
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();
