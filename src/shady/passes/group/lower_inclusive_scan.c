@@ -72,16 +72,17 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            if (strcmp(payload.set, "spirv.core") == 0) {
+            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            if (strcmp(op.set, "spirv.core") == 0) {
                 for (size_t i = 0; i < NumGroupOps; i++) {
-                    if (payload.opcode == group_operations[i].spv_op) {
-                        if (shd_get_int_value(payload.operands.nodes[1], false) == SpvGroupOperationInclusiveScan) {
+                    if (op.opcode == group_operations[i].spv_op) {
+                        if (shd_get_int_value(payload.arguments.nodes[1], false) == SpvGroupOperationInclusiveScan) {
                             //assert(group_operations[i].I);
                             IrArena* oa = node->arena;
-                            payload.operands = shd_change_node_at_index(oa, payload.operands, 1, shd_uint32_literal(a, SpvGroupOperationExclusiveScan));
+                            payload.arguments = shd_change_node_at_index(oa, payload.arguments, 1, shd_uint32_literal(a, SpvGroupOperationExclusiveScan));
                             const Node* new = shd_recreate_node(r, ext_instr(oa, payload));
                             // new = prim_op_helper(a, group_operations[i].scalar, shd_empty(a), mk_nodes(a, new, group_operations[i].I(a, new->type) ));
-                            new = prim_op_helper(a, group_operations[i].scalar, mk_nodes(a, new, shd_recreate_node(r, payload.operands.nodes[2]) ));
+                            new = prim_op_helper(a, group_operations[i].scalar, mk_nodes(a, new, shd_recreate_node(r, payload.arguments.nodes[2]) ));
                             new = mem_and_value_helper(a, shd_rewrite_node(r, payload.mem), new);
                             return new;
                         }

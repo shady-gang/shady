@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <string.h>
 #include "shady/ir/memory_layout.h"
+#include "shady/ir/ext.h"
 
 typedef struct Context_ {
     Rewriter rewriter;
@@ -54,12 +55,11 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
     const Node* entry_point_addr = fn_addr_helper(a, shd_rewrite_node(r, old));
     entry_point_addr = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->target.memory.fn_ptr_size, false), entry_point_addr);
     shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(entry_point_addr));
+    const Node* dispatch_enter_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherEnterFn, false, NULL, 0);
     shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
-        .result_t = unit_type(a),
         .mem = shd_bld_mem(bb),
-        .set = "shady.internal",
-        .opcode = ShadyOpDispatcherEnterFn,
-        .operands = shd_empty(a),
+        .op = dispatch_enter_op,
+        .arguments = shd_empty(a),
     }));
     shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
     return new_entry_pt;
@@ -120,10 +120,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return shd_find_or_process_decl(&ctx->rewriter, "JoinPoint");
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
-            if (strcmp(payload.set, "shady.internal") == 0) {
+            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            if (strcmp(op.set, "shady.internal") == 0) {
                 String callee_name = NULL;
-                Nodes args = shd_rewrite_nodes(r, payload.operands);
-                switch ((ShadyJoinPointOpcodes ) payload.opcode) {
+                Nodes args = shd_rewrite_nodes(r, payload.arguments);
+                switch ((ShadyJoinPointOpcodes ) op.opcode) {
                     case ShadyOpDefaultJoinPoint:
                         callee_name = "builtin_entry_join_point";
                         break;
@@ -159,11 +160,12 @@ static const Node* process(Context* ctx, const Node* old) {
             target = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->target.memory.fn_ptr_size, false), target);
 
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
+
+            const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .set = "shady.internal",
-                .opcode = ShadyOpDispatcherContinue,
-                .operands = shd_empty(a),
+                .op = dispatch_continue_op,
+                .arguments = shd_empty(a),
             }));
         }
         case Join_TAG: {
@@ -181,11 +183,12 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* tree_node = shd_extract_literal(a, jp, 0);
 
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_join"), mk_nodes(a, dst, tree_node));
+
+            const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .set = "shady.internal",
-                .opcode = ShadyOpDispatcherContinue,
-                .operands = shd_empty(a),
+                .op = dispatch_continue_op,
+                .arguments = shd_empty(a),
             }));
         }
         case Control_TAG: {

@@ -585,14 +585,18 @@ const Type* _shd_check_type_generic_ptr_cast(IrArena* a, GenericPtrCast generic_
 }
 
 const Type* _shd_check_type_ext_value(IrArena* arena, ExtValue payload) {
-    return payload.result_t ? payload.result_t : unit_type(arena);
+    ExtSpvOp op = payload.op->payload.ext_spv_op;
+    return op.result_t ? op.result_t : unit_type(arena);
 }
 
 const Type* _shd_check_type_ext_instr(IrArena* arena, ExtInstr payload) {
-    return payload.result_t ? payload.result_t : unit_type(arena);
+    ExtSpvOp op = payload.op->payload.ext_spv_op;
+    return op.result_t ? op.result_t : unit_type(arena);
 }
 
 const Type* _shd_check_type_ext_terminator(IrArena* arena, ExtTerminator payload) {
+    ExtSpvOp op = payload.op->payload.ext_spv_op;
+    assert(!op.has_result);
     return noret_type(arena);
 }
 

@@ -39,9 +39,9 @@ static const Nodes* find_scope_info(const Node* abs) {
     const Node* mem = get_terminator_mem(terminator);
     const Nodes* info = NULL;
     while (mem) {
-        if (mem->tag == ExtInstr_TAG && strcmp(mem->payload.ext_instr.set, "shady.scope") == 0) {
-            if (!info || info->count > mem->payload.ext_instr.operands.count)
-                info = &mem->payload.ext_instr.operands;
+        if (mem->tag == ExtInstr_TAG && strcmp(mem->payload.ext_instr.op->payload.ext_spv_op.set, "shady.scope") == 0) {
+            if (!info || info->count > mem->payload.ext_instr.arguments.count)
+                info = &mem->payload.ext_instr.arguments;
         }
         mem = shd_get_parent_mem(mem);
     }

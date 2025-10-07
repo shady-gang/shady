@@ -2,6 +2,7 @@
 
 #include "l2s_private.h"
 
+#include "shady/ir/ext.h"
 #include "shady/ir/memory_layout.h"
 
 #include "portability.h"
@@ -140,12 +141,11 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     shd_debugv_print(" -> ");
                 }
                 shd_debugv_print(" (depth= %zu)\n", str.count);
+            const Node* shady_scope_op = shd_make_ext_spv_op(a, "shady.scope", 0, false, NULL, str.count);
             shd_bld_add_instruction(b, ext_instr(a, (ExtInstr) {
-                .set = "shady.scope",
-                .opcode = 0,
-                .result_t = unit_type(a),
+                .op = shady_scope_op,
                 .mem = shd_bld_mem(b),
-                .operands = str,
+                .arguments = str,
             }));
             //}
         }
@@ -619,7 +619,8 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         uint32_t op = strtol(opcode_str, NULL, 10);
 
                         free(duped);
-                        return ext_value_helper(a, qualified_type_helper(a, shd_scope, t), set, op, ops);
+                        const Node* pure_op = shd_make_ext_spv_op(a, set, op, true, qualified_type_helper(a, shd_scope, t), ops.count);
+                        return ext_value_helper(a, pure_op, ops);
                     } else if (strcmp(keyword, "impure_op") == 0) {
                         const char* set = shd_string(a, strtok(NULL, "::"));
                         const char* opcode_str = shd_string(a, strtok(NULL, "::"));
@@ -629,7 +630,15 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         uint32_t op = strtol(opcode_str, NULL, 10);
 
                         free(duped);
-                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
+                        const Node* impure_op = shd_make_ext_spv_op(a, set, op, true, qualified_type_helper(a, shd_scope, t), ops.count);
+                        return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), impure_op, ops));
+                    } else if (strcmp(keyword, "meta_ext_inst") == 0) {
+                        shady_meta_id op = strtol(strtok(NULL, "::"), 0, 10);
+                        Nodes ops = convert_operands(p, num_args, instr);
+
+                        free(duped);
+                        abort();
+                        //return shd_bld_add_instruction(b, ext_instr_helper(a, shd_bld_mem(b), qualified_type_helper(a, shd_scope, t), set, op, ops));
                     } else {
                         shd_error_print("Unrecognised shady intrinsic '%s'\n", keyword);
                         shd_error_die();

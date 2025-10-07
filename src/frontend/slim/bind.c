@@ -103,27 +103,28 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            if (strcmp(payload.set, "shady.frontend") == 0) {
-                if (payload.opcode == SlimFrontendOpsSlimSubscriptSHADY) {
-                    assert(payload.operands.count == 2);
-                    const Node* src_ptr = get_node_address_maybe(ctx, shd_first(payload.operands));
+            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            if (strcmp(op.set, "shady.frontend") == 0) {
+                if (op.opcode == SlimFrontendOpsSlimSubscriptSHADY) {
+                    assert(payload.arguments.count == 2);
+                    const Node* src_ptr = get_node_address_maybe(ctx, shd_first(payload.arguments));
                     if (src_ptr == NULL)
                         return NULL;
-                    const Node* index = shd_rewrite_node(&ctx->rewriter, payload.operands.nodes[1]);
+                    const Node* index = shd_rewrite_node(&ctx->rewriter, payload.arguments.nodes[1]);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = shd_rewrite_node(r, payload.mem),
                         .value = ptr_composite_element(a, (PtrCompositeElement) { .ptr = src_ptr, .index = index }),
                     });
-                } else if (payload.opcode == SlimFrontendOpsSlimDereferenceSHADY) {
-                    assert(payload.operands.count == 1);
+                } else if (op.opcode == SlimFrontendOpsSlimDereferenceSHADY) {
+                    assert(payload.arguments.count == 1);
                     return mem_and_value(a, (MemAndValue) {
                         .mem = shd_rewrite_node(r, payload.mem),
-                        .value = shd_rewrite_node(&ctx->rewriter, shd_first(payload.operands)),
+                        .value = shd_rewrite_node(&ctx->rewriter, shd_first(payload.arguments)),
                     });
-                } else if (payload.opcode == SlimFrontendOpsSlimUnboundSHADY) {
+                } else if (op.opcode == SlimFrontendOpsSlimUnboundSHADY) {
                     if (payload.mem)
                         shd_rewrite_node(&ctx->rewriter, payload.mem);
-                    Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.operands)));
+                    Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.arguments)));
                     // can't take the address if it's not a var!
                     if (!entry.is_var)
                         return NULL;
@@ -148,11 +149,12 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     IrArena* a = r->dst_arena;
     BodyBuilder* bb = instr.mem ? shd_bld_begin(a, shd_rewrite_node(r, instr.mem)) : shd_bld_begin_pure(a);
 
-    switch (instr.opcode) {
+    ExtSpvOp op = instr.op->payload.ext_spv_op;
+    switch (op.opcode) {
         case SlimFrontendOpsSlimBindValSHADY: {
-            size_t names_count = instr.operands.count - 1;
-            const Node** names = &instr.operands.nodes[1];
-            const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
+            size_t names_count = instr.arguments.count - 1;
+            const Node** names = &instr.arguments.nodes[1];
+            const Node* value = shd_rewrite_node(r, shd_first(instr.arguments));
             Nodes results = shd_deconstruct_composite(a, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
@@ -162,10 +164,10 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             break;
         }
         case SlimFrontendOpsSlimBindVarSHADY: {
-            size_t names_count = (instr.operands.count - 1) / 2;
-            const Node** names = &instr.operands.nodes[1];
-            const Node** types = &instr.operands.nodes[1 + names_count];
-            const Node* value = shd_rewrite_node(r, shd_first(instr.operands));
+            size_t names_count = (instr.arguments.count - 1) / 2;
+            const Node** names = &instr.arguments.nodes[1];
+            const Node** types = &instr.arguments.nodes[1 + names_count];
+            const Node* value = shd_rewrite_node(r, shd_first(instr.arguments));
             Nodes results = shd_deconstruct_composite(a, value, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
@@ -182,9 +184,9 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
             break;
         }
         case SlimFrontendOpsSlimBindContinuationsSHADY: {
-            size_t names_count = (instr.operands.count ) / 2;
-            const Node** names = &instr.operands.nodes[0];
-            const Node** conts = &instr.operands.nodes[0 + names_count];
+            size_t names_count = (instr.arguments.count ) / 2;
+            const Node** names = &instr.arguments.nodes[0];
+            const Node** conts = &instr.arguments.nodes[0 + names_count];
             LARRAY(Node*, bbs, names_count);
             for (size_t i = 0; i < names_count; i++) {
                 String name = shd_get_string_literal(a, names[i]);
@@ -217,13 +219,17 @@ static bool is_used_as_value(Context* ctx, const Node* node) {
     const Use* use = shd_get_first_use(ctx->uses, node);
     for (;use;use = use->next_use) {
         if (use->operand_class != NcMem) {
-            if (use->user->tag == ExtInstr_TAG && strcmp(use->user->payload.ext_instr.set, "shady.frontend") == 0) {
-                if (use->user->payload.ext_instr.opcode == SlimFrontendOpsSlimAssignSHADY && use->operand_index == 0)
-                    continue;
-                if (use->user->payload.ext_instr.opcode == SlimFrontendOpsSlimSubscriptSHADY && use->operand_index == 0) {
-                    const Node* ptr = get_node_address_maybe(ctx, node);
-                    if (ptr)
+            if (use->user->tag == ExtInstr_TAG) {
+                ExtInstr instr = use->user->payload.ext_instr;
+                ExtSpvOp op = instr.op->payload.ext_spv_op;
+                if (use->user->tag == ExtInstr_TAG && strcmp(op.set, "shady.frontend") == 0) {
+                    if (op.opcode == SlimFrontendOpsSlimAssignSHADY && use->operand_index == 0)
                         continue;
+                    if (op.opcode == SlimFrontendOpsSlimSubscriptSHADY && use->operand_index == 0) {
+                        const Node* ptr = get_node_address_maybe(ctx, node);
+                        if (ptr)
+                            continue;
+                    }
                 }
             }
             return true;
@@ -288,23 +294,24 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            if (strcmp("shady.frontend", payload.set) == 0) {
-                switch ((enum SlimFrontendOpsInstructions) payload.opcode) {
+            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            if (strcmp("shady.frontend", op.set) == 0) {
+                switch ((enum SlimFrontendOpsInstructions) op.opcode) {
                     case SlimFrontendOpsSlimDereferenceSHADY:
                         if (!is_used_as_value(ctx, node))
                             return shd_rewrite_node(r, payload.mem);
                         return load(a, (Load) {
-                            .ptr = shd_rewrite_node(r, shd_first(payload.operands)),
+                            .ptr = shd_rewrite_node(r, shd_first(payload.arguments)),
                             .mem = shd_rewrite_node(r, payload.mem),
                         });
                     case SlimFrontendOpsSlimAssignSHADY: {
-                        const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
+                        const Node* target_ptr = get_node_address(ctx, payload.arguments.nodes[0]);
                         assert(target_ptr);
-                        const Node* value = shd_rewrite_node(r, payload.operands.nodes[1]);
+                        const Node* value = shd_rewrite_node(r, payload.arguments.nodes[1]);
                         return store(a, (Store) { .ptr = target_ptr, .value = value, .mem = shd_rewrite_node(r, payload.mem) });
                     }
                     case SlimFrontendOpsSlimAddrOfSHADY: {
-                        const Node* target_ptr = get_node_address(ctx, payload.operands.nodes[0]);
+                        const Node* target_ptr = get_node_address(ctx, payload.arguments.nodes[0]);
                         return mem_and_value(a, (MemAndValue) { .value = target_ptr, .mem = shd_rewrite_node(r, payload.mem) });
                     }
                     case SlimFrontendOpsSlimSubscriptSHADY: {
@@ -315,7 +322,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                                 .mem = shd_rewrite_node(r, payload.mem)
                             });
                         return mem_and_value(a, (MemAndValue) {
-                            .value = extract_helper(a, shd_rewrite_node(r, payload.operands.nodes[0]), shd_rewrite_node(r, payload.operands.nodes[1])),
+                            .value = extract_helper(a, shd_rewrite_node(r, payload.arguments.nodes[0]), shd_rewrite_node(r, payload.arguments.nodes[1])),
                             .mem = shd_rewrite_node(r, payload.mem) }
                         );
                     }
@@ -326,7 +333,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
                                 return shd_rewrite_node(r, payload.mem);
                             mem = shd_rewrite_node(r, payload.mem);
                         }
-                        Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.operands)));
+                        Resolved entry = resolve_using_name(ctx, shd_get_string_literal(a, shd_first(payload.arguments)));
                         if (entry.is_var) {
                             return load(a, (Load) { .ptr = entry.node, .mem = mem });
                         } else if (mem) {

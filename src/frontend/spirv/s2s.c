@@ -16,6 +16,7 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 
 #include "shady/ir/builtin.h"
 #include "shady/ir/memory_layout.h"
+#include "shady/ir/ext.h"
 
 #include "../shady/ir_private.h"
 
@@ -1373,14 +1374,18 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Value;
             if (value)
                 parser->defs[result].node = value;
-            else
+            else {
+                const Type* t = NULL;
+                if (has_result) {
+                    t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t));
+                }
+                const Node* ext_op = shd_make_ext_spv_op(a, set, opcode, has_result, t, num_args);
                 parser->defs[result].node = shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(bb),
-                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
-                    .set = set,
-                    .opcode = opcode,
-                    .operands = shd_nodes(a, num_args, args),
+                    .op = ext_op,
+                    .arguments = shd_nodes(a, num_args, args),
                 }));
+            }
             break;
         }
         case SpvOpBranch: {
@@ -1485,11 +1490,11 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             for (size_t i = 0; i < size - 1; i++)
                 operands[i] = get_definition_by_id(parser, instruction[1 + i])->node;
             BodyBuilder* bb = parser->current_block.builder;
+            const Node* terminator_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
             parser->current_block.finished = shd_bld_finish(bb, ext_terminator(parser->arena, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .set = "spirv.core",
-                .opcode = op,
-                .operands = shd_nodes(a, size - 1, operands),
+                .op = terminator_op,
+                .arguments = shd_nodes(a, size - 1, operands),
             }));
             parser->current_block.builder = NULL;
             break;
@@ -1501,10 +1506,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 LARRAY(const Node*, operands, size - 2);
                 for (size_t i = 0; i < size - 2; i++)
                     operands[i] = get_definition_by_id(parser, instruction[2 + i])->node;
+                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, NULL, size - 2);
                 parser->defs[result].node = ext_type(a, (ExtType) {
-                    .set = "spirv.core",
-                    .opcode = op,
-                    .operands = shd_nodes(a, size - 2, operands),
+                    .op = unknown_op,
+                    .arguments = shd_nodes(a, size - 2, operands),
                 });
                 break;
             } else if (has_result && has_type) {
@@ -1512,24 +1517,22 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 LARRAY(const Node*, operands, size - 3);
                 for (size_t i = 0; i < size - 3; i++)
                     operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
+                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)), size - 3);
                 parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .set = "spirv.core",
-                    .opcode = op,
-                    .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
-                    .operands = shd_nodes(a, size - 3, operands),
+                    .op = unknown_op,
+                    .arguments = shd_nodes(a, size - 3, operands),
                 }));
                 break;
             } else {
                 LARRAY(const Node*, operands, size - 1);
                 for (size_t i = 0; i < size - 1; i++)
                     operands[i] = get_def_ssa_value(parser, instruction[1 + i]);
+                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
                 shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .set = "spirv.core",
-                    .opcode = op,
-                    .result_t = unit_type(a),
-                    .operands = shd_nodes(a, size - 1, operands),
+                    .op = unknown_op,
+                    .arguments = shd_nodes(a, size - 1, operands),
                 }));
                 break;
             }

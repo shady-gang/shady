@@ -241,11 +241,13 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
         case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
         case Type_ExtType_TAG: {
             ExtType payload = type->payload.ext_type;
-            if (strcmp(payload.set, "spirv.core") == 0) {
-                LARRAY(SpvId, operands, payload.operands.count);
-                for (size_t i = 0; i < payload.operands.count; i++)
-                    operands[i] = spv_emit_type(emitter, payload.operands.nodes[i]);
-                new = spvb_type(emitter->file_builder, payload.opcode, payload.operands.count, operands);
+            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            assert(op.has_result && !op.result_t);
+            if (strcmp(op.set, "spirv.core") == 0) {
+                LARRAY(SpvId, operands, payload.arguments.count);
+                for (size_t i = 0; i < payload.arguments.count; i++)
+                    operands[i] = spv_emit_type(emitter, payload.arguments.nodes[i]);
+                new = spvb_type(emitter->file_builder, op.opcode, payload.arguments.count, operands);
                 break;
             }
             shd_error("TODO: extended types")

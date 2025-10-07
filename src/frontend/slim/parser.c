@@ -294,12 +294,11 @@ static Nodes accept_type_arguments(ctxparams) {
 }
 
 static const Node* make_unbound(IrArena* a, const Node* mem, String identifier) {
+    const Node* unbound_op = shd_make_ext_spv_op(a, "shady.frontend", SlimFrontendOpsSlimUnboundSHADY, true, unit_type(a), 1);
     return ext_instr(a, (ExtInstr) {
         .mem = mem,
-        .set = "shady.frontend",
-        .opcode = SlimFrontendOpsSlimUnboundSHADY,
-        .result_t = unit_type(a),
-        .operands = shd_singleton(string_lit_helper(a, identifier)),
+        .op = unbound_op,
+        .arguments = shd_singleton(string_lit_helper(a, identifier)),
     });
 }
 
@@ -343,12 +342,11 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 expect(type, "type");
                 expect(accept_token(ctx, rsbracket_tok), "]");
                 Nodes ops = expect_operands(ctx, bb);
+                const Node* invoked_op = shd_make_ext_spv_op(arena, set->payload.string_lit.string, strtoll(opcode->payload.untyped_number.plaintext, NULL, 10), true, type, ops.count);
                 return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-                    .result_t = type,
-                    .set = set->payload.string_lit.string,
-                    .opcode = strtoll(opcode->payload.untyped_number.plaintext, NULL, 10),
                     .mem = shd_bld_mem(bb),
-                    .operands = ops,
+                    .op = invoked_op,
+                    .arguments = ops,
                 }));
             } else if (strcmp(id, "alloca") == 0) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
@@ -630,15 +628,19 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
     } else if (accept_token(ctx, star_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
-        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) { .set = "shady.frontend", .result_t = unit_type(arena), .opcode = SlimFrontendOpsSlimDereferenceSHADY, .operands = shd_singleton(expr), .mem = shd_bld_mem(bb) }));
+        const Node* deref_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimDereferenceSHADY, true, unit_type(arena), 1);
+        return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
+            .op = deref_op,
+            .arguments = shd_singleton(expr),
+            .mem = shd_bld_mem(bb)
+        }));
     } else if (accept_token(ctx, infix_and_tok)) {
         const Node* expr = accept_primary_expr(ctx, bb);
         expect(expr, "expression");
+        const Node* addrof_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimAddrOfSHADY, true, unit_type(arena), 1);
         return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-            .set = "shady.frontend",
-            .result_t = unit_type(arena),
-            .opcode = SlimFrontendOpsSlimAddrOfSHADY,
-            .operands = shd_singleton(expr),
+            .op = addrof_op,
+            .arguments = shd_singleton(expr),
             .mem = shd_bld_mem(bb),
         }));
     }
@@ -666,21 +668,19 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                 }));
             } else switch (infix) {
                 case InfixAss: {
+                    const Node* assign_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimAssignSHADY, false, unit_type(arena), 2);
                     expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-                        .set = "shady.frontend",
-                        .opcode = SlimFrontendOpsSlimAssignSHADY,
-                        .result_t = unit_type(arena),
-                        .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
+                        .op = assign_op,
+                        .arguments = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
                         .mem = shd_bld_mem(bb),
                     }));
                     break;
                 }
                 case InfixSbs: {
+                    const Node* subscript_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimSubscriptSHADY, true, unit_type(arena), 1);
                     expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-                        .set = "shady.frontend",
-                        .opcode = SlimFrontendOpsSlimSubscriptSHADY,
-                        .result_t = unit_type(arena),
-                        .operands = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
+                        .op = subscript_op,
+                        .arguments = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
                         .mem = shd_bld_mem(bb),
                     }));
                     break;

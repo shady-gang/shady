@@ -825,13 +825,14 @@ ExtISelEntry ext_isel_entries[] = {
     {{ "GLSL.std.450", GLSLstd450Pow, empty_prefix() }, { IsMono, OsCall, .op = "powf" }},
 };
 
-static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {
-    if (strcmp(entry->set, instr.set) != 0 || entry->op != instr.opcode)
+static bool check_ext_entry(const ExtISelPattern* entry, ExtSpvOp op, Nodes arguments) {
+    if (strcmp(entry->set, op.set) != 0 || entry->op != op.opcode)
         return false;
+    // check if the prefix matches
     for (size_t i = 0; i < entry->prefix_len; i++) {
-        if (i >= instr.operands.count)
+        if (i >= arguments.count)
             return false;
-        const IntLiteral* lit = shd_resolve_to_int_literal(instr.operands.nodes[i]);
+        const IntLiteral* lit = shd_resolve_to_int_literal(arguments.nodes[i]);
         if (!lit)
             return false;
         if (shd_get_int_literal_value(*lit, false) != entry->prefix[i])
@@ -840,17 +841,17 @@ static bool check_ext_entry(const ExtISelPattern* entry, ExtInstr instr) {
     return true;
 }
 
-static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtInstr instr) {
+static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtSpvOp op, Nodes arguments) {
     for (size_t i = 0; i < size; i++) {
-        if (check_ext_entry(&table[i].match, instr))
+        if (check_ext_entry(&table[i].match, op, arguments))
             return &table[i];
     }
     return NULL;
 }
 
-#define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), instr); if (f) return f; }
+#define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), op, arguments); if (f) return f; }
 
-static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
+static const ExtISelEntry* find_ext_entry(Emitter* e, ExtSpvOp op, Nodes arguments) {
     switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
@@ -862,17 +863,18 @@ static const ExtISelEntry* find_ext_entry(Emitter* e, ExtInstr instr) {
 }
 
 static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, ExtInstr instr) {
+    ExtSpvOp op = instr.op->payload.ext_spv_op;
     shd_c_emit_mem(emitter, fn, instr.mem);
-    if (strcmp(instr.set, "spirv.core") == 0) {
-        switch (instr.opcode) {
+    if (strcmp(op.set, "spirv.core") == 0) {
+        switch (op.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
-                assert(instr.operands.count == 2);
-                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.operands.nodes[1]));
-                return broadcast_first(emitter, value, instr.operands.nodes[1]->type);
+                assert(instr.arguments.count == 2);
+                CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[1]));
+                return broadcast_first(emitter, value, instr.arguments.nodes[1]->type);
             }
             case SpvOpGroupNonUniformElect: {
-                assert(instr.operands.count == 1);
-                const IntLiteral* scope = shd_resolve_to_int_literal(shd_first(instr.operands));
+                assert(instr.arguments.count == 1);
+                const IntLiteral* scope = shd_resolve_to_int_literal(shd_first(instr.arguments));
                 assert(scope && scope->value == SpvScopeSubgroup);
                 switch (emitter->backend_config.dialect) {
                     case CDialect_ISPC: return term_from_cvalue(shd_format_string_arena(emitter->arena->arena, "(programIndex == count_trailing_zeros(lanemask()))"));
@@ -884,54 +886,49 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
         }
     }
 
-    const ExtISelEntry* entry = find_ext_entry(emitter, instr);
+    const ExtISelEntry* entry = find_ext_entry(emitter, op, instr.arguments);
     if (entry) {
-        Nodes operands = instr.operands;
+        Nodes operands = instr.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", instr.set, instr.opcode);
+        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", op.set, op.opcode);
     }
 }
 
 static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValue value) {
+    ExtSpvOp op = value.op->payload.ext_spv_op;
     IrArena* a = emitter->arena;
-    if (strcmp(value.set, "spirv.core") == 0) {
-        switch (value.opcode) {
+    if (strcmp(op.set, "spirv.core") == 0) {
+        switch (op.opcode) {
             case SpvOpImageSampleImplicitLod: {
-                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.operands.nodes[0]));
-                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.operands.nodes[1]));
+                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[0]));
+                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[1]));
 
                 String dst = shd_make_unique_name(a, "sampled");
                 String dim = "";
                 if (emitter->backend_config.glsl_version < 130) {
-                    const Type* t = value.operands.nodes[0]->type;
+                    const Type* t = value.arguments.nodes[0]->type;
                     assert(t->tag == SampledImageType_TAG);
                     t = t->payload.sampled_image_type.image_type;
                     assert(t->tag == ImageType_TAG);
                     dim = shd_c_emit_dim(t->payload.image_type.dim);
                 }
-                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, value.result_t, dst), dim, sampler, coords);
+                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, op.result_t, dst), dim, sampler, coords);
                 return term_from_cvalue(dst);
             }
         }
     }
 
-    ExtInstr instr = {
-        .set = value.set,
-        .opcode = value.opcode,
-        .result_t = value.result_t,
-        .operands = value.operands
-    };
-    const ExtISelEntry* entry = find_ext_entry(emitter, instr);
+    const ExtISelEntry* entry = find_ext_entry(emitter, op, value.arguments);
     if (entry) {
-        Nodes operands = value.operands;
+        Nodes operands = value.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended value: (set = %s, opcode = %d )", value.set, value.opcode);
+        shd_error("Unsupported extended value: (set = %s, opcode = %d )", op.set, op.opcode);
     }
 }
 

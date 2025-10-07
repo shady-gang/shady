@@ -3,6 +3,7 @@
 #include "shady/ir/decl.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/function.h"
+#include "shady/ir/ext.h"
 #include "shady/analysis/uses.h"
 #include "shady/dict.h"
 
@@ -102,7 +103,8 @@ static Nodes rewrite_call(Context* ctx, BodyBuilder* bb, const Node* ocallee, co
         shd_bld_store(bb, ptr_composite_element_helper(a, var, shd_uint32_literal(a, i)), arg);
     }
 
-    shd_bld_add_instruction(bb, ext_instr_helper(a, shd_bld_mem(bb), NULL, "spirv.core", SpvOpExecuteCallableKHR, mk_nodes(a, shd_rewrite_node(r, ocallee), var)));
+    const Node* execute_callable_op = shd_make_ext_spv_op(a, "spirv.core", SpvOpExecuteCallableKHR, false, NULL, 2);
+    shd_bld_add_instruction(bb, ext_instr_helper(a, shd_bld_mem(bb), execute_callable_op, mk_nodes(a, shd_rewrite_node(r, ocallee), var)));
 
     size_t num_results = ofnt->payload.fn_type.return_types.count;
     LARRAY(const Node*, results, num_results);

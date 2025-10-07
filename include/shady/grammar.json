@@ -137,6 +137,9 @@
     },
     {
       "name": "mem"
+    },
+    {
+      "name": "ext_op"
     }
   ],
   "nodes": [
@@ -743,10 +746,8 @@
       "description": "Unknown value-producing operation without side effects",
       "class": "value",
       "ops": [
-        { "name": "result_t", "class": "type" },
-        { "name": "set", "class": "string" },
-        { "name": "opcode", "type": "uint32_t" },
-        { "name": "operands", "class": "value", "list": true }
+        { "name": "op", "class": "ext_op" },
+        { "name": "arguments", "class": "value", "list": true }
       ]
     },
     {
@@ -755,10 +756,8 @@
       "class": ["mem", "value", "instruction"],
       "ops": [
         { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "result_t", "class": "type", "nullable": true },
-        { "name": "set", "class": "string" },
-        { "name": "opcode", "type": "uint32_t" },
-        { "name": "operands", "class": "value", "list": true }
+        { "name": "op", "class": "ext_op" },
+        { "name": "arguments", "class": "value", "list": true }
       ]
     },
     {
@@ -767,9 +766,8 @@
       "class": "terminator",
       "ops": [
         { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "set", "class": "string" },
-        { "name": "opcode", "type": "uint32_t" },
-        { "name": "operands", "class": "value", "list": true }
+        { "name": "op", "class": "ext_op" },
+        { "name": "arguments", "class": "none", "list": true }
       ]
     },
     {
@@ -777,9 +775,20 @@
       "type": false,
       "class": "type",
       "ops": [
+        { "name": "op", "class": "ext_op" },
+        { "name": "arguments", "class": "none", "list": true }
+      ]
+    },
+    {
+      "name": "ExtSpvOp",
+      "type": false,
+      "class": "ext_op",
+      "ops": [
         { "name": "set", "class": "string" },
         { "name": "opcode", "type": "uint32_t" },
-        { "name": "operands", "class": "none", "list": true }
+        { "name": "has_result", "type": "bool" },
+        { "name": "result_t", "class": "type", "nullable": true },
+        { "name": "ops_pattern", "class": "value", "list": true, "nullable": true }
       ]
     }
   ]
