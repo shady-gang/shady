@@ -70,4 +70,6 @@ void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id);
 
 void shd_spv_emit_debuginfo(Emitter*, const Node* n, SpvId id);
 
+size_t shd_emit_ops_with_pattern(Emitter*, ExtSpvOp op, Nodes arguments, uint32_t** out_ops);
+
 #endif

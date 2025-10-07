@@ -441,7 +441,7 @@ SpvId spvb_type(SpvbFileBuilder* file_builder, SpvOp op, size_t operands_count, 
     SpvId id = spvb_fresh_id(file_builder);
     ref_id(id);
     for (size_t i = 0; i < operands_count; i++)
-        ref_id(operands[i]);
+        literal_int(operands[i]);
     return id;
 }
 

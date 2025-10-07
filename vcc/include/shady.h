@@ -43,21 +43,21 @@ typedef unsigned native_uvec4 __attribute__((ext_vector_type(4)));
 typedef unsigned native_uvec3 __attribute__((ext_vector_type(3)));
 typedef unsigned native_uvec2 __attribute__((ext_vector_type(2)));
 
-typedef __attribute__((address_space(0x1000))) struct __shady_builtin_sampler1D* sampler1D;
+/*typedef __attribute__((address_space(0x1000))) struct __shady_builtin_sampler1D* sampler1D;
 typedef __attribute__((address_space(0x1001))) struct __shady_builtin_sampler2D* sampler2D;
 typedef __attribute__((address_space(0x1002))) struct __shady_builtin_sampler3D* sampler3D;
-typedef __attribute__((address_space(0x1003))) struct __shady_builtin_sampler3D* samplerCube;
+typedef __attribute__((address_space(0x1003))) struct __shady_builtin_sampler3D* samplerCube;*/
 
-native_vec4 texture1D(const sampler1D, float)           __asm__("shady::impure_op::spirv.core::87::Invocation");
+/*native_vec4 texture1D(const sampler1D, float)           __asm__("shady::impure_op::spirv.core::87::Invocation");
 native_vec4 texture2D(const sampler2D, native_vec2)     __asm__("shady::impure_op::spirv.core::87::Invocation");
 native_vec4 texture3D(const sampler3D, native_vec3)     __asm__("shady::impure_op::spirv.core::87::Invocation");
-native_vec4 textureCube(const samplerCube, native_vec3) __asm__("shady::impure_op::spirv.core::87::Invocation");
+native_vec4 textureCube(const samplerCube, native_vec3) __asm__("shady::impure_op::spirv.core::87::Invocation");*/
 
 #if defined(__cplusplus)
-native_vec4 texture(const sampler1D, float)         __asm__("shady::impure_op::spirv.core::87::Invocation");
-native_vec4 texture(const sampler2D, native_vec2)   __asm__("shady::impure_op::spirv.core::87::Invocation");
-native_vec4 texture(const sampler3D, native_vec3)   __asm__("shady::impure_op::spirv.core::87::Invocation");
-native_vec4 texture(const samplerCube, native_vec3) __asm__("shady::impure_op::spirv.core::87::Invocation");
+static inline native_vec4 texture(const sampler1D img, float coords) { return texture1D(img, coords); }
+static inline native_vec4 texture(const sampler2D img, native_vec2 coords) { return texture2D(img, coords); }
+static inline native_vec4 texture(const sampler3D img, native_vec3 coords) { return texture3D(img, coords); }
+static inline native_vec4 texture(const samplerCube img, native_vec3 coords) { return textureCube(img, coords); }
 #endif
 
 // builtins

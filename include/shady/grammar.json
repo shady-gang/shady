@@ -788,7 +788,7 @@
         { "name": "opcode", "type": "uint32_t" },
         { "name": "has_result", "type": "bool" },
         { "name": "result_t", "class": "type", "nullable": true },
-        { "name": "ops_pattern", "class": "value", "list": true, "nullable": true }
+        { "name": "ops_pattern", "class": "none", "list": true, "nullable": true }
       ]
     }
   ]

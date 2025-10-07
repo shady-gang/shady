@@ -244,10 +244,13 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             ExtSpvOp op = payload.op->payload.ext_spv_op;
             assert(op.has_result && !op.result_t);
             if (strcmp(op.set, "spirv.core") == 0) {
-                LARRAY(SpvId, operands, payload.arguments.count);
-                for (size_t i = 0; i < payload.arguments.count; i++)
-                    operands[i] = spv_emit_type(emitter, payload.arguments.nodes[i]);
-                new = spvb_type(emitter->file_builder, op.opcode, payload.arguments.count, operands);
+                uint32_t* emitted_ops;
+                size_t num_ops = shd_emit_ops_with_pattern(emitter, op, payload.arguments, &emitted_ops);
+                //LARRAY(SpvId, operands, payload.arguments.count);
+                //for (size_t i = 0; i < payload.arguments.count; i++)
+                //    operands[i] = spv_emit_type(emitter, payload.arguments.nodes[i]);
+                new = spvb_type(emitter->file_builder, op.opcode, num_ops, emitted_ops);
+                free(emitted_ops);
                 break;
             }
             shd_error("TODO: extended types")
@@ -263,4 +266,28 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
 
     spv_register_emitted(emitter, NULL, key, new);
     return new;
+}
+
+size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtSpvOp op, Nodes arguments, uint32_t** out_ops) {
+    size_t pattern_size = op.ops_pattern.count;
+    uint32_t* alloc = calloc(sizeof(uint32_t), pattern_size);
+    size_t j = 0;
+    for (size_t i = 0; i < pattern_size; i++) {
+        const Node* pattern_item = op.ops_pattern.nodes[i];
+        if (pattern_item) {
+            switch (pattern_item->tag) {
+                case IntLiteral_TAG: {
+                    alloc[i] = shd_get_int_value(pattern_item, false);
+                    continue;
+                }
+                default: shd_error("TODO: implement missing pattern items");
+            }
+        } else {
+            assert(j < arguments.count);
+            alloc[i] = spv_emit_type(emitter, arguments.nodes[j++]);
+            continue;
+        }
+    }
+    *out_ops = alloc;
+    return pattern_size;
 }

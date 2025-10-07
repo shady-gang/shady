@@ -7,6 +7,50 @@
 #include "dict.h"
 #include "util.h"
 
+static const Type* build_meta_type(Parser* p, const shady_parsed_meta_instruction* meta_instruction) {
+    IrArena* a = shd_module_get_arena(p->dst);
+    assert(meta_instruction);
+
+    Nodes pattern = shd_empty(a);
+    Nodes arguments = shd_empty(a);
+    for (size_t i = 0; i < meta_instruction->ext_op.num_operands; i++) {
+        const shady_parsed_meta_instruction* operand_info =  shd_meta_id_definition(p->intrinsics, meta_instruction->ext_op.operands[i]);
+        const Node* append = NULL;
+        switch (operand_info->meta) {
+            case SHADY_META_DEFINE_LITERAL_I32: {
+                append = shd_uint32_literal(a, operand_info->literal_i32.literal);
+                break;
+            }
+            case SHADY_META_DEFINE_LITERAL_STRING: {
+                append = string_lit_helper(a, operand_info->literal_string.literal);
+                break;
+            }
+            case SHADY_META_DEFINE_BUILTIN_TYPE: {
+                append = NULL;
+                arguments = shd_nodes_append(a, arguments, l2s_convert_type(p, operand_info->builtin_type.type));
+                break;
+            }
+            case SHADY_META_DEFINE_EXT_OP: {
+                append = NULL;
+                arguments = shd_nodes_append(a, arguments, build_meta_type(p, operand_info));
+                break;
+            }
+            case SHADY_META_DEFINE_PARAM_REF: shd_error("param references can't appear in types dummy")
+            default: shd_error("TODO");
+        }
+        pattern = shd_nodes_append(a, pattern, append);
+    }
+
+    const Node* final_op = ext_spv_op(a, (ExtSpvOp) {
+        .set = "spirv.core",
+        .has_result = true,
+        .result_t = NULL,
+        .opcode = meta_instruction->ext_op.op_code,
+        .ops_pattern = pattern,
+    });
+    return ext_type_helper(a, final_op, arguments);
+}
+
 const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
     const Type** found = shd_dict_find_value(LLVMTypeRef, const Type*, p->map, t);
     if (found) return *found;
@@ -77,28 +121,10 @@ const Type* l2s_convert_type(Parser* p, LLVMTypeRef t) {
         case LLVMPointerTypeKind: {
             unsigned int llvm_as = LLVMGetPointerAddressSpace(t);
             if (llvm_as >= 0x1000 && llvm_as <= 0x2000) {
-                unsigned offset = llvm_as - 0x1000;
-                unsigned dim = offset & 0xF;
-                unsigned type_id = (offset >> 4) & 0x3;
-                const Type* sampled_type = NULL;
-                switch (type_id) {
-                    case 0x0: sampled_type = float_type(a, (Float) {.width = ShdFloatFormat32}); break;
-                    case 0x1: sampled_type = shd_int32_type(a); break;
-                    case 0x2: sampled_type = shd_uint32_type(a); break;
-                    default: assert(false);
-                }
-                bool arrayed = (offset >> 6) & 1;
+                shady_meta_id meta_op = llvm_as - SHADY_META_IDS_BEGIN_AT;
 
-                return sampled_image_type(a, (SampledImageType) {.image_type = image_type(a, (ImageType) {
-                        //.sampled_type = pack_type(a, (PackType) { .element_type = float_type(a, (Float) { .width = FloatTy32 }), .width = 4 }),
-                        .sampled_type = sampled_type,
-                        .dim = dim,
-                        .depth = 0,
-                        .arrayed = arrayed,
-                        .ms = 0,
-                        .sampled = 1,
-                        .imageformat = 0
-                })});
+                const shady_parsed_meta_instruction* meta_instruction = shd_meta_id_definition(p->intrinsics, meta_op);
+                return build_meta_type(p, meta_instruction);
             }
             AddressSpace as = l2s_convert_llvm_address_space(llvm_as);
             const Type* pointee = NULL;
