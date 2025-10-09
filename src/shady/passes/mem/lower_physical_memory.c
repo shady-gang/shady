@@ -76,24 +76,9 @@ static const Node* mul(const Node* a, const Node* b) {
     return prim_op_helper(arena, mul_op, mk_nodes(arena, a, b));
 }
 
-static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
-    // can't really swizzle in RT mode
-    if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model))
-        return offset;
-    IrArena* a = ctx->rewriter.dst_arena;
-    const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupSize);
-    subgroup_size = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_size);
-    const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupLocalInvocationId);
-    subgroup_local_id = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_local_id);
-    return add(mul(offset, subgroup_size), subgroup_local_id);
-}
-
 static const Node* load_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset) {
     assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    // swizzle the address here !
-    if (ctx->config->lower.use_scratch_for_private)
-        offset = swizzle_offset(ctx, bb, offset);
     const Node* arr = *get_emulated_as_word_array(ctx, as);
     const Node* value = shd_bld_load(bb, ptr_composite_element_helper(a, arr, offset));
     ShdIntSize width = a->config.target.memory.word_size;
@@ -110,9 +95,6 @@ static const Node* load_word(Context* ctx, BodyBuilder* bb, AddressSpace as, con
 static void store_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
     assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    // swizzle the address here !
-    if (ctx->config->lower.use_scratch_for_private)
-        offset = swizzle_offset(ctx, bb, offset);
     ShdIntSize width = a->config.target.memory.word_size;
     if (ctx->config->printf_trace.memory_accesses) {
         String template = shd_fmt_string_irarena(a, "storing %s at %s:0x%s\n", width == ShdIntSize64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
@@ -123,6 +105,18 @@ static void store_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Nod
     }
     const Node* arr = *get_emulated_as_word_array(ctx, as);
     shd_bld_store(bb, ptr_composite_element_helper(a, arr, offset), value);
+}
+
+static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
+    // can't really swizzle in RT mode
+    if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model))
+        return offset;
+    IrArena* a = ctx->rewriter.dst_arena;
+    const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupSize);
+    subgroup_size = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_size);
+    const Node* subgroup_local_id = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupLocalInvocationId);
+    subgroup_local_id = shd_convert_int_zero_extend(a, shd_get_unqualified_type(offset->type), subgroup_local_id);
+    return add(mul(offset, subgroup_size), subgroup_local_id);
 }
 
 /// Implements accesses for arbitrary uint sizes
@@ -154,9 +148,13 @@ static Node* uint_access(Context* ctx, BodyBuilder* bb, AddressSpace as, ShdIntS
     const Node* shift = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = 0 });
     const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = word_size_in_bytes * 8 });
     for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
+        const Node* final_offset = offset;
+        // swizzle the address here !
+        if (as == AsPrivate && ctx->config->lower.use_scratch_for_private)
+            final_offset = swizzle_offset(ctx, bb, final_offset);
         switch (tag) {
             case Access_Load_TAG: {
-                const Node* word = load_word(ctx, bb, as, offset);
+                const Node* word = load_word(ctx, bb, as, final_offset);
                 word = shd_bld_conversion(bb, int_type(a, (Int) { .width = width, .is_signed = false }), word); // widen/truncate the word we just loaded
                 word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
                 output = prim_op_helper(a, or_op, mk_nodes(a, output, word));
@@ -166,7 +164,7 @@ static Node* uint_access(Context* ctx, BodyBuilder* bb, AddressSpace as, ShdIntS
                 const Node* word = input;
                 word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
                 word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
-                store_word(ctx, bb, as, offset, word);
+                store_word(ctx, bb, as, final_offset, word);
                 break;
             }
             default: assert(false);
@@ -348,7 +346,9 @@ static const Node* get_emulating_function(Context* ctx, const Node* old_op) {
         case Access_Store_TAG: {
             params = mk_nodes(a, address_param, param_helper(a, input_value_t));
             return_types = shd_empty(a);
+            break;
         }
+        default: shd_error("Unimplemented access!");
     }
 
     Node* fun = function_helper(ctx->rewriter.dst_module, params, return_types);
@@ -374,6 +374,7 @@ static const Node* get_emulating_function(Context* ctx, const Node* old_op) {
             shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
             break;
         }
+        default: shd_error("Unimplemented access!");
     }
     return fun;
 }
@@ -409,6 +410,51 @@ static const Node* process_node(Context* ctx, const Node* old) {
             const Node* fn = get_emulating_function(ctx, old);
             const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
             shd_bld_call(bb, fn, mk_nodes(a, pointer_as_offset, value));
+            return shd_bld_to_instr_yield_values(bb, shd_empty(a));
+        }
+        case AtomicAccess_TAG: {
+            AtomicAccess old_payload = old->payload.atomic_access;
+            const Type* ptr_type = old_payload.ptr->type;
+            shd_deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
+                break;
+
+            AddressSpace as = ptr_type->payload.ptr_type.address_space;
+            const Node* element_type = ptr_type->payload.ptr_type.pointed_type;
+            assert(shd_get_type_bitwidth(element_type) == int_size_in_bytes(a->config.target.memory.word_size) * 8);
+
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, old_payload.mem));
+
+            const Node* ptr = shd_rewrite_node(r, old_payload.ptr);
+            const Node* offset = shd_bytes_to_words(bb, ptr);
+
+            const Node* arr = *get_emulated_as_word_array(ctx, as);
+
+            AtomicAccess rewritten = {
+                .mem = shd_bld_mem(bb),
+                .op = old_payload.op,
+                .result_t = shd_rewrite_node(r, old_payload.result_t),
+                .ptr = ptr_composite_element_helper(a, arr, offset),
+                .scope = shd_rewrite_node(r, old_payload.scope),
+                .semantics = shd_rewrite_node(r, old_payload.semantics),
+                //.ops = shd_rewrite_nodes(r, old_payload.ops),
+            };
+
+            const Type* word_type = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
+            LARRAY(const Node*, nops, old_payload.ops.count);
+            for (size_t i = 0; i < old_payload.ops.count; i++) {
+                nops[i] = shd_rewrite_node(r, old_payload.ops.nodes[i]);
+                nops[i] = bit_cast_helper(a, word_type, nops[i]);
+            }
+            rewritten.ops = shd_nodes(a, old_payload.ops.count, nops);
+
+            const Node* result = shd_bld_add_instruction(bb, atomic_access(a, rewritten));
+
+            if (old_payload.result_t) {
+                result = bit_cast_helper(a, shd_get_unqualified_type(rewritten.result_t), result);
+                return shd_bld_to_instr_yield_values(bb, shd_singleton(result));
+            }
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
         }
         case PtrType_TAG: {
