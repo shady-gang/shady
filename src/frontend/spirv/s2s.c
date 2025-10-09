@@ -1144,6 +1144,21 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].node = shd_insert_helper(a, ops[0], shd_nodes(a, num_indices, &ops[2]), ops[1]);
             break;
         }
+        case SpvOpVectorExtractDynamic: {
+            const Node* vec = get_def_ssa_value(parser, instruction[3]);
+            const Node* idx = get_def_ssa_value(parser, instruction[4]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = extract_helper(a, vec, idx);
+            break;
+        }
+        case SpvOpVectorInsertDynamic: {
+            const Node* vec = get_def_ssa_value(parser, instruction[3]);
+            const Node* ins = get_def_ssa_value(parser, instruction[4]);
+            const Node* idx = get_def_ssa_value(parser, instruction[5]);
+            parser->defs[result].type = Value;
+            parser->defs[result].node = insert_helper(a, vec, idx, ins);
+            break;
+        }
         case SpvOpVectorShuffle: {
             const Node* src_a = get_def_ssa_value(parser, instruction[3]);
             const Node* src_b = get_def_ssa_value(parser, instruction[4]);
