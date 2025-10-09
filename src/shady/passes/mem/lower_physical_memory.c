@@ -88,7 +88,7 @@ static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* off
     return add(mul(offset, subgroup_size), subgroup_local_id);
 }
 
-static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset) {
+static const Node* load_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset) {
     assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     // swizzle the address here !
@@ -107,7 +107,7 @@ static const Node* gen_load_base(Context* ctx, BodyBuilder* bb, AddressSpace as,
     return value;
 }
 
-static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
+static void store_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
     assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
     // swizzle the address here !
@@ -125,29 +125,69 @@ static void gen_store_base(Context* ctx, BodyBuilder* bb, AddressSpace as, const
     shd_bld_store(bb, ptr_composite_element_helper(a, arr, offset), value);
 }
 
+/// Implements accesses for arbitrary uint sizes
+static Node* uint_access(Context* ctx, BodyBuilder* bb, AddressSpace as, ShdIntSize width, /*const Node* old_access,*/ AccessTag tag, Nodes new_operands) {
+    IrArena* a = ctx->rewriter.dst_arena;
+    const Node* address = shd_first(new_operands);
+    //AccessTag tag = is_access(old_access);
+
+    const Node* output = NULL;
+    const Node* input = NULL;
+
+    switch (tag) {
+        case Access_Load_TAG: {
+            output = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = 0 });
+            break;
+        }
+        case Access_Store_TAG: {
+            input = new_operands.nodes[1];
+            const Type* input_t = shd_get_unqualified_type(input->type);
+            assert(input_t->tag == Int_TAG && !input_t->payload.int_type.is_signed);
+            break;
+        }
+        default: assert(false);
+    }
+
+    size_t length_in_bytes = int_size_in_bytes(width);
+    size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
+    const Node* offset = shd_bytes_to_words(bb, address);
+    const Node* shift = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = 0 });
+    const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = word_size_in_bytes * 8 });
+    for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
+        switch (tag) {
+            case Access_Load_TAG: {
+                const Node* word = load_word(ctx, bb, as, offset);
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = width, .is_signed = false }), word); // widen/truncate the word we just loaded
+                word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
+                output = prim_op_helper(a, or_op, mk_nodes(a, output, word));
+                break;
+            }
+            case Access_Store_TAG: {
+                const Node* word = input;
+                word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
+                store_word(ctx, bb, as, offset, word);
+                break;
+            }
+            default: assert(false);
+        }
+
+        offset = prim_op_helper(a, add_op, mk_nodes(a, offset, shortptr_literal(ctx, as, 1)));
+        shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
+    }
+
+    return output;
+}
+
 static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address) {
     assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    const CompilerConfig* config = ctx->config;
+
     const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
     switch (element_type->tag) {
         case Int_TAG: {
-            assert(element_type->tag == Int_TAG);
-            const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
-            size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
-            size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
-            const Node* offset = shd_bytes_to_words(bb, address);
-            const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
-            const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
-            for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
-                const Node* word = gen_load_base(ctx, bb, as, offset);
-                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
-                word = prim_op_helper(a, lshift_op, mk_nodes(a, word, shift)); // shift it
-                acc = prim_op_helper(a, or_op, mk_nodes(a, acc, word));
-
-                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, shortptr_literal(ctx, as, 1)));
-                shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
-            }
+            Int payload = element_type->payload.int_type;
+            const Node* acc = uint_access(ctx, bb, as, payload.width, Access_Load_TAG, mk_nodes(a, address));
             acc = shd_bld_bitcast(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = element_type->payload.int_type.is_signed }), acc);
             return acc;
         }
@@ -206,39 +246,13 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
 static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address, const Node* value) {
     assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    const CompilerConfig* config = ctx->config;
     const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
     switch (element_type->tag) {
         case Int_TAG: {
-            assert(element_type->tag == Int_TAG);
-            // First bitcast to unsigned so we always get zero-extension and not sign-extension afterwards
+            Int payload = element_type->payload.int_type;
             const Type* element_t_unsigned = int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false});
             value = shd_convert_int_extend_according_to_src_t(a, element_t_unsigned, value);
-
-            // const Node* acc = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
-            size_t length_in_bytes = int_size_in_bytes(element_type->payload.int_type.width);
-            size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
-            const Node* offset = shd_bytes_to_words(bb, address);
-            const Node* shift = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = 0 });
-            const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = element_type->payload.int_type.width, .is_signed = false, .value = word_size_in_bytes * 8 });
-            for (size_t byte = 0; byte < length_in_bytes; byte += word_size_in_bytes) {
-                bool is_last_word = byte + word_size_in_bytes >= length_in_bytes;
-                /*bool needs_patch = is_last_word && word_size_in_bytes < length_in_bytes;
-                const Node* original_word = NULL;
-                if (needs_patch) {
-                    original_word = gen_load_base(ctx, bb, arr, base_offset));
-                    shd_error_print("TODO");
-                    shd_error_die();
-                    // word = gen_conversion(bb, int_type(a, (Int) { .width = element_type->payload.int_type.width, .is_signed = false }), word); // widen/truncate the word we just loaded
-                }*/
-                const Node* word = value;
-                word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
-                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
-                gen_store_base(ctx, bb, as, offset, word);
-
-                offset = prim_op_helper(a, add_op, mk_nodes(a, offset, shortptr_literal(ctx, as, 1)));
-                shift = prim_op_helper(a, add_op, mk_nodes(a, shift, word_bitwidth));
-            }
+            uint_access(ctx, bb, as, payload.width, Access_Store_TAG, mk_nodes(a, address, value));
             return;
         }
         case Bool_TAG: {
@@ -294,11 +308,22 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
     }
 }
 
-static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScope address_scope, bool ser, AddressSpace as) {
-    assert(is_as_emulated(ctx, as));
-    IrArena* a = ctx->rewriter.dst_arena;
+static const Node* get_emulating_function(Context* ctx, const Node* old_op) {
+    Rewriter* r = &ctx->rewriter;
+    IrArena* a = r->dst_arena;
 
-    String fn_name = shd_fmt_string_irarena(a, "generated_%s_%s_%s_%s", ser ? "Store" : "Load", shd_get_scope_name(address_scope), shd_get_type_name(a, element_type), shd_get_address_space_name(as));
+    AccessTag tag = is_access(old_op);
+    assert(tag != NotAnAccess);
+    const Node* old_ptr = get_access_ptr(old_op);
+    const Node* old_ptr_type = old_ptr->type;
+    ShdScope address_scope = shd_deconstruct_qualified_type(&old_ptr_type);
+    assert(old_ptr_type->tag == PtrType_TAG);
+    AddressSpace as = old_ptr_type->payload.ptr_type.address_space;
+    const Node* element_type = shd_rewrite_node(r, old_ptr_type->payload.ptr_type.pointed_type);
+
+    assert(is_as_emulated(ctx, as));
+
+    String fn_name = shd_fmt_string_irarena(a, "emulated_%s_%s_%s_%s", shd_get_node_tag_string(old_op->tag), shd_get_scope_name(address_scope), shd_get_type_name(a, element_type), shd_get_address_space_name(as));
 
     const Node** found = shd_dict_find_value(String, const Node*, ctx->fns, fn_name);
     if (found)
@@ -309,34 +334,46 @@ static const Node* gen_serdes_fn(Context* ctx, const Type* element_type, ShdScop
     shd_set_debug_name(address_param, "ptr");
 
     const Type* input_value_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
-    const Node* value_param = NULL;
-    if (ser) {
-        value_param = param_helper(a, input_value_t);
-        shd_set_debug_name(value_param, "value");
+
+    Nodes params;
+    Nodes return_types;
+    switch (tag) {
+        case Access_Load_TAG: {
+            params = shd_singleton(address_param);
+            shd_set_debug_name(params.nodes[0], "value");
+            //const Type* return_value_t = qualified_type(a, (QualifiedType) { .scope = shd_combine_scopes(address_scope, shd_get_addr_space_scope(as)), .type = element_type });
+            return_types = shd_singleton(shd_rewrite_node(r, old_op->type));
+            break;
+        }
+        case Access_Store_TAG: {
+            params = mk_nodes(a, address_param, param_helper(a, input_value_t));
+            return_types = shd_empty(a);
+        }
     }
-    Nodes params = ser ? mk_nodes(a, address_param, value_param) : shd_singleton(address_param);
 
-    const Type* return_value_t = qualified_type(a, (QualifiedType) { .scope = shd_combine_scopes(address_scope, shd_get_addr_space_scope(as)), .type = element_type });
-    Nodes return_ts = ser ? shd_empty(a) : shd_singleton(return_value_t);
-
-    Node* fun = function_helper(ctx->rewriter.dst_module, params, return_ts);
+    Node* fun = function_helper(ctx->rewriter.dst_module, params, return_types);
     shd_set_debug_name(fun, fn_name);
     shd_add_annotation_named(fun, "Generated");
     shd_add_annotation_named(fun, "Leaf");
-
     shd_dict_insert(String, Node*, ctx->fns, fn_name, fun);
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
     // convert the pointer to the internal size here
     const Type* shortptr_t = get_shortptr_type(ctx, as);
     address_param = shd_convert_int_zero_extend(a, shortptr_t, address_param);
-    if (ser) {
-        gen_store_for_type(ctx, bb, element_type, as, address_param, value_param);
-        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
-    } else {
-        const Node* loaded_value = gen_load_for_type(ctx, bb, element_type, as, address_param);
-        assert(loaded_value);
-        shd_set_abstraction_body(fun, shd_bld_return(bb, shd_singleton(loaded_value)));
+
+    switch (tag) {
+        case Access_Load_TAG: {
+            const Node* loaded_value = gen_load_for_type(ctx, bb, element_type, as, address_param);
+            assert(loaded_value);
+            shd_set_abstraction_body(fun, shd_bld_return(bb, shd_singleton(loaded_value)));
+            break;
+        }
+        case Access_Store_TAG: {
+            gen_store_for_type(ctx, bb, element_type, as, address_param, params.nodes[1]);
+            shd_set_abstraction_body(fun, shd_bld_return(bb, shd_empty(a)));
+            break;
+        }
     }
     return fun;
 }
@@ -349,30 +386,27 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case Load_TAG: {
             Load payload = old->payload.load;
             const Type* ptr_type = payload.ptr->type;
-            ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
+            shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
-            const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
-            const Node* fn = gen_serdes_fn(ctx, element_type, ptr_scope, false, ptr_type->payload.ptr_type.address_space);
+            const Node* fn = get_emulating_function(ctx, old);
             Nodes results = shd_bld_call(bb, fn, shd_singleton(pointer_as_offset));
             return shd_bld_to_instr_yield_values(bb, results);
         }
         case Store_TAG: {
             Store payload = old->payload.store;
             const Type* ptr_type = payload.ptr->type;
-            ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
+            shd_deconstruct_qualified_type(&ptr_type);
             assert(ptr_type->tag == PtrType_TAG);
             if (ptr_type->payload.ptr_type.is_reference || !is_as_emulated(ctx, ptr_type->payload.ptr_type.address_space))
                 break;
+            
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
-
-            const Type* element_type = shd_rewrite_node(&ctx->rewriter, ptr_type->payload.ptr_type.pointed_type);
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
-            const Node* fn = gen_serdes_fn(ctx, element_type, ptr_scope, true, ptr_type->payload.ptr_type.address_space);
-
+            const Node* fn = get_emulating_function(ctx, old);
             const Node* value = shd_rewrite_node(&ctx->rewriter, payload.value);
             shd_bld_call(bb, fn, mk_nodes(a, pointer_as_offset, value));
             return shd_bld_to_instr_yield_values(bb, shd_empty(a));
@@ -462,6 +496,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
     return global_struct_t;
 }
 
+// TODO: this should be a dedicated pass
 static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
@@ -471,9 +506,11 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         assert(old_decl->tag == GlobalVariable_TAG);
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
-            const Node* value = shd_rewrite_node(r, old_init);
-            const Node* fn = gen_serdes_fn(ctx, shd_get_unqualified_type(value->type), false, true, old_decl->payload.global_variable.address_space);
-            shd_bld_call(bb, fn, mk_nodes(a, shd_rewrite_node(r, old_decl), value));
+            // obtain the appropriate emulating function for the store
+            const Node* old_dummy_store = store_helper(oa, NULL, old_decl, old_init);
+            const Node* fn = get_emulating_function(ctx, old_dummy_store);
+            // and then just call it!
+            shd_bld_call(bb, fn, mk_nodes(a, shd_rewrite_node(r, old_decl), shd_rewrite_node(r, old_init)));
         }
     }
 }

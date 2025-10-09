@@ -140,6 +140,12 @@
     },
     {
       "name": "ext_op"
+    },
+    {
+      "name": "access",
+      "ops": [
+        { "name": "ptr", "class": "value" }
+      ]
     }
   ],
   "nodes": [

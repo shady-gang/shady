@@ -210,7 +210,7 @@
     },
     {
       "name": "Load",
-      "class": ["instruction", "value", "mem"],
+      "class": ["instruction", "value", "mem", "access"],
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "ptr", "class": "value" }
@@ -218,7 +218,7 @@
     },
     {
       "name": "Store",
-      "class": ["instruction", "mem"],
+      "class": ["instruction", "mem", "access"],
       "ops": [
         { "name": "mem", "class": "mem" },
         { "name": "ptr", "class": "value" },
