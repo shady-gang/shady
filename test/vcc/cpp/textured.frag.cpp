@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <shady.h>
+#include <shady_sample.h>
 
 using namespace vcc;
 

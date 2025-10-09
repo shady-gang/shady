@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <shady.h>
+#include <shady_sample.h>
 
 descriptor_set(0) descriptor_binding(1) uniform_constant sampler2D texSampler;
 

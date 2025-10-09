@@ -22,6 +22,6 @@ typedef float native_vec2     __attribute__((ext_vector_type(2)));
 __shady_declare_ext_inst(spv_texture2D, 87, __shady_ref(spv_param0), __shady_ref(spv_param1))
 native_vec4 texture2D(const sampler2D, native_vec2) __shady_bind_ext_inst(spv_texture2D)
 
-ray_generation_shader native_vec4 f(native_vec2 st) {
-    return texture2D(texSampler, st);
+fragment_shader void f(native_vec2 st) {
+    texture2D(texSampler, st);
 }
