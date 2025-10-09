@@ -258,6 +258,11 @@ static void reapply_ptr_casts(const Node* old, PtrCasts casts, const Node** new)
 
 static const Node* to_ptr_size(const Node* n) {
     IrArena* a = n->arena;
+    const Type* nt = shd_get_unqualified_type(n->type);
+    assert(nt->tag == Int_TAG);
+    Int payload = nt->payload.int_type;
+    payload.is_signed = false;
+    n = bit_cast_helper(a, int_type(a, payload), n);
     return conversion_helper(a, shd_uint64_type(a), n);
 }
 
