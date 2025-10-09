@@ -17,6 +17,8 @@ static void SpvHasResultAndType(SpvOp opcode, bool *hasResult, bool *hasResultTy
 #include "shady/ir/builtin.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/ext.h"
+#include "shady/rewrite.h"
+#include "shady/pass.h"
 
 #include "../shady/ir_private.h"
 
@@ -1348,6 +1350,23 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                             .operands = shd_singleton(args[0])
                         });
                         break;
+                    case OpenCLstd_Fmin:
+                    case OpenCLstd_FMin_common:
+                    case OpenCLstd_SMin:
+                    case OpenCLstd_UMin:
+                        value = prim_op(parser->arena, (PrimOp) { .op = min_op, .operands = mk_nodes(parser->arena, args[0], args[1]) });
+                        break;
+                    case OpenCLstd_Fmax:
+                    case OpenCLstd_FMax_common:
+                    case OpenCLstd_UMax:
+                    case OpenCLstd_SMax:
+                        value = prim_op(parser->arena, (PrimOp) { .op = max_op, .operands = mk_nodes(parser->arena, args[0], args[1]) });
+                        break;
+                    case OpenCLstd_Printf: {
+                        const char* fmt = shd_get_string_literal(a, args[0]);
+                        shd_bld_debug_printf(parser->current_block.builder, fmt, shd_nodes(a, num_args - 1, &args[1]));
+                        return size;
+                    }
                     default: break;
                 }
             } else if (strcmp(set, "GLSL.std.450") == 0) {
@@ -1601,17 +1620,24 @@ static bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** dst) {
+RewritePass shd_pass_lower_generic_globals;
+RewritePass l2s_promote_byval_params;
+RewritePass shd_pass_lcssa;
+RewritePass shd_pass_scope2control;
+RewritePass shd_pass_remove_critical_edges;
+RewritePass shd_pass_reconvergence_heuristics;
+
+S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
     ArenaConfig aconfig = shd_default_arena_config(target_config);
     IrArena* a = shd_new_ir_arena(&aconfig);
-    *dst = shd_new_module(a, name);
+    *pmod = shd_new_module(a, name);
 
     SpvParser parser = {
         .cursor = 0,
         .len = len / sizeof(uint32_t),
         .words = (uint32_t*) data,
-        .mod = *dst,
-        .arena = shd_module_get_arena(*dst),
+        .mod = *pmod,
+        .arena = shd_module_get_arena(*pmod),
 
         .decorations_arena = shd_new_arena(),
         .phi_arguments = shd_new_dict(SpvId, SpvPhiArgs*, (HashFn) hash_spvid, (CmpFn) compare_spvid),
@@ -1631,6 +1657,10 @@ S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* targe
     shd_destroy_dict(parser.phi_arguments);
     shd_destroy_arena(parser.decorations_arena);
     free(parser.defs);
+
+    RUN_PASS(shd_pass_remove_critical_edges, config)
+    RUN_PASS(shd_pass_lcssa, config)
+    RUN_PASS(shd_pass_reconvergence_heuristics, config)
 
     return S2S_Success;
 }
