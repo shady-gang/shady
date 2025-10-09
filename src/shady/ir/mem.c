@@ -35,6 +35,9 @@ const Node* shd_get_parent_mem(const Node* mem) {
         case Mem_Store_TAG:
             mem = mem->payload.store.mem;
             return mem;
+        case Mem_AtomicAccess_TAG:
+            mem = mem->payload.atomic_access.mem;
+            return mem;
         case Mem_CopyBytes_TAG:
             mem = mem->payload.copy_bytes.mem;
             return mem;

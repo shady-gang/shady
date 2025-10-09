@@ -1074,6 +1074,7 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             shd_print(p, "\n%s = %s;", dereferenced, cvalue);
             return empty_term();
         }
+        case Instruction_AtomicAccess_TAG: shd_error("TODO: implement atomics in C");
         case Instruction_CopyBytes_TAG: {
             CopyBytes payload = instruction->payload.copy_bytes;
             shd_c_emit_mem(emitter, fn, payload.mem);

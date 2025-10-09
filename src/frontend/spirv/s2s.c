@@ -453,12 +453,19 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
     SpvId result_t, result;
     bool has_result, has_type;
     SpvHasResultAndType(op, &has_result, &has_type);
+    uint32_t real_operands_begin_at = 1;
     if (has_type) {
         result_t = instruction[1];
+        real_operands_begin_at = 2;
         if (has_result)
-            result = instruction[2];
+            real_operands_begin_at = 3;
     } else if (has_result)
-        result = instruction[1];
+        real_operands_begin_at = 2;
+
+    if (has_result)
+        result = instruction[real_operands_begin_at - 1];
+
+    uint32_t* spv_operands = &instruction[real_operands_begin_at];
 
     if (has_result) {
         assert(parser->defs[result].type != Nothing && "consistency issue");
@@ -1197,6 +1204,19 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Type* ptr = get_def_ssa_value(parser, instruction[1]);
             const Type* value = get_def_ssa_value(parser, instruction[2]);
             shd_bld_add_instruction(parser->current_block.builder, store(a, (Store) { .ptr = ptr, .value = value, .mem = shd_bld_mem(parser->current_block.builder) }));
+            break;
+        }
+        case SpvOpAtomicIAdd: {
+            parser->defs[result].type = Value;
+            parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, atomic_access(a, (AtomicAccess) {
+                .mem = shd_bld_mem(parser->current_block.builder),
+                .ptr = get_def_ssa_value(parser, spv_operands[0]),
+                .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                .op = op,
+                .scope = get_def_ssa_value(parser, spv_operands[1]),
+                .semantics = get_def_ssa_value(parser, spv_operands[2]),
+                .ops = shd_singleton(get_def_ssa_value(parser, spv_operands[3])),
+            }));
             break;
         }
         case SpvOpCopyMemory:

@@ -226,6 +226,19 @@
       ]
     },
     {
+      "name": "AtomicAccess",
+      "class": ["instruction", "value", "mem", "access"],
+      "ops": [
+        { "name": "mem", "class": "mem" },
+        { "name": "ptr", "class": "value" },
+        { "name": "op", "type": "uint32_t" },
+        { "name": "result_t", "class": "type", "nullable": true },
+        { "name": "scope", "class": "value" },
+        { "name": "semantics", "class": "value" },
+        { "name": "ops", "class": "value", "list": true }
+      ]
+    },
+    {
       "name": "PtrCompositeElement",
       "class": ["instruction", "value"],
       "ops": [

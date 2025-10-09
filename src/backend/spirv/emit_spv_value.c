@@ -409,6 +409,35 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             spvb_store(bb_builder, eval, eptr, operands_count, operands);
             return 0;
         }
+        case Instruction_AtomicAccess_TAG: {
+            AtomicAccess payload = instruction->payload.atomic_access;
+            spv_emit_mem(emitter, fn_builder, payload.mem);
+
+            const Type* ptr_type = payload.ptr->type;
+            shd_deconstruct_qualified_type(&ptr_type);
+            assert(ptr_type->tag == PtrType_TAG);
+            const Type* elem_type = ptr_type->payload.ptr_type.pointed_type;
+
+            size_t operands_count = 0;
+            uint32_t operands[32] = { 0 };
+
+            operands[operands_count++] = spv_emit_value(emitter, fn_builder, payload.ptr);
+            operands[operands_count++] = spv_emit_value(emitter, fn_builder, payload.scope);
+            operands[operands_count++] = spv_emit_value(emitter, fn_builder, payload.semantics);
+
+            for (size_t i = 0; i < payload.ops.count; i++) {
+                operands[operands_count++] = spv_emit_value(emitter, fn_builder, payload.ops.nodes[i]);
+            }
+
+            SpvId result = 0;
+            if (payload.result_t) {
+                result = spvb_op(bb_builder, payload.op, spv_emit_type(emitter, elem_type), operands_count, operands);
+            } else {
+                spvb_no_result(bb_builder, payload.op, operands_count, operands);
+            }
+
+            return result;
+        }
         case Instruction_BitCast_TAG: {
             BitCast payload = instruction->payload.bit_cast;
             bool src_ptr = shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG;

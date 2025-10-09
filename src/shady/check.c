@@ -773,6 +773,22 @@ const Type* _shd_check_type_store(IrArena* a, Store store) {
     return empty_multiple_return_type(a);
 }
 
+const Type* _shd_check_type_atomic_access(IrArena* a, AtomicAccess access) {
+    const Node* ptr_type = access.ptr->type;
+    ShdScope ptr_scope = shd_deconstruct_qualified_type(&ptr_type);
+    size_t width = shd_deconstruct_maybe_vector_type(&ptr_type);
+    assert(ptr_type->tag == PtrType_TAG);
+    const PtrType* ptr_type_payload = &ptr_type->payload.ptr_type;
+    const Type* elem_type = ptr_type_payload->pointed_type;
+    assert(elem_type);
+    elem_type = shd_maybe_vector_type_helper(elem_type, width);
+
+    if (access.result_t)
+        return qualified_type_helper(a, shd_combine_scopes(ptr_scope, shd_get_addr_space_scope(ptr_type->payload.ptr_type.address_space)), elem_type);
+    else
+        return empty_multiple_return_type(a);
+}
+
 const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElementOffset lea) {
     const Type* base_ptr_type = lea.ptr->type;
     ShdScope ptr_scope = shd_deconstruct_qualified_type(&base_ptr_type);
