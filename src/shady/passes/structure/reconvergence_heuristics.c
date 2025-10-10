@@ -390,7 +390,6 @@ static const Node* process_node(Context* ctx, const Node* node) {
             // rewrite these things first otherwise we will duplicate BB contents
             const Node* condition = shd_rewrite_node(r, payload.condition);
             const Node* mem = shd_rewrite_node(r, node->payload.branch.mem);
-            Nodes args = shd_rewrite_nodes(r, payload.true_jump->payload.jump.args);
 
             Context control_ctx = *ctx;
             control_ctx.rewriter = shd_create_children_rewriter(r);
@@ -406,10 +405,10 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 .condition = condition,
                 .true_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                          shd_rewrite_node(&control_ctx.rewriter, payload.true_jump->payload.jump.target),
-                                         args),
+                                         shd_rewrite_nodes(r, payload.true_jump->payload.jump.args)),
                 .false_jump = jump_helper(a, shd_get_abstraction_mem(control_case),
                                           shd_rewrite_node(&control_ctx.rewriter, payload.false_jump->payload.jump.target),
-                                          args),
+                                          shd_rewrite_nodes(r, payload.false_jump->payload.jump.args)),
             });
             shd_set_abstraction_body(control_case, inner_terminator);
 
