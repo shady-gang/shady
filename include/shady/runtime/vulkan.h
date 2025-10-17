@@ -2,6 +2,8 @@
 #define SHD_RUNTIME_VULKAN
 
 #include "shady/ir/base.h"
+#include "shady/config.h"
+
 #include "vulkan/vulkan.h"
 
 /// Describes how interface items get provided to the shader
@@ -148,5 +150,7 @@ typedef struct {
 bool shd_rt_check_physical_device_suitability(VkPhysicalDevice physical_device, ShadyVkrPhysicalDeviceCaps* out);
 
 void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens);
+
+TargetConfig shd_rt_get_device_target_config(const CompilerConfig*, const ShadyVkrPhysicalDeviceCaps* caps);
 
 #endif

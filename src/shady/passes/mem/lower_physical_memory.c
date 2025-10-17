@@ -553,8 +553,14 @@ static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, Body
         const Node* old_init = old_decl->payload.global_variable.init;
         if (old_init) {
             // obtain the appropriate emulating function for the store
-            const Node* old_dummy_store = store_helper(oa, NULL, old_decl, old_init);
-            const Node* fn = get_emulating_function(ctx, old_dummy_store);
+            Node dummy_store = {
+                .tag = Store_TAG,
+                .payload.store = {
+                    .ptr = old_decl,
+                    .value = old_init,
+                }
+            };
+            const Node* fn = get_emulating_function(ctx, &dummy_store);
             // and then just call it!
             shd_bld_call(bb, fn, mk_nodes(a, shd_rewrite_node(r, old_decl), shd_rewrite_node(r, old_init)));
         }

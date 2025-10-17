@@ -367,7 +367,7 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
     spec->specialized_module = shd_import(&spec->specialized_config, spec->key.base->module);
 
-    spec->specialized_target = shd_vkr_get_device_target_config(&spec->specialized_config, spec->device);
+    spec->specialized_target = shd_rt_get_device_target_config(&spec->specialized_config, &spec->device->caps);
     spec->specialized_target.entry_point = spec->key.entry_point;
     spec->specialized_target.execution_model = spec->key.em;
 
