@@ -6,6 +6,7 @@
 #endif
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+extern "C" {
 namespace vcc {
 #endif
 
@@ -82,6 +83,9 @@ native_uvec3 gl_LaunchIDEXT;
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
 }
+}
 #endif
+
+#include "shady_sample.h"
 
 #endif

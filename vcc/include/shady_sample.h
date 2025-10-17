@@ -5,6 +5,7 @@
 #include "shady_meta.h"
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+extern "C" {
 namespace vcc {
 #endif
 
@@ -42,6 +43,7 @@ static inline native_vec4 texture(const samplerCube img, native_vec3 coords) { r
 #endif
 
 #if defined(__cplusplus) & !defined(SHADY_CPP_NO_NAMESPACE)
+}
 }
 #endif
 
