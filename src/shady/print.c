@@ -517,33 +517,6 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
-        case Type_ImageType_TAG: {
-            switch (node->payload.image_type.sampled) {
-                case 0: printf("texture_or_image_type"); break;
-                case 1: printf("texture_type"); break;
-                case 2: printf("image_type"); break;
-                default: SHADY_UNKNOWN_ENUM("ImageType with sampled = %d", node->payload.image_type.sampled); break;
-            }
-            printf(RESET);
-            printf("[");
-            print_node(node->payload.image_type.sampled_type);
-            printf(RESET);
-            printf(", %d, %d, %d, %d]", node->payload.image_type.dim, node->payload.image_type.depth, node->payload.image_type.arrayed, node->payload.image_type.ms);
-            break;
-        }
-        case Type_SamplerType_TAG: {
-            printf("sampler_type");
-            break;
-        }
-        case Type_SampledImageType_TAG: {
-            printf("sampled");
-            printf(RESET);
-            printf("[");
-            print_node(node->payload.sampled_image_type.image_type);
-            printf(RESET);
-            printf("]");
-            break;
-        }
         default:_shd_print_node_generated(ctx, node);
             break;
     }

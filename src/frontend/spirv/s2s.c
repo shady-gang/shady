@@ -766,30 +766,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             });
             break;
         }
-        case SpvOpTypeImage: {
-            parser->defs[result].type = Typ;
-            const Type* sampled_type = get_def_type(parser, instruction[2]);
-            parser->defs[result].node = image_type(parser->arena, (ImageType) {
-                .sampled_type = sampled_type,
-                .dim = instruction[3],
-                .depth = instruction[4],
-                .arrayed = instruction[5],
-                .ms = instruction[6],
-                .sampled = instruction[7],
-                .imageformat = instruction[8],
-            });
-            break;
-        }
-        case SpvOpTypeSampler: {
-            parser->defs[result].type = Typ;
-            parser->defs[result].node = sampler_type(a);
-            break;
-        }
-        case SpvOpTypeSampledImage: {
-            parser->defs[result].type = Typ;
-            parser->defs[result].node = sampled_image_type_helper(a, get_def_type(parser, instruction[2]));
-            break;
-        }
         case SpvOpConstant: {
             parser->defs[result].type = Value;
             const Type* t = get_def_type(parser, result_t);

@@ -865,10 +865,29 @@ static const ExtISelEntry* find_ext_entry(Emitter* e, ExtOpDef op, Nodes argumen
 }
 
 static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, ExtInstr instr) {
-    ExtSpvOp op = instr.op->payload.ext_spv_op;
+    IrArena* a = emitter->arena;
+    ExtOpDef def = instr.def->payload.ext_op_def;
     shd_c_emit_mem(emitter, fn, instr.mem);
-    if (strcmp(op.set, "spirv.core") == 0) {
-        switch (op.opcode) {
+    if (strcmp(def.set, "spirv.core") == 0) {
+        switch (def.opcode) {
+            case SpvOpImageSampleImplicitLod: {
+                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[0]));
+                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[1]));
+
+                String dst = shd_make_unique_name(a, "sampled");
+                String dim = "";
+                if (emitter->backend_config.glsl_version < 130) {
+                    const Type* t = instr.arguments.nodes[0]->type;
+                    assert(t->tag == ExtType_TAG);
+                    assert(shd_is_ext_instruction(t->payload.ext_type.def, "spirv.core", SpvOpTypeSampledImage));
+                    t = shd_first(t->payload.ext_type.arguments);
+                    assert(t->tag == ExtType_TAG);
+                    assert(shd_is_ext_instruction(t->payload.ext_type.def, "spirv.core", SpvOpTypeImage));
+                    dim = shd_c_emit_dim(shd_get_int_value(t->payload.ext_type.def->payload.ext_op_def.ops_pattern.nodes[1], false));
+                }
+                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, def.result_t, dst), dim, sampler, coords);
+                return term_from_cvalue(dst);
+            }
             case SpvOpGroupNonUniformBroadcastFirst: {
                 assert(instr.arguments.count == 2);
                 CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[1]));
@@ -888,49 +907,28 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
         }
     }
 
-    const ExtISelEntry* entry = find_ext_entry(emitter, op, instr.arguments);
+    const ExtISelEntry* entry = find_ext_entry(emitter, def, instr.arguments);
     if (entry) {
         Nodes operands = instr.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", op.set, op.opcode);
+        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", def.set, def.opcode);
     }
 }
 
 static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValue value) {
-    ExtSpvOp op = value.op->payload.ext_spv_op;
-    IrArena* a = emitter->arena;
-    if (strcmp(op.set, "spirv.core") == 0) {
-        switch (op.opcode) {
-            case SpvOpImageSampleImplicitLod: {
-                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[0]));
-                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[1]));
+    ExtOpDef def = value.def->payload.ext_op_def;
 
-                String dst = shd_make_unique_name(a, "sampled");
-                String dim = "";
-                if (emitter->backend_config.glsl_version < 130) {
-                    const Type* t = value.arguments.nodes[0]->type;
-                    assert(t->tag == SampledImageType_TAG);
-                    t = t->payload.sampled_image_type.image_type;
-                    assert(t->tag == ImageType_TAG);
-                    dim = shd_c_emit_dim(t->payload.image_type.dim);
-                }
-                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, op.result_t, dst), dim, sampler, coords);
-                return term_from_cvalue(dst);
-            }
-        }
-    }
-
-    const ExtISelEntry* entry = find_ext_entry(emitter, op, value.arguments);
+    const ExtISelEntry* entry = find_ext_entry(emitter, def, value.arguments);
     if (entry) {
         Nodes operands = value.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended value: (set = %s, opcode = %d )", op.set, op.opcode);
+        shd_error("Unsupported extended value: (set = %s, opcode = %d )", def.set, def.opcode);
     }
 }
 
