@@ -188,12 +188,12 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp opcode = payload.op->payload.ext_spv_op;
-            if (strcmp(opcode.set, "spirv.core") == 0 && opcode.opcode == SpvOpGroupNonUniformBroadcastFirst) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "spirv.core") == 0 && def.opcode == SpvOpGroupNonUniformBroadcastFirst) {
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                 SubgroupOp op = {
-                    .iset = opcode.set,
-                    .opcode = opcode.opcode,
+                    .iset = def.set,
+                    .opcode = def.opcode,
                     .params = shd_singleton(shd_rewrite_node(r, payload.arguments.nodes[0])),
                 };
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(

@@ -103,7 +103,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             if (strcmp(op.set, "shady.frontend") == 0) {
                 if (op.opcode == SlimFrontendOpsSlimSubscriptSHADY) {
                     assert(payload.arguments.count == 2);
@@ -149,7 +149,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     IrArena* a = r->dst_arena;
     BodyBuilder* bb = instr.mem ? shd_bld_begin(a, shd_rewrite_node(r, instr.mem)) : shd_bld_begin_pure(a);
 
-    ExtSpvOp op = instr.op->payload.ext_spv_op;
+    ExtOpDef op = instr.def->payload.ext_op_def;
     switch (op.opcode) {
         case SlimFrontendOpsSlimBindValSHADY: {
             size_t names_count = instr.arguments.count - 1;
@@ -221,7 +221,7 @@ static bool is_used_as_value(Context* ctx, const Node* node) {
         if (use->operand_class != NcMem) {
             if (use->user->tag == ExtInstr_TAG) {
                 ExtInstr instr = use->user->payload.ext_instr;
-                ExtSpvOp op = instr.op->payload.ext_spv_op;
+                ExtOpDef op = instr.def->payload.ext_op_def;
                 if (use->user->tag == ExtInstr_TAG && strcmp(op.set, "shady.frontend") == 0) {
                     if (op.opcode == SlimFrontendOpsSlimAssignSHADY && use->operand_index == 0)
                         continue;
@@ -294,7 +294,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             if (strcmp("shady.frontend", op.set) == 0) {
                 switch ((enum SlimFrontendOpsInstructions) op.opcode) {
                     case SlimFrontendOpsSlimDereferenceSHADY:

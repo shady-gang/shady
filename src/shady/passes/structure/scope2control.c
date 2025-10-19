@@ -153,8 +153,8 @@ static const Nodes* find_scope_info(const Node* abs) {
     Nodes* info = NULL;
     while (mem) {
         if (mem->tag == ExtInstr_TAG) {
-            ExtSpvOp op = mem->payload.ext_instr.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.scope") == 0)
+            ExtOpDef def = mem->payload.ext_instr.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.scope") == 0)
                 if (!info || info->count > mem->payload.ext_instr.arguments.count)
                     info = &mem->payload.ext_instr.arguments;
         }
@@ -285,8 +285,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         // Eliminate now-useless scope instructions
         case ExtInstr_TAG: {
-            ExtSpvOp op = node->payload.ext_instr.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.scope") == 0) {
+            ExtOpDef def = node->payload.ext_instr.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.scope") == 0) {
                 return shd_rewrite_node(r, node->payload.ext_instr.mem);
             }
             break;

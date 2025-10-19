@@ -18,6 +18,8 @@
 #include <ctype.h>
 #include <inttypes.h>
 
+#include "shady/ir/ext.h"
+
 #pragma GCC diagnostic error "-Wswitch"
 
 static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instruction);
@@ -825,7 +827,7 @@ ExtISelEntry ext_isel_entries[] = {
     {{ "GLSL.std.450", GLSLstd450Pow, empty_prefix() }, { IsMono, OsCall, .op = "powf" }},
 };
 
-static bool check_ext_entry(const ExtISelPattern* entry, ExtSpvOp op, Nodes arguments) {
+static bool check_ext_entry(const ExtISelPattern* entry, ExtOpDef op, Nodes arguments) {
     if (strcmp(entry->set, op.set) != 0 || entry->op != op.opcode)
         return false;
     // check if the prefix matches
@@ -841,7 +843,7 @@ static bool check_ext_entry(const ExtISelPattern* entry, ExtSpvOp op, Nodes argu
     return true;
 }
 
-static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtSpvOp op, Nodes arguments) {
+static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtOpDef op, Nodes arguments) {
     for (size_t i = 0; i < size; i++) {
         if (check_ext_entry(&table[i].match, op, arguments))
             return &table[i];
@@ -851,7 +853,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 
 #define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), op, arguments); if (f) return f; }
 
-static const ExtISelEntry* find_ext_entry(Emitter* e, ExtSpvOp op, Nodes arguments) {
+static const ExtISelEntry* find_ext_entry(Emitter* e, ExtOpDef op, Nodes arguments) {
     switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;

@@ -72,10 +72,10 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
-            if (strcmp(op.set, "spirv.core") == 0) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "spirv.core") == 0) {
                 for (size_t i = 0; i < NumGroupOps; i++) {
-                    if (op.opcode == group_operations[i].spv_op) {
+                    if (def.opcode == group_operations[i].spv_op) {
                         if (shd_get_int_value(payload.arguments.nodes[1], false) == SpvGroupOperationInclusiveScan) {
                             //assert(group_operations[i].I);
                             IrArena* oa = node->arena;

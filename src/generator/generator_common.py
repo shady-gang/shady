@@ -21,7 +21,9 @@ def class_to_type(src, clazz, list):
 def find_in_set(set_or_value, item):
     if set_or_value == item:
         return True
-    if item in set_or_value:
+    if type(set_or_value) is dict and item in set_or_value:
+        return True
+    if type(set_or_value) is list and item in set_or_value:
         return True
     return False
 

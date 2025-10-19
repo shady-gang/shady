@@ -231,17 +231,10 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spvb_struct_type(emitter->file_builder, new, payload.members.count, members);
             break;
         }
-        case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
-        case Type_SamplerType_TAG: new = spvb_sampler_type(emitter->file_builder); break;
-        case Type_ImageType_TAG: {
-            ImageType p = type->payload.image_type;
-            new = spvb_image_type(emitter->file_builder, spv_emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
-            break;
-        }
         case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
         case Type_ExtType_TAG: {
             ExtType payload = type->payload.ext_type;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             assert(op.has_result && !op.result_t);
             if (strcmp(op.set, "spirv.core") == 0) {
                 uint32_t* emitted_ops;
@@ -268,12 +261,12 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
     return new;
 }
 
-size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtSpvOp op, Nodes arguments, uint32_t** out_ops) {
-    size_t pattern_size = op.ops_pattern.count;
+size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtOpDef def, Nodes arguments, uint32_t** out_ops) {
+    size_t pattern_size = def.ops_pattern.count;
     uint32_t* alloc = calloc(sizeof(uint32_t), pattern_size);
     size_t j = 0;
     for (size_t i = 0; i < pattern_size; i++) {
-        const Node* pattern_item = op.ops_pattern.nodes[i];
+        const Node* pattern_item = def.ops_pattern.nodes[i];
         if (pattern_item) {
             switch (pattern_item->tag) {
                 case IntLiteral_TAG: {
