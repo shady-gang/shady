@@ -58,7 +58,7 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
     const Node* dispatch_enter_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherEnterFn, false, NULL, 0);
     shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
         .mem = shd_bld_mem(bb),
-        .op = dispatch_enter_op,
+        .def = dispatch_enter_op,
         .arguments = shd_empty(a),
     }));
     shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
@@ -120,11 +120,11 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return shd_find_or_process_decl(&ctx->rewriter, "JoinPoint");
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.internal") == 0) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.internal") == 0) {
                 String callee_name = NULL;
                 Nodes args = shd_rewrite_nodes(r, payload.arguments);
-                switch ((ShadyJoinPointOpcodes ) op.opcode) {
+                switch ((ShadyJoinPointOpcodes ) def.opcode) {
                     case ShadyOpDefaultJoinPoint:
                         callee_name = "builtin_entry_join_point";
                         break;
@@ -164,7 +164,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = dispatch_continue_op,
+                .def = dispatch_continue_op,
                 .arguments = shd_empty(a),
             }));
         }
@@ -187,7 +187,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = dispatch_continue_op,
+                .def = dispatch_continue_op,
                 .arguments = shd_empty(a),
             }));
         }

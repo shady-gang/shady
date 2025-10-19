@@ -241,7 +241,7 @@ static SpvId emit_primop(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
     shd_error("unreachable");
 }
 
-static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, ExtSpvOp op, Nodes arguments) {
+static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, ExtOpDef op, Nodes arguments) {
     if (strcmp("spirv.core", op.set) == 0) {
         switch (op.opcode) {
             case SpvOpGroupNonUniformBroadcastFirst: {
@@ -342,7 +342,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_ExtInstr_TAG: {
             ExtInstr instr = instruction->payload.ext_instr;
             spv_emit_mem(emitter, fn_builder, instr.mem);
-            return emit_ext_op(emitter, fn_builder, bb_builder, instr.op->payload.ext_spv_op, instr.arguments);
+            return emit_ext_op(emitter, fn_builder, bb_builder, instr.def->payload.ext_op_def, instr.arguments);
         }
         case Instruction_Call_TAG: {
             Call payload = instruction->payload.call;
@@ -635,7 +635,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
         }
         case ExtValue_TAG: {
             ExtValue instr = node->payload.ext_value;
-            return emit_ext_op(emitter, fn_builder, bb_builder, instr.op->payload.ext_spv_op, instr.arguments);
+            return emit_ext_op(emitter, fn_builder, bb_builder, instr.def->payload.ext_op_def, instr.arguments);
         }
         default: {
             shd_error("Unhandled value for code generation: %s", shd_get_node_tag_string(node->tag));

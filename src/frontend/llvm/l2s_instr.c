@@ -143,7 +143,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                 shd_debugv_print(" (depth= %zu)\n", str.count);
             const Node* shady_scope_op = shd_make_ext_spv_op(a, "shady.scope", 0, false, NULL, str.count);
             shd_bld_add_instruction(b, ext_instr(a, (ExtInstr) {
-                .op = shady_scope_op,
+                .def = shady_scope_op,
                 .mem = shd_bld_mem(b),
                 .arguments = str,
             }));
@@ -666,7 +666,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                             pattern = shd_nodes_append(a, pattern, append);
                         }
 
-                        const Node* final_op = ext_spv_op(a, (ExtSpvOp) {
+                        const Node* final_op = ext_op_def(a, (ExtOpDef) {
                             .set = "spirv.core",
                             .has_result = true,
                             .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, t),

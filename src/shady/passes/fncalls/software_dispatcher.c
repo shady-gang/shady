@@ -111,16 +111,16 @@ static const Node* process(Context* ctx, const Node* old) {
             return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
-            ExtSpvOp opcode = payload.op->payload.ext_spv_op;
-            if (strcmp(opcode.set, "shady.internal") == 0 && opcode.opcode == ShadyOpDispatcherEnterFn) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.internal") == 0 && def.opcode == ShadyOpDispatcherEnterFn) {
                 return call_helper(a, shd_rewrite_node(r, payload.mem), get_top_dispatcher_fn(ctx), shd_empty(a));
             }
             break;
         }
         case ExtTerminator_TAG: {
             ExtTerminator payload = old->payload.ext_terminator;
-            ExtSpvOp opcode = payload.op->payload.ext_spv_op;
-            if (strcmp(opcode.set, "shady.internal") == 0 && opcode.opcode == ShadyOpDispatcherContinue) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.internal") == 0 && def.opcode == ShadyOpDispatcherContinue) {
                 return fn_ret_helper(a, shd_rewrite_node(r, payload.mem), shd_empty(a));
             }
             break;

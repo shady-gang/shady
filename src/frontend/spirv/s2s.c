@@ -1436,7 +1436,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 const Node* ext_op = shd_make_ext_spv_op(a, set, opcode, has_result, t, num_args);
                 parser->defs[result].node = shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(bb),
-                    .op = ext_op,
+                    .def = ext_op,
                     .arguments = shd_nodes(a, num_args, args),
                 }));
             }
@@ -1547,7 +1547,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Node* terminator_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
             parser->current_block.finished = shd_bld_finish(bb, ext_terminator(parser->arena, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = terminator_op,
+                .def = terminator_op,
                 .arguments = shd_nodes(a, size - 1, operands),
             }));
             parser->current_block.builder = NULL;
@@ -1562,7 +1562,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     operands[i] = get_definition_by_id(parser, instruction[2 + i])->node;
                 const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, NULL, size - 2);
                 parser->defs[result].node = ext_type(a, (ExtType) {
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 2, operands),
                 });
                 break;
@@ -1574,7 +1574,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)), size - 3);
                 parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 3, operands),
                 }));
                 break;
@@ -1585,7 +1585,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
                 shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 1, operands),
                 }));
                 break;

@@ -10,6 +10,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "shady/ir/ext.h"
+
 #pragma GCC diagnostic error "-Wswitch"
 
 static void make_struct_type(Emitter* emitter, String name, Nodes member_types, String member_names[]) {

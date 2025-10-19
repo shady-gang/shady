@@ -41,7 +41,7 @@ static const Type* build_meta_type(Parser* p, const shady_parsed_meta_instructio
         pattern = shd_nodes_append(a, pattern, append);
     }
 
-    const Node* final_op = ext_spv_op(a, (ExtSpvOp) {
+    const Node* final_op = ext_op_def(a, (ExtOpDef) {
         .set = "spirv.core",
         .has_result = true,
         .result_t = NULL,
