@@ -58,9 +58,6 @@ static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
         case Type_Int_TAG: break;
         case Type_Float_TAG: break;
         case Type_Bool_TAG: break;
-        case Type_ImageType_TAG:break;
-        case Type_SamplerType_TAG:break;
-        case Type_SampledImageType_TAG:break;
         // only deal with values, not memory
         case Type_FnType_TAG:break;
         case Type_BBType_TAG:break;

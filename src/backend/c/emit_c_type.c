@@ -146,28 +146,6 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
         case NotAType: assert(false); break;
         case LamType_TAG:
         case BBType_TAG: shd_error("these types do not exist in C");
-        case Type_SampledImageType_TAG: {
-            if (emitter->backend_config.dialect != CDialect_GLSL) {
-                shd_error("TODO: implement textures on non-glsl backends");
-            }
-
-            const Type* sampled = type->payload.sampled_image_type.image_type;
-            assert(sampled->tag == ImageType_TAG);
-
-            String prefix = "";
-            if (sampled->payload.image_type.sampled_type->tag == Int_TAG)
-                prefix = sampled->payload.image_type.sampled_type->payload.int_type.is_signed ? "i" : "u";
-
-            String dim = shd_c_emit_dim(sampled->payload.image_type.dim);
-
-            String array = sampled->payload.image_type.arrayed ? "Array" : "";
-            String shadow = sampled->payload.image_type.depth ? "Shadow" : "";
-
-            emitted = shd_fmt_string_irarena(emitter->arena, "%ssampler%s%s%s", prefix, dim, array, shadow);
-            break;
-        }
-        case Type_SamplerType_TAG:
-        case Type_ImageType_TAG:
         case JoinPointType_TAG: shd_error("TODO")
         case NoRet_TAG:
         case Bool_TAG: emitted = "bool"; break;
@@ -398,7 +376,27 @@ String shd_c_emit_type(Emitter* emitter, const Type* type, const char* center) {
             break;
         }
         case Type_ExtType_TAG: {
-            shd_error("TODO") // matrices etc
+            if (shd_is_ext_core_instruction(type, SpvOpTypeSampledImage)) {
+                if (emitter->backend_config.dialect != CDialect_GLSL) {
+                    shd_error("TODO: implement textures on non-glsl backends");
+                }
+
+                const Type* image_type = shd_ext_instruction_get_node_operand(type, 0);
+                assert(shd_is_ext_core_instruction(image_type, SpvOpTypeImage));
+
+                const Type* texel_type = shd_ext_instruction_get_node_operand(image_type, 0);
+                String prefix = "";
+                if (texel_type->tag == Int_TAG)
+                    prefix = texel_type->payload.int_type.is_signed ? "i" : "u";
+
+                String dim = shd_c_emit_dim(shd_ext_instruction_get_u32_operand(image_type, 1));
+                String shadow = shd_ext_instruction_get_u32_operand(image_type, 2) ? "Shadow" : "";
+                String array = shd_ext_instruction_get_u32_operand(image_type, 3) ? "Array" : "";
+
+                emitted = shd_fmt_string_irarena(emitter->arena, "%ssampler%s%s%s", prefix, dim, array, shadow);
+            } else {
+                shd_error("c: Unknown ExtType");
+            }
         }
     }
     assert(emitted != NULL);

@@ -118,25 +118,6 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return supertype->payload.vector_type.width == type->payload.vector_type.width;
         }
-        case Type_ImageType_TAG: {
-            if (!shd_is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
-                return false;
-            if (supertype->payload.image_type.depth != type->payload.image_type.depth)
-                return false;
-            if (supertype->payload.image_type.dim != type->payload.image_type.dim)
-                return false;
-            if (supertype->payload.image_type.arrayed != type->payload.image_type.arrayed)
-                return false;
-            if (supertype->payload.image_type.ms != type->payload.image_type.ms)
-                return false;
-            if (supertype->payload.image_type.sampled != type->payload.image_type.sampled)
-                return false;
-            if (supertype->payload.image_type.imageformat != type->payload.image_type.imageformat)
-                return false;
-            return true;
-        }
-        case Type_SampledImageType_TAG:
-            return shd_is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
         default: break;
     }
     // Two types are always equal (and therefore subtypes of each other) if their payload matches
@@ -197,11 +178,6 @@ bool shd_is_physical_data_type(const Type* type) {
             return false;
         case NotAType:
             return false;
-        // Image stuff is data (albeit opaque)
-        case Type_SampledImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_ImageType_TAG:
-            return false;
         case Type_ExtType_TAG:
             return false;
     }
@@ -211,11 +187,6 @@ bool shd_is_physical_data_type(const Type* type) {
 bool shd_is_data_type(const Type* type) {
     switch (is_type(type)) {
         case Type_PtrType_TAG:
-            return true;
-        // Image stuff is data (albeit opaque)
-        case Type_SampledImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_ImageType_TAG:
             return true;
         case Type_ExtType_TAG:
             return true;
