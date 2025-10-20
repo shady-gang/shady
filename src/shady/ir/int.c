@@ -113,3 +113,10 @@ const Node* shd_convert_int_sign_extend(IrArena* a, const Type* dst_type, const 
     val = bit_cast_helper(a, dst_type, val);
     return val;
 }
+
+const Type* shd_change_int_type_sign(const Type* type, bool sign) {
+    assert(type->tag == Int_TAG);
+    Int payload = type->payload.int_type;
+    payload.is_signed = sign;
+    return int_type(type->arena, payload);
+}

@@ -45,4 +45,6 @@ const Node* shd_convert_int_extend_according_to_dst_t(IrArena*, const Type* dst_
 const Node* shd_convert_int_zero_extend(IrArena*, const Type* dst_type, const Node* src);
 const Node* shd_convert_int_sign_extend(IrArena*, const Type* dst_type, const Node* src);
 
+const Type* shd_change_int_type_sign(const Type*, bool);
+
 #endif

@@ -1092,8 +1092,24 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         case SpvOpUConvert: {
             const Type* src = get_def_ssa_value(parser, instruction[3]);
             const Type* dst_t = get_def_type(parser, result_t);
+            if (op == SpvOpUConvert) {
+                const Type* src_int_t = shd_get_unqualified_type(src->type);
+                src_int_t = shd_change_int_type_sign(src_int_t, false);
+                src = bit_cast_helper(a, src_int_t, src);
+            }
+            if (op == SpvOpSConvert) {
+                const Type* src_int_t = shd_get_unqualified_type(src->type);
+                src_int_t = shd_change_int_type_sign(src_int_t, true);
+                src = bit_cast_helper(a, src_int_t, src);
+            }
+            const Type* real_dst_t = dst_t;
+            if (op == SpvOpUConvert || op == SpvOpSConvert) {
+                real_dst_t = shd_change_int_type_sign(real_dst_t, op == SpvOpSConvert);
+            }
+
             parser->defs[result].type = Value;
-            parser->defs[result].node = conversion_helper(parser->arena, dst_t, src);
+            parser->defs[result].node = conversion_helper(parser->arena, real_dst_t, src);
+            parser->defs[result].node = bit_cast_helper(parser->arena, dst_t, parser->defs[result].node);
             break;
         }
         case SpvOpPtrCastToGeneric: {
