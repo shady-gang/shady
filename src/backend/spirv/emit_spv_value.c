@@ -328,6 +328,7 @@ static SpvId emit_fn_call(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_
 
 static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_builder, const Node* instruction) {
     assert(is_instruction(instruction));
+    IrArena* a = emitter->arena;
 
     switch (is_instruction(instruction)) {
         case NotAnInstruction: shd_error("");
@@ -480,14 +481,25 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             PtrCompositeElement payload = instruction->payload.ptr_composite_element;
             SpvId base = spv_emit_value(emitter, fn_builder, payload.ptr);
             const Type* target_type = instruction->type;
-            SpvId index = spv_emit_value(emitter, fn_builder, payload.index);
+            const Node* idx = payload.index;
+            //if (shd_get_unqualified_type(payload.ptr->type)->payload.ptr_type.address_space == AsShared) {
+                shd_log_fmt(ERROR, "fucking horseshit\n");
+                idx = shd_convert_int_zero_extend(a, shd_int32_type(a), idx);
+            //}
+
+            SpvId index = spv_emit_value(emitter, fn_builder, idx);
             return spvb_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, 1, &index);
         }
         case Instruction_PtrArrayElementOffset_TAG: {
             PtrArrayElementOffset payload = instruction->payload.ptr_array_element_offset;
             SpvId base = spv_emit_value(emitter, fn_builder, payload.ptr);
             const Type* target_type = instruction->type;
-            SpvId offset = spv_emit_value(emitter, fn_builder, payload.offset);
+            const Node* off = payload.offset;
+            //if (shd_get_unqualified_type(payload.ptr->type)->payload.ptr_type.address_space == AsShared) {
+                shd_log_fmt(ERROR, "fucking horseshit\n");
+                off = shd_convert_int_zero_extend(a, shd_int32_type(a), off);
+            //}
+            SpvId offset = spv_emit_value(emitter, fn_builder, off);
             return spvb_ptr_access_chain(bb_builder, spv_emit_type(emitter, target_type), base, offset, 0, NULL);
         }
         case Instruction_Extract_TAG: return emit_extract(emitter, fn_builder, bb_builder, instruction);

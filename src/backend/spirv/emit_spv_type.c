@@ -90,9 +90,13 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
         case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
             if (emitter->target->memory.address_spaces[payload.address_space].physical) {
-                TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, shd_get_pointer_type_element(type));
-                if (elem_mem_layout.size_in_bytes > 0)
-                    spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
+                const Type* elem_t = shd_get_pointer_type_element(type);
+                if (elem_t->tag == ArrType_TAG) {
+                    elem_t = elem_t->payload.arr_type.element_type;
+                }
+                    TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, elem_t);
+                    if (elem_mem_layout.size_in_bytes > 0)
+                        spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
             }
             break;
         }
@@ -101,6 +105,7 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
 }
 
 SpvId spv_emit_type(Emitter* emitter, const Type* type) {
+    IrArena* a = emitter->arena;
     // Some types in shady lower to the same spir-v type, but spir-v is unhappy with having duplicates of the same types
     // we could hash the spirv types we generate to find duplicates, but it is easier to normalise our shady types and reuse their infra
 
@@ -183,7 +188,10 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             ArrType payload = type->payload.arr_type;
             SpvId element_type = spv_emit_type(emitter, payload.element_type);
             if (payload.size) {
-                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, payload.size));
+                // intel brain damage
+                const Node* size = payload.size;
+                size = shd_convert_int_zero_extend(a, shd_uint32_type(a), size);
+                new = spvb_array_type(emitter->file_builder, element_type, spv_emit_value(emitter, NULL, size));
             } else {
                 new = spvb_runtime_array_type(emitter->file_builder, element_type);
             }
