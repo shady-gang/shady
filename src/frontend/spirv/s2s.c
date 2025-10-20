@@ -388,9 +388,9 @@ static void scan_definitions(SpvParser* parser) {
     size_t old_cursor = parser->cursor;
     while (true) {
         size_t available = parser->len - parser->cursor;
+        assert(parser->cursor <= parser->len);
         if (available == 0)
             break;
-        assert(available > 0);
         uint32_t* instruction = parser->words + parser->cursor;
         SpvOp op = instruction[0] & 0xFFFF;
         int size = (int) ((instruction[0] >> 16u) & 0xFFFFu);
@@ -1647,6 +1647,8 @@ S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* targe
     ArenaConfig aconfig = shd_default_arena_config(target_config);
     IrArena* a = shd_new_ir_arena(&aconfig);
     *pmod = shd_new_module(a, name);
+
+    assert((len % 4) == 0);
 
     SpvParser parser = {
         .cursor = 0,
