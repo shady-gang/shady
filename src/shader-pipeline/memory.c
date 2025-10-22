@@ -21,7 +21,7 @@ RewritePass shd_pass_promote_io_variables;
 /// Lowers subgroup logical variables into something that actually exists (likely a carved out portion of shared memory)
 RewritePass shd_pass_lower_subgroup_vars;
 
-static void lower_memory(TargetConfig* target, const CompilerConfig* config, Module** pmod) {
+static void lower_memory(const TargetConfig* target, const CompilerConfig* config, Module** pmod) {
     RUN_PASS(shd_pass_promote_io_variables, config)
     RUN_PASS(shd_pass_lower_logical_pointers, config)
 
@@ -44,6 +44,6 @@ static void lower_memory(TargetConfig* target, const CompilerConfig* config, Mod
         RUN_PASS(shd_pass_lower_decay_ptrs, config)
 }
 
-void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, TargetConfig tgt) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, &tgt, sizeof(tgt));
+void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const TargetConfig* tgt) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, (void*) tgt, sizeof(TargetConfig));
 }

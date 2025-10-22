@@ -123,7 +123,7 @@ ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const
 /// Fills the pipeline with the required passes for the selected backends
 static void assemble_pipeline(ShdPipeline pipeline, /* hack: mutable */ DriverConfig* driver_config, const TargetConfig* target_config) {
     if (driver_config->target_type != TgtNone)
-        shd_pipeline_add_shader_target_lowering(pipeline, *target_config, &driver_config->config);
+        shd_pipeline_add_shader_target_lowering(pipeline, target_config, &driver_config->config);
 
     switch (driver_config->backend_type) {
         case BackendNone: /* do nothing */ break;
@@ -239,7 +239,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig target_confi
             case BackendNone: SHADY_UNREACHABLE;
             case BackendSPV:
                 shd_spv_apply_target_config(&args->backend_config.spirv, &target_config);
-                shd_emit_spirv(&args->config, args->backend_config.spirv, mod, &output_size, &output_buffer);
+                shd_emit_spirv(&args->config, &args->backend_config.spirv, mod, &output_size, &output_buffer);
                 break;
             case BackendC:
                 shd_emit_c(&args->config, args->backend_config.c, mod, &output_size, &output_buffer);

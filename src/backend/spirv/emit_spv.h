@@ -30,7 +30,7 @@ typedef struct Emitter_ {
     IrArena* arena;
     const CompilerConfig* configuration;
     const TargetConfig* target;
-    const SPVBackendConfig spirv_tgt;
+    const SPVBackendConfig* spirv_tgt;
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* global_node_ids;

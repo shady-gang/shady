@@ -11,7 +11,7 @@
 #include "portability.h"
 #include "log.h"
 
-void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfaceItem* out) {
+void shd_rt_vk_get_module_interface(Module* mod, size_t* count, RuntimeInterfaceItem* out) {
     Nodes decls = shd_module_get_all_exported(mod);
     bool found = false;
     *count = 0;

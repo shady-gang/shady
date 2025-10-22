@@ -21,6 +21,6 @@ static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, M
     RUN_PASS(shd_pass_lower_subgroup_ops, config)
 }
 
-void shd_pipeline_add_polyfills(ShdPipeline pipeline, TargetConfig tgt) {
+void shd_pipeline_add_polyfills(ShdPipeline pipeline, const TargetConfig* tgt) {
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) polyfills, NULL, 0);
 }

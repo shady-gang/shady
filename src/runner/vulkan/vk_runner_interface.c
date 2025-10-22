@@ -4,9 +4,9 @@
 
 void shd_vkr_populate_interface(VkrSpecProgram* spec) {
     assert(spec);
-    shd_vkr_get_runtime_dependencies(spec->specialized_module, &spec->interface_items_count, NULL);
+    shd_rt_vk_get_module_interface(spec->specialized_module, &spec->interface_items_count, NULL);
     LARRAY(RuntimeInterfaceItem, base_items, spec->interface_items_count);
-    shd_vkr_get_runtime_dependencies(spec->specialized_module, &spec->interface_items_count, base_items);
+    shd_rt_vk_get_module_interface(spec->specialized_module, &spec->interface_items_count, base_items);
     LARRAY(VkrProgramInterfaceItem, items, spec->interface_items_count);
     spec->interface_items = calloc(sizeof(VkrProgramInterfaceItem), spec->interface_items_count);
     for (size_t i = 0; i < spec->interface_items_count; i++) {

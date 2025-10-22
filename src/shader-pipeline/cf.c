@@ -48,8 +48,8 @@ static CompilationResult remove_indirect_calls(const TargetConfig* target_config
     return CompilationNoError;
 }
 
-void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, TargetConfig target_config) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, &target_config, sizeof(TargetConfig));
+void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, const TargetConfig* target_config) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, target_config, sizeof(TargetConfig));
 }
 
 RewritePass shd_pass_restructurize;

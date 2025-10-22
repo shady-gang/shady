@@ -28,7 +28,7 @@ static bool emit_cuda_c_code(CudaKernel* spec) {
     };
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_shader_target_lowering(pipeline, target_config, &config);
+    shd_pipeline_add_shader_target_lowering(pipeline, &target_config, &config);
     shd_pipeline_add_c_target_passes(pipeline, &emitter_config);
     CompilationResult result = shd_pipeline_run(pipeline, &config, &spec->final_module);
     shd_destroy_pipeline(pipeline);

@@ -4,7 +4,7 @@
 #include "portability.h"
 #include "log.h"
 
-void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, TargetConfig tgt) {
+void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const TargetConfig* tgt) {
     shd_pipeline_add_memory_lowering(pipeline, tgt);
     shd_pipeline_add_polyfills(pipeline, tgt);
     shd_pipeline_add_restructure_cf(pipeline);
@@ -31,28 +31,29 @@ static CompilationResult specialize_target_config_step(TargetConfig* target_conf
     return CompilationNoError;
 }
 
-void shd_pipeline_add_target_specialization(ShdPipeline pipeline, TargetConfig target_config) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_target_config_step, &target_config, sizeof(TargetConfig));
+void shd_pipeline_add_target_specialization(ShdPipeline pipeline, const TargetConfig* target_config) {
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_target_config_step, (void*) target_config, sizeof(TargetConfig));
 }
 
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const TargetConfig tgt, CompilerConfig* hacky_bs) {
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const TargetConfig* tgt, const CompilerConfig* hacky_bs) {
     shd_pipeline_add_target_specialization(pipeline, tgt);
 
-    if (tgt.execution_model != ShdExecutionModelNone)
-        shd_pipeline_add_specialize_execution_model(pipeline, tgt.execution_model);
-    if (tgt.entry_point) {
-        if (tgt.execution_model == ShdExecutionModelNone)
+    if (tgt->execution_model != ShdExecutionModelNone)
+        shd_pipeline_add_specialize_execution_model(pipeline, tgt->execution_model);
+    if (tgt->entry_point) {
+        if (tgt->execution_model == ShdExecutionModelNone)
             shd_log_fmt(WARN, "Specializing on an entry point but no execution model picked!");
-        shd_pipeline_add_specialize_entry_point(pipeline, tgt.entry_point);
+        shd_pipeline_add_specialize_entry_point(pipeline, tgt->entry_point);
     }
 
-    if (!tgt.capabilities.linkage) {
-        assert(tgt.execution_model != ShdExecutionModelNone);
-        assert(tgt.entry_point);
+    if (!tgt->capabilities.linkage) {
+        assert(tgt->execution_model != ShdExecutionModelNone);
+        assert(tgt->entry_point);
     }
 
-    if (!tgt.memory.address_spaces[AsSubgroup].allowed)
-        hacky_bs->dynamic_scheduling = false;
+    if (!tgt->memory.address_spaces[AsSubgroup].allowed) {
+        assert(hacky_bs->dynamic_scheduling == false);
+    }
 
     shd_pipeline_add_fncall_emulation(pipeline, tgt);
     shd_pipeline_add_feature_lowering(pipeline, tgt);

@@ -1,67 +1,10 @@
 #ifndef SHD_RUNTIME_VULKAN
 #define SHD_RUNTIME_VULKAN
 
-#include "shady/ir/base.h"
 #include "shady/config.h"
+#include "shady/ir/base.h"
 
 #include "vulkan/vulkan.h"
-
-/// Describes how interface items get provided to the shader
-typedef struct {
-    enum {
-        /// resource passed as raw bytes in the push constant
-        SHD_RII_Dst_PushConstant,
-        /// resource passed as descriptors
-        SHD_RII_Dst_Descriptor,
-    } dst_kind;
-    union {
-        /// range in the push constant where to put the stuff
-        struct {
-            size_t offset, size;
-        } push_constant;
-        /// descriptor to fill
-        struct {
-            uint32_t set, binding;
-            VkDescriptorType type;
-        } descriptor;
-    } dst_details;
-    enum {
-        /// resource passed as kernel launch argument
-        SHD_RII_Src_Param,
-        /// resource is a dummy allocation in global memory
-        SHD_RII_Src_TmpAllocation,
-        /// resource is a pre-populated allocation in global memory (usually a large constant)
-        SHD_RII_Src_LiftedConstant,
-        /// resource is a kernel-size dependant scratch buffer, also in global memory
-        SHD_RII_Src_ScratchBuffer
-    } src_kind;
-    union {
-        struct {
-            /// Index of the argument in the kernel launch args list
-            size_t param_idx;
-        } param;
-        struct {
-            const Node* size;
-        } tmp_allocation;
-        struct {
-            const Node* constant;
-        } lifted_constant;
-        struct {
-            const Node* per_invocation_size;
-        } scratch_buffer;
-    } src_details;
-} RuntimeInterfaceItem;
-
-void shd_vkr_get_runtime_dependencies(Module*, size_t* count, RuntimeInterfaceItem* out);
-
-typedef struct {
-    VkDescriptorSetLayoutCreateInfo set_layout;
-} ShdDescriptorSetLayout;
-
-void shd_vkr_get_descriptor_layouts(Module*, size_t* count, ShdDescriptorSetLayout** out);
-void shd_vkr_free_descriptor_set_layouts();
-
-void shd_vkr_write_push_constants(Module*, size_t arguments_count, void** arguments);
 
 #define SHADY_SUPPORTED_INSTANCE_EXTENSIONS(X) \
 X(0, EXT_debug_utils) \
@@ -147,10 +90,65 @@ typedef struct {
     } implementation;
 } ShadyVkrPhysicalDeviceCaps;
 
-bool shd_rt_check_physical_device_suitability(VkPhysicalDevice physical_device, ShadyVkrPhysicalDeviceCaps* out);
+bool shd_rt_vk_check_physical_device_suitability(VkPhysicalDevice physical_device, ShadyVkrPhysicalDeviceCaps* out);
+void shd_rt_vk_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens);
+TargetConfig shd_rt_vk_get_device_target_config(const CompilerConfig*, const ShadyVkrPhysicalDeviceCaps* caps);
 
-void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens);
+/// Describes how interface items get provided to the shader
+typedef struct {
+    enum {
+        /// resource passed as raw bytes in the push constant
+        SHD_RII_Dst_PushConstant,
+        /// resource passed as descriptors
+        SHD_RII_Dst_Descriptor,
+    } dst_kind;
+    union {
+        /// range in the push constant where to put the stuff
+        struct {
+            size_t offset, size;
+        } push_constant;
+        /// descriptor to fill
+        struct {
+            uint32_t set, binding;
+            VkDescriptorType type;
+        } descriptor;
+    } dst_details;
+    enum {
+        /// resource passed as kernel launch argument
+        SHD_RII_Src_Param,
+        /// resource is a dummy allocation in global memory
+        SHD_RII_Src_TmpAllocation,
+        /// resource is a pre-populated allocation in global memory (usually a large constant)
+        SHD_RII_Src_LiftedConstant,
+        /// resource is a kernel-size dependant scratch buffer, also in global memory
+        SHD_RII_Src_ScratchBuffer
+    } src_kind;
+    union {
+        struct {
+            /// Index of the argument in the kernel launch args list
+            size_t param_idx;
+        } param;
+        struct {
+            const Node* size;
+        } tmp_allocation;
+        struct {
+            const Node* constant;
+        } lifted_constant;
+        struct {
+            const Node* per_invocation_size;
+        } scratch_buffer;
+    } src_details;
+} RuntimeInterfaceItem;
 
-TargetConfig shd_rt_get_device_target_config(const CompilerConfig*, const ShadyVkrPhysicalDeviceCaps* caps);
+void shd_rt_vk_get_module_interface(Module*, size_t* count, RuntimeInterfaceItem* out);
+
+typedef struct {
+    VkDescriptorSetLayoutCreateInfo set_layout;
+} ShdDescriptorSetLayout;
+
+void shd_vkr_get_descriptor_layouts(Module*, size_t* count, ShdDescriptorSetLayout** out);
+void shd_vkr_free_descriptor_set_layouts();
+
+void shd_vkr_write_push_constants(Module*, size_t arguments_count, void** arguments);
 
 #endif

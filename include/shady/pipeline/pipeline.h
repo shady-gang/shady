@@ -9,7 +9,7 @@ ShdPipeline shd_create_empty_pipeline(void);
 void shd_destroy_pipeline(ShdPipeline);
 
 /// Runs a given pipeline on a module
-CompilationResult shd_pipeline_run(ShdPipeline, CompilerConfig* config, Module** pmod);
+CompilationResult shd_pipeline_run(ShdPipeline, const CompilerConfig* config, Module** pmod);
 
 typedef CompilationResult (*ShdPipelineStepFn)(void*, const CompilerConfig*, Module**);
 

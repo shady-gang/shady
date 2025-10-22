@@ -68,7 +68,7 @@ static void shutdown_vkr_device(VkrDevice* device) {
 static const char* get_vkr_device_name(VkrDevice* device) { return device->caps.properties.base.properties.deviceName; }
 
 TargetConfig shd_vkr_get_device_target_config(const CompilerConfig* compiler_config, VkrDevice* device) {
-    return shd_rt_get_device_target_config(compiler_config, &device->caps);
+    return shd_rt_vk_get_device_target_config(compiler_config, &device->caps);
 }
 
 static VkrDevice* create_vkr_device(VkrBackend* runtime, ShadyVkrPhysicalDeviceCaps caps, VkDevice vk_device) {
@@ -133,7 +133,7 @@ Device* shd_rn_open_vkdevice_with_caps(Runner* runner, ShadyVkrPhysicalDeviceCap
 
 Device* shd_rn_open_vkdevice(Runner* runner, VkPhysicalDevice physical_device, VkDevice vk_device) {
     ShadyVkrPhysicalDeviceCaps caps;
-    if (!shd_rt_check_physical_device_suitability(physical_device, &caps))
+    if (!shd_rt_vk_check_physical_device_suitability(physical_device, &caps))
         return NULL;
     return shd_rn_open_vkdevice_with_caps(runner, caps, vk_device);
 }
@@ -153,7 +153,7 @@ bool shd_vkr_probe_devices(VkrBackend* runtime) {
     for (uint32_t i = 0; i < devices_count; i++) {
         VkPhysicalDevice physical_device = available_devices[i];
         ShadyVkrPhysicalDeviceCaps caps;
-        if (shd_rt_check_physical_device_suitability(physical_device, &caps)) {
+        if (shd_rt_vk_check_physical_device_suitability(physical_device, &caps)) {
             VkrDevice* device = create_vkr_device(runtime, caps, VK_NULL_HANDLE);
             device->owns_vkdevice = true;
             shd_list_append(Device*, runtime->base.runner->devices, device);

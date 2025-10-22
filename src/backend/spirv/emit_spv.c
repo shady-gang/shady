@@ -277,8 +277,8 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel mod
 // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
 void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id) {
     // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
-    if (emitter->spirv_tgt.target_version.major == 1 &&
-        emitter->spirv_tgt.target_version.minor < 4) {
+    if (emitter->spirv_tgt->target_version.major == 1 &&
+        emitter->spirv_tgt->target_version.minor < 4) {
         const Type* ptr_t = shd_get_unqualified_type(n->type);
         assert(ptr_t->tag == PtrType_TAG);
         switch (ptr_t->payload.ptr_type.address_space) {
@@ -307,7 +307,7 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
-            if (emitter->spirv_tgt.features.maximal_reconvergence) {
+            if (emitter->spirv_tgt->features.maximal_reconvergence) {
                 spvb_extension(emitter->file_builder, "SPV_KHR_maximal_reconvergence");
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeMaximallyReconvergesKHR, 0, NULL);
             }
@@ -412,12 +412,12 @@ static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
     }
 }
 
-void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config, Module* mod, size_t* output_size, char** output) {
+void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target_config, Module* mod, size_t* output_size, char** output) {
     mod = shd_import(config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 
     FileBuilder file_builder = spvb_begin();
-    spvb_set_version(file_builder, target_config.target_version.major, target_config.target_version.minor);
+    spvb_set_version(file_builder, target_config->target_version.major, target_config->target_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelLogical);
 
     ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.target);
