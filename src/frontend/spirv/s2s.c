@@ -864,7 +864,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     shd_add_annotation(global, annotation_value_helper(a, "DescriptorSet", shd_uint32_literal(a, desc_set->payload.literals.data[0])));
                 SpvDeco* binding = find_decoration(parser, result, -1, SpvDecorationBinding);
                 if (binding)
-                    shd_add_annotation(global, annotation_value_helper(a, "Binding", shd_uint32_literal(a, binding->payload.literals.data[0])));
+                    shd_add_annotation(global, annotation_value_helper(a, "DescriptorBinding", shd_uint32_literal(a, binding->payload.literals.data[0])));
                 SpvDeco* location = find_decoration(parser, result, -1, SpvDecorationLocation);
                 if (location)
                     shd_add_annotation(global, annotation_value_helper(a, "Location", shd_uint32_literal(a, location->payload.literals.data[0])));
@@ -1531,10 +1531,29 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->current_block.builder = NULL;
             break;
         }
+        case SpvOpTypeImage: {
+            parser->defs[result].type = Typ;
+            Nodes pattern = mk_nodes(a,
+                NULL /* sampled type */,
+                shd_uint32_literal(a, instruction[3]) /* dim */,
+                shd_uint32_literal(a, instruction[4]) /* depth */,
+                shd_uint32_literal(a, instruction[5]) /* arrayed */,
+                shd_uint32_literal(a, instruction[6]) /* ms */,
+                shd_uint32_literal(a, instruction[7]) /* sampled */,
+                shd_uint32_literal(a, instruction[8]) /* format */,
+                );
+            const Node* image_type_op = ext_op_def_helper(a, "spirv.core", op, true, NULL, pattern);
+            parser->defs[result].node = ext_type(a, (ExtType) {
+                .def = image_type_op,
+                .arguments = mk_nodes(a, get_def_type(parser, instruction[2])),
+            });
+            break;
+        }
         default: {
             //bool has_result, has_type;
             //SpvHasResultAndType(op, &has_result, &has_type);
-            if (has_result && !has_type) {parser->defs[result].type = Typ;
+            if (has_result && !has_type) {
+                parser->defs[result].type = Typ;
                 LARRAY(const Node*, operands, size - 2);
                 for (size_t i = 0; i < size - 2; i++)
                     operands[i] = get_definition_by_id(parser, instruction[2 + i])->node;
