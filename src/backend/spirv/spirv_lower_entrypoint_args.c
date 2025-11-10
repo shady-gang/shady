@@ -6,22 +6,36 @@
 #include "shady/ir/annotation.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/composite.h"
+#include "shady/ir/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
 #include "util.h"
 
 typedef struct {
+    enum {
+        PUSH_CONSTANT,
+        DESCRIPTOR
+    } to;
+    union {
+        int pc_idx;
+        const Node* descriptor;
+    };
+} ParamLowered;
+
+typedef struct {
     Rewriter rewriter;
     const CompilerConfig* config;
 } Context;
 
-static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point) {
+static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry_point, const Node* new_entry_point, ParamLowered lowered[]) {
     IrArena* a = rewriter->dst_arena;
 
     Nodes params = old_entry_point->payload.fun.params;
-    LARRAY(const Node*, types, params.count);
-    LARRAY(String, names, params.count);
+
+    LARRAY(const Node*, pc_types, params.count);
+    LARRAY(String, pc_names, params.count);
+    size_t pc_struct_elements_count = 0;
 
     Nodes annotations = shd_empty(a);
 
@@ -36,52 +50,78 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
         if (shd_deconstruct_qualified_type(&type) != shd_get_arena_config(a)->target.scopes.constants)
             shd_error("EntryPoint parameters must be uniform");
 
-            const Node* provide_tmp_alloc = shd_lookup_annotation(param, "RuntimeProvideTmpAllocation");
-            const Node* provide_constant = shd_lookup_annotation(param, "RuntimeProvideConstant");
-            const Node* provide_scratch = shd_lookup_annotation(param, "RuntimeProvideScratch");
-            if (provide_tmp_alloc) {
-                Nodes arr = provide_tmp_alloc->payload.annotation_values.values;
-                const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
+        const Node* iface_annotation = annotation_helper(a, "EntryPointInterface");
+        shd_add_annotation(new_entry_point, iface_annotation);
+        const Node* src_annotation = NULL;
+        const Node* dst_annotation = NULL;
 
-                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeProvideTmpAllocationInPushConstant",
-                    .values = mk_nodes(a, shd_int32_literal(a, i), contents)
-                }));
-                synthetic_args_count++;
-                assert(!finished_with_synethic_args);
-            } else if (provide_constant) {
-                Nodes arr = provide_constant->payload.annotation_values.values;
-                const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
+        if (!shd_is_physical_data_type(type)) {
+            lowered[i].to = DESCRIPTOR;
+            //lowered[i].descriptor = ...;
+        } else {
+            lowered[i].to = PUSH_CONSTANT;
+            TypeMemLayout pc_layout = shd_get_record_layout_from_member_types(a, shd_nodes(a, pc_struct_elements_count, pc_types), NULL);
+            TypeMemLayout type_layout = shd_get_mem_layout(a, type);
+            lowered[i].pc_idx = pc_struct_elements_count;
+            pc_types[pc_struct_elements_count] = type;
+            pc_names[pc_struct_elements_count] = shd_get_node_name_unsafe(params.nodes[i]);
+            pc_struct_elements_count++;
+            dst_annotation = annotation_values(a, (AnnotationValues) {
+                .name = "DstPushConstant",
+                .values = mk_nodes(a, shd_int32_literal(a, pc_layout.size_in_bytes), shd_int32_literal(a, type_layout.size_in_bytes))
+            });
+        }
 
-                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeProvideConstantInPushConstant",
-                    .values = mk_nodes(a, shd_int32_literal(a, i), contents)
-                }));
-                synthetic_args_count++;
-                assert(!finished_with_synethic_args);
-            } else if (provide_scratch) {
-                Nodes arr = provide_scratch->payload.annotation_values.values;
-                const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
+        const Node* provide_tmp_alloc = shd_lookup_annotation(param, "RuntimeProvideTmpAllocation");
+        const Node* provide_constant = shd_lookup_annotation(param, "RuntimeProvideConstant");
+        const Node* provide_scratch = shd_lookup_annotation(param, "RuntimeProvideScratch");
+        if (provide_tmp_alloc) {
+            Nodes arr = provide_tmp_alloc->payload.annotation_values.values;
+            const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
 
-                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeProvideScratchInPushConstant",
-                    .values = mk_nodes(a, shd_int32_literal(a, i), contents)
-                }));
-                synthetic_args_count++;
-                assert(!finished_with_synethic_args);
-            } else {
-                finished_with_synethic_args = true;
-                annotations = shd_nodes_append(a, annotations, annotation_values(a, (AnnotationValues) {
-                    .name = "RuntimeParamInPushConstant",
-                    .values = mk_nodes(a, shd_int32_literal(a, i), shd_int32_literal(a, i - synthetic_args_count))
-                }));
-            }
+            src_annotation = annotation_value(a, (AnnotationValue) {
+                .name = "SrcTmp",
+                .value = contents
+            });
+            synthetic_args_count++;
+            assert(!finished_with_synethic_args);
+        } else if (provide_constant) {
+            Nodes arr = provide_constant->payload.annotation_values.values;
+            const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
 
-        types[i] = type;
-        names[i] = shd_get_node_name_unsafe(params.nodes[i]);
+            src_annotation = annotation_value(a, (AnnotationValue) {
+                .name = "SrcConstant",
+                .value = contents
+            });
+            synthetic_args_count++;
+            assert(!finished_with_synethic_args);
+        } else if (provide_scratch) {
+            Nodes arr = provide_scratch->payload.annotation_values.values;
+            const Node* contents = shd_rewrite_node(rewriter, shd_first(arr));
+
+            src_annotation = annotation_value(a, (AnnotationValue) {
+                .name = "SrcScratch",
+                .value = contents
+            });
+            synthetic_args_count++;
+            assert(!finished_with_synethic_args);
+        } else {
+            finished_with_synethic_args = true;
+            src_annotation = annotation_value(a, (AnnotationValue) {
+                .name = "SrcParam",
+                .value = shd_int32_literal(a, i - synthetic_args_count)
+            });
+        }
+
+        assert(src_annotation);
+        assert(dst_annotation);
+        shd_add_annotation(iface_annotation, src_annotation);
+        shd_add_annotation(iface_annotation, dst_annotation);
     }
 
-    const Type* type = shd_struct_type_with_members_named(a, ShdStructFlagBlock, shd_nodes(a, params.count, types), shd_strings(a, params.count, names));
+    const Type* type = shd_struct_type_with_members_named(a,
+        ShdStructFlagBlock, shd_nodes(a, pc_struct_elements_count, pc_types),
+        shd_strings(a, pc_struct_elements_count, pc_names));
 
     String name = shd_fmt_string_irarena(a, "__%s_args", shd_get_node_name_safe(old_entry_point));
     Node* var = global_variable_helper(rewriter->dst_module, type, AsPushConstant);
@@ -94,7 +134,7 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
     return var;
 }
 
-static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct) {
+static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const Node* new, const Node* arg_struct, ParamLowered lowered[]) {
     IrArena* a = ctx->rewriter.dst_arena;
 
     BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(new));
@@ -102,9 +142,16 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
     Nodes params = old_entry_point->payload.fun.params;
 
     for (int i = 0; i < params.count; ++i) {
-        const Node* addr = lea_helper(a, arg_struct, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, i)));
-        const Node* val = shd_bld_load(bb, addr);
-        shd_register_processed(&ctx->rewriter, params.nodes[i], val);
+        switch (lowered[i].to) {
+            case PUSH_CONSTANT: {
+                const Node* addr = lea_helper(a, arg_struct, shd_int32_literal(a, 0), shd_singleton(shd_int32_literal(a, lowered[i].pc_idx)));
+                const Node* val = shd_bld_load(bb, addr);
+                shd_register_processed(&ctx->rewriter, params.nodes[i], val);
+                break;
+            }
+            case DESCRIPTOR:
+                break;
+        }
     }
 
     shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(old_entry_point), shd_bld_mem(bb));
@@ -121,8 +168,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 shd_rewrite_annotations(r, node, fun);
                 shd_register_processed(r, node, fun);
                 Node* new_entry_point = fun;
-                const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point);
-                shd_set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct));
+                ParamLowered* lowered = calloc(get_abstraction_params(node).count, sizeof(ParamLowered));
+                const Node* arg_struct = generate_arg_struct(&ctx->rewriter, node, new_entry_point, lowered);
+                shd_set_abstraction_body(new_entry_point, rewrite_body(ctx, node, new_entry_point, arg_struct, lowered));
+                free(lowered);
                 return new_entry_point;
             }
             break;

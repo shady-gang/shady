@@ -140,6 +140,7 @@ typedef struct {
     } src_details;
 } RuntimeInterfaceItem;
 
+void shd_rt_vk_get_entry_point_interface(const Node*, size_t* count, RuntimeInterfaceItem* out);
 void shd_rt_vk_get_module_interface(Module*, size_t* count, RuntimeInterfaceItem* out);
 
 typedef struct {

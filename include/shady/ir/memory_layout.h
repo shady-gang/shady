@@ -19,6 +19,7 @@ typedef struct {
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type);
 
 TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields);
+TypeMemLayout shd_get_record_layout_from_member_types(IrArena* a, Nodes member_tys, FieldLayout* fields);
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 

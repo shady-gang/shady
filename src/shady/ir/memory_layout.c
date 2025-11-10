@@ -20,13 +20,10 @@ static int maxof(int a, int b) {
     return b;
 }
 
-TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
-    assert(record_type->tag == StructType_TAG);
-
+static TypeMemLayout shd_get_record_layout_from_member_types_(IrArena* a, Nodes member_types, FieldLayout* fields, const Type* ty) {
     size_t offset = 0;
     size_t max_align = 0;
 
-    Nodes member_types = record_type->payload.struct_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
         TypeMemLayout member_layout = shd_get_mem_layout(a, member_types.nodes[i]);
         offset = round_up(offset, member_layout.alignment_in_bytes);
@@ -40,10 +37,19 @@ TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLa
     }
 
     return (TypeMemLayout) {
-        .type = record_type,
+        .type = ty,
         .size_in_bytes = round_up(offset, max_align),
         .alignment_in_bytes = max_align,
     };
+}
+
+TypeMemLayout shd_get_record_layout_from_member_types(IrArena* a, Nodes member_tys, FieldLayout* fields) {
+    return shd_get_record_layout_from_member_types_(a, member_tys, fields, NULL);
+}
+
+TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
+    assert(record_type->tag == StructType_TAG);
+    return shd_get_record_layout_from_member_types_(a, record_type->payload.struct_type.members, fields, record_type);
 }
 
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
