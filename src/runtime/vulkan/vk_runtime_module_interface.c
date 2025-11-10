@@ -29,6 +29,10 @@ void shd_rt_vk_get_entry_point_interface(const Node* decl, size_t* count, Runtim
                 out[*count].dst_kind = SHD_RII_Dst_PushConstant;
                 out[*count].dst_details.push_constant.offset = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
                 out[*count].dst_details.push_constant.size = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+            } else if (strcmp(get_annotation_name(dst), "DstDescriptor") == 0) {
+                out[*count].dst_kind = SHD_RII_Dst_Descriptor;
+                out[*count].dst_details.descriptor.set = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
+                out[*count].dst_details.descriptor.binding = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
             } else {
                 shd_log_node(ERROR, dst);
                 shd_error("Unknown interface destination");

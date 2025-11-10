@@ -6,7 +6,6 @@
 #include "shady/ir/annotation.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/composite.h"
-#include "shady/ir/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
@@ -15,7 +14,7 @@
 typedef struct {
     enum {
         PUSH_CONSTANT,
-        DESCRIPTOR
+        DESCRIPTOR_OPAQUE,
     } to;
     union {
         int pc_idx;
@@ -39,7 +38,8 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
 
     Nodes annotations = shd_empty(a);
 
-    //size_t offset = 0;
+    size_t set = 0;
+    size_t binding = 0;
 
     bool finished_with_synethic_args = false;
     int synthetic_args_count = 0;
@@ -56,8 +56,16 @@ static const Node* generate_arg_struct(Rewriter* rewriter, const Node* old_entry
         const Node* dst_annotation = NULL;
 
         if (!shd_is_physical_data_type(type)) {
-            lowered[i].to = DESCRIPTOR;
-            //lowered[i].descriptor = ...;
+            lowered[i].to = DESCRIPTOR_OPAQUE;
+            Node* descriptor = global_variable_helper(rewriter->dst_module, type, AsUniformConstant);
+            shd_add_annotation(descriptor, annotation_value_helper(a, "DescriptorSet", shd_uint32_literal(a, set)));
+            shd_add_annotation(descriptor, annotation_value_helper(a, "DescriptorBinding", shd_uint32_literal(a, binding)));
+            lowered[i].descriptor = descriptor;
+            dst_annotation = annotation_values(a, (AnnotationValues) {
+                .name = "DstDescriptor",
+                .values = mk_nodes(a, shd_int32_literal(a, set), shd_int32_literal(a, binding))
+            });
+            binding++;
         } else {
             lowered[i].to = PUSH_CONSTANT;
             TypeMemLayout pc_layout = shd_get_record_layout_from_member_types(a, shd_nodes(a, pc_struct_elements_count, pc_types), NULL);
@@ -149,8 +157,11 @@ static const Node* rewrite_body(Context* ctx, const Node* old_entry_point, const
                 shd_register_processed(&ctx->rewriter, params.nodes[i], val);
                 break;
             }
-            case DESCRIPTOR:
+            case DESCRIPTOR_OPAQUE: {
+                const Node* val = shd_bld_load(bb, lowered[i].descriptor);
+                shd_register_processed(&ctx->rewriter, params.nodes[i], val);
                 break;
+            }
         }
     }
 
