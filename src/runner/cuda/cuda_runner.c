@@ -99,7 +99,11 @@ static CudaDevice* create_cuda_device(CudaBackend* b, int ordinal) {
     CHECK_CUDA(cuDeviceGetName(device->name, 255, handle), goto dealloc_and_return_null);
     CHECK_CUDA(cuDeviceGetAttribute(&device->cc_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device->handle), goto dealloc_and_return_null);
     CHECK_CUDA(cuDeviceGetAttribute(&device->cc_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device->handle), goto dealloc_and_return_null);
+#if CUDA_VERSION >= 13
+    CHECK_CUDA(cuCtxCreate(&device->context, 0, 0, handle), goto dealloc_and_return_null);
+#else
     CHECK_CUDA(cuCtxCreate(&device->context, 0, handle), goto dealloc_and_return_null);
+#endif
     return device;
 
     dealloc_and_return_null:
