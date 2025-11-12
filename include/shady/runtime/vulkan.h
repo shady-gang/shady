@@ -101,6 +101,8 @@ typedef struct {
         SHD_RII_Dst_PushConstant,
         /// resource passed as descriptors
         SHD_RII_Dst_Descriptor,
+        /// resource passed through an offset in an UBO
+        SHD_RII_Dst_ParamUBO,
     } dst_kind;
     union {
         /// range in the push constant where to put the stuff
@@ -108,6 +110,9 @@ typedef struct {
             size_t offset, size;
         } push_constant;
         /// descriptor to fill
+        struct {
+            size_t offset, size;
+        } ubo;
         struct {
             uint32_t set, binding;
             VkDescriptorType type;
@@ -121,7 +126,9 @@ typedef struct {
         /// resource is a pre-populated allocation in global memory (usually a large constant)
         SHD_RII_Src_LiftedConstant,
         /// resource is a kernel-size dependant scratch buffer, also in global memory
-        SHD_RII_Src_ScratchBuffer
+        SHD_RII_Src_ScratchBuffer,
+        /// resource is the parameter UBO
+        SHD_RII_Src_ParamUBO,
     } src_kind;
     union {
         struct {
@@ -137,6 +144,9 @@ typedef struct {
         struct {
             const Node* per_invocation_size;
         } scratch_buffer;
+        struct {
+            size_t size;
+        } param_ubo;
     } src_details;
 } RuntimeInterfaceItem;
 

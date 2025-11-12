@@ -19,7 +19,7 @@ void shd_rt_vk_get_entry_point_interface(const Node* decl, size_t* count, Runtim
         if (!shd_string_starts_with(get_annotation_name(interface), "EntryPointInterface"))
             continue;
 
-        assert(interface->tag == Annotation_TAG);
+        assert(interface->tag == AnnotationValue_TAG);
         assert(interface->annotations.count == 2);
         const Node* src = interface->annotations.nodes[0];
         const Node* dst = interface->annotations.nodes[1];
@@ -29,10 +29,15 @@ void shd_rt_vk_get_entry_point_interface(const Node* decl, size_t* count, Runtim
                 out[*count].dst_kind = SHD_RII_Dst_PushConstant;
                 out[*count].dst_details.push_constant.offset = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
                 out[*count].dst_details.push_constant.size = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+            } else if (strcmp(get_annotation_name(dst), "DstUniformBuffer") == 0) {
+                out[*count].dst_kind = SHD_RII_Dst_ParamUBO;
+                out[*count].dst_details.ubo.offset = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
+                out[*count].dst_details.ubo.size = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
             } else if (strcmp(get_annotation_name(dst), "DstDescriptor") == 0) {
                 out[*count].dst_kind = SHD_RII_Dst_Descriptor;
                 out[*count].dst_details.descriptor.set = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
                 out[*count].dst_details.descriptor.binding = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+                out[*count].dst_details.descriptor.type = shd_get_int_value(shd_get_annotation_values(dst).nodes[2], false);
             } else {
                 shd_log_node(ERROR, dst);
                 shd_error("Unknown interface destination");
@@ -50,6 +55,9 @@ void shd_rt_vk_get_entry_point_interface(const Node* decl, size_t* count, Runtim
             } else if (strcmp(get_annotation_name(src), "SrcScratch") == 0) {
                 out[*count].src_kind = SHD_RII_Src_ScratchBuffer;
                 out[*count].src_details.scratch_buffer.per_invocation_size = shd_get_annotation_value(src);
+            } else if (strcmp(get_annotation_name(src), "SrcParamUBO") == 0) {
+                out[*count].src_kind = SHD_RII_Src_ParamUBO;
+                out[*count].src_details.param_ubo.size = shd_get_int_value(shd_get_annotation_value(src), false);
             } else {
                 shd_log_node(ERROR, src);
                 shd_error("Unknown interface source");
