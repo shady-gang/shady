@@ -95,7 +95,7 @@ void shd_rt_vk_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, si
 TargetConfig shd_rt_vk_get_device_target_config(const CompilerConfig*, const ShadyVkrPhysicalDeviceCaps* caps);
 
 /// Describes how interface items get provided to the shader
-typedef struct {
+typedef struct RuntimeInterfaceItem_ {
     enum {
         /// resource passed as raw bytes in the push constant
         SHD_RII_Dst_PushConstant,
