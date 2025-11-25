@@ -20,7 +20,7 @@ static int maxof(int a, int b) {
     return b;
 }
 
-static TypeMemLayout shd_get_record_layout_from_member_types_(IrArena* a, Nodes member_types, FieldLayout* fields, const Type* ty) {
+void shd_compute_record_layout_from_fields(IrArena* a, Nodes member_types, FieldLayout* fields, size_t* alignment_out, size_t* offset_out) {
     size_t offset = 0;
     size_t max_align = 0;
 
@@ -36,20 +36,21 @@ static TypeMemLayout shd_get_record_layout_from_member_types_(IrArena* a, Nodes 
             max_align = member_layout.alignment_in_bytes;
     }
 
-    return (TypeMemLayout) {
-        .type = ty,
-        .size_in_bytes = round_up(offset, max_align),
-        .alignment_in_bytes = max_align,
-    };
-}
-
-TypeMemLayout shd_get_record_layout_from_member_types(IrArena* a, Nodes member_tys, FieldLayout* fields) {
-    return shd_get_record_layout_from_member_types_(a, member_tys, fields, NULL);
+    if (offset_out)
+        *offset_out = offset;
+    if (alignment_out)
+        *alignment_out = max_align;
 }
 
 TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
     assert(record_type->tag == StructType_TAG);
-    return shd_get_record_layout_from_member_types_(a, record_type->payload.struct_type.members, fields, record_type);
+    TypeMemLayout layout = {
+        .type = record_type,
+    };
+    size_t offset = 0;
+    shd_compute_record_layout_from_fields(a, record_type->payload.struct_type.members, fields, &layout.alignment_in_bytes, &offset);
+    layout.size_in_bytes = round_up(offset, layout.alignment_in_bytes);
+    return layout;
 }
 
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
@@ -58,6 +59,13 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
     assert(i < member_types.count);
     LARRAY(FieldLayout, fields, member_types.count);
     shd_get_record_layout(a, t, fields);
+    return fields[i].offset_in_bytes;
+}
+
+size_t shd_get_record_field_offset_in_bytes_from_members(IrArena* a, Nodes member_types, size_t i) {
+    assert(i < member_types.count);
+    LARRAY(FieldLayout, fields, member_types.count);
+    shd_compute_record_layout_from_fields(a, member_types, fields, NULL, NULL);
     return fields[i].offset_in_bytes;
 }
 

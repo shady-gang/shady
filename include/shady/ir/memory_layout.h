@@ -18,9 +18,10 @@ typedef struct {
 
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type);
 
+void shd_compute_record_layout_from_fields(IrArena* a, Nodes member_types, FieldLayout* fields, size_t* alignment_out, size_t* offset_out);
 TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields);
-TypeMemLayout shd_get_record_layout_from_member_types(IrArena* a, Nodes member_tys, FieldLayout* fields);
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i);
+size_t shd_get_record_field_offset_in_bytes_from_members(IrArena* a, Nodes member_types, size_t i);
 size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 
 static inline const Node* size_t_type(IrArena* a) {

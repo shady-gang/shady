@@ -81,25 +81,25 @@ static void create_param_lowerings(Rewriter* rewriter, const Node* old_entry_poi
             bool use_ubo = type_layout.size_in_bytes > 8;
             if (use_ubo) {
                 lowered[i].to = BUFFER;
-                TypeMemLayout buffer_layout = shd_get_record_layout_from_member_types(a, shd_nodes(a, buffer_struct_elements_count, buffer_types), NULL);
                 lowered[i].pc_idx = buffer_struct_elements_count;
                 buffer_types[buffer_struct_elements_count] = type;
                 buffer_names[buffer_struct_elements_count] = shd_get_node_name_unsafe(params.nodes[i]);
                 buffer_struct_elements_count++;
+                size_t last_field_offset = shd_get_record_field_offset_in_bytes_from_members(a, shd_nodes(a, buffer_struct_elements_count, buffer_types), buffer_struct_elements_count - 1);
                 dst_annotation = annotation_values(a, (AnnotationValues) {
                     .name = "DstUniformBuffer",
-                    .values = mk_nodes(a, shd_int32_literal(a, buffer_layout.size_in_bytes), shd_int32_literal(a, type_layout.size_in_bytes))
+                    .values = mk_nodes(a, shd_int32_literal(a, last_field_offset), shd_int32_literal(a, type_layout.size_in_bytes))
                 });
             } else {
                 lowered[i].to = PUSH_CONSTANT;
-                TypeMemLayout pc_layout = shd_get_record_layout_from_member_types(a, shd_nodes(a, pc_struct_elements_count, pc_types), NULL);
                 lowered[i].pc_idx = pc_struct_elements_count;
                 pc_types[pc_struct_elements_count] = type;
                 pc_names[pc_struct_elements_count] = shd_get_node_name_unsafe(params.nodes[i]);
                 pc_struct_elements_count++;
+                size_t last_field_offset = shd_get_record_field_offset_in_bytes_from_members(a, shd_nodes(a, pc_struct_elements_count, pc_types), pc_struct_elements_count - 1);
                 dst_annotation = annotation_values(a, (AnnotationValues) {
                     .name = "DstPushConstant",
-                    .values = mk_nodes(a, shd_int32_literal(a, pc_layout.size_in_bytes), shd_int32_literal(a, type_layout.size_in_bytes))
+                    .values = mk_nodes(a, shd_int32_literal(a, last_field_offset), shd_int32_literal(a, type_layout.size_in_bytes))
                 });
             }
         }
