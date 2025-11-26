@@ -7,6 +7,8 @@
 #include "portability.h"
 #include "log.h"
 
+#include "spirv/unified1/spirv.h"
+
 #include <assert.h>
 #include <math.h>
 
@@ -332,6 +334,25 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrScopeCast);
             if (!changes) break;
             r = store(arena, payload);
+            break;
+        }
+        case ExtInstr_TAG: {
+            ExtInstr payload = node->payload.ext_instr;
+            const Node* def = payload.def;
+            if (strcmp(def->payload.ext_op_def.set, "spirv.core") == 0) {
+                if (def->payload.ext_op_def.opcode == SpvOpGenericCastToPtr) {
+                    PtrCasts changes = 0;
+                    const Node* src = try_simplify_pointer_casts(shd_first(payload.arguments), &changes, PtrGenericCast);
+                    if (!changes) break;
+                    r = mem_and_value_helper(arena, payload.mem, src);
+                } else if (def->payload.ext_op_def.opcode == SpvOpCooperativeMatrixLoadKHR || def->payload.ext_op_def.opcode == SpvOpCooperativeMatrixStoreKHR) {
+                    PtrCasts changes = 0;
+                    const Node* src = try_simplify_pointer_casts(shd_first(payload.arguments), &changes, PtrBitCast);
+                    if (!changes) break;
+                    payload.arguments = shd_change_node_at_index(arena, payload.arguments, 0, src);
+                    r = ext_instr(arena, payload);
+                }
+            }
             break;
         }
         case CopyBytes_TAG: {
