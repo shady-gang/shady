@@ -209,9 +209,6 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 spvb_capability(emitter->file_builder, SpvCapabilityRuntimeDescriptorArray);
             }
 
-            spvb_extension(emitter->file_builder, "SPV_KHR_cooperative_matrix");
-            spvb_capability(emitter->file_builder, SpvCapabilityCooperativeMatrixKHR);
-
             switch (storage_class) {
                 case SpvStorageClassPushConstant: {
                     break;
@@ -460,6 +457,11 @@ void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target
         spvb_capability(file_builder, SpvCapabilityLinkage);
 
     spvb_capability(file_builder, SpvCapabilityShader);
+
+    spvb_extension(file_builder, "SPV_KHR_cooperative_matrix");
+    spvb_capability(file_builder, SpvCapabilityCooperativeMatrixKHR);
+    spvb_extension(file_builder, "SPV_KHR_vulkan_memory_model");
+    spvb_capability(file_builder, SpvCapabilityVulkanMemoryModel);
 
     *output_size = spvb_finish(file_builder, output);
 
