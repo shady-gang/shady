@@ -277,7 +277,11 @@ size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtOpDef def, Nodes arguments
             }
         } else {
             assert(j < arguments.count);
-            alloc[i] = spv_emit_type(emitter, arguments.nodes[j++]);
+            const Node* op = arguments.nodes[j++];
+            if (is_type(op))
+                alloc[i] = spv_emit_type(emitter, op);
+            else
+                alloc[i] = spv_emit_value(emitter, NULL, op);
             continue;
         }
     }

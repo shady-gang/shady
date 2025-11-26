@@ -209,6 +209,9 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                 spvb_capability(emitter->file_builder, SpvCapabilityRuntimeDescriptorArray);
             }
 
+            spvb_extension(emitter->file_builder, "SPV_KHR_cooperative_matrix");
+            spvb_capability(emitter->file_builder, SpvCapabilityCooperativeMatrixKHR);
+
             switch (storage_class) {
                 case SpvStorageClassPushConstant: {
                     break;
