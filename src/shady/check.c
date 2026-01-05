@@ -883,6 +883,7 @@ const Type* _shd_check_type_get_stack_base_addr(IrArena* a, SHADY_UNUSED GetStac
 }
 
 const Type* _shd_check_type_debug_printf(IrArena* a, DebugPrintf payload) {
+    assert(payload.string);
     return empty_multiple_return_type(a);
 }
 

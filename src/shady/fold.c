@@ -686,10 +686,41 @@ static bool is_unreachable_destination(const Node* j) {
     return b->tag == Unreachable_TAG;
 }
 
+static const Node* fold_constant_composite_ops(IrArena* arena, const Node* node) {
+    switch (node->tag) {
+        case Extract_TAG: {
+            Extract payload = node->payload.extract;
+            if (payload.selector->tag == IntLiteral_TAG) {
+                size_t idx = shd_get_int_literal_value(payload.selector->payload.int_literal, false);
+                if (payload.composite->tag == Composite_TAG) {
+                    Composite composite = payload.composite->payload.composite;
+                    return composite.contents.nodes[idx];
+                }
+            }
+            break;
+        }
+        case Insert_TAG: {
+            Insert payload = node->payload.insert;
+            if (payload.selector->tag == IntLiteral_TAG) {
+                size_t idx = shd_get_int_literal_value(payload.selector->payload.int_literal, false);
+                if (payload.composite->tag == Composite_TAG) {
+                    Composite composite = payload.composite->payload.composite;
+                    Nodes new_contents = shd_change_node_at_index(arena, composite.contents, idx, payload.replacement);
+                    return composite_helper(arena, composite.type, new_contents);
+                }
+            }
+            break;
+        }
+        default: break;
+    }
+    return node;
+}
+
 const Node* _shd_fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
     node = fold_simplify_memory_ops(node);
+    node = fold_constant_composite_ops(arena, node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case PtrArrayElementOffset_TAG: {
