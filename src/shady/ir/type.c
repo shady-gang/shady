@@ -152,7 +152,9 @@ bool shd_is_physical_data_type(const Type* type) {
             return !type->payload.ptr_type.is_reference;
         case Type_ArrType_TAG:
             // array types _must_ be sized to be real data types
-            return type->payload.arr_type.size != NULL;
+            if (type->payload.arr_type.size == NULL)
+                return false;
+            return shd_is_physical_data_type(type->payload.arr_type.element_type);
         case Type_VectorType_TAG:
             return shd_is_data_type(type->payload.vector_type.element_type);
         case Type_MatrixType_TAG:
