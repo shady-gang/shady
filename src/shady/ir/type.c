@@ -185,15 +185,35 @@ bool shd_is_physical_data_type(const Type* type) {
     }
 }
 
+bool shd_is_descriptor_type(const Type* type, size_t* count_o) {
+    size_t count = 1;
+    if (type->tag == ArrType_TAG) {
+        ArrType payload = type->payload.arr_type;
+        if (payload.size && shd_resolve_to_int_literal(payload.size)) {
+            count = shd_get_int_value(payload.size, false);
+        }
+        type = payload.element_type;
+    }
+    if (type->tag == ExtType_TAG) {
+        if (count_o)
+            *count_o = count;
+        return true; // TODO...
+    }
+    return false;
+}
+
 /// Is this a valid data type (for usage in other types and as type arguments) ?
 bool shd_is_data_type(const Type* type) {
+    if (shd_is_physical_data_type(type))
+        return true;
+    if (shd_is_descriptor_type(type, NULL))
+        return true;
     switch (is_type(type)) {
         case Type_PtrType_TAG:
             return true;
-        case Type_ExtType_TAG:
-            return true;
-        default: return shd_is_physical_data_type(type);
+        default: break;
     }
+    return false;
 }
 
 bool shd_is_arithm_type(const Type* t) {
