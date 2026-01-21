@@ -458,10 +458,10 @@ void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target
 
     spvb_capability(file_builder, SpvCapabilityShader);
 
-    spvb_extension(file_builder, "SPV_KHR_cooperative_matrix");
-    spvb_capability(file_builder, SpvCapabilityCooperativeMatrixKHR);
-    spvb_extension(file_builder, "SPV_KHR_vulkan_memory_model");
-    spvb_capability(file_builder, SpvCapabilityVulkanMemoryModel);
+    // spvb_extension(file_builder, "SPV_KHR_cooperative_matrix");
+    // spvb_capability(file_builder, SpvCapabilityCooperativeMatrixKHR);
+    // spvb_extension(file_builder, "SPV_KHR_vulkan_memory_model");
+    // spvb_capability(file_builder, SpvCapabilityVulkanMemoryModel);
 
     *output_size = spvb_finish(file_builder, output);
 
