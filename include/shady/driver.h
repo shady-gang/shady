@@ -59,6 +59,9 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
 void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv);
 // parses the remaining arguments into a list of files
 void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
+bool shd_is_arg_help(const char* arg);
+// return 'true' if --help was amongst the passed arguments, also removes it if asked
+bool shd_parse_help(int* pargc, char** argv, bool remove);
 
 typedef struct {
     CompilerConfig config;

@@ -9,6 +9,12 @@
 int main(int argc, char** argv) {
     shd_platform_specific_terminal_init_extras();
 
+    bool help = shd_parse_help(&argc, argv, false);
+    if (help) {
+        shd_error_print("Usage: slim source.slim [arguments]\n");
+        shd_error_print("Available arguments: \n");
+    }
+
     DriverConfig args = shd_default_driver_config();
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.config, &argc, argv);
@@ -18,6 +24,10 @@ int main(int argc, char** argv) {
     shd_driver_configure_target(&target_config, &args);
     shd_parse_target_args(&target_config, &argc, argv);
 
+    if (help)
+        exit(0);
+
+    shd_parse_help(&argc, argv, true);
     shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
     ArenaConfig aconfig = shd_default_arena_config(&target_config);

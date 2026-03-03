@@ -14,7 +14,6 @@
 void shd_parse_common_args(int* pargc, char** argv) {
     int argc = *pargc;
 
-    bool help = false;
     for (int i = 1; i < argc; i++) {
         if (argv[i] == NULL)
             continue;
@@ -42,16 +41,13 @@ void shd_parse_common_args(int* pargc, char** argv) {
                 shd_error_print("\n");
                 exit(ShdIncorrectLogLevel);
             }
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            help = true;
-            continue;
         } else {
             continue;
         }
         argv[i] = NULL;
     }
 
-    if (help) {
+    if (shd_parse_help(pargc, argv, false)) {
         shd_error_print("  --log-level debug[v[v]], info, warn, error]\n");
     }
 
@@ -77,7 +73,6 @@ F(target->capabilities.maximal_reconvergence, maximal-reconvergence) \
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
     int argc = *pargc;
 
-    bool help = false;
     for (int i = 1; i < argc; i++) {
 
         TARGET_CONFIG_TOGGLE_OPTIONS(PARSE_TOGGLE_OPTION)
@@ -110,16 +105,13 @@ void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv) {
             target->memory.address_spaces[AsPrivate].physical = false;
             target->memory.address_spaces[AsSubgroup].physical = false;
             target->memory.address_spaces[AsShared].physical = false;
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            help = true;
-            continue;
         } else {
             continue;
         }
         argv[i] = NULL;
     }
 
-    if (help) {
+    if (shd_parse_help(pargc, argv, false)) {
         shd_error_print("  --entry-point <foo>                       Selects an entry point for the program to be specialized on.\n");
         shd_error_print("  --word-size <8|16|32|64>                  Sets the word size for physical memory emulation (default=32)\n");
         shd_error_print("  --pointer-size <8|16|32|64>               Sets the pointer size for physical pointers (default=64)\n");
@@ -140,7 +132,6 @@ F(config->use_rt_pipelines_for_calls, use-rt-pipelines) \
 void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** argv) {
     int argc = *pargc;
 
-    bool help = false;
     for (int i = 1; i < argc; i++) {
         if (argv[i] == NULL)
             continue;
@@ -180,16 +171,13 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
             config->shader_diagnostics.max_top_iterations = atoi(argv[i]);
         } else if (strcmp(argv[i], "--inline-everything") == 0) {
             config->optimisations.inline_everything = true;
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            help = true;
-            continue;
         } else {
             continue;
         }
         argv[i] = NULL;
     }
 
-    if (help) {
+    if (shd_parse_help(pargc, argv, false)) {
         shd_error_print("  --shd_print-internal                          Includes internal functions in the debug output\n");
         shd_error_print("  --shd_print-generated                         Includes generated functions in the debug output\n");
         shd_error_print("  --no-dynamic-scheduling                   Disable the built-in dynamic scheduler, restricts code to only leaf functions\n");
@@ -226,6 +214,28 @@ void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv) {
 
     shd_pack_remaining_args(pargc, argv);
     assert(*pargc == 1);
+}
+
+bool shd_is_arg_help(const char* arg) {
+    return arg != NULL && (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0);
+}
+
+bool shd_parse_help(int* pargc, char** argv, bool remove) {
+    bool help = false;
+    int argc = *pargc;
+    for (int i = 1; i < argc; i++) {
+        if (shd_is_arg_help(argv[i])) {
+            help = true;
+            if (remove) {
+                argv[i] = NULL;
+            }
+        }
+    }
+    if (help && remove) {
+        shd_pack_remaining_args(pargc, argv);
+        assert(*pargc == 1);
+    }
+    return help;
 }
 
 DriverConfig shd_default_driver_config(void) {
@@ -345,8 +355,6 @@ void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv) {
     }
 
     if (help) {
-        // shd_error_print("Usage: slim source.slim\n");
-        // shd_error_print("Available arguments: \n");
         shd_error_print("  --target <c, glsl, ispc, spirv>           \n");
         shd_error_print("  --output <filename>, -o <filename>        \n");
         shd_error_print("  --dump-cfg <filename>                     Dumps the control flow graph of the final IR\n");

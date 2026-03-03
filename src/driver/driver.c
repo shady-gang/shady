@@ -39,7 +39,7 @@ SourceLanguage shd_driver_guess_source_language(const char* filename) {
     else if (shd_string_ends_with(filename, ".slim"))
         return SrcShadyIR;
 
-    shd_warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.", filename);
+    shd_warn_print("unknown filename extension '%s', interpreting as Slim sourcecode by default.\n", filename);
     return SrcSlim;
 }
 
@@ -101,7 +101,7 @@ ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig* 
 
 ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod) {
     if (shd_list_count(input_filenames) == 0) {
-        shd_error_print("Missing input file. See --help for proper usage");
+        shd_error_print("Missing input file. See --help for proper usage\n");
         return ShdMissingInputArg;
     }
 
@@ -139,7 +139,7 @@ static void assemble_pipeline(ShdPipeline pipeline, /* hack: mutable */ DriverCo
 static ShdExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
     const Node* decl = shd_module_get_exported(mod, entry_point);
     if (!decl)
-    shd_error("Cannot specialize: No function named '%s'", entry_point)
+    shd_error("Cannot specialize: No function named '%s'\n", entry_point)
     return shd_execution_model_from_entry_point(decl);
 }
 
