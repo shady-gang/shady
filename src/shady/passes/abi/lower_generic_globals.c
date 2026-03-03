@@ -1,12 +1,14 @@
-#include "shady/pass.h"
+#include "shady/passes/abi_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/decl.h"
 
 #include "log.h"
 #include "portability.h"
 
 typedef struct {
     Rewriter rewriter;
+    AddressSpace as;
 } Context;
 
 static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_UNUSED String name, const Node* node) {
@@ -22,7 +24,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                 // if this can be optimized away later we win
                 payload.is_ref = false;
                 payload = shd_rewrite_global_head_payload(r, payload);
-                payload.address_space = AsPrivate;
+                payload.address_space = ctx->as;
                 Node* new_global = shd_global_var(r->dst_module, payload);
                 const Node* converted = generic_ptr_cast_helper(a, new_global);
                 shd_register_processed(r, node, converted);
@@ -38,12 +40,13 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
     return shd_new_rewrite_result(r, shd_recreate_node(r, node));
 }
 
-Module* shd_pass_lower_generic_globals(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_generic_globals(SHADY_UNUSED const CompilerConfig* config, Module* src, AddressSpace as) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
+        .as = as,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

@@ -330,12 +330,10 @@ void shd_parse_llvm_frontend_args(LLVMFrontendConfig* config, int* pargc, char**
     shd_pack_remaining_args(pargc, argv);
 }
 
-RewritePass shd_pass_lower_generic_globals;
-RewritePass l2s_promote_byval_params;
-RewritePass shd_pass_lcssa;
-RewritePass shd_pass_scope2control;
-RewritePass shd_pass_remove_critical_edges;
-RewritePass shd_pass_reconvergence_heuristics;
+#include "shady/passes/abi_passes.h"
+#include "shady/passes/cf_passes.h"
+#include "shady/passes/scf_passes.h"
+#include "l2s_passes.h"
 
 bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* frontend_config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
     LLVMContextRef context = LLVMContextCreate();
@@ -399,19 +397,19 @@ bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* fron
     destroy_shd_intrinsics(p.intrinsics);
 
     // TODO: move this stuff outside the parser!
-    RUN_PASS(shd_pass_lower_generic_globals, NULL)
-    RUN_PASS(l2s_promote_byval_params, NULL);
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_generic_globals, AsPrivate)
+    SHADY_APPLY_REWRITE_PASS(l2s_promote_byval_params);
 
     if (frontend_config->input_cf.has_scope_annotations) {
-        // RUN_PASS(shd_pass_scope_heuristic)
-        // RUN_PASS(shd_pass_lift_everything, config)
-        RUN_PASS(shd_pass_lcssa, config)
-        RUN_PASS(shd_pass_scope2control, config)
+        // SHADY_APPLY_REWRITE_PASS(shd_pass_scope_heuristic)
+        // SHADY_APPLY_REWRITE_PASS(shd_pass_lift_everything)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lcssa)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_scope2control)
     } else if (frontend_config->input_cf.restructure_with_heuristics) {
-        RUN_PASS(shd_pass_remove_critical_edges, config)
-        RUN_PASS(shd_pass_lcssa, config)
-        // RUN_PASS(shd_pass_lift_everything)
-        RUN_PASS(shd_pass_reconvergence_heuristics, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_remove_critical_edges)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lcssa)
+        // SHADY_APPLY_REWRITE_PASS(shd_pass_lift_everything)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_reconvergence_heuristics)
     }
 
     shd_destroy_dict(p.map);

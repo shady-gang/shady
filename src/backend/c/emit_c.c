@@ -377,38 +377,28 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
 #include "shady/pipeline/pipeline.h"
 
-typedef struct {
-    AddressSpace src_as;
-    AddressSpace dst_as;
-} Global2LocalsPassConfig;
-
-/// Moves all Private allocations to Function
-RewritePass shd_pass_globals_to_locals;
-RewritePass shd_pass_eliminate_constants;
-RewritePass shd_pass_lower_workgroups;
-RewritePass shd_pass_lower_inclusive_scan;
-RewritePass shd_pass_lower_vec_arr;
-
-/// Adds calls to init and fini arrounds the entry points
-Module* shd_pass_call_init_fini(void*, Module* src);
+#include "shady/passes/opt_passes.h"
+#include "shady/passes/abi_passes.h"
+#include "shady/passes/polyfill_passes.h"
+#include "shady/passes/group_passes.h"
 
 static CompilationResult run_c_backend_transforms(const CBackendConfig* econfig, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_call_init_fini, NULL)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_call_init_fini)
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
-    RUN_PASS(shd_pass_eliminate_constants, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
     if (econfig->dialect == CDialect_ISPC) {
-        RUN_PASS(shd_pass_lower_workgroups, config)
-        RUN_PASS(shd_pass_lower_inclusive_scan, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_workgroups)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_inclusive_scan)
     }
     if (econfig->dialect == CDialect_CUDA) {
         Global2LocalsPassConfig globals2locals = {
             .src_as = AsPrivate,
             .dst_as = AsFunction,
         };
-        RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_locals, globals2locals)
     }
     if (econfig->dialect != CDialect_GLSL && econfig->dialect != CDialect_CUDA) {
-        RUN_PASS(shd_pass_lower_vec_arr, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_vec_arr)
     }
 
     return CompilationNoError;

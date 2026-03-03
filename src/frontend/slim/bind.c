@@ -1,12 +1,11 @@
+#include "slim_passes.h"
 #include "SlimFrontendOps.h"
 
-#include "shady/pass.h"
 #include "shady/fe/slim.h"
 #include "shady/ir/debug.h"
 #include "shady/analysis/uses.h"
 
-#include "../shady/ir_private.h"
-
+#include "arena.h"
 #include "list.h"
 #include "log.h"
 #include "portability.h"
@@ -26,6 +25,7 @@ typedef struct {
     Rewriter rewriter;
     const UsesMap* uses;
 
+    Arena* arena;
     NamedBindEntry* local_variables;
 } Context;
 
@@ -84,7 +84,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
 
 static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
     assert(name);
-    NamedBindEntry* entry = shd_arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
+    NamedBindEntry* entry = shd_arena_alloc(ctx->arena, sizeof(NamedBindEntry));
     *entry = (NamedBindEntry) {
         .name = shd_string(ctx->rewriter.dst_arena, name),
         .is_var = is_var,
@@ -209,6 +209,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 }
                 shd_set_abstraction_body(bbs[i], shd_rewrite_node(&cont_ctx.rewriter, get_abstraction_body(conts[i])));
             }
+            break;
         }
     }
 
@@ -351,15 +352,17 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    assert(!src->arena->config.name_bound);
+    assert(!shd_get_arena_config(shd_module_get_arena(src))->name_bound);
     aconfig.name_bound = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
+        .arena = shd_new_arena(),
+
         .local_variables = NULL,
         .uses = shd_new_uses_map_module(src, 0),
     };
@@ -367,5 +370,6 @@ Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED v
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_uses_map(ctx.uses);
+    shd_destroy_arena(ctx.arena);
     return dst;
 }

@@ -1,4 +1,4 @@
-#include "ir_private.h"
+#include "shady/passes/cf_passes.h"
 
 #include "shady/ir.h"
 #include "shady/pass.h"
@@ -187,7 +187,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* shd_pass_lcssa(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lcssa(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

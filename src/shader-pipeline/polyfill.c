@@ -1,24 +1,18 @@
 #include "shader_pipeline.h"
 
+#include "shady/passes/polyfill_passes.h"
+#include "shady/passes/ptr_passes.h"
+#include "shady/passes/group_passes.h"
+
 #include "portability.h"
 
-/// Emulates unsupported subgroup operations using subgroup memory
-RewritePass shd_pass_lower_subgroup_ops;
-/// Emulates unsupported integer datatypes and operations
-RewritePass shd_pass_lower_int;
-RewritePass shd_pass_lower_fill;
-RewritePass shd_pass_lower_nullptr;
-
-/// Lowers the abstract mask type to whatever the configured target mask representation is
-RewritePass shd_pass_lower_mask;
-
 static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_lower_int, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_int)
 
-    RUN_PASS(shd_pass_lower_mask, config)
-    RUN_PASS(shd_pass_lower_fill, config)
-    RUN_PASS(shd_pass_lower_nullptr, config)
-    RUN_PASS(shd_pass_lower_subgroup_ops, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_mask)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_fill)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_nullptr)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_ops)
 }
 
 void shd_pipeline_add_polyfills(ShdPipeline pipeline, const TargetConfig* tgt) {

@@ -1,10 +1,9 @@
+#include "shady/passes/io_passes.h"
+
 #include "shady/ir/builtin.h"
 #include "shady/ir/function.h"
 #include "shady/ir/mem.h"
 #include "shady/ir/debug.h"
-
-#include "shady/pass.h"
-
 #include "shady/ir/annotation.h"
 #include "shady/ir/decl.h"
 
@@ -107,7 +106,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_pass_promote_io_variables(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_promote_io_variables(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     // if (!config->specialization.entry_point)
     //     return src;
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));

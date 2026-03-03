@@ -1,12 +1,16 @@
-#include "shady/pass.h"
-#include "shady/ir/builtin.h"
+#include "shady/passes/abi_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/builtin.h"
+#include "shady/ir/function.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/decl.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/composite.h"
 
 #include "util.h"
 #include "portability.h"
 
-#include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 
@@ -30,6 +34,7 @@ static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;
+    const ArenaConfig* aconfig = shd_get_arena_config(a);
 
     switch (node->tag) {
         case BuiltinRef_TAG: {
@@ -67,7 +72,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // recreate the old entry point, but this time it's not the entry point anymore
                 Nodes nparams = shd_recreate_params(&ctx->rewriter, node->payload.fun.params);
                 Node* inner = function_helper(m, nparams, shd_empty(a));
-                shd_set_debug_name(inner, shd_format_string_arena(a->arena, "%s_wrapped", shd_get_node_name_safe(node)));
+                shd_set_debug_name(inner, shd_fmt_string_irarena(a, "%s_wrapped", shd_get_node_name_safe(node)));
                 shd_add_annotation_named(inner, "Leaf");
                 shd_register_processed_list(&ctx->rewriter, node->payload.fun.params, nparams);
                 shd_register_processed(&ctx->rewriter, shd_get_abstraction_mem(node), shd_get_abstraction_mem(inner));
@@ -92,10 +97,10 @@ static const Node* process(Context* ctx, const Node* node) {
                 uint32_t num_subgroups[3];
                 const Node* num_subgroups_literals[3];
                 assert(ctx->target_config->subgroup_size);
-                assert(a->config.specializations.workgroup_size[0] && a->config.specializations.workgroup_size[1] && a->config.specializations.workgroup_size[2]);
-                num_subgroups[0] = a->config.specializations.workgroup_size[0] / ctx->target_config->subgroup_size;
-                num_subgroups[1] = a->config.specializations.workgroup_size[1];
-                num_subgroups[2] = a->config.specializations.workgroup_size[2];
+                assert(aconfig->specializations.workgroup_size[0] && aconfig->specializations.workgroup_size[1] && aconfig->specializations.workgroup_size[2]);
+                num_subgroups[0] = aconfig->specializations.workgroup_size[0] / ctx->target_config->subgroup_size;
+                num_subgroups[1] = aconfig->specializations.workgroup_size[1];
+                num_subgroups[2] = aconfig->specializations.workgroup_size[2];
                 String names2[] = { "sgx", "sgy", "sgz" };
                 for (int dim = 0; dim < 3; dim++) {
                     subgroup_id[dim] = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
@@ -139,7 +144,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 // write the global ID
                 const Node* global_id[3];
                 for (int dim = 0; dim < 3; dim++)
-                    global_id[dim] = prim_op_helper(a, add_op, mk_nodes(a, prim_op_helper(a, mul_op, mk_nodes(a, shd_uint32_literal(a, a->config.specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
+                    global_id[dim] = prim_op_helper(a, add_op, mk_nodes(a, prim_op_helper(a, mul_op, mk_nodes(a, shd_uint32_literal(a, aconfig->specializations.workgroup_size[dim]), workgroup_id[dim])), local_id[dim]));
                 shd_bld_store(bb2, shd_rewrite_node(&ctx->rewriter, shd_get_or_create_builtin(ctx->rewriter.src_module, ShdBuiltinGlobalInvocationId)), composite_helper(a, vector_type(a, (VectorType) { .element_type = shd_uint32_type(a), .width = 3 }), mk_nodes(a, global_id[0], global_id[1], global_id[2])));
                 // TODO: write the subgroup ID
                 shd_bld_call(bb2, inner, wparams);
@@ -188,7 +193,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_workgroups(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_workgroups(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

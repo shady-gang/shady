@@ -1,8 +1,8 @@
-#include "shady/pass.h"
+#include "shady/passes/opt_passes.h"
+
 #include "shady/analysis/uses.h"
 
 #include "analysis/leak.h"
-#include "ir_private.h"
 
 #include "portability.h"
 #include "log.h"
@@ -55,7 +55,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case BasicBlock_TAG: {
             size_t uses = count_calls(ctx->map, old);
-            if (uses <= 1 && a->config.optimisations.inline_single_use_bbs) {
+            if (uses <= 1 && shd_get_arena_config(a)->optimisations.inline_single_use_bbs) {
                 shd_log_fmt(DEBUGVV, "Eliminating basic block '%s' since it's used only %d times.\n", shd_get_node_name_safe(old), uses);
                 *ctx->todo = true;
                 return NULL;
@@ -150,7 +150,7 @@ bool shd_opt_simplify(SHADY_UNUSED const CompilerConfig* config, Module** m) {
 OptPass shd_opt_demote_alloca;
 OptPass shd_opt_mem2reg;
 
-Module* shd_cleanup(const CompilerConfig* config, SHADY_UNUSED void* unused, Module* const src) {
+Module* shd_cleanup(const CompilerConfig* config, Module* const src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     if (!aconfig.check_types)
         return src;

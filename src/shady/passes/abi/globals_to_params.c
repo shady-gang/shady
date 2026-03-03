@@ -1,4 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/abi_passes.h"
+
 #include "shady/ir/annotation.h"
 #include "shady/ir/debug.h"
 #include "shady/ir/function.h"
@@ -144,7 +145,7 @@ static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
     return shd_default_rewriter_selector(r, n);
 }
 
-Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

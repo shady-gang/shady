@@ -1,4 +1,5 @@
 #include "join_point_ops.h"
+#include "shady/passes/fncall_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/ext.h"
@@ -159,7 +160,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_callf(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.capabilities.native_fncalls = false;
     IrArena* a = shd_new_ir_arena(&aconfig);

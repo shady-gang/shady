@@ -1,6 +1,10 @@
-#include "shady/pass.h"
+#include "slim_passes.h"
 
-#include "../shady/check.h"
+#include "shady/ir/type.h"
+#include "shady/ir/function.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/decl.h"
+#include "shady/ir/float.h"
 
 #include "log.h"
 #include "portability.h"
@@ -563,7 +567,7 @@ static const Node* process(Context* src_ctx, const Node* node) {
     assert(false);
 }
 
-Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     assert(!aconfig.check_types);
     aconfig.check_types = true;

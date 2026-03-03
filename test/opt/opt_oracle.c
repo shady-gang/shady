@@ -4,7 +4,7 @@
 #include "shady/visit.h"
 #include "shady/pass.h"
 
-RewritePass shd_cleanup;
+#include "shady/passes/opt_passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -68,7 +68,7 @@ static Module* oracle_passes(const CompilerConfig* config, Module* initial_mod) 
     IrArena* initial_arena = shd_module_get_arena(initial_mod);
     Module** pmod = &initial_mod;
 
-    RUN_PASS(shd_cleanup, config)
+    SHADY_APPLY_REWRITE_PASS(shd_cleanup)
     check_module(*pmod);
 
     return *pmod;

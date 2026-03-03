@@ -1,4 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/polyfill_passes.h"
+
 #include "shady/ir/type.h"
 #include "shady/ir/composite.h"
 #include "shady/ir/primop.h"
@@ -52,7 +53,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_vec_arr(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_vec_arr(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.validate_builtin_types = false; // TODO: hacky
     IrArena* a = shd_new_ir_arena(&aconfig);

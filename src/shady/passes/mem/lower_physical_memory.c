@@ -1,9 +1,14 @@
-#include "shady/pass.h"
+#include "shady/passes/mem_passes.h"
+
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/composite.h"
-
-#include "ir_private.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/type.h"
+#include "shady/ir/decl.h"
+#include "shady/ir/function.h"
 
 #include "log.h"
 #include "portability.h"
@@ -17,6 +22,7 @@
 typedef struct Context_ {
     Rewriter rewriter;
     const CompilerConfig* config;
+    const MemoryModel* mem_model;
 
     Nodes collected[NumAddressSpaces];
 
@@ -81,7 +87,7 @@ static const Node* load_word(Context* ctx, BodyBuilder* bb, AddressSpace as, con
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* arr = *get_emulated_as_word_array(ctx, as);
     const Node* value = shd_bld_load(bb, ptr_composite_element_helper(a, arr, offset));
-    ShdIntSize width = a->config.target.memory.word_size;
+    ShdIntSize width = ctx->mem_model->word_size;
     if (ctx->config->printf_trace.memory_accesses) {
         String template = shd_fmt_string_irarena(a, "loaded %s at %s:0x%s\n", width == ShdIntSize64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
         const Node* widened = value;
@@ -95,7 +101,7 @@ static const Node* load_word(Context* ctx, BodyBuilder* bb, AddressSpace as, con
 static void store_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Node* offset, const Node* value) {
     assert(shd_get_unqualified_type(offset->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    ShdIntSize width = a->config.target.memory.word_size;
+    ShdIntSize width = ctx->mem_model->word_size;
     if (ctx->config->printf_trace.memory_accesses) {
         String template = shd_fmt_string_irarena(a, "storing %s at %s:0x%s\n", width == ShdIntSize64 ? "%lu" : "%u", shd_get_address_space_name(as), "%lx");
         const Node* widened = value;
@@ -143,7 +149,7 @@ static Node* uint_access(Context* ctx, BodyBuilder* bb, AddressSpace as, ShdIntS
     }
 
     size_t length_in_bytes = int_size_in_bytes(width);
-    size_t word_size_in_bytes = int_size_in_bytes(a->config.target.memory.word_size);
+    size_t word_size_in_bytes = int_size_in_bytes(ctx->mem_model->word_size);
     const Node* offset = shd_bytes_to_words(bb, address);
     const Node* shift = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = 0 });
     const Node* word_bitwidth = int_literal(a, (IntLiteral) { .width = width, .is_signed = false, .value = word_size_in_bytes * 8 });
@@ -163,7 +169,7 @@ static Node* uint_access(Context* ctx, BodyBuilder* bb, AddressSpace as, ShdIntS
             case Access_Store_TAG: {
                 const Node* word = input;
                 word = (prim_op_helper(a, rshift_logical_op, mk_nodes(a, word, shift))); // shift it
-                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false }), word); // widen/truncate the word we want to store
+                word = shd_bld_conversion(bb, int_type(a, (Int) { .width = ctx->mem_model->word_size, .is_signed = false }), word); // widen/truncate the word we want to store
                 store_word(ctx, bb, as, final_offset, word);
                 break;
             }
@@ -181,7 +187,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
     assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
 
-    const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
+    const Type* word_t = int_type(a, (Int) { .width = ctx->mem_model->word_size, .is_signed = false });
     switch (element_type->tag) {
         case Int_TAG: {
             Int payload = element_type->payload.int_type;
@@ -191,7 +197,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
         }
         case Bool_TAG: {
             const Node* value = gen_load_for_type(ctx, bb, word_t, as, address);
-            return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size })));
+            return prim_op_helper(a, neq_op, mk_nodes(a, value, int_literal(a, (IntLiteral) { .value = 0, .width = ctx->mem_model->word_size })));
         }
         case PtrType_TAG: {
             TypeMemLayout layout = shd_get_mem_layout(a, element_type);
@@ -244,7 +250,7 @@ static const Node* gen_load_for_type(Context* ctx, BodyBuilder* bb, const Type* 
 static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* element_type, AddressSpace as, const Node* address, const Node* value) {
     assert(shd_get_unqualified_type(address->type) == get_shortptr_type(ctx, as));
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* word_t = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
+    const Type* word_t = int_type(a, (Int) { .width = ctx->mem_model->word_size, .is_signed = false });
     switch (element_type->tag) {
         case Int_TAG: {
             Int payload = element_type->payload.int_type;
@@ -254,8 +260,8 @@ static void gen_store_for_type(Context* ctx, BodyBuilder* bb, const Type* elemen
             return;
         }
         case Bool_TAG: {
-            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 0, .width = a->config.target.memory.word_size });
-            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 1, .width = a->config.target.memory.word_size });
+            const Node* zero_b = int_literal(a, (IntLiteral) { .value = 0, .width = ctx->mem_model->word_size });
+            const Node* one_b =  int_literal(a, (IntLiteral) { .value = 1, .width = ctx->mem_model->word_size });
             const Node* int_value = prim_op_helper(a, select_op, mk_nodes(a, value, one_b, zero_b));
             gen_store_for_type(ctx, bb, word_t, as, address, int_value);
             return;
@@ -327,7 +333,7 @@ static const Node* get_emulating_function(Context* ctx, const Node* old_op) {
     if (found)
         return *found;
 
-    const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_type = int_type(a, (Int) { .width = ctx->mem_model->ptr_size, .is_signed = false });
     const Node* address_param = param_helper(a, qualified_type(a, (QualifiedType) { .scope = address_scope, .type = emulated_ptr_type }));
     shd_set_debug_name(address_param, "ptr");
 
@@ -422,7 +428,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
 
             AddressSpace as = ptr_type->payload.ptr_type.address_space;
             const Node* element_type = ptr_type->payload.ptr_type.pointed_type;
-            assert(shd_get_type_bitwidth(element_type) == int_size_in_bytes(a->config.target.memory.word_size) * 8);
+            assert(shd_get_type_bitwidth(element_type) == int_size_in_bytes(ctx->mem_model->word_size) * 8);
 
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, old_payload.mem));
 
@@ -441,7 +447,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
                 //.ops = shd_rewrite_nodes(r, old_payload.ops),
             };
 
-            const Type* word_type = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
+            const Type* word_type = int_type(a, (Int) { .width = ctx->mem_model->word_size, .is_signed = false });
             LARRAY(const Node*, nops, old_payload.ops.count);
             for (size_t i = 0; i < old_payload.ops.count; i++) {
                 nops[i] = shd_rewrite_node(r, old_payload.ops.nodes[i]);
@@ -459,7 +465,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
         }
         case PtrType_TAG: {
             if (!old->payload.ptr_type.is_reference && is_as_emulated(ctx, old->payload.ptr_type.address_space))
-                return int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+                return int_type(a, (Int) { .width = ctx->mem_model->ptr_size, .is_signed = false });
             break;
         }
         case NullPtr_TAG: {
@@ -510,7 +516,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
 
     String as_name = shd_get_address_space_name(as);
     Node* global_struct_t = struct_type_helper(a, 0);
-    shd_set_debug_name(global_struct_t, shd_format_string_arena(a->arena, "globals_physical_%s_t", as_name));
+    shd_set_debug_name(global_struct_t, shd_fmt_string_irarena(a, "globals_physical_%s_t", as_name));
     shd_add_annotation_named(global_struct_t, "Generated");
 
     LARRAY(String, member_names, collected.count);
@@ -524,7 +530,7 @@ static const Node* make_record_type(Context* ctx, AddressSpace as, Nodes collect
         member_names[i] = shd_get_node_name_safe(decl);
 
         // Turn the old global variable into a pointer (which are also now integers)
-        const Type* emulated_ptr_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+        const Type* emulated_ptr_type = int_type(a, (Int) { .width = ctx->mem_model->ptr_size, .is_signed = false });
         Node* new_address = constant_helper(m, emulated_ptr_type);
         shd_set_debug_name(new_address, shd_get_node_name_safe(decl));
         shd_rewrite_annotations(r, decl, new_address);
@@ -572,8 +578,8 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
     Module* m = ctx->rewriter.dst_module;
     String as_name = shd_get_address_space_name(as);
 
-    const Type* word_type = int_type(a, (Int) { .width = a->config.target.memory.word_size, .is_signed = false });
-    const Type* ptr_size_type = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = ctx->mem_model->word_size, .is_signed = false });
+    const Type* ptr_size_type = int_type(a, (Int) { .width = ctx->mem_model->ptr_size, .is_signed = false });
 
     ctx->collected[as] = collect_globals(ctx, as);
     if (ctx->collected[as].count == 0) {
@@ -611,7 +617,7 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
         .type = words_array_type,
         .is_ref = !ctx->config->lower.use_scratch_for_private
     });
-    String name = shd_format_string_arena(a->arena, "memory_%s", as_name);
+    String name = shd_fmt_string_irarena(a, "memory_%s", as_name);
     shd_set_debug_name(words_array, name);
     shd_add_annotation_named(words_array, "Generated");
 
@@ -627,11 +633,16 @@ static void construct_emulated_memory_array(Context* ctx, AddressSpace as) {
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
-Module* shd_pass_lower_physical_memory(const CompilerConfig* config, const TargetConfig* target, Module* src) {
+Module* shd_pass_lower_physical_memory(const CompilerConfig* config, Module* src, const MemoryModel* target_memory_model) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     for (int i = 0; i < NumAddressSpaces; i++) {
-        aconfig.target.memory.address_spaces[i].physical = target->memory.address_spaces[i].physical;
+        aconfig.target.memory.address_spaces[i].physical = target_memory_model->address_spaces[i].physical;
     }
+    assert(aconfig.target.memory.fn_ptr_size == target_memory_model->fn_ptr_size);
+    assert(aconfig.target.memory.ptr_size == target_memory_model->ptr_size);
+    assert(aconfig.target.memory.exec_mask_size == target_memory_model->exec_mask_size);
+    assert(aconfig.target.memory.max_align == target_memory_model->max_align);
+    assert(aconfig.target.memory.word_size == target_memory_model->word_size);
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -639,13 +650,14 @@ Module* shd_pass_lower_physical_memory(const CompilerConfig* config, const Targe
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process_node),
         .config = config,
+        .mem_model = &aconfig.target.memory,
     };
 
     if (is_as_emulated(&ctx, AsPrivate))
         construct_emulated_memory_array(&ctx, AsPrivate);
-    if (is_as_emulated(&ctx, AsSubgroup) && dst->arena->config.target.memory.address_spaces[AsSubgroup].allowed)
+    if (is_as_emulated(&ctx, AsSubgroup) && aconfig.target.memory.address_spaces[AsSubgroup].allowed)
         construct_emulated_memory_array(&ctx, AsSubgroup);
-    if (is_as_emulated(&ctx, AsSubgroup) && dst->arena->config.target.memory.address_spaces[AsShared].allowed)
+    if (is_as_emulated(&ctx, AsSubgroup) && aconfig.target.memory.address_spaces[AsShared].allowed)
         construct_emulated_memory_array(&ctx, AsShared);
 
     ctx.fns = shd_new_dict(String, Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string);

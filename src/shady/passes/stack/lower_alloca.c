@@ -1,9 +1,13 @@
-#include "shady/pass.h"
+#include "shady/passes/stack_passes.h"
+
 #include "shady/visit.h"
 #include "shady/ir/stack.h"
 #include "shady/ir/cast.h"
-
-#include "ir_private.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/type.h"
+#include "shady/ir/function.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/annotation.h"
 
 #include "log.h"
 #include "portability.h"
@@ -96,7 +100,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_set_debug_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
             Node* nom_t = struct_type_helper(a, 0);
-            shd_set_debug_name(nom_t, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_node_name_safe(node)));
+            shd_set_debug_name(nom_t, shd_fmt_string_irarena(a, "%s_stack_frame", shd_get_node_name_safe(node)));
             VContext vctx = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
@@ -170,7 +174,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_alloca(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

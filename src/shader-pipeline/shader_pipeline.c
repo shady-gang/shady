@@ -12,7 +12,7 @@ void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const TargetConfig*
 
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline);
 
-static Module* specialize_target_config(SHADY_UNUSED const CompilerConfig* config, TargetConfig* target_config, Module* src) {
+static Module* specialize_target_config(SHADY_UNUSED const CompilerConfig* config, Module* src, TargetConfig* target_config) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.subgroup_size = target_config->subgroup_size;
     //specialize_arena_config(*em, &aconfig.target);
@@ -27,7 +27,7 @@ static Module* specialize_target_config(SHADY_UNUSED const CompilerConfig* confi
 }
 
 static CompilationResult specialize_target_config_step(TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(specialize_target_config, (void*) target_config);
+    SHADY_APPLY_REWRITE_PASS(specialize_target_config, (void*) target_config);
     return CompilationNoError;
 }
 

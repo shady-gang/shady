@@ -1,8 +1,11 @@
-#include "shady/pass.h"
-#include "shady/ir/cast.h"
-#include "shady/ir/memory_layout.h"
+#include "shady/passes/ptr_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/cast.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/memory_layout.h"
+#include "shady/ir/function.h"
+#include "shady/ir/mem.h"
 
 #include "log.h"
 #include "portability.h"
@@ -13,6 +16,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    const MemoryModel* mem_model;
     const Node* generic_ptr_type;
     struct Dict* fns;
     const CompilerConfig* config;
@@ -46,7 +50,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
-    const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false});
+    const Node* generic_ptr_type = int_type(a, (Int) {.width = ctx->mem_model->ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
     const Node* first_non_tag_bit = prim_op_helper(a, rshift_logical_op, mk_nodes(a, nptr, size_t_literal(a, shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
@@ -70,7 +74,7 @@ static bool allowed(Context* ctx, AddressSpace as) {
     if (as == AsGeneric)
         return false;
     // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
-    if (!ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].allowed)
+    if (!ctx->mem_model->address_spaces[as].physical || !ctx->mem_model->address_spaces[as].allowed)
         return false;
     return true;
 }
@@ -283,14 +287,15 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
-Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .mem_model = &aconfig.target.memory,
         .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
-        .generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false}),
+        .generic_ptr_type = int_type(a, (Int) { .width = aconfig.target.memory.ptr_size, .is_signed = false}),
         .config = config,
     };
     shd_rewrite_module(&ctx.rewriter);

@@ -1,8 +1,7 @@
-#include "shady/pass.h"
+#include "shady/passes/scf_passes.h"
 
 #include "shady/rewrite.h"
 
-#include "ir_private.h"
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
 
@@ -230,7 +229,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                     const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
 
                     Node* wrapper = basic_block_helper(a, wrapper_params);
-                    shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_node_name_safe(dst)));
+                    shd_set_debug_name(wrapper, shd_fmt_string_irarena(a, "wrapper_to_%s", shd_get_node_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,
@@ -304,7 +303,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_scope2control(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_scope2control(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);

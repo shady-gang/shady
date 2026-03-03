@@ -1,8 +1,11 @@
-#include "shady/pass.h"
+#include "shady/passes/mem_passes.h"
+
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
-
-#include "ir_private.h"
+#include "shady/ir/type.h"
+#include "shady/ir/function.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/debug.h"
 
 #include "log.h"
 #include "portability.h"
@@ -18,11 +21,12 @@ static const Node* process(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
     Module* m = r->dst_module;
+    const ArenaConfig* aconfig = shd_get_arena_config(a);
 
     switch (old->tag) {
         case CopyBytes_TAG: {
             CopyBytes payload = old->payload.copy_bytes;
-            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.target.memory.word_size });
+            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = aconfig->target.memory.word_size });
 
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 
@@ -79,17 +83,17 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* src_type = src_value->type;
             shd_deconstruct_qualified_type(&src_type);
             assert(src_type->tag == Int_TAG);
-            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = a->config.target.memory.word_size });
+            const Type* word_type = int_type(a, (Int) { .is_signed = false, .width = aconfig->target.memory.word_size });
 
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
 
             // widen convert the pattern to match the word size...
             size_t value_size = int_size_in_bytes(src_type->payload.int_type.width);
-            size_t req_value__size = int_size_in_bytes(a->config.target.memory.word_size);
+            size_t req_value__size = int_size_in_bytes(aconfig->target.memory.word_size);
             src_value = shd_convert_int_zero_extend(a, word_type, src_value);
             assert(value_size <= req_value__size);
             while (value_size < req_value__size) {
-                const Node* shifted = prim_op_helper(a, lshift_op, mk_nodes(a, src_value, int_literal_helper(a, a->config.target.memory.word_size, false, value_size * 8)));
+                const Node* shifted = prim_op_helper(a, lshift_op, mk_nodes(a, src_value, int_literal_helper(a, aconfig->target.memory.word_size, false, value_size * 8)));
                 src_value = prim_op_helper(a, or_op, mk_nodes(a, shifted, src_value));
                 value_size *= 2;
             }
@@ -135,7 +139,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_memcpy(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_memcpy(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

@@ -1,7 +1,7 @@
-#include "shady/pass.h"
-#include "shady/ir/cast.h"
+#include "shady/passes/ptr_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/cast.h"
+#include "shady/ir/type.h"
 
 #include "log.h"
 #include "portability.h"
@@ -10,17 +10,17 @@
 
 typedef struct {
     Rewriter rewriter;
-    const TargetConfig* final_target_config;
+    const MemoryModel* target_mem_model;
 } Context;
 
 static bool is_as_emulated(Context* ctx, AddressSpace as) {
     // if something is not physical in the final target, we need to lower it now
-    return !ctx->final_target_config->memory.address_spaces[as].physical;
+    return !ctx->target_mem_model->address_spaces[as].physical;
 }
 
 static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* index) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = ctx->target_mem_model->ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Type* pointed_type = pointer_type->payload.ptr_type.pointed_type;
@@ -53,7 +53,7 @@ static const Node* lower_ptr_index(Context* ctx, BodyBuilder* bb, const Type* po
 
 static const Node* lower_ptr_offset(Context* ctx, BodyBuilder* bb, const Type* pointer_type, const Node* base, const Node* offset) {
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = ctx->target_mem_model->ptr_size, .is_signed = false });
     assert(pointer_type->tag == PtrType_TAG);
 
     const Node* ptr = base;
@@ -80,7 +80,7 @@ static const Node* process(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    const Type* emulated_ptr_t = int_type(a, (Int) { .width = a->config.target.memory.ptr_size, .is_signed = false });
+    const Type* emulated_ptr_t = int_type(a, (Int) { .width = ctx->target_mem_model->ptr_size, .is_signed = false });
 
     switch (old->tag) {
         case PtrArrayElementOffset_TAG: {
@@ -131,14 +131,15 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_lea(const CompilerConfig* config, const TargetConfig* final_target_config, Module* src) {
+Module* shd_pass_lower_lea(SHADY_UNUSED const CompilerConfig* config, Module* src, const MemoryModel* target_mem_model) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
+    assert(aconfig.target.memory.ptr_size == target_mem_model->ptr_size);
     aconfig.optimisations.weaken_bitcast_to_lea = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .final_target_config = final_target_config,
+        .target_mem_model = target_mem_model,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

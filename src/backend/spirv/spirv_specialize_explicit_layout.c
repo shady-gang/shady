@@ -1,9 +1,9 @@
-#include <shady/ir/composite.h>
+#include "spirv_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/decl.h"
-#include "shady/ir/annotation.h"
+#include "shady/ir/composite.h"
 #include "shady/ir/function.h"
 #include "shady/ir/debug.h"
 
@@ -129,7 +129,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_spvbe_pass_specialize_explicit_layout(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+Module* shd_spvbe_pass_specialize_explicit_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

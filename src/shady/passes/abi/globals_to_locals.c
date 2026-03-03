@@ -1,4 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/abi_passes.h"
+
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/function.h"
 #include "shady/ir/builtin.h"
@@ -10,12 +11,6 @@
 #include "log.h"
 #include "portability.h"
 #include "shady/ir/mem.h"
-
-
-typedef struct {
-    AddressSpace src_as;
-    AddressSpace dst_as;
-} Global2LocalsPassConfig;
 
 typedef struct {
     Rewriter rewriter;
@@ -269,14 +264,14 @@ static Rewriter* rewrite_globals_in_local_ctx(Context* ctx, const Node* n) {
     return shd_default_rewriter_selector(&ctx->rewriter, n);
 }
 
-Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, const Global2LocalsPassConfig* pass_config, Module* src) {
+Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, Module* src, Global2LocalsPassConfig pass_config) {
     IrArena* oa = shd_module_get_arena(src);
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .pass_config = *pass_config,
+        .pass_config = pass_config,
     };
     ctx.rewriter.select_rewriter_fn = (SelectRewriterFn*) rewrite_globals_in_local_ctx;
 

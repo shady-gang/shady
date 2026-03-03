@@ -1,4 +1,5 @@
 #include "join_point_ops.h"
+#include "shady/passes/fncall_passes.h"
 
 #include "shady/pass.h"
 #include "shady/visit.h"
@@ -212,7 +213,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lift_indirect_targets(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = NULL;
     Module* dst;

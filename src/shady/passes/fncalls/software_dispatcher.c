@@ -1,7 +1,6 @@
 #include "join_point_ops.h"
-#include "ir_private.h"
+#include "shady/passes/fncall_passes.h"
 
-#include "shady/pass.h"
 #include "shady/ir/stack.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/builtin.h"
@@ -330,7 +329,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* shd_pass_lower_tailcalls(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_tailcalls(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.target.capabilities.native_tailcalls = false;
     IrArena* a = shd_new_ir_arena(&aconfig);

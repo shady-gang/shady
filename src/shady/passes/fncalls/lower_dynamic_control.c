@@ -1,5 +1,5 @@
 #include "join_point_ops.h"
-#include "ir_private.h"
+#include "shady/passes/fncall_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/stack.h"
@@ -98,7 +98,7 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_remove_annotation_by_name(old, "Exported");
 
             Node* fun = shd_recreate_node_head(r, old);
-            shd_set_debug_name(fun, shd_format_string_arena(a->arena, "%s_indirect", shd_get_node_name_safe(old)));
+            shd_set_debug_name(fun, shd_fmt_string_irarena(a, "%s_indirect", shd_get_node_name_safe(old)));
             shd_rewrite_annotations(r, old, fun);
 
             shd_register_processed(&ctx->rewriter, old, fun);
@@ -226,7 +226,7 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* shd_pass_lower_dynamic_control(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_dynamic_control(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

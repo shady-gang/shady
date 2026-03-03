@@ -1617,12 +1617,8 @@ static bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-RewritePass shd_pass_lower_generic_globals;
-RewritePass l2s_promote_byval_params;
-RewritePass shd_pass_lcssa;
-RewritePass shd_pass_scope2control;
-RewritePass shd_pass_remove_critical_edges;
-RewritePass shd_pass_reconvergence_heuristics;
+#include "shady/passes/cf_passes.h"
+#include "shady/passes/scf_passes.h"
 
 S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
     ArenaConfig aconfig = shd_default_arena_config(target_config);
@@ -1655,9 +1651,9 @@ S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* targe
     shd_destroy_arena(parser.decorations_arena);
     free(parser.defs);
 
-    RUN_PASS(shd_pass_remove_critical_edges, config)
-    RUN_PASS(shd_pass_lcssa, config)
-    RUN_PASS(shd_pass_reconvergence_heuristics, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_remove_critical_edges)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lcssa)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_reconvergence_heuristics)
 
     return S2S_Success;
 }

@@ -343,27 +343,10 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
 
 #include "shady/pipeline/pipeline.h"
 
-/// Moves all Private allocations to Function
-RewritePass shd_pass_globals_to_locals;
-/// Rewrites globals as kernel parameters
-RewritePass shd_pass_globals_to_params;
-RewritePass shd_spv_lower_entrypoint_args;
-/// Avoids some implementation bugs
-RewritePass shd_spvbe_pass_remove_bda_params;
-/// Makes sure to only use explicit-layout structs where allowed
-RewritePass shd_spvbe_pass_specialize_explicit_layout;
-
-RewritePass shd_pass_mark_leaf_functions;
-RewritePass shd_pass_eliminate_constants;
-RewritePass shd_lower_to_callable_shaders;
-
-/// Adds calls to init and fini arrounds the entry points
-Module* shd_pass_call_init_fini(void*, Module* src);
-
-typedef struct {
-    AddressSpace src_as;
-    AddressSpace dst_as;
-} Global2LocalsPassConfig;
+#include "shady/passes/abi_passes.h"
+#include "shady/passes/opt_passes.h"
+#include "shady/passes/fncall_passes.h"
+#include "spirv_passes.h"
 
 typedef struct {
     const TargetConfig* target;
@@ -371,28 +354,28 @@ typedef struct {
 } SPVBackendPipelineOptions;
 
 static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_call_init_fini, config)
-    RUN_PASS(shd_pass_globals_to_params, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_call_init_fini)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_params)
     Global2LocalsPassConfig globals2locals = {
         .src_as = AsPrivate,
         .dst_as = AsFunction,
     };
-    RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
-    RUN_PASS(shd_spv_lower_entrypoint_args, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_locals, globals2locals)
+    SHADY_APPLY_REWRITE_PASS(shd_spv_lower_entrypoint_args)
     if (options->backend->hacks.avoid_spirv_cross_broken_bda_pointers)
-        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
-    RUN_PASS(shd_pass_eliminate_constants, config)
+        SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
 
     //if (options->target->capabilities.rt_pipelines) {
     if (options->target->execution_model == ShdExecutionModelRayGeneration) {
         // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
-        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
-        RUN_PASS(shd_pass_mark_leaf_functions, config)
-        RUN_PASS(shd_lower_to_callable_shaders, config)
+        SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_mark_leaf_functions)
+        SHADY_APPLY_REWRITE_PASS(shd_lower_to_callable_shaders)
     }
 
-    RUN_PASS(shd_spvbe_pass_specialize_explicit_layout, config)
-    RUN_PASS(shd_pass_import, config)
+    SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_specialize_explicit_layout)
+    SHADY_APPLY_REWRITE_PASS(shd_import)
 
     return CompilationNoError;
 }

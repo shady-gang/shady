@@ -1,4 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/group_passes.h"
+
 #include "shady/ir/type.h"
 
 #include "log.h"
@@ -96,11 +97,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-/// Transforms
-/// SpvOpGroupXXX(Scope, 'GroupOperationInclusiveScan', v)
-/// into
-/// SpvOpGroupXXX(Scope, 'GroupOperationExclusiveScan', v) op v
-Module* shd_pass_lower_inclusive_scan(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_inclusive_scan(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
