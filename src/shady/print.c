@@ -888,6 +888,11 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         }
     }
 
+    String t = NULL;
+    if (node->type && is_value(node)) {
+        t = emit_node(ctx, node->type);
+    }
+
     if (shd_growy_size(destination_growy) > 0)
         shd_print(destination_printer, "\n");
 
@@ -904,10 +909,8 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     shd_print(destination_printer, "%s", printed_node_name);
     shd_print(destination_printer, RESET);
-    if (node->type && is_value(node)) {
-        String t = emit_node(ctx, node->type);
+    if (t)
         shd_print(destination_printer, ": %s", t);
-    }
     shd_print(destination_printer, " = %s", printed_node);
 
     free((void*) printed_node);
