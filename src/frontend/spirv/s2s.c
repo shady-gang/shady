@@ -704,10 +704,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Typ;
             const Type* return_t = get_def_type(parser, instruction[2]);
             if (return_t != unit_type(a))
-                return_t = qualified_type_helper(a, a->config.target.scopes.bottom, return_t);
+                return_t = qualified_type_helper(a, a->config.rules.scopes.bottom, return_t);
             LARRAY(const Type*, param_ts, size - 3);
             for (size_t i = 0; i < size - 3; i++)
-                param_ts[i] = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[3 + i]));
+                param_ts[i] = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, instruction[3 + i]));
             parser->defs[result].node = fn_type(parser->arena, (FnType) {
                 .return_types = (return_t == unit_type(parser->arena)) ? shd_empty(parser->arena) : shd_singleton(return_t),
                 .param_types = shd_nodes(parser->arena, size - 3, param_ts)
@@ -967,9 +967,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
-            ShdScope scope = shd_get_arena_config(a)->target.scopes.bottom;
+            ShdScope scope = shd_get_arena_config(a)->rules.scopes.bottom;
             if (parser->is_entry_pt)
-                scope = shd_get_arena_config(a)->target.scopes.constants;
+                scope = shd_get_arena_config(a)->rules.scopes.constants;
             parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, scope, get_def_type(parser, result_t)));
             break;
         }
@@ -1025,7 +1025,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, get_def_type(parser, result_t)));
+            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, get_def_type(parser, result_t)));
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
@@ -1191,7 +1191,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, atomic_access(a, (AtomicAccess) {
                 .mem = shd_bld_mem(parser->current_block.builder),
                 .ptr = get_def_ssa_value(parser, spv_operands[0]),
-                .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                .result_t = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t)),
                 .op = op,
                 .scope = get_def_ssa_value(parser, spv_operands[1]),
                 .semantics = get_def_ssa_value(parser, spv_operands[2]),
@@ -1409,7 +1409,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             else {
                 const Type* t = NULL;
                 if (has_result) {
-                    t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t));
+                    t = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t));
                 }
                 const Node* ext_op = shd_make_ext_spv_op(a, set, opcode, has_result, t, num_args);
                 parser->defs[result].node = shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
@@ -1568,7 +1568,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 LARRAY(const Node*, operands, size - 3);
                 for (size_t i = 0; i < size - 3; i++)
                     operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
-                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)), size - 3);
+                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t)), size - 3);
                 parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
                     .def = unknown_op,
@@ -1621,7 +1621,8 @@ static bool compare_spvid(SpvId* pa, SpvId* pb) {
 #include "shady/passes/scf_passes.h"
 
 S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
-    ArenaConfig aconfig = shd_default_arena_config(target_config);
+    MachineRules rules = get_machine_rules_from_target_config(target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     IrArena* a = shd_new_ir_arena(&aconfig);
     *pmod = shd_new_module(a, name);
 

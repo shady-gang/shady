@@ -669,7 +669,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                         const Node* final_op = ext_op_def(a, (ExtOpDef) {
                             .set = "spirv.core",
                             .has_result = true,
-                            .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, t),
+                            .result_t = qualified_type_helper(a, a->config.rules.scopes.bottom, t),
                             .opcode = meta_instruction->ext_op.op_code,
                             .ops_pattern = pattern,
                         });

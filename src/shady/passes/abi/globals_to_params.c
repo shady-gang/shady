@@ -60,6 +60,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
             fn_ctx.rewriter = shd_create_children_rewriter(r);
             fn_ctx.bb = shd_bld_begin(a, shd_get_abstraction_mem(newfun));
             if (shd_lookup_annotation(node, "EntryPoint")) {
+                ExecutionModelInfo exec_info = shd_get_execution_model_info_from_entry_point(node);
                 // copy the params
                 for (size_t i = 0; i < ctx->extra_globals.count; i++) {
                     const Node* value = ctx->extra_params.nodes[i];
@@ -69,7 +70,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                     if (scratch) {
                         // we need to map to the correct stack...
                         const Node* global_thread_offset;
-                        if (shd_is_rt_execution_model(shd_get_arena_config(ctx->rewriter.src_arena)->target.execution_model)) {
+                        if (shd_is_rt_execution_model(exec_info.execution_model)) {
                             const Node* launch_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinLaunchSizeKHR);
                             //const Node* launch_width = prim_op_helper(a, extract_op, mk_nodes(a, launch_size, shd_uint32_literal(a, 0)));
                             const Node* launch_height = shd_extract_literal(a, launch_size, 1);
@@ -81,7 +82,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                             const Node* launch_z = shd_extract_literal(a, launch_id, 2);
                             global_thread_offset = add(launch_z, mul(launch_depth, add(launch_y, mul(launch_height, launch_x))));
                         } else {
-                            const Node* total_workgroup_size = shd_uint32_literal(a, shd_get_arena_config(a)->specializations.workgroup_size[0] * shd_get_arena_config(a)->specializations.workgroup_size[1] * shd_get_arena_config(a)->specializations.workgroup_size[2]);
+                            const Node* total_workgroup_size = shd_uint32_literal(a, exec_info.grid_based.workgroup_size[0] * exec_info.grid_based.workgroup_size[1] * exec_info.grid_based.workgroup_size[2]);
                             const Node* num_workgroups = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinNumWorkgroups);
                             //const Node* num_workgroups_x = prim_op_helper(a, extract_op, mk_nodes(a, num_workgroups, shd_uint32_literal(a, 0)));
                             const Node* num_workgroups_y = shd_extract_literal(a, num_workgroups, 1);
@@ -171,7 +172,7 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
             .type = t,
             .is_ref = true,
         });
-        const Node* p = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, t));
+        const Node* p = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, t));
         if (name) {
             shd_set_debug_name(p, name);
             shd_set_debug_name(g, name);

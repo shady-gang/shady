@@ -263,7 +263,7 @@ static SpvId emit_ext_op(Emitter* emitter, FnBuilder* fn_builder, BBBuilder bb_b
                 assert(arguments.count == 2);
                 // SpvId scope_subgroup = spv_emit_value(emitter, fn_builder, int32_literal(emitter->arena, SpvScopeSubgroup));
                 // ad-hoc extension for my sanity
-                assert(shd_get_arena_config(emitter->arena)->target.memory.exec_mask_size == ShdIntSize64);
+                assert(shd_get_arena_config(emitter->arena)->rules.exec_mask_size == ShdIntSize64);
                 const Type* i32x4 = vector_type(emitter->arena, (VectorType) { .width = 4, .element_type = shd_uint32_type(emitter->arena) });
                 SpvId raw_result = spvb_group_ballot(bb_builder, spv_emit_type(emitter, i32x4), spv_emit_value(emitter, fn_builder, arguments.nodes[1]), spv_emit_value(emitter, fn_builder, shd_first(arguments)));
                 // TODO: why are we doing this in SPIR-V and not the IR ?
@@ -627,7 +627,7 @@ static SpvId spv_emit_value_(Emitter* emitter, FnBuilder* fn_builder, BBBuilder 
             if (as == AsUInput || as == AsInput) {
                 const Type* element_type = shd_get_builtin_type(emitter->arena, payload.builtin);
                 shd_deconstruct_maybe_vector_type(&element_type);
-                if (element_type->tag == Int_TAG && emitter->target->execution_model == ShdExecutionModelFragment)
+                if (element_type->tag == Int_TAG && emitter->exec_info && emitter->exec_info->execution_model == ShdExecutionModelFragment)
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationFlat, 0, NULL);
             }
             shd_spv_register_interface(emitter, node, given_id);

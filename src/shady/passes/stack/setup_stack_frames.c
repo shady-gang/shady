@@ -27,7 +27,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case Function_TAG: {
             Node* fun = shd_recreate_node_head(r, node);
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
+            ctx2.disable_lowering = false;
 
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             if (!ctx2.disable_lowering) {

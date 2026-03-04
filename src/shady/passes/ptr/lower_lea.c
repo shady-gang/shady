@@ -10,7 +10,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    const MemoryModel* target_mem_model;
+    const PtrModel* target_mem_model;
 } Context;
 
 static bool is_as_emulated(Context* ctx, AddressSpace as) {
@@ -131,9 +131,9 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_lea(SHADY_UNUSED const CompilerConfig* config, Module* src, const MemoryModel* target_mem_model) {
+Module* shd_pass_lower_lea(SHADY_UNUSED const CompilerConfig* config, Module* src, const PtrModel* target_mem_model) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    assert(aconfig.target.memory.ptr_size == target_mem_model->ptr_size);
+    assert(aconfig.rules.ptr.ptr_size == target_mem_model->ptr_size);
     aconfig.optimisations.weaken_bitcast_to_lea = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

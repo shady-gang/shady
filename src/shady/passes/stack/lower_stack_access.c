@@ -39,7 +39,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
+    const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->rules.scopes.bottom, .type = element_type });
 
     const Node* value_param = NULL;
     if (push) {
@@ -173,7 +173,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, Module* src, uint32_t per_thread_stack_size) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -187,11 +187,11 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, S
         .pop = shd_new_node2node(),
     };
 
-    if (config->per_thread_stack_size > 0) {
+    if (per_thread_stack_size > 0) {
         const Type* stack_base_element = shd_uint8_type(a);
         const Type* stack_arr_type = arr_type(a, (ArrType) {
-                .element_type = stack_base_element,
-                .size = shd_uint32_literal(a, config->per_thread_stack_size),
+            .element_type = stack_base_element,
+            .size = shd_uint32_literal(a, per_thread_stack_size),
         });
         const Type* stack_counter_t = shd_uint32_type(a);
 

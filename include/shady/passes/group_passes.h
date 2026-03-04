@@ -13,6 +13,7 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_inclusive_scan)
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_mask)
 
 /// Lowers subgroup variables to shared memory
+/// Also bans subgroup memory from being used in the module going forward.
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_subgroup_vars)
 
 /// Emulates certain subgroup operations

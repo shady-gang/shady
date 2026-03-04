@@ -129,13 +129,13 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
             if (exiting_nodes_count > 1)
                 exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(a));
 
-            const Node* join_token_exit = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
+            const Node* join_token_exit = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, join_point_type(a, (JoinPointType) {
                     .yield_types = shd_empty(a)
             })));
             shd_set_debug_name(join_token_exit, "jp_exit");
 
             const Node* join_token_continue = param_helper(a,
-                                                    qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
+                                                    qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, join_point_type(a, (JoinPointType) {
                                                             .yield_types = inner_yield_types
                                                     })));
             shd_set_debug_name(join_token_continue, "jp_continue");
@@ -374,7 +374,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 exit_args = shd_nodes(a, old_params.count, inner_args);
             }
 
-            const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, join_point_type(a, (JoinPointType) {
+            const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, join_point_type(a, (JoinPointType) {
                     .yield_types = yield_types
             })));
             shd_set_debug_name(join_token, "jp_postdom");

@@ -87,7 +87,7 @@ size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t
 }
 
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
-    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
+    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->rules.memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
         case FnType_TAG:  shd_error("Functions have an opaque memory representation");
@@ -98,7 +98,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsShared:
             case AsGlobal:
             case AsGeneric: {
-                size_t size_in_bytes = int_size_in_bytes(shd_get_arena_config(a)->target.memory.ptr_size);
+                size_t size_in_bytes = int_size_in_bytes(shd_get_arena_config(a)->rules.ptr.ptr_size);
                 return (TypeMemLayout) {
                     .type = type,
                     .alignment_in_bytes = size_in_bytes,
@@ -159,7 +159,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
 
 const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bytes->arena;
-    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.word_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->rules.memory.word_size, .is_signed = false });
     size_t word_width = shd_get_type_bitwidth(word_type);
     const Type* bytes_t = shd_get_unqualified_type(bytes->type);
     assert(bytes_t->tag == Int_TAG);
@@ -168,7 +168,7 @@ const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
 }
 
 uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes) {
-    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
+    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->rules.memory.word_size);
     return bytes / word_width;
 }
 
@@ -187,9 +187,9 @@ size_t shd_get_type_bitwidth(const Type* t) {
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
             if (t->payload.ptr_type.address_space == AsCode)
-                return int_size_in_bytes(aconfig->target.memory.fn_ptr_size) * 8;
-            if (aconfig->target.memory.address_spaces[t->payload.ptr_type.address_space].physical)
-                return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
+                return int_size_in_bytes(aconfig->rules.memory.fn_ptr_size) * 8;
+            if (aconfig->rules.ptr.address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->rules.ptr.ptr_size) * 8;
             break;
         }
         case VectorType_TAG: {

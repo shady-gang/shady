@@ -50,7 +50,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
+                t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
         }
         nvars[i] = param_helper(a, t);
         assert(nvars[i]->tag == Param_TAG);
@@ -226,7 +226,7 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                         .yield_types = yield_types
                     });
                     // TODO: shouldn't this be 'gang'
-                    const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
+                    const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, jp_type));
 
                     Node* wrapper = basic_block_helper(a, wrapper_params);
                     shd_set_debug_name(wrapper, shd_fmt_string_irarena(a, "wrapper_to_%s", shd_get_node_name_safe(dst)));

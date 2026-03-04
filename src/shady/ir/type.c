@@ -271,7 +271,7 @@ bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 }
 
 const Type* shd_get_exec_mask_type(IrArena* arena) {
-    return int_type_helper(arena, arena->config.target.memory.exec_mask_size, false);
+    return int_type_helper(arena, arena->config.rules.exec_mask_size, false);
 }
 
 String shd_get_type_name(IrArena* arena, const Type* t) {

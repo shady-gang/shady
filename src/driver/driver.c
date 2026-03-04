@@ -121,14 +121,11 @@ ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const
 }
 
 /// Fills the pipeline with the required passes for the selected backends
-static void assemble_pipeline(ShdPipeline pipeline, /* hack: mutable */ DriverConfig* driver_config, const TargetConfig* target_config) {
-    if (driver_config->target_type != TgtNone)
-        shd_pipeline_add_shader_target_lowering(pipeline, target_config, &driver_config->config);
-
+static void assemble_pipeline(ShdPipeline pipeline, const DriverConfig* driver_config, const TargetConfig* target_config) {
     switch (driver_config->backend_type) {
         case BackendNone: /* do nothing */ break;
         case BackendC:
-            shd_pipeline_add_c_target_passes(pipeline, &driver_config->backend_config.c);
+            shd_pipeline_add_c_target_passes(pipeline, target_config, &driver_config->backend_config.c);
             break;
         case BackendSPV:
             shd_pipeline_add_spirv_target_passes(pipeline, target_config, &driver_config->backend_config.spirv);
@@ -144,59 +141,124 @@ static ShdExecutionModel get_execution_model_for_entry_point(String entry_point,
 }
 
 /// Makes a specialized TargetConfig that knows about the entry point and execution model
-static TargetConfig specialize_target_config(const DriverConfig* args, TargetConfig target_config, const Module* mod) {
-    target_config.entry_point = args->specialization.entry_point;
-    target_config.execution_model = args->specialization.execution_model;
-
-    bool require_specialization = !target_config.capabilities.linkage;
-    if (!target_config.entry_point && require_specialization) {
-        // TODO: only do this for targets that _require_ specialization
-        Nodes fns = shd_module_get_all_exported(mod);
-        const Node* first_ep = NULL;
-        for (size_t i = 0; i < fns.count; i++) {
-            const Node* fn = fns.nodes[i];
-            if (fn->tag != Function_TAG)
-                continue;
-            if (!shd_lookup_annotation(fn, "EntryPoint"))
-                continue;
-            if (!first_ep)
-                first_ep = fn;
-            else {
-                shd_log_fmt(ERROR, "Selected target requires specialization, but no --entry-point provided and more than one exist in input.\n");
-                exit(ShdNeedsSpecialization);
-            }
-        }
-
-        if (!first_ep) {
-            shd_log_fmt(ERROR, "Selected target requires specialization, but there are no entry points to specialize on in this file.\n");
+static String find_entry_point(const Module* mod) {
+    // TODO: only do this for targets that _require_ specialization
+    Nodes fns = shd_module_get_all_exported(mod);
+    const Node* first_ep = NULL;
+    for (size_t i = 0; i < fns.count; i++) {
+        const Node* fn = fns.nodes[i];
+        if (fn->tag != Function_TAG)
+            continue;
+        if (!shd_lookup_annotation(fn, "EntryPoint"))
+            continue;
+        if (!first_ep)
+            first_ep = fn;
+        else {
+            shd_log_fmt(ERROR, "Selected target requires specialization, but no --entry-point provided and more than one exist in input.\n");
             exit(ShdNeedsSpecialization);
         }
-
-        target_config.entry_point = shd_get_exported_name(first_ep);
     }
 
-    if (target_config.entry_point && target_config.execution_model == ShdExecutionModelNone) {
-        target_config.execution_model = get_execution_model_for_entry_point(target_config.entry_point, mod);
+    if (!first_ep) {
+        shd_log_fmt(ERROR, "Selected target requires specialization, but there are no entry points to specialize on in this file.\n");
+        exit(ShdNeedsSpecialization);
     }
 
-    shd_target_apply_execution_model_restrictions(&target_config);
-
-    return target_config;
+    return shd_get_exported_name(first_ep);
 }
 
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig target_config, Module* mod) {
+CodegenTarget shd_driver_guess_target_through_name(const char* filename) {
+    if (!filename)
+        return TgtNone;
+    if (shd_string_ends_with(filename, ".c"))
+        return TgtC;
+    else if (shd_string_ends_with(filename, "glsl"))
+        return TgtGLSL;
+    else if (shd_string_ends_with(filename, "spirv") || shd_string_ends_with(filename, "spv"))
+        return TgtSPV;
+    else if (shd_string_ends_with(filename, "ispc"))
+        return TgtISPC;
+    return TgtNone;
+    // shd_error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
+    // exit(ShdInvalidTarget);
+}
+
+void shd_driver_configure_from_target(DriverConfig* driver_config, const TargetConfig* target) {
+    // if (target->arch == TgtNone) {
+    //     if (driver_config && driver_config->output_filename) {
+    //         target->arch = guess_target_through_name(driver_config->output_filename);
+    //     } else {
+    //         shd_log_fmt(INFO, "No target specified, defaulting to a generic one.\n");
+    //     }
+    // }
+    switch (target->arch) {
+        case TgtNone: /* no target */  break;
+        case TgtSPV:
+            if (driver_config)
+                driver_config->backend_type = BackendSPV;
+            break;
+        case TgtC:
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_C11;
+            }
+            break;
+        case TgtGLSL:
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_GLSL;
+            }
+            break;
+        case TgtISPC:
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_ISPC;
+            }
+            break;
+        case TgtCUDA:
+            if (driver_config) {
+                driver_config->backend_type = BackendC;
+                driver_config->backend_config.c.dialect = CDialect_CUDA;
+            }
+            break;
+    }
+}
+
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, const ShaderLoweringConfig* in_lowering_config, TargetConfig target, Module* mod) {
     mod = shd_import(&args->config, mod);
 
     shd_debugv_print("Parsed program successfully: \n");
     shd_log_module(DEBUGV, mod);
 
-    target_config = specialize_target_config(args, target_config, mod);
+    // We make local modifications to the lowering config, mostly passing execution model info.
+    ShaderLoweringConfig lowering_config_v;
+    ShaderLoweringConfig* lowering_config = NULL;
+    if (in_lowering_config) {
+        lowering_config_v = *in_lowering_config;
+        lowering_config = &lowering_config_v;
+    }
+
+    if (!args->specialization.entry_point && lowering_config) {
+        args->specialization.entry_point = find_entry_point(mod);
+    }
+
+    ExecutionModelInfo exec_info;
+    if (args->specialization.entry_point) {
+        const Node* fn = shd_module_get_exported(mod, args->specialization.entry_point);
+        exec_info = shd_get_execution_model_info_from_entry_point(fn);
+        if (lowering_config)
+            lowering_config->exec_model_info = &exec_info;
+        args->backend_config.spirv.exec_info = &exec_info;
+        args->backend_config.c.exec_model_info = &exec_info;
+    }
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    assemble_pipeline(pipeline, args, &target_config);
-    CompilationResult result = shd_pipeline_run(pipeline, &args->config, &mod);
+    if (lowering_config)
+        shd_pipeline_add_shader_target_lowering(pipeline, lowering_config, &target);
+    assemble_pipeline(pipeline, args, &target);
+    ShdResult result = shd_pipeline_run(pipeline, &args->config, &mod);
     shd_destroy_pipeline(pipeline);
-    if (result != CompilationNoError) {
+    if (result < 0) {
         shd_error_print("Compilation pipeline failed, errcode=%d\n", (int) result);
         exit(result);
     }
@@ -235,10 +297,11 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig target_confi
         FILE* f = fopen(args->output_filename, "wb");
         size_t output_size;
         char* output_buffer;
+
         switch (args->backend_type) {
             case BackendNone: SHADY_UNREACHABLE;
             case BackendSPV:
-                shd_spv_apply_target_config(&args->backend_config.spirv, &target_config);
+                shd_spv_apply_target_config(&args->backend_config.spirv, &target);
                 shd_emit_spirv(&args->config, &args->backend_config.spirv, mod, &output_size, &output_buffer);
                 break;
             case BackendC:

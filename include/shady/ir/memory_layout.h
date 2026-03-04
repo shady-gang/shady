@@ -25,11 +25,11 @@ size_t shd_get_record_field_offset_in_bytes_from_members(IrArena* a, Nodes membe
 size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t i);
 
 static inline const Node* size_t_type(IrArena* a) {
-    return int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false });
+    return int_type(a, (Int) { .width = shd_get_arena_config(a)->rules.ptr.ptr_size, .is_signed = false });
 }
 
 static inline const Node* size_t_literal(IrArena* a, uint64_t value) {
-    return int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = value });
+    return int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->rules.ptr.ptr_size, .is_signed = false, .value = value });
 }
 
 /// Divides the address in bytes to be an address in words. Result type matches that of bytes.

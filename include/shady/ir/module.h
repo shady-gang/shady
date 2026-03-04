@@ -14,6 +14,10 @@ const Node* shd_module_get_exported(const Module* m, String name);
 Nodes shd_module_collect_reachable_globals(const Module* m);
 Nodes shd_module_collect_reachable_functions(const Module* m);
 
+/// Returns the single entry point fn of this module.
+/// Asserts if there's none or more than one.
+const Node* shd_module_get_single_entry_point(Module* m);
+
 void shd_module_add_export(Module* module, String, const Node*);
 
 Node* shd_module_get_init_fn(Module*);

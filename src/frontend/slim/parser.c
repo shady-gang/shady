@@ -248,9 +248,9 @@ static const Node* accept_numerical_literal(ctxparams) {
 
 static bool accept_scope(ctxparams, ShdScope* out) {
     if (accept_token(ctx, uniform_tok))
-        *out = config->target_config->scopes.gang;
+        *out = shd_get_arena_config(arena)->rules.scopes.gang;
     else if (accept_token(ctx, varying_tok))
-        *out = config->target_config->scopes.bottom;
+        *out = shd_get_arena_config(arena)->rules.scopes.bottom;
     else
         return false;
     return true;

@@ -269,7 +269,8 @@ bool shd_rt_vk_check_physical_device_suitability(VkPhysicalDevice physical_devic
 
 TargetConfig shd_rt_vk_get_device_target_config(const CompilerConfig* compiler_config, const ShadyVkrPhysicalDeviceCaps* caps) {
     TargetConfig target_config = shd_default_target_config();
-    shd_driver_configure_defaults_for_target(&target_config, compiler_config, TgtSPV);
+    target_config.arch = TgtSPV;
+    shd_target_configure_defaults_for_arch(&target_config);
     target_config.subgroup_size = caps->subgroup_size.max;
 #ifdef VK_KHR_shader_maximal_reconvergence
     target_config.capabilities.maximal_reconvergence = caps->features.maximal_reconvergence_features.shaderMaximalReconvergence;

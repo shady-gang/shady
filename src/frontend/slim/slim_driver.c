@@ -11,7 +11,8 @@
 void slim_parse_string(const SlimParserConfig* config, const char* contents, Module* mod);
 
 Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConfig* pconfig, const char* contents, String name) {
-    ArenaConfig aconfig = shd_default_arena_config(pconfig->target_config);
+    MachineRules rules = get_machine_rules_from_target_config(pconfig->target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     aconfig.name_bound = false;
     aconfig.check_op_classes = false;
     aconfig.check_types = false;

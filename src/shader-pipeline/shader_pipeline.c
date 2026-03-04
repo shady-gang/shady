@@ -4,18 +4,20 @@
 #include "portability.h"
 #include "log.h"
 
-void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const TargetConfig* tgt) {
-    shd_pipeline_add_memory_lowering(pipeline, tgt);
-    shd_pipeline_add_polyfills(pipeline, tgt);
+static void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
+    shd_pipeline_add_memory_lowering(pipeline, lowering_config, target_config);
+    shd_pipeline_add_polyfills(pipeline, lowering_config);
+    // TODO: move that one to the backends.
     shd_pipeline_add_restructure_cf(pipeline);
 }
 
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline);
 
+/// questionably useful pass that updates the exec mask size
 static Module* specialize_target_config(SHADY_UNUSED const CompilerConfig* config, Module* src, TargetConfig* target_config) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.subgroup_size = target_config->subgroup_size;
-    //specialize_arena_config(*em, &aconfig.target);
+    MachineRules new_rules = get_machine_rules_from_target_config(target_config);
+    aconfig.rules.exec_mask_size = new_rules.exec_mask_size;
 
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -26,35 +28,40 @@ static Module* specialize_target_config(SHADY_UNUSED const CompilerConfig* confi
     return dst;
 }
 
-static CompilationResult specialize_target_config_step(TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
+static ShdResult specialize_target_config_step(TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
     SHADY_APPLY_REWRITE_PASS(specialize_target_config, (void*) target_config);
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
 void shd_pipeline_add_target_specialization(ShdPipeline pipeline, const TargetConfig* target_config) {
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) specialize_target_config_step, (void*) target_config, sizeof(TargetConfig));
 }
 
-void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const TargetConfig* tgt, const CompilerConfig* hacky_bs) {
-    shd_pipeline_add_target_specialization(pipeline, tgt);
+void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target) {
+    shd_pipeline_add_target_specialization(pipeline, target);
 
-    if (tgt->execution_model != ShdExecutionModelNone)
-        shd_pipeline_add_specialize_execution_model(pipeline, tgt->execution_model);
-    if (tgt->entry_point) {
-        if (tgt->execution_model == ShdExecutionModelNone)
-            shd_log_fmt(WARN, "Specializing on an entry point but no execution model picked!");
-        shd_pipeline_add_specialize_entry_point(pipeline, tgt->entry_point);
+    if (!lowering_config->exec_model_info) {
+        shd_error("The shader lowering pipeline needs valid execution model info.\n");
+        shd_error("Some of the specializations require .\n");
     }
 
-    if (!tgt->capabilities.linkage) {
-        assert(tgt->execution_model != ShdExecutionModelNone);
-        assert(tgt->entry_point);
-    }
+    // if (tgt->execution_model != ShdExecutionModelNone)
+    //     shd_pipeline_add_specialize_execution_model(pipeline, tgt->execution_model);
+    // if (tgt->entry_point) {
+    //     if (tgt->execution_model == ShdExecutionModelNone)
+    //         shd_log_fmt(WARN, "Specializing on an entry point but no execution model picked!");
+    //     shd_pipeline_add_specialize_entry_point(pipeline, tgt->entry_point);
+    // }
 
-    if (!tgt->memory.address_spaces[AsSubgroup].allowed) {
-        assert(hacky_bs->dynamic_scheduling == false);
-    }
+    // if (!config->target->capabilities.linkage) {
+    //     assert(tgt->execution_model != ShdExecutionModelNone);
+    //     assert(tgt->entry_point);
+    // }
 
-    shd_pipeline_add_fncall_emulation(pipeline, tgt);
-    shd_pipeline_add_feature_lowering(pipeline, tgt);
+    // if (!tgt->ptr_model.address_spaces[AsSubgroup].allowed) {
+    //     assert(config->dynamic_scheduling == false);
+    // }
+
+    shd_pipeline_add_fncall_emulation(pipeline, lowering_config, target);
+    shd_pipeline_add_feature_lowering(pipeline, lowering_config, target);
 }

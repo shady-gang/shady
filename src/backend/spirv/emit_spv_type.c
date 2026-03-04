@@ -71,6 +71,7 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
     if (shd_node_set_find(emitter->types_with_layouts, type))
         return;
     shd_node_set_insert(emitter->types_with_layouts, type);
+    const ArenaConfig* aconfig = shd_get_arena_config(emitter->arena);
     switch (type->tag) {
         case StructType_TAG: {
             StructType payload = type->payload.struct_type;
@@ -89,7 +90,7 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
         }
         case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
-            if (emitter->target->memory.address_spaces[payload.address_space].physical) {
+            if (aconfig->rules.ptr.address_spaces[payload.address_space].physical) {
                 TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, shd_get_pointer_type_element(type));
                 if (elem_mem_layout.size_in_bytes > 0)
                     spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });

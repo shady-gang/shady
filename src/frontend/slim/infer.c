@@ -96,9 +96,9 @@ static Nodes infer_params(Context* ctx, Nodes params, bool entry_pt) {
         const Type* imported_param_type = infer(ctx, old_param->type, NULL);
         if (imported_param_type->tag != QualifiedType_TAG) {
             if (entry_pt)
-                imported_param_type = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, imported_param_type);
+                imported_param_type = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, imported_param_type);
             else
-                imported_param_type = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, imported_param_type);
+                imported_param_type = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, imported_param_type);
         }
         nparams[i] = param_helper(a, imported_param_type);
         shd_register_processed(r, params.nodes[i], nparams[i]);
@@ -133,7 +133,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
             const Node* instruction = NULL;
             if (imported_hint) {
                 assert(shd_is_data_type(imported_hint));
-                const Node* s = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, imported_hint);
+                const Node* s = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, imported_hint);
                 if (oconstant->value)
                     instruction = infer(ctx, oconstant->value, s);
             } else if (oconstant->value) {
@@ -155,7 +155,7 @@ static const Node* infer_decl(Context* ctx, const Node* node) {
              Node* ngvar = shd_recreate_node_head(r, node);
              shd_register_processed(r, node, ngvar);
 
-             ngvar->payload.global_variable.init = infer(ctx, old_payload.init, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, ngvar->payload.global_variable.type));
+             ngvar->payload.global_variable.init = infer(ctx, old_payload.init, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, ngvar->payload.global_variable.type));
              return ngvar;
         }
         default: shd_error("not a decl");
@@ -173,6 +173,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
     if (!node) return NULL;
 
     IrArena* a = ctx->rewriter.dst_arena;
+    const ArenaConfig* aconfig = shd_get_arena_config(a);
     Rewriter* r = &ctx->rewriter;
     switch (is_value(node)) {
         case NotAValue: shd_error("");
@@ -238,7 +239,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         case Value_Undef_TAG: break;
         case Value_Composite_TAG: {
             const Node* elem_type = infer(ctx, node->payload.composite.type, NULL);
-            ShdScope scope = ctx->target->scopes.constants;
+            ShdScope scope = aconfig->rules.scopes.constants;
             if (elem_type && expected_type) {
                 assert(shd_is_subtype(shd_get_unqualified_type(expected_type), elem_type));
             } else if (expected_type) {
@@ -267,7 +268,7 @@ static const Node* infer_value(Context* ctx, const Node* node, const Type* expec
         case Value_Fill_TAG: {
             const Node* composite_t = infer(ctx, node->payload.fill.type, NULL);
             assert(composite_t);
-            ShdScope scope = ctx->target->scopes.constants;
+            ShdScope scope = aconfig->rules.scopes.constants;
             if (composite_t && expected_type) {
                 assert(shd_is_subtype(shd_get_unqualified_type(expected_type), composite_t));
             } else if (expected_type) {
@@ -336,7 +337,7 @@ static const Node* infer_primop(Context* ctx, const Node* node, const Node* expe
     switch (node->payload.prim_op.op) {
         case empty_mask_op:
         case mask_is_thread_active_op: {
-            input_types = mk_nodes(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_get_exec_mask_type(a)), qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
+            input_types = mk_nodes(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, shd_get_exec_mask_type(a)), qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, shd_uint32_type(a)));
             break;
         }
         default: {
@@ -394,12 +395,12 @@ static const Node* infer_indirect_call(Context* ctx, const Node* node, const Nod
 static const Node* infer_if(Context* ctx, const Node* node) {
     assert(node->tag == If_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
-    const Node* condition = infer(ctx, node->payload.if_instr.condition, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, bool_type(a)));
+    const Node* condition = infer(ctx, node->payload.if_instr.condition, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, bool_type(a)));
 
     Nodes join_types = infer_nodes(ctx, node->payload.if_instr.yield_types);
     Context infer_if_body_ctx = *ctx;
     // When we infer the types of the arguments to a call to merge(), they are expected to be varying
-    Nodes expected_join_types = shd_add_qualifiers(a, join_types, shd_get_arena_config(a)->target.scopes.bottom);
+    Nodes expected_join_types = shd_add_qualifiers(a, join_types, shd_get_arena_config(a)->rules.scopes.bottom);
 
     const Node* true_body = infer_basic_block(&infer_if_body_ctx, node->payload.if_instr.if_true);
     // don't allow seeing the variables made available in the true branch
@@ -449,6 +450,7 @@ static const Node* infer_loop(Context* ctx, const Node* node) {
 static const Node* infer_control(Context* ctx, const Node* node) {
     assert(node->tag == Control_TAG);
     IrArena* a = ctx->rewriter.dst_arena;
+    const ArenaConfig* aconfig = shd_get_arena_config(a);
 
     Nodes yield_types = infer_nodes(ctx, node->payload.control.yield_types);
 
@@ -459,7 +461,7 @@ static const Node* infer_control(Context* ctx, const Node* node) {
     const Type* jpt = join_point_type(a, (JoinPointType) {
         .yield_types = yield_types
     });
-    jpt = qualified_type(a, (QualifiedType) { .scope = ctx->target->scopes.gang, .type = jpt });
+    jpt = qualified_type(a, (QualifiedType) { .scope = aconfig->rules.scopes.gang, .type = jpt });
     const Node* jp = param_helper(a, jpt);
     shd_register_processed(&joinable_ctx.rewriter, ojp, jp);
 
@@ -491,7 +493,7 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             assert(ptr_type->tag == PtrType_TAG);
             const Type* element_t = ptr_type->payload.ptr_type.pointed_type;
             assert(element_t);
-            const Node* value = infer(ctx, payload.value, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, element_t));
+            const Node* value = infer(ctx, payload.value, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, element_t));
             return store(a, (Store) { .ptr = ptr, .value = value, .mem = infer(ctx, node->payload.store.mem, NULL) });
         }
         case Instruction_StackAlloc_TAG: {
@@ -577,7 +579,6 @@ Module* slim_pass_infer(SHADY_UNUSED const CompilerConfig* config, Module* src) 
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .target = &aconfig.target,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

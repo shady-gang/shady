@@ -2,10 +2,17 @@
 #define SHADY_DRIVER_H
 
 #include "shady/ir/base.h"
+#include "shady/cli.h"
 #include "shady/config.h"
 
 #include "shady/be/c.h"
 #include "shady/be/spirv.h"
+
+typedef enum CompilationResult_ {
+    CompilationNoError
+} CompilationResult;
+
+#include "shady/pipeline/shader_pipeline.h"
 
 struct List;
 
@@ -35,21 +42,10 @@ ShadyErrorCodes shd_driver_load_source_file(const CompilerConfig*, const TargetC
 ShadyErrorCodes shd_driver_load_source_file_from_filename(const CompilerConfig*, const TargetConfig*, const char* filename, String name, Module** mod);
 
 typedef enum {
-    TgtNone,
-    TgtSPV,
-    TgtC,
-    TgtGLSL,
-    TgtISPC,
-    TgtCUDA,
-} CodegenTarget;
-
-typedef enum {
     BackendNone,
     BackendC,
     BackendSPV,
 } BackendType;
-
-void shd_pack_remaining_args(int* pargc, char** argv);
 
 // parses 'common' arguments such as log level etc
 void shd_parse_common_args(int* pargc, char** argv);
@@ -59,13 +55,9 @@ void shd_parse_compiler_config_args(CompilerConfig* config, int* pargc, char** a
 void shd_driver_parse_unknown_options(struct List* list, int* pargc, char** argv);
 // parses the remaining arguments into a list of files
 void shd_driver_parse_input_files(struct List* list, int* pargc, char** argv);
-bool shd_is_arg_help(const char* arg);
-// return 'true' if --help was amongst the passed arguments, also removes it if asked
-bool shd_parse_help(int* pargc, char** argv, bool remove);
 
 typedef struct {
     CompilerConfig config;
-    CodegenTarget target_type;
     BackendType backend_type;
     struct {
         CBackendConfig c;
@@ -79,7 +71,7 @@ typedef struct {
     bool dump_ir;
     struct {
         String entry_point;
-        ShdExecutionModel execution_model;
+        //ShdExecutionModel execution_model;
     } specialization;
 } DriverConfig;
 
@@ -88,18 +80,13 @@ void shd_destroy_driver_config(DriverConfig* config);
 
 void shd_parse_driver_args(DriverConfig* args, int* pargc, char** argv);
 
-/// Populates the 'target' field of DriverConfig with defaults that match the driver options (output file etc)
-void shd_driver_configure_target(TargetConfig*, DriverConfig* driver_config);
-void shd_driver_configure_defaults_for_target(TargetConfig*, const CompilerConfig*, CodegenTarget);
+CodegenTarget shd_driver_guess_target_through_name(const char* filename);
+void shd_driver_configure_from_target(DriverConfig*, const TargetConfig*);
 
 /// Parses additional target configuration
 void shd_parse_target_args(TargetConfig* target, int* pargc, char** argv);
 
 ShadyErrorCodes shd_driver_load_source_files(const CompilerConfig* config, const TargetConfig* target_config, struct List* input_filenames, Module* mod);
-ShadyErrorCodes shd_driver_compile(DriverConfig* args, TargetConfig, Module* mod);
-
-typedef enum CompilationResult_ {
-    CompilationNoError
-} CompilationResult;
+ShadyErrorCodes shd_driver_compile(DriverConfig* args, const ShaderLoweringConfig*, TargetConfig, Module* mod);
 
 #endif

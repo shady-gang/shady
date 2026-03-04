@@ -30,7 +30,7 @@ static const Node* transform_call(Context* ctx, Nodes return_types, const Node* 
     // Create the body of the control that receives the appropriately typed join point
     const Type* jp_type = qualified_type(a, (QualifiedType) {
         .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, return_types) }),
-        .scope = shd_get_arena_config(a)->target.scopes.gang,
+        .scope = shd_get_arena_config(a)->rules.scopes.gang,
     });
     const Node* jp = param_helper(a, jp_type);
     shd_set_debug_name(jp, "fn_return_point");
@@ -73,9 +73,9 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             });
 
             if (shd_lookup_annotation(old, "EntryPoint")) {
-                ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type), shd_empty(a));
+                ctx2.return_jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpDefaultJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, jp_type), shd_empty(a));
             } else {
-                const Node* jp_variable = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
+                const Node* jp_variable = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, jp_type));
                 shd_set_debug_name(jp_variable, "return_jp");
                 nparams = shd_nodes_append(a, nparams, jp_variable);
                 ctx2.return_jp = jp_variable;
@@ -106,7 +106,7 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
             Nodes returned_types = shd_rewrite_nodes(&ctx->rewriter, old->payload.fn_type.return_types);
             const Type* jp_type = qualified_type(a, (QualifiedType) {
                     .type = join_point_type(a, (JoinPointType) { .yield_types = shd_strip_qualifiers(a, returned_types) }),
-                    .scope = shd_get_arena_config(a)->target.scopes.gang,
+                    .scope = shd_get_arena_config(a)->rules.scopes.gang,
             });
             param_types = shd_nodes_append(a, param_types, jp_type);
             return fn_type(a, (FnType) {
@@ -162,7 +162,6 @@ static const Node* lower_callf_process(Context* ctx, const Node* old) {
 
 Module* shd_pass_lower_callf(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.capabilities.native_fncalls = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {

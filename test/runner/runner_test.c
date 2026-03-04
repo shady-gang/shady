@@ -54,17 +54,20 @@ int main(int argc, char* argv[]) {
     Device* device = shd_rn_get_device(runtime, args.common_app_args.device);
     assert(device);
 
-    TargetConfig target_config = shd_rn_get_device_target_config(&args.driver_config.config, device);
+    // Do NOT parse target configs, unless we also match the changes to the target config in the runner.
+    TargetConfig const target_config = shd_rn_get_device_target_config(&args.driver_config.config, device);
 
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     shd_parse_driver_args(&args.driver_config, &argc, argv);
+    shd_parse_help(&argc, argv, true);
     shd_driver_parse_input_files(args.driver_config.input_filenames, &argc, argv);
 
     shd_info_print("Shady runner test starting...\n");
 
     Program* program;
     IrArena* arena = NULL;
-    ArenaConfig aconfig = shd_default_arena_config(&target_config);
+    MachineRules rules = get_machine_rules_from_target_config(&target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     Module* module;
     if (shd_list_count(args.driver_config.input_filenames) != 1) {
         shd_error("usage: runner_test [program]\n");

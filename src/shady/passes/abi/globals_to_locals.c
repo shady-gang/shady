@@ -78,7 +78,7 @@ static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    bool physical = shd_get_arena_config(a)->target.memory.address_spaces[ctx->pass_config.dst_as].physical;
+    bool physical = shd_get_arena_config(a)->rules.ptr.address_spaces[ctx->pass_config.dst_as].physical;
 
     switch (node->tag) {
         case Function_TAG: {
@@ -101,7 +101,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 for (size_t i = 0; i < ctx->promoted_to_copy.old.count; i++) {
                     const Node* opromoted = ctx->promoted_to_copy.old.nodes[i];
                     const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
-                    t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
+                    t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                     param = param_helper(a, t);
                     payload.params = shd_nodes_prepend(a, payload.params, param);
                     copy_in = shd_nodes_append(a, copy_in, param);
@@ -114,7 +114,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
                     const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
                     t = ptr_type_helper(a, ctx->pass_config.dst_as, t, !physical);
-                    t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
+                    t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                     param = param_helper(a, t);
                     payload.params = shd_nodes_prepend(a, payload.params, param);
                     shd_register_processed(&fn_ctx.rewriter, opromoted, param);
@@ -228,7 +228,7 @@ static const Node* process(Context* ctx, const Node* node) {
 
             for (size_t i = 0; i < ctx->promoted_to_copy.old.count; i++) {
                 const Type* t = shd_rewrite_node(r, ctx->promoted_to_copy.old.nodes[i]->payload.global_variable.type);
-                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                 payload.param_types = shd_nodes_prepend(a, payload.param_types, t);
                 payload.return_types = shd_nodes_prepend(a, payload.return_types, t);
             }
@@ -236,7 +236,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
                 const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
                 t = ptr_type_helper(a, ctx->pass_config.dst_as, t, !physical);
-                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t);
+                t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                 payload.param_types = shd_nodes_prepend(a, payload.param_types, t);
             }
 
@@ -280,7 +280,7 @@ Module* shd_pass_globals_to_locals(SHADY_UNUSED const CompilerConfig* config, Mo
         const Node* oglobal = oglobals.nodes[i];
         if (oglobal->payload.global_variable.address_space != ctx.pass_config.src_as)
             continue;
-        bool promote_to_ref = !shd_lookup_annotation(oglobal, "Inout") && !config->use_rt_pipelines_for_calls;
+        bool promote_to_ref = !shd_lookup_annotation(oglobal, "Inout") && pass_config.use_copies;
         if (promote_to_ref)
             ctx.promoted_to_alloca.old = shd_nodes_append(oa, ctx.promoted_to_alloca.old, oglobal);
         else

@@ -15,6 +15,6 @@ static void polyfills(SHADY_UNUSED void* unused, const CompilerConfig* config, M
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_ops)
 }
 
-void shd_pipeline_add_polyfills(ShdPipeline pipeline, const TargetConfig* tgt) {
+void shd_pipeline_add_polyfills(ShdPipeline pipeline, const ShaderLoweringConfig* tgt) {
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) polyfills, NULL, 0);
 }

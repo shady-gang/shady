@@ -353,7 +353,7 @@ typedef struct {
     const SPVBackendConfig* backend;
 } SPVBackendPipelineOptions;
 
-static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
+static ShdResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
     SHADY_APPLY_REWRITE_PASS(shd_pass_call_init_fini)
     SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_params)
     Global2LocalsPassConfig globals2locals = {
@@ -366,8 +366,8 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOpti
         SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
     SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
 
-    //if (options->target->capabilities.rt_pipelines) {
-    if (options->target->execution_model == ShdExecutionModelRayGeneration) {
+    // TODO: make this a shader lowering pipeline duty
+    if (options->backend->exec_info->execution_model == ShdExecutionModelRayGeneration) {
         // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
         SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
         SHADY_APPLY_REWRITE_PASS(shd_pass_mark_leaf_functions)
@@ -377,7 +377,7 @@ static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOpti
     SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_specialize_explicit_layout)
     SHADY_APPLY_REWRITE_PASS(shd_import)
 
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
 void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const TargetConfig* target_config, const SPVBackendConfig* backend_config) {
@@ -403,7 +403,7 @@ void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target
     spvb_set_version(file_builder, target_config->target_version.major, target_config->target_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelLogical);
 
-    ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.target);
+    ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.rules);
     dummy_arena_config.check_types = false;
     IrArena* dummy_arena = shd_new_ir_arena(&dummy_arena_config);
     Module* dummy_module = shd_new_module(dummy_arena, "dummy");
@@ -415,7 +415,7 @@ void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target
         .normalizer = &normalizer,
         .arena = arena,
         .configuration = config,
-        .target = &arena->config.target,
+        .exec_info = target_config->exec_info,
         .spirv_tgt = target_config,
         .file_builder = file_builder,
         .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),

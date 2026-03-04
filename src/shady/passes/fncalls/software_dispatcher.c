@@ -23,7 +23,6 @@ typedef uint64_t FnPtr;
 
 typedef struct Context_ {
     Rewriter rewriter;
-    const TargetConfig* target;
     const CompilerConfig* config;
     bool disable_lowering;
     struct Dict* assigned_fn_ptrs;
@@ -41,7 +40,7 @@ static const Node* fn_ptr_as_value(Context* ctx, FnPtr ptr) {
     IrArena* a = ctx->rewriter.dst_arena;
     return int_literal(a, (IntLiteral) {
         .is_signed = false,
-        .width = ctx->target->memory.fn_ptr_size,
+        .width = shd_get_arena_config(a)->rules.memory.fn_ptr_size,
         .value = ptr
     });
 }
@@ -97,7 +96,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 return fun;
             }
 
-            assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
+            //assert(ctx->config->dynamic_scheduling && "Dynamic scheduling is disabled, but we encountered a non-leaf function");
             Node* fun = shd_recreate_node_head(r, old);
             shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, get_abstraction_body(old)));
             shd_destroy_uses_map(ctx2.uses);
@@ -105,8 +104,8 @@ static const Node* process(Context* ctx, const Node* old) {
             return fun;
         }
         case FnAddr_TAG:
-            if (ctx->target->capabilities.native_tailcalls)
-                break;
+            //if (ctx->target->capabilities.native_tailcalls)
+            //    break;
             return lower_fn_addr(ctx, old->payload.fn_addr.fn);
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
@@ -129,10 +128,10 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = shd_bld_bitcast(bb, int_type_helper(a, ctx->target->memory.fn_ptr_size, false), target);
+            target = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false), target);
 
-            if (ctx->target->capabilities.native_tailcalls)
-                break;
+            //if (ctx->target->capabilities.native_tailcalls)
+            //    break;
 
             // fast-path
             assert(shd_get_qualified_type_scope(payload.callee->type) <= ShdScopeSubgroup && "only uniform tailcalls are allowed here");
@@ -142,8 +141,8 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case PtrType_TAG: {
             const Node* pointee = old->payload.ptr_type.pointed_type;
-            if (pointee->tag == FnType_TAG && !ctx->target->capabilities.native_tailcalls)
-                return int_type_helper(a, ctx->target->memory.fn_ptr_size, false);
+            if (pointee->tag == FnType_TAG)
+                return int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false);
             break;
         }
         default: break;
@@ -153,7 +152,6 @@ static const Node* process(Context* ctx, const Node* old) {
 }
 
 static void generate_top_level_dispatch_fn(Context* ctx) {
-    assert(ctx->config->dynamic_scheduling);
     assert(*ctx->top_dispatcher_fn);
     assert((*ctx->top_dispatcher_fn)->tag == Function_TAG);
     Rewriter* r = &ctx->rewriter;
@@ -241,7 +239,7 @@ static void generate_top_level_dispatch_fn(Context* ctx) {
         .false_jump = jump_helper(a, shd_get_abstraction_mem(zero_case_lam), zero_if_false, shd_empty(a)),
     }));
 
-    const Node* zero_lit = int_literal_helper(a, ctx->target->memory.fn_ptr_size, false, 0);
+    const Node* zero_lit = int_literal_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false, 0);
     shd_list_append(const Node*, literals, zero_lit);
     const Node* zero_jump = jump_helper(a, shd_bld_mem(loop_body_builder), zero_case_lam, shd_empty(a));
     shd_list_append(const Node*, jumps, zero_jump);
@@ -331,7 +329,7 @@ bool shd_compare_node(Node** pa, Node** pb);
 
 Module* shd_pass_lower_tailcalls(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.capabilities.native_tailcalls = false;
+    //aconfig.target.capabilities.native_tailcalls = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
@@ -343,7 +341,6 @@ Module* shd_pass_lower_tailcalls(const CompilerConfig* config, Module* src) {
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .target = &aconfig.target,
         .config = config,
         .disable_lowering = false,
         .assigned_fn_ptrs = ptrs,

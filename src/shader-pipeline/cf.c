@@ -8,21 +8,28 @@
 #include "portability.h"
 #include "log.h"
 
-void shd_add_scheduler_source(const CompilerConfig* config, Module* dst);
+void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* target, const ShaderLoweringConfig*, Module* dst);
 
-static CompilationResult remove_indirect_calls(const TargetConfig* target_config, const CompilerConfig* config, Module** pmod) {
-    if (!target_config->capabilities.native_stack)
+typedef struct {
+    const TargetConfig* target_config;
+    const ShaderLoweringConfig* lowering_config;
+} S;
+
+static ShdResult remove_indirect_calls(const S* s, const CompilerConfig* config, Module** pmod) {
+    const TargetConfig* target = s->target_config;
+    if (!target->capabilities.native_stack)
         SHADY_APPLY_REWRITE_PASS(shd_pass_setup_stack_frames)
     if (!config->hacks.force_join_point_lifting)
         SHADY_APPLY_REWRITE_PASS(shd_pass_mark_leaf_functions)
 
-    if (!target_config->capabilities.native_fncalls) {
+    //if (!target->capabilities.native_fncalls) {
+    if (s->lowering_config->function_call_lowering == FCL_SoftwareScheduler) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_callf)
         SHADY_APPLY_REWRITE_PASS(shd_pass_inline)
         SHADY_APPLY_REWRITE_PASS(shd_pass_lift_indirect_targets)
 
-        if (config->dynamic_scheduling) {
-            shd_add_scheduler_source(config, *pmod);
+        if (true) {
+            shd_add_scheduler_source(config, target, s->lowering_config, *pmod);
         }
 
         // run this again so the scheduler source is left alone
@@ -31,17 +38,21 @@ static CompilationResult remove_indirect_calls(const TargetConfig* target_config
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_tailcalls)
     }
 
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
-void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, const TargetConfig* target_config) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, target_config, sizeof(TargetConfig));
+void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
+    S s = {
+        .lowering_config = lowering_config,
+        .target_config = target_config,
+    };
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, &s, sizeof(S));
 }
 
-static CompilationResult restructure(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
+static ShdResult restructure(SHADY_UNUSED void* unused, const CompilerConfig* config, Module** pmod) {
     SHADY_APPLY_REWRITE_PASS(shd_pass_restructurize)
 
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
 void shd_pipeline_add_restructure_cf(ShdPipeline pipeline) {

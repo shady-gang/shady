@@ -119,7 +119,7 @@ static LiftedCont* lambda_lift(Context* callsite_context, const Node* liftee) {
     Nodes new_params = shd_recreate_params(r, ovariables);
     shd_register_processed_list(r, ovariables, new_params);
 
-    const Node* payload = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_uint32_type(a)));
+    const Node* payload = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, shd_uint32_type(a)));
     shd_set_debug_name(payload, "sp");
     new_params = shd_nodes_prepend(a, new_params, payload);
 
@@ -197,9 +197,9 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 const Node* tail_ptr = fn_addr_helper(a, lifted_tail->lifted_fn);
 
                 const Type* jp_type = join_point_type_helper(a, shd_rewrite_nodes(&ctx->rewriter, node->payload.control.yield_types));
-                const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, jp_type), mk_nodes(a, tail_ptr, sp));
+                const Node* jp = shd_bld_ext_instruction(bb, "shady.internal", ShadyOpCreateJoinPoint, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, jp_type), mk_nodes(a, tail_ptr, sp));
                 // dumbass hack
-                jp = scope_cast_helper(a, shd_get_arena_config(ctx->rewriter.dst_arena)->target.scopes.gang, jp);
+                jp = scope_cast_helper(a, shd_get_arena_config(ctx->rewriter.dst_arena)->rules.scopes.gang, jp);
 
                 shd_register_processed(r, shd_first(get_abstraction_params(oinside)), jp);
                 shd_register_processed(r, shd_get_abstraction_mem(oinside), shd_bld_mem(bb));

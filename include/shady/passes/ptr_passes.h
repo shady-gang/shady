@@ -10,7 +10,7 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_decay_ptrs)
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_generic_ptrs)
 
 /// Lowers ptr arithmetic ops to unsigned int math
-SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_lea, const MemoryModel*)
+SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_lea, const PtrModel*)
 
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_nullptr)
 

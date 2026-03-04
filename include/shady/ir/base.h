@@ -11,6 +11,11 @@
 #define SHADY_DESIGNATED_INIT
 #endif
 
+typedef enum {
+    SHD_SUCCESS = 0,
+    SHD_FAILURE = -1,
+} ShdResult;
+
 typedef struct IrArena_ IrArena;
 typedef struct Module_ Module;
 typedef struct Node_ Node;

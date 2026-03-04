@@ -34,13 +34,13 @@ void shd_jit_vk_get_compiler_config_for_device(const ShadyVkrPhysicalDeviceCaps*
     }
 }
 
-CompilationResult shd_jit_vk_compile_module(Module** module, const TargetConfig* target_config, const SPVBackendConfig* backend_config, const CompilerConfig* compiler_config) {
+ShdResult shd_jit_vk_compile_module(Module** module, const TargetConfig* target_config, const ShaderLoweringConfig* lowering_config, const SPVBackendConfig* backend_config, const CompilerConfig* compiler_config) {
     *module = shd_import(compiler_config, *module);
 
     ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_shader_target_lowering(pipeline, target_config, compiler_config);
+    shd_pipeline_add_shader_target_lowering(pipeline, lowering_config, target_config);
     shd_pipeline_add_spirv_target_passes(pipeline, target_config, backend_config);
-    CompilationResult result = shd_pipeline_run(pipeline, compiler_config, module);
+    ShdResult result = shd_pipeline_run(pipeline, compiler_config, module);
     shd_destroy_pipeline(pipeline);
 
     return result;

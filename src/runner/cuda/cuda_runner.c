@@ -74,7 +74,7 @@ static bool cmp_spec_program_keys(SpecProgramKey* a, SpecProgramKey* b) {
 
 TargetConfig shd_cur_get_device_target_config(const CompilerConfig* compiler_config, CudaDevice* device) {
     TargetConfig target_config = shd_default_target_config();
-    shd_driver_configure_defaults_for_target(&target_config, compiler_config, TgtCUDA);
+    shd_driver_configure_defaults_for_target(&target_config, TgtCUDA);
     return target_config;
 }
 

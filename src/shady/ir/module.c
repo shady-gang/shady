@@ -132,6 +132,21 @@ const Node* shd_module_get_exported(const Module* m, String name) {
     return NULL;
 }
 
+const Node* shd_module_get_single_entry_point(Module* m) {
+    Nodes funs = shd_module_collect_reachable_functions(m);
+    const Node* the = NULL;
+    for (size_t i = 0; i < funs.count; i++) {
+        const Node* fun = funs.nodes[i];
+        const Node* epa = shd_lookup_annotation(fun, "EntryPoint");
+        if (!epa)
+            continue;
+        assert(!the);
+        the = fun;
+    }
+    assert(the);
+    return the;
+}
+
 static Node* make_init_fini_fn(Module* m, String name) {
     IrArena* a = shd_module_get_arena(m);
     Node* fn = function_helper(m, shd_nodes(a, 0, NULL), shd_nodes(a, 0, NULL));

@@ -8,6 +8,8 @@ typedef struct ShdPipeline_* ShdPipeline;
 typedef struct CompilerConfig_ CompilerConfig;
 
 typedef struct {
+    const ExecutionModelInfo* exec_info;
+
     struct {
         uint8_t major;
         uint8_t minor;

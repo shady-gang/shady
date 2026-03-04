@@ -16,7 +16,6 @@
 typedef struct {
     Rewriter rewriter;
     const UsesMap* uses;
-    const TargetConfig* target;
     uint64_t* sbt_index;
     Node2Node signature2type;
     Node2Node signature2calleevar;
@@ -118,7 +117,7 @@ static Nodes rewrite_call(Context* ctx, BodyBuilder* bb, const Node* ocallee, co
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    const TargetConfig* target = &shd_get_arena_config(a)->target;
+    ShdIntSize fn_ptr_size = shd_get_arena_config(a)->rules.memory.fn_ptr_size;
 
     switch (node->tag) {
         case FnAddr_TAG: {
@@ -128,7 +127,7 @@ static const Node* process(Context* ctx, const Node* node) {
             uint64_t index = (*ctx->sbt_index)++;
             const Node* new = int_literal(a, (IntLiteral) {
                 .is_signed = false,
-                .width = ctx->target->memory.fn_ptr_size,
+                .width = fn_ptr_size,
                 .value = index
             });
             shd_register_processed(r, node, new);
@@ -137,8 +136,8 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case PtrType_TAG: {
             const Node* pointee = node->payload.ptr_type.pointed_type;
-            if (pointee->tag == FnType_TAG && !ctx->target->capabilities.native_tailcalls)
-                return int_type_helper(a, ctx->target->memory.fn_ptr_size, false);
+            if (pointee->tag == FnType_TAG)
+                return int_type_helper(a, fn_ptr_size, false);
             break;
         }
         case Function_TAG: {
@@ -204,11 +203,13 @@ Module* shd_lower_to_callable_shaders(SHADY_UNUSED const CompilerConfig* config,
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
+
+    const Node* old_ep = shd_module_get_single_entry_point(src);
+
     uint64_t num_callables = 0;
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .sbt_index = &num_callables,
-        .target = &aconfig.target,
         .uses = shd_new_uses_map_module(src, NcType),
         .signature2type = shd_new_node2node(),
         .signature2calleevar = shd_new_node2node(),
@@ -221,8 +222,8 @@ Module* shd_lower_to_callable_shaders(SHADY_UNUSED const CompilerConfig* config,
     shd_destroy_node2node(ctx.signature2calleevar);
     shd_destroy_node2node(ctx.signature2callervar);
 
-    const Node* ep = shd_module_get_exported(dst, aconfig.target.entry_point);
-    assert(ep);
-    shd_add_annotation(ep, annotation_value_helper(a, "NumCallables", shd_uint32_literal(a, num_callables)));
+    const Node* new_ep = shd_module_get_exported(dst, shd_get_exported_name(old_ep));
+    assert(new_ep);
+    shd_add_annotation(new_ep, annotation_value_helper(a, "NumCallables", shd_uint32_literal(a, num_callables)));
     return dst;
 }

@@ -10,7 +10,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    TargetConfig target;
+    const PtrModel* ptr_model;
 } Context;
 
 static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node* ptr, const Type* expected_type) {
@@ -45,7 +45,7 @@ static const Node* process(Context* ctx, const Node* old) {
     switch (old->tag) {
         case PtrType_TAG: {
             PtrType payload = old->payload.ptr_type;
-            if (!ctx->target.memory.address_spaces[payload.address_space].physical)
+            if (!ctx->ptr_model->address_spaces[payload.address_space].physical)
                 payload.is_reference = true;
             payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
             return ptr_type(a, payload);
@@ -82,7 +82,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* src = shd_rewrite_node(r, payload.src);
             const Type* src_t = src->type;
             shd_deconstruct_qualified_type(&src_t);
-            if (src_t->tag == PtrType_TAG && !ctx->target.memory.address_spaces[src_t->payload.ptr_type.address_space].physical)
+            if (src_t->tag == PtrType_TAG && !ctx->ptr_model->address_spaces[src_t->payload.ptr_type.address_space].physical)
                 return src;
             break;
         }
@@ -91,7 +91,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* src = shd_rewrite_node(r, payload.src);
             const Type* src_t = src->type;
             shd_deconstruct_qualified_type(&src_t);
-            if (src_t->tag == PtrType_TAG && !ctx->target.memory.address_spaces[src_t->payload.ptr_type.address_space].physical)
+            if (src_t->tag == PtrType_TAG && !ctx->ptr_model->address_spaces[src_t->payload.ptr_type.address_space].physical)
                 return src;
             break;
         }
@@ -129,16 +129,14 @@ static const Node* process(Context* ctx, const Node* old) {
 
 Module* shd_pass_lower_logical_pointers(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    TargetConfig target = aconfig.target;
-    target.memory.address_spaces[AsInput].physical = false;
-    target.memory.address_spaces[AsOutput].physical = false;
-    target.memory.address_spaces[AsUniformConstant].physical = false;
-    aconfig.target = target;
+    aconfig.rules.ptr.address_spaces[AsInput].physical = false;
+    aconfig.rules.ptr.address_spaces[AsOutput].physical = false;
+    aconfig.rules.ptr.address_spaces[AsUniformConstant].physical = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .target = target,
+        .ptr_model = &aconfig.rules.ptr,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);

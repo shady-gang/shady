@@ -164,7 +164,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, src_t));
+        const Node* src_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, src_t));
         shd_set_debug_name(src_param, "src");
         fn = function_helper(m, shd_singleton(src_param), shd_singleton(qualified_type_helper(a, ShdScopeSubgroup, src_t)));
         shd_set_debug_name(fn, shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)));

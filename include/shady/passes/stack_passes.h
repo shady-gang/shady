@@ -10,6 +10,6 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_setup_stack_frames)
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_alloca)
 
 /// Adds a stack pointer global variable and lower stack access ops to it
-SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_stack_access)
+SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_stack_access, uint32_t)
 
 #endif

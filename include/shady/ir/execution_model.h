@@ -20,6 +20,17 @@ typedef enum {
 ShdExecutionModel shd_execution_model_from_string(const char*);
 ShdExecutionModel shd_execution_model_from_entry_point(const Node* decl);
 
+typedef struct {
+    ShdExecutionModel execution_model;
+    union {
+        struct {
+            uint32_t workgroup_size[3];
+        } grid_based;
+    };
+} ExecutionModelInfo;
+
+ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn);
+
 bool shd_get_workgroup_size_for_entry_point(const Node* decl, uint32_t* out);
 
 static inline bool shd_is_rt_execution_model(ShdExecutionModel em) {

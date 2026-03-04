@@ -338,15 +338,26 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
 
     spec->specialized_target = shd_rt_vk_get_device_target_config(&spec->specialized_config, &spec->device->caps);
-    spec->specialized_target.entry_point = spec->key.entry_point;
-    spec->specialized_target.execution_model = spec->key.em;
+    spec->exec_info = shd_get_execution_model_info_from_entry_point(shd_module_get_exported(spec->key.base->module, spec->key.entry_point));
+    // spec->specialized_target.entry_point = spec->key.entry_point;
+    // spec->specialized_target.execution_model = spec->key.em;
 
     shd_jit_vk_get_compiler_config_for_device(&spec->device->caps, &spec->specialized_target, &spec->backend_config, &spec->specialized_config);
+    spec->backend_config.exec_info = &spec->exec_info;
 
     spec->specialized_module = spec->key.base->module;
-    CompilationResult result = shd_jit_vk_compile_module(&spec->specialized_module, &spec->specialized_target, &spec->backend_config, &spec->specialized_config);
 
-    CHECK(result == CompilationNoError, return false);
+    ShaderLoweringConfig lowering_config = {
+        .exec_model_info = &spec->exec_info,
+        .per_thread_stack_size = 4096,
+        .function_call_lowering = FCL_None
+    };
+    if (spec->exec_info.execution_model == ShdExecutionModelRayGeneration) {
+        lowering_config.function_call_lowering = FCL_RT_Callables;
+    }
+    ShdResult result = shd_jit_vk_compile_module(&spec->specialized_module, &spec->specialized_target, &lowering_config, &spec->backend_config, &spec->specialized_config);
+
+    CHECK(result >= 0, return false);
 
     shd_vkr_populate_interface(spec);
 

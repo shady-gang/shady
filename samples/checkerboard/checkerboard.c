@@ -67,7 +67,8 @@ int main(int argc, char **argv)
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
     TargetConfig target_config = shd_default_target_config();
-    ArenaConfig aconfig = shd_default_arena_config(&target_config);
+    MachineRules rules = get_machine_rules_from_target_config(&target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* m;
     if (shd_driver_load_source_file(&compiler_config, &target_config, SrcSlim, sizeof(checkerboard_kernel_src), checkerboard_kernel_src, "checkerboard", &m) != ShdNoError)

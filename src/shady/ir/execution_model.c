@@ -25,6 +25,39 @@ ShdExecutionModel shd_execution_model_from_entry_point(const Node* decl) {
     return shd_execution_model_from_string(shd_get_annotation_string_payload(ep));
 }
 
+ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn) {
+    ExecutionModelInfo exec_info = {
+        .execution_model = shd_execution_model_from_entry_point(fn)
+    };
+    switch (exec_info.execution_model) {
+        case ShdExecutionModelNone:
+            break;
+        case ShdExecutionModelCompute: {
+            const Node* wg_size_annotation = shd_lookup_annotation(fn, "WorkgroupSize");
+            if (wg_size_annotation && wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(wg_size_annotation).count == 3) {
+                Nodes wg_size_nodes = shd_get_annotation_values(wg_size_annotation);
+                exec_info.grid_based.workgroup_size[0] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
+                exec_info.grid_based.workgroup_size[1] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
+                exec_info.grid_based.workgroup_size[2] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
+            } else {
+                shd_warn_print("Missing workgroup size from node ");
+                shd_log_node(WARN, fn);
+                shd_warn_print(".\n");
+            }
+            break;
+        }
+        case ShdExecutionModelFragment:
+            break;
+        case ShdExecutionModelVertex:
+            break;
+        case ShdExecutionModelRayGeneration:
+            break;
+        case ShdExecutionModelCallable:
+            break;
+    }
+    return exec_info;
+}
+
 bool shd_get_workgroup_size_for_entry_point(const Node* decl, uint32_t* out) {
     const Node* old_wg_size_annotation = shd_lookup_annotation(decl, "WorkgroupSize");
     if (old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3) {

@@ -16,7 +16,7 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static bool has_explicit_layout(const TargetConfig* target, AddressSpace as) {
+static bool has_explicit_layout(const PtrModel* model, AddressSpace as) {
     switch (as) {
         // despite not being physical, they require explicit layout
         case AsShaderStorageBufferObject:
@@ -24,7 +24,7 @@ static bool has_explicit_layout(const TargetConfig* target, AddressSpace as) {
         case AsPushConstant: return true;
         default: break;
     }
-    return target->memory.address_spaces[as].physical;
+    return model->address_spaces[as].physical;
 }
 
 static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
@@ -79,7 +79,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = shd_rewrite_global_head_payload(r, node->payload.global_variable);
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, payload.address_space)) {
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, payload.address_space)) {
                 payload.type = shd_rewrite_node(&ctx->aggregate_types, payload.type);
             }
             Node* ngv = shd_global_var(r->dst_module, payload);
@@ -91,7 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case PtrType_TAG: {
             PtrType payload = node->payload.ptr_type;
             payload.pointed_type = shd_rewrite_node(&ctx->rewriter, payload.pointed_type);
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, payload.address_space))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, payload.address_space))
                 payload.pointed_type = shd_rewrite_node(&ctx->aggregate_types, payload.pointed_type);
             return ptr_type(a, payload);
         }
@@ -105,7 +105,7 @@ static const Node* process(Context* ctx, const Node* node) {
             payload.ptr = shd_rewrite_node(r, payload.ptr);
             const Node* nld = load(a, payload);
             // get rid of explicit layout at the value level
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
                 nld = mem_and_value_helper(a, nld, aggregate_cast_helper(a, pointee_type, nld));
             return nld;
         }
@@ -119,7 +119,7 @@ static const Node* process(Context* ctx, const Node* node) {
             payload.ptr = shd_rewrite_node(r, payload.ptr);
             payload.value = shd_rewrite_node(r, payload.value);
             // add explicit layout when storing
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
                 payload.value = aggregate_cast_helper(a, shd_rewrite_node(&ctx->aggregate_types, pointee_type), payload.value);
             return store(a, payload);
         }

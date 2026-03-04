@@ -13,6 +13,8 @@ typedef enum {
 } CDialect;
 
 typedef struct {
+    const ExecutionModelInfo* exec_model_info;
+
     CDialect dialect;
     bool explicitly_sized_types;
     bool allow_compound_literals;
@@ -24,7 +26,7 @@ CBackendConfig shd_default_c_backend_config(void);
 
 typedef struct CompilerConfig_ CompilerConfig;
 
-void shd_pipeline_add_c_target_passes(ShdPipeline, const CBackendConfig*);
+void shd_pipeline_add_c_target_passes(ShdPipeline, const TargetConfig* target_config, const CBackendConfig*);
 void shd_emit_c(const CompilerConfig*, CBackendConfig, Module*, size_t* output_size, char** output);
 
 #endif

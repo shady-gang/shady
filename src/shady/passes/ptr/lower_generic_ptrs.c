@@ -16,7 +16,7 @@
 
 typedef struct {
     Rewriter rewriter;
-    const MemoryModel* mem_model;
+    const PtrModel* mem_model;
     const Node* generic_ptr_type;
     struct Dict* fns;
     const CompilerConfig* config;
@@ -99,10 +99,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, ShdScope p
     Nodes return_ts = shd_empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = shd_singleton(qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+            return_ts = shd_singleton(qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t));
             break;
         case StoreFn:
-            value_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+            value_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t));
             shd_set_debug_name(value_param, "value");
             params = shd_nodes_append(a, params, value_param);
             break;
@@ -293,9 +293,9 @@ Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .mem_model = &aconfig.target.memory,
+        .mem_model = &aconfig.rules.ptr,
         .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
-        .generic_ptr_type = int_type(a, (Int) { .width = aconfig.target.memory.ptr_size, .is_signed = false}),
+        .generic_ptr_type = int_type(a, (Int) { .width = aconfig.rules.ptr.ptr_size, .is_signed = false}),
         .config = config,
     };
     shd_rewrite_module(&ctx.rewriter);

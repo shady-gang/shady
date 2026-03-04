@@ -55,7 +55,7 @@ static void create_param_lowerings(Rewriter* rewriter, const Node* old_entry_poi
         const Node* param = params.nodes[i];
         const Type* type = shd_rewrite_node(rewriter, param->type);
 
-        if (shd_deconstruct_qualified_type(&type) != shd_get_arena_config(a)->target.scopes.constants)
+        if (shd_deconstruct_qualified_type(&type) != shd_get_arena_config(a)->rules.scopes.constants)
             shd_error("EntryPoint parameters must be uniform");
 
         const Node* iface_annotation = annotation_value_helper(a, "EntryPointInterface", shd_uint32_literal(a, iface_size++));

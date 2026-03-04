@@ -6,7 +6,17 @@
 #include "shady/passes/io_passes.h"
 #include "shady/passes/group_passes.h"
 
-static void lower_memory(const TargetConfig* target, const CompilerConfig* config, Module** pmod) {
+typedef struct {
+    const TargetConfig* target_config;
+    const ShaderLoweringConfig* lowering_config;
+} S;
+
+static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod) {
+    const TargetConfig* target = s->target_config;
+    ShdExecutionModel em = ShdExecutionModelNone;
+    if (s->lowering_config->exec_model_info)
+        em = s->lowering_config->exec_model_info->execution_model;
+
     SHADY_APPLY_REWRITE_PASS(shd_pass_promote_io_variables)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_logical_pointers)
 
@@ -16,19 +26,23 @@ static void lower_memory(const TargetConfig* target, const CompilerConfig* confi
 
     if (!target->capabilities.native_stack) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_alloca)
-        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_stack_access)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_stack_access, s->lowering_config->per_thread_stack_size)
     }
-    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_lea, &target->memory)
-    if (!target->memory.address_spaces[AsGeneric].allowed) {
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_lea, &target->ptr_model)
+    if (!target->ptr_model.address_spaces[AsGeneric].allowed) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_generic_ptrs)
     }
-    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &target->memory)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &target->ptr_model, em)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_vars)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memory_layout)
     if (config->lower.decay_ptrs)
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_decay_ptrs)
 }
 
-void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const TargetConfig* tgt) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, (void*) tgt, sizeof(TargetConfig));
+void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
+    S s = {
+        .lowering_config = lowering_config,
+        .target_config = target_config,
+    };
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, (void*) &s, sizeof(S));
 }

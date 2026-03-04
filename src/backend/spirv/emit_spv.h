@@ -29,7 +29,7 @@ typedef struct Emitter_ {
     Rewriter* normalizer;
     IrArena* arena;
     const CompilerConfig* configuration;
-    const TargetConfig* target;
+    const ExecutionModelInfo* exec_info;
     const SPVBackendConfig* spirv_tgt;
     FileBuilder file_builder;
     SpvId void_t;

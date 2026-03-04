@@ -3,8 +3,9 @@
 
 #include "shady/ir/arena.h"
 #include "shady/ir/module.h"
-#include "shady/config.h"
 #include "shady/rewrite.h"
+
+typedef struct CompilerConfig_ CompilerConfig;
 
 Module* shd_before_pass_impl(const CompilerConfig* config, Module** pmod, String pass_name);
 void shd_after_pass_impl(const CompilerConfig* config, Module** pmod, String pass_name, Module*);

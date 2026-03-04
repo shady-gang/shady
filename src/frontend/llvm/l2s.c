@@ -78,7 +78,7 @@ static void prepare_bb(Parser* p, FnParseCtx* fn_ctx, BBParseCtx* ctx, LLVMBasic
     while (instr) {
         switch (LLVMGetInstructionOpcode(instr)) {
             case LLVMPHI: {
-                const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, l2s_convert_type(p, LLVMTypeOf(instr))));
+                const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, l2s_convert_type(p, LLVMTypeOf(instr))));
                 l2s_apply_debug_info(p, instr, nparam);
                 shd_dict_insert(LLVMValueRef, const Node*, p->map, instr, nparam);
                 shd_list_append(LLVMValueRef, phis, instr);
@@ -156,7 +156,7 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
         LLVMTypeRef ot = LLVMTypeOf(oparam);
         const Type* t = l2s_convert_type(p, ot);
         const Type* byval_t = l2s_get_param_byval_attr(p, fn, param_index);
-        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t));
         if (byval_t)
             shd_add_annotation(nparam, annotation_id_helper(a, "ByVal", byval_t));
         l2s_apply_debug_info(p, oparam, nparam);
@@ -347,7 +347,8 @@ bool shd_parse_llvm(const CompilerConfig* config, const LLVMFrontendConfig* fron
     }
     shd_info_print("LLVM IR parsed successfully\n");
 
-    ArenaConfig aconfig = shd_default_arena_config(target_config);
+    MachineRules rules = get_machine_rules_from_target_config(target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     aconfig.check_types = false;
     aconfig.allow_fold = false;
     aconfig.optimisations.inline_single_use_bbs = false;

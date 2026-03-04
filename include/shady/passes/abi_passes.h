@@ -6,6 +6,7 @@
 typedef struct {
     AddressSpace src_as;
     AddressSpace dst_as;
+    bool use_copies;
 } Global2LocalsPassConfig;
 
 /// Lowers certain global variables to local variables allocated in the entry point
@@ -15,7 +16,7 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_globals_to_locals, Global2LocalsPassConfig)
 SHADY_DECLARE_REWRITE_PASS(shd_pass_globals_to_params)
 
 /// Emulates workgroups by iterating over the grid
-SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_workgroups)
+SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_workgroups, const TargetConfig*)
 
 /// Assigns an actual address space to generic globals
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_generic_globals, AddressSpace)

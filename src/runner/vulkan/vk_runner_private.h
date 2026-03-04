@@ -165,6 +165,7 @@ struct VkrSpecProgram_ {
     Arena* arena;
 
     CompilerConfig specialized_config;
+    ExecutionModelInfo exec_info;
     TargetConfig specialized_target;
     SPVBackendConfig backend_config;
     Module* specialized_module;
