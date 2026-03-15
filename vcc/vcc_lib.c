@@ -89,7 +89,9 @@ void vcc_run_clang(VccConfig* vcc_options, String filename) {
     shd_growy_append_string(g, VCC_CLANG);
     String self_path = shd_get_executable_location();
     String working_dir = shd_strip_path(self_path);
-    shd_growy_append_formatted(g, " -c -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
+    if (shd_get_linked_major_llvm_version() < 21)
+        shd_growy_append_string(g, " -c");
+    shd_growy_append_formatted(g, " -emit-llvm -S -g -O0 -ffreestanding -Wno-main-return-type -isystem\"%s\" -D__SHADY__=1", vcc_options->include_path);
     if (shd_get_linked_major_llvm_version() < 20) {
         shd_growy_append_string(g, " --target=spir64-unknown-unknown");
         shd_growy_append_string(g, " -Xclang -fpreserve-vec3-type");
