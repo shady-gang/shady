@@ -171,11 +171,12 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
     assert(fn_type->payload.fn_type.param_types.count == params.count);
     Node* f = function_helper(p->dst, params, fn_type->payload.fn_type.return_types);
     String name = LLVMGetValueName(fn);
+    bool is_external = false;
     switch (LLVMGetLinkage(fn)) {
         case LLVMExternalLinkage:
         case LLVMExternalWeakLinkage:
             assert(name && "Exported LLVM functions must be named.");
-            shd_module_add_export(p->dst, name, f);
+            is_external = true;
             break;
         default:
             break;
@@ -195,6 +196,10 @@ const Node* l2s_convert_function(Parser* p, LLVMValueRef fn) {
 
     size_t bb_count = LLVMCountBasicBlocks(fn);
     if (bb_count > 0) {
+        // only functions with a body can be exported
+        if (is_external)
+            shd_module_add_export(p->dst, name, f);
+
         LLVMBasicBlockRef first_bb = LLVMGetEntryBasicBlock(fn);
         shd_dict_insert(LLVMValueRef, const Node*, p->map, first_bb, f);
 
@@ -279,7 +284,10 @@ const Node* l2s_convert_global(Parser* p, LLVMValueRef global) {
             case LLVMExternalLinkage:
             case LLVMExternalWeakLinkage:
                 assert(name);
-                shd_module_add_export(p->dst, name, decl);
+                // only globals with a definition are exported
+                // at this stage, builtins and shader I/O will have zero initializers and will be tagged as exported, we'll fix this later
+                if (decl->payload.global_variable.init)
+                    shd_module_add_export(p->dst, name, decl);
                 break;
             default:
                 break;

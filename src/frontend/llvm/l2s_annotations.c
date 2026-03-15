@@ -144,6 +144,8 @@ void l2s_process_llvm_annotations(Parser* p, LLVMValueRef global) {
                 AddressSpace as = l2s_convert_llvm_address_space(strtol(strtok(NULL, "::"), NULL, 10));
                 if (is_io_as(as))
                     ((Node*) target)->payload.global_variable.init = NULL;
+                // IO variables are not exported
+                shd_remove_annotation_by_name(target, "Exported");
                 add_annotation(p, target, (ParsedAnnotation) {
                     .payload = annotation_value(a, (AnnotationValue) {
                         .name = "IO",
