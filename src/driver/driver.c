@@ -299,7 +299,9 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const ShaderLoweringConfi
         char* output_buffer;
 
         switch (args->backend_type) {
-            case BackendNone: SHADY_UNREACHABLE;
+            case BackendNone:
+                shd_error("Output file provided but no codegen selected.\n");
+                shd_error_die();
             case BackendSPV:
                 shd_spv_apply_target_config(&args->backend_config.spirv, &target);
                 shd_emit_spirv(&args->config, &args->backend_config.spirv, mod, &output_size, &output_buffer);
