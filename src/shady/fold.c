@@ -12,6 +12,8 @@
 #include <assert.h>
 #include <math.h>
 
+#include "shady/ir/cast.h"
+
 static bool is_zero(const Node* node) {
     const IntLiteral* lit = shd_resolve_to_int_literal(node);
     if (lit && shd_get_int_literal_value(*lit, false) == 0)
@@ -158,6 +160,8 @@ typedef enum {
     PtrAccessChain = 0x8,
     // Allow seeing past bitcasts that don't start with a pointer value
     //PtrBitCastUnsafe = 0x10,
+    // Allow only "safe" bit casts: between pointers with elements that are themselves bitcastable
+    PtrSafeBitCast = 0x20,
 } PtrCasts;
 
 static bool is_ptr(const Node* value) {
@@ -180,6 +184,14 @@ static const Node* try_simplify_pointer_casts(const Node* ptr, PtrCasts* casts, 
                 BitCast payload = ptr->payload.bit_cast;
                 //if (!is_ptr(payload.src) & !(allowed_casts & PtrBitCastUnsafe))
                 //    break;
+                if (allowed_casts & PtrSafeBitCast && is_ptr(payload.src)) {
+                    const Type* src_pointee = shd_get_pointer_type_element(shd_get_unqualified_type(payload.src->type));
+                    if (shd_is_bitcast_legal(src_pointee, shd_get_pointer_type_element(payload.type))) {
+                        *casts |= PtrBitCast;
+                        ptr = payload.src;
+                        continue;
+                    }
+                }
                 if (!(allowed_casts & PtrBitCast))
                     break;
                 *casts |= PtrBitCast;
@@ -322,18 +334,32 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             Load payload = node->payload.load;
             PtrCasts changes = 0;
             // allow demoting accesses to generic (result will be the same)
-            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast);
-            if (!changes) break;
-            r = load(arena, payload);
+            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrScopeCast | PtrSafeBitCast);
+            if (changes) {
+                r = load(arena, payload);
+                const Node* mem = r;
+                const Type* expected_type = node->type;
+                ShdScope expected_scope = shd_deconstruct_qualified_type(&expected_type);
+                if (changes & PtrBitCast)
+                    r = bit_cast_helper(arena, expected_type, r);
+                if (changes & PtrScopeCast)
+                    r = scope_cast_helper(arena, expected_scope, r);
+                if (!is_mem(r))
+                    r = mem_and_value_helper(arena, mem, r);
+            }
             break;
         }
         case Store_TAG: {
             Store payload = node->payload.store;
             PtrCasts changes = 0;
             // allow demoting stores to generic and to demote pseudo-uniform writes into varying
-            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrScopeCast);
-            if (!changes) break;
-            r = store(arena, payload);
+            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrSafeBitCast | PtrScopeCast);
+            if (changes) {
+                if (changes & PtrBitCast) {
+                    payload.value = bit_cast_helper(arena, shd_get_pointer_type_element(shd_get_unqualified_type(payload.ptr->type)), payload.value);
+                }
+                r = store(arena, payload);
+            }
             break;
         }
         case ExtInstr_TAG: {

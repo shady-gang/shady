@@ -9,4 +9,5 @@ target_sources(shady PRIVATE
     leak.c
     scheduler.c
     literal.c
+    ptr.c
 )
