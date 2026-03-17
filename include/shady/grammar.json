@@ -248,8 +248,7 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" },
-        { "name": "is_reference", "type": "bool" }
+        { "name": "pointed_type", "class": "type" }
       ]
     },
     {
@@ -695,7 +694,6 @@
       "ops": [
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "is_ref", "type": "bool" },
         { "name": "init", "class": "value", "nullable": true, "tail": true }
       ]
     },

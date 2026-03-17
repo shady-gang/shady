@@ -1,7 +1,9 @@
 #include "shady/analysis/ptr.h"
+#include "shady/visit.h"
 
 #include "arena.h"
 #include "dict.h"
+#include "log.h"
 
 struct PtrAnalysis_ {
     struct Dict* alloca_info;
@@ -20,31 +22,29 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             continue;
         if (use->operand_class == NcMem)
             continue;
-        else if (use->user->tag == Load_TAG) {
-            //if (get_pointer_type_element(ptr_type) != slice_type)
-            //    k->reinterpreted = true;
+        if (use->user->tag == Load_TAG) {
             k->read_from = true;
-            continue; // loads don't leak the address.
         } else if (use->user->tag == Store_TAG) {
-            //if (get_pointer_type_element(ptr_type) != slice_type)
-            //    k->reinterpreted = true;
-            // stores leak the value if it's stored
-            if (ptr_value == use->user->payload.store.value)
+            if (ptr_value == use->user->payload.store.value) {
+                // stores leak the value if it's stored
                 k->leaks = true;
-            continue;
+                // storing a pointer is also not a legal operation for logical pointers
+                k->non_logical_use = true;
+            }
         } else if (use->user->tag == Conversion_TAG) {
+            assert(false && "this is dead code right ?");
             Conversion payload = use->user->payload.conversion;
             if (payload.type->tag == PtrType_TAG) {
-                k->non_logical_use = true;
                 visit_ptr_uses(use->user, slice_type, k, map);
             } else {
                 k->leaks = true;
             }
-            continue;
         } else if (use->user->tag == BitCast_TAG) {
             BitCast payload = use->user->payload.bit_cast;
+            // bitcasts are never legal logical uses
+            k->non_logical_use = true;
             if (payload.type->tag == PtrType_TAG) {
-                k->non_logical_use = true;
+                // though we need to track the result to know if this is also leaking the address
                 visit_ptr_uses(use->user, slice_type, k, map);
             } else {
                 k->leaks = true;
@@ -62,56 +62,82 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
     }
 }
 
-PtrSourceKnowledge shd_get_ptr_source_knowledge(PtrAnalysis* ctx, const Node* ptr) {
-    PtrSourceKnowledge k = { 0 };
+const AllocaInfo* shd_get_memory_declaration_info(PtrAnalysis* ptr_analysis, const Node* ptr) {
+    switch (ptr->tag) {
+        case BuiltinRef_TAG:
+        case LocalAlloc_TAG:
+        case GlobalVariable_TAG: {
+            AllocaInfo** found = shd_dict_find_value(const Node*, AllocaInfo*, ptr_analysis->alloca_info, ptr);
+            if (found)
+                return *found;
+            return NULL;
+        }
+        default: break;
+    }
+    shd_error("Not memory declaration")
+}
+
+const AllocaInfo* shd_find_memory_declaration(PtrAnalysis* ptr_analysis, const Node* ptr, bool allow_non_logical_ops) {
     while (ptr) {
         assert(is_value(ptr));
         switch (ptr->tag) {
-            case StackAlloc_TAG:
-            case LocalAlloc_TAG: {
-                AllocaInfo** found = shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, ptr);
-                if (found)
-                    k.src_alloca = *found;
-                return k;
+            case BuiltinRef_TAG:
+            case LocalAlloc_TAG:
+            case GlobalVariable_TAG: return shd_get_memory_declaration_info(ptr_analysis, ptr);
+
+            case PtrArrayElementOffset_TAG: {
+                if (allow_non_logical_ops) {
+                    PtrArrayElementOffset payload = ptr->payload.ptr_array_element_offset;
+                    ptr = payload.ptr;
+                    continue;
+                }
+                break;
             }
-            case GlobalVariable_TAG: {
-                // if it's a global variable we gotta make sure to rewrite it first
-                // shd_rewrite_node(&ctx->rewriter, ptr);
-                AllocaInfo** found = shd_dict_find_value(const Node*, AllocaInfo*, ctx->alloca_info, ptr);
-                if (found)
-                    k.src_alloca = *found;
-                return k;
+            case PtrCompositeElement_TAG: {
+                PtrCompositeElement payload = ptr->payload.ptr_composite_element;
+                ptr = payload.ptr;
+                continue;
             }
             case BitCast_TAG: {
-                BitCast payload = ptr->payload.bit_cast;
-                ptr = payload.src;
-                continue;
+                if (allow_non_logical_ops) {
+                    BitCast payload = ptr->payload.bit_cast;
+                    ptr = payload.src;
+                    continue;
+                }
+                break;
             }
-            case Conversion_TAG: {
-                Conversion payload = ptr->payload.conversion;
-                ptr = payload.src;
-                continue;
+            case GenericPtrCast_TAG: {
+                if (allow_non_logical_ops) {
+                    GenericPtrCast payload = ptr->payload.generic_ptr_cast;
+                    ptr = payload.src;
+                    continue;
+                }
+                break;
             }
-            case ScopeCast_TAG: {
-                ScopeCast payload = ptr->payload.scope_cast;
-                ptr = payload.src;
-                continue;
-            }
+           case ScopeCast_TAG: {
+               ScopeCast payload = ptr->payload.scope_cast;
+               ptr = payload.src;
+               continue;
+           }
             default: break;
         }
 
         ptr = NULL;
     }
-    return k;
+    return NULL;
 }
 
-const AllocaInfo* shd_analyze_alloc(PtrAnalysis* ctx, const Node* old) {
-    //Rewriter* r = &ctx->rewriter;
+bool shd_is_logical_memory_declaration(PtrAnalysis* ptr_analysis, const Node* ptr) {
+    const AllocaInfo* k = shd_find_memory_declaration(ptr_analysis, ptr, false);
+    if (!k) return false;
+    return !k->non_logical_use;
+}
+
+static const AllocaInfo* create_memory_declaration(PtrAnalysis* ctx, const Node* old) {
     AllocaInfo* k = shd_arena_alloc(ctx->arena, sizeof(AllocaInfo));
 
     const Type* old_ptr_type = shd_get_unqualified_type(old->type);
     assert(old_ptr_type->tag == PtrType_TAG);
-    bool was_ref = old_ptr_type->payload.ptr_type.is_reference;
     const Type* old_type = old_ptr_type->payload.ptr_type.pointed_type;
 
     *k = (AllocaInfo) { .type = old_type };
@@ -120,7 +146,7 @@ const AllocaInfo* shd_analyze_alloc(PtrAnalysis* ctx, const Node* old) {
         case GlobalVariable_TAG: {
             // GlobalVariable payload = old->payload.global_variable;
             if (shd_lookup_annotation(old, "Exported")) {
-               k->read_from = true;
+                k->read_from = true;
             }
             break;
         }
@@ -142,6 +168,32 @@ const AllocaInfo* shd_analyze_alloc(PtrAnalysis* ctx, const Node* old) {
     return k;
 }
 
+typedef struct {
+    Visitor v;
+    PtrAnalysis* a;
+} PtrAnalysisVisitor;
+
+static void analyze_maybe_alloc(PtrAnalysisVisitor* v, const Node* node) {
+    switch (node->tag) {
+        case LocalAlloc_TAG:
+        case BuiltinRef_TAG:
+        case GlobalVariable_TAG: create_memory_declaration(v->a, node);
+        default: break;
+    }
+}
+
+static void analyze_fn(PtrAnalysis* ptr_analysis, const Node* fn) {
+    if (!get_abstraction_body(fn))
+        return;
+    PtrAnalysisVisitor v = {
+        .v = {
+            .visit_node_fn = (VisitNodeFn) analyze_maybe_alloc,
+        },
+        .a = ptr_analysis,
+    };
+    shd_visit_function_cfg_mem_rpo((Visitor*) &v, fn);
+}
+
 KeyHash shd_hash_node(const Node**);
 bool shd_compare_node(const Node**, const Node**);
 
@@ -154,7 +206,11 @@ PtrAnalysis* shd_new_ptr_analysis(Module* module, const UsesMap* uses) {
     };
     Nodes globals = shd_module_collect_reachable_globals(module);
     for (size_t i = 0; i < globals.count; i++) {
-        shd_analyze_alloc(analysis, globals.nodes[i]);
+        create_memory_declaration(analysis, globals.nodes[i]);
+    }
+    Nodes fns = shd_module_collect_reachable_functions(module);
+    for (size_t i = 0; i < fns.count; i++) {
+        analyze_fn(analysis, fns.nodes[i]);
     }
     return analysis;
 }

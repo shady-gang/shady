@@ -98,8 +98,6 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
-            if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
-                return false;
             return shd_is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
@@ -149,7 +147,7 @@ bool shd_is_physical_data_type(const Type* type) {
         case Type_Bool_TAG:
             return true;
         case Type_PtrType_TAG:
-            return !type->payload.ptr_type.is_reference;
+            return shd_is_physical_ptr_type(type);
         case Type_ArrType_TAG:
             // array types _must_ be sized to be real data types
             if (type->payload.arr_type.size == NULL)
@@ -239,9 +237,8 @@ bool shd_is_ordered_type(const Type* t) {
 bool shd_is_physical_ptr_type(const Type* t) {
     if (t->tag != PtrType_TAG)
         return false;
-    return !t->payload.ptr_type.is_reference;
-    // AddressSpace as = t->payload.ptr_type.address_space;
-    // return t->shd_get_arena_config(arena)->address_spaces[as].physical;
+    AddressSpace as = t->payload.ptr_type.address_space;
+    return shd_get_arena_config(t->arena)->rules.ptr.address_spaces[as].physical;
 }
 
 bool shd_is_generic_ptr_type(const Type* t) {

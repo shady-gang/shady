@@ -2,6 +2,7 @@
 
 #include "shady/ir/cast.h"
 #include "shady/ir/type.h"
+#include "shady/analysis/ptr.h"
 
 #include "log.h"
 #include "portability.h"
@@ -11,6 +12,7 @@
 typedef struct {
     Rewriter rewriter;
     const PtrModel* target_mem_model;
+    PtrAnalysis* ptr_analysis;
 } Context;
 
 static bool is_as_emulated(Context* ctx, AddressSpace as) {
@@ -92,7 +94,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_result_t = old->type;
             shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
-            must_lower |= !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
+            must_lower |= !shd_is_logical_memory_declaration(ctx->ptr_analysis, old_base) && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
@@ -113,7 +115,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* old_result_t = old->type;
             shd_deconstruct_qualified_type(&old_result_t);
             bool must_lower = false;
-            must_lower |= !old_base_ptr_t->payload.ptr_type.is_reference && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
+            must_lower |= !shd_is_logical_memory_declaration(ctx->ptr_analysis, old_base) && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
             BodyBuilder* bb = shd_bld_begin_pure(a);
@@ -137,11 +139,18 @@ Module* shd_pass_lower_lea(SHADY_UNUSED const CompilerConfig* config, Module* sr
     aconfig.optimisations.weaken_bitcast_to_lea = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
+
+    const UsesMap* uses = shd_new_uses_map_module(src, 0);
+    PtrAnalysis* ptr_analysis = shd_new_ptr_analysis(src, uses);
+
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .target_mem_model = target_mem_model,
+        .ptr_analysis = ptr_analysis,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
+    shd_destroy_ptr_analysis(ptr_analysis);
+    shd_destroy_uses_map(uses);
     return dst;
 }

@@ -19,16 +19,10 @@ typedef struct {
     bool read_from;
     /// Set when the alloca is used in a manner forbidden by logical pointer rules
     bool non_logical_use;
-
-    //const Node* new;
 } AllocaInfo;
 
-const AllocaInfo* shd_analyze_alloc(PtrAnalysis*, const Node* old);
-
-typedef struct {
-    const AllocaInfo* src_alloca;
-} PtrSourceKnowledge;
-
-PtrSourceKnowledge shd_get_ptr_source_knowledge(PtrAnalysis*, const Node* ptr);
+const AllocaInfo* shd_get_memory_declaration_info(PtrAnalysis*, const Node* ptr);
+const AllocaInfo* shd_find_memory_declaration(PtrAnalysis* ptr_analysis, const Node* ptr, bool allow_non_logical_casts);
+bool shd_is_logical_memory_declaration(PtrAnalysis*, const Node* ptr);
 
 #endif

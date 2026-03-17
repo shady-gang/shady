@@ -83,7 +83,7 @@ static const Type* add_pointee_to_ptr_t(const Type* untyped_ptr_t, const Type* e
     IrArena* a = untyped_ptr_t->arena;
     assert(element_type);
     assert(untyped_ptr_t->tag == PtrType_TAG);
-    assert(!untyped_ptr_t->payload.ptr_type.is_reference);
+    assert(shd_is_physical_ptr_type(untyped_ptr_t));
     const Type* typed_ptr_t = ptr_type(a, (PtrType) { .pointed_type = element_type, .address_space = untyped_ptr_t->payload.ptr_type.address_space });
     return typed_ptr_t;
 }
@@ -244,8 +244,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
         case LLVMAlloca: {
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = l2s_convert_type(p, LLVMGetAllocatedType(instr));
-            const Type* allocated_ptr_t = ptr_type(a, (PtrType) { .pointed_type = allocated_t, .address_space = AsPrivate });
-            const Node* r = shd_bld_add_instruction(b, stack_alloc(a, (StackAlloc) { .type = allocated_t, .mem = shd_bld_mem(b) }));
+            const Node* r = shd_bld_local_alloc(b, allocated_t);
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = shd_uword_type(a), .address_space = AsPrivate });
                 r = bit_cast_helper(a, untyped_ptr_t, r);

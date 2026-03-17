@@ -44,7 +44,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, 
             if (as == AsSubgroup) {
                 return shd_new_rewrite_result(r, ptr_type(a, (PtrType) {
                         .pointed_type = shd_rewrite_op(&ctx->rewriter, NcType, "pointed_type", node->payload.ptr_type.pointed_type),
-                        .address_space = AsShared, .is_reference = node->payload.ptr_type.is_reference }));
+                        .address_space = AsShared }));
             }
             break;
         }
@@ -54,7 +54,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, 
             if (as == AsSubgroup) {
                 const Node* backing_shared_alloc = shd_node2node_find(ctx->shared_backing, node);
                 if (!backing_shared_alloc) {
-                    assert(payload.is_ref && "All subgroup variables should be logical by now!");
+                    //assert(payload.is_ref && "All subgroup variables should be logical by now!");
                     payload = shd_rewrite_global_head_payload(r, payload);
                     payload.address_space = AsShared;
                     payload.type = arr_type(a, (ArrType) {

@@ -52,7 +52,7 @@ static const Node* process(Context* ctx, const Node* node){
             for (size_t i = 0; i < payload.params.count; i++) {
                 if (arr[i]) {
                     const Node* oparam = get_abstraction_params(node).nodes[i];
-                    const Node* ptr = shd_bld_stack_alloc(builder, arr[i]);
+                    const Node* ptr = shd_bld_local_alloc(builder, arr[i]);
                     shd_bld_store(builder, ptr, payload.params.nodes[i]);
                     ptr = shd_bld_generic_ptr_cast(builder, ptr);
                     ptr = shd_bld_bitcast(builder, shd_get_unqualified_type(shd_rewrite_node(r, oparam->type)), ptr);

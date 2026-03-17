@@ -43,13 +43,6 @@ static const Node* process(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
 
     switch (old->tag) {
-        case PtrType_TAG: {
-            PtrType payload = old->payload.ptr_type;
-            if (!ctx->ptr_model->address_spaces[payload.address_space].physical)
-                payload.is_reference = true;
-            payload.pointed_type = shd_rewrite_node(r, payload.pointed_type);
-            return ptr_type(a, payload);
-        }
         case PtrArrayElementOffset_TAG: {
             PtrArrayElementOffset payload = old->payload.ptr_array_element_offset;
             const Type* optr_t = payload.ptr->type;

@@ -116,7 +116,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
                 ExitValue* exit_params = shd_arena_alloc(ctx->arena, sizeof(ExitValue) * exit_param_types.count);
                 for (size_t j = 0; j < exit_param_types.count; j++) {
-                    exit_params[j].alloca = shd_bld_stack_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
+                    exit_params[j].alloca = shd_bld_local_alloc(outer_bb, shd_get_unqualified_type(exit_param_types.nodes[j]));
                     exit_params[j].scope = shd_get_qualified_type_scope(exit_param_types.nodes[j]);
                 }
                 exits[i] = (Exit) {
@@ -127,7 +127,7 @@ static const Node* process_abstraction(Context* ctx, const Node* node) {
 
             const Node* exit_destination_alloca = NULL;
             if (exiting_nodes_count > 1)
-                exit_destination_alloca = shd_bld_stack_alloc(outer_bb, shd_int32_type(a));
+                exit_destination_alloca = shd_bld_local_alloc(outer_bb, shd_int32_type(a));
 
             const Node* join_token_exit = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, join_point_type(a, (JoinPointType) {
                     .yield_types = shd_empty(a)

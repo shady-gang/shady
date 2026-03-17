@@ -74,4 +74,34 @@ void shd_visit_node_operands(Visitor* visitor, NodeClass exclude, const Node* no
     }
 }
 
+void shd_visit_mem_chain_reverse(Visitor* visitor, const Node* abs) {
+    assert(visitor->visit_node_fn && !visitor->visit_op_fn && "only works with node visitors");
+    const Node* terminator = get_abstraction_body(abs);
+    assert(is_terminator(terminator));
+    const Node* mem = terminator;
+    const Node* start = shd_get_abstraction_mem(abs);
+    while (mem != start) {
+        visitor->visit_node_fn(visitor, mem);
+        mem = shd_get_parent_mem(mem);
+    }
+}
+
+typedef struct {
+    Visitor v;
+    Visitor* other_v;
+} OtherVisitor;
+void shd_visit_function_cfg_mem_rpo_(OtherVisitor* v, const Node* abs) {
+    shd_visit_mem_chain_reverse(v->other_v, abs);
+}
+
+void shd_visit_function_cfg_mem_rpo(Visitor* visitor, const Node* function) {
+    OtherVisitor ov = {
+        .v = {
+            .visit_node_fn = (VisitNodeFn) shd_visit_function_cfg_mem_rpo_,
+        },
+        .other_v = visitor,
+    };
+    shd_visit_function_rpo((Visitor*) &ov, function);
+}
+
 #include "visit_generated.c"

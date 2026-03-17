@@ -317,8 +317,8 @@ static void function_frame_visitor(FunctionFrameVisitor* visitor, const Node* n)
         return;
     shd_node_set_insert(visitor->seen, n);
 
-    if (n->tag == StackAlloc_TAG) {
-        StackAlloc payload = n->payload.stack_alloc;
+    if (n->tag == LocalAlloc_TAG) {
+        LocalAlloc payload = n->payload.local_alloc;
         TypeMemLayout layout = shd_get_mem_layout(n->arena, payload.type);
         //char* s;
         //size_t dc;
@@ -470,7 +470,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf(node->payload.ptr_type.is_reference ? "ref" : "ptr");
+            printf(!shd_is_physical_ptr_type(node) ? "ref" : "ptr");
             printf(RESET);
             printf("(");
             printf(BLUE);

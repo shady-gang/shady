@@ -352,7 +352,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 0, "no operands");
-                return shd_bld_add_instruction(bb, stack_alloc(arena, (StackAlloc) {
+                return shd_bld_add_instruction(bb, local_alloc(arena, (LocalAlloc) {
                     .type = type,
                     .mem = shd_bld_mem(bb),
                 }));
@@ -482,16 +482,6 @@ static const Type* accept_unqualified_type(ctxparams) {
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
-        });
-    } else if (accept_token(ctx, ref_tok)) {
-        AddressSpace as = accept_address_space(ctx);
-        expect(as != NumAddressSpaces, "address space");
-        const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type, "data type");
-        return ptr_type(arena, (PtrType) {
-           .address_space = as,
-           .pointed_type = elem_type,
-           .is_reference = true,
         });
     } else if (config->front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
@@ -1211,10 +1201,6 @@ static const Node* accept_global_var_decl(ctxparams, String* bind_name, Nodes an
     };
     bool uniform = false;
     while (true) {
-        if (accept_token(ctx, logical_tok)) {
-            payload.is_ref = true;
-            continue;
-        }
         if (accept_token(ctx, uniform_tok)) {
             uniform = true;
             continue;

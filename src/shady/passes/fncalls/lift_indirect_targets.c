@@ -53,7 +53,7 @@ static const Node* add_spill_instrs(Context* ctx, BodyBuilder* builder, Nodes sp
         const Node* nvar = shd_rewrite_node(&ctx->rewriter, ovar);
         const Type* t = nvar->type;
         shd_deconstruct_qualified_type(&t);
-        SHADY_ASSERT(t->tag != PtrType_TAG || !t->payload.ptr_type.is_reference, "References cannot be spilled");
+        SHADY_ASSERT(t->tag != PtrType_TAG || shd_is_physical_ptr_type(t), "References cannot be spilled");
         shd_bld_stack_push_value(builder, nvar);
     }
 

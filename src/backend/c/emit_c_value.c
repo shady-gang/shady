@@ -999,7 +999,6 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
 
 static const Type* get_allocated_type(const Node* alloc) {
     switch (alloc->tag) {
-        case Instruction_StackAlloc_TAG: return alloc->payload.stack_alloc.type;
         case Instruction_LocalAlloc_TAG: return alloc->payload.local_alloc.type;
         default: assert(false); return NULL;
     }
@@ -1042,7 +1041,6 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             shd_c_emit_mem(emitter, fn, payload.mem);
             return emit_call(emitter, fn, p, payload.callee, payload.args, instruction->type);
         } case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
-        case Instruction_StackAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_LocalAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);
         case Instruction_PtrCompositeElement_TAG: return emit_ptr_composite_element(emitter, fn, p, instruction->payload.ptr_composite_element);

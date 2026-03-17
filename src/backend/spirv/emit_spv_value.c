@@ -337,8 +337,7 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
         case Instruction_SetStackSize_TAG:
         case Instruction_GetStackBaseAddr_TAG: shd_error("Stack operations need to be lowered.");
         case Instruction_CopyBytes_TAG:
-        case Instruction_FillBytes_TAG:
-        case Instruction_StackAlloc_TAG: shd_error("Should be lowered elsewhere")
+        case Instruction_FillBytes_TAG: shd_error("Should be lowered elsewhere")
         case Instruction_ExtInstr_TAG: {
             ExtInstr instr = instruction->payload.ext_instr;
             spv_emit_mem(emitter, fn_builder, instr.mem);

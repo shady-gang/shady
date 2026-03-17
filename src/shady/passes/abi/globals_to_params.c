@@ -170,7 +170,6 @@ Module* shd_pass_globals_to_params(SHADY_UNUSED const CompilerConfig* config, Mo
         const Node* g = shd_global_var(dst, (GlobalVariable) {
             .address_space = AsPrivate,
             .type = t,
-            .is_ref = true,
         });
         const Node* p = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, t));
         if (name) {

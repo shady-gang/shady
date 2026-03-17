@@ -81,7 +81,7 @@ static bool is_supported_natively(Context* ctx, SHADY_UNUSED SubgroupOp op, cons
     }
 
     // these wind up as no-ops
-    if (element_type->tag == PtrType_TAG && element_type->payload.ptr_type.is_reference)
+    if (element_type->tag == PtrType_TAG && !shd_is_physical_ptr_type(element_type))
         return true;
 
     return false;
@@ -120,7 +120,7 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
             break;
         }
         case Type_PtrType_TAG: {
-            if (t->payload.ptr_type.is_reference)
+            if (!shd_is_physical_ptr_type(t))
                 break;
             param = shd_bld_bitcast(bb, shd_uint64_type(a), param);
             return shd_bld_bitcast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));

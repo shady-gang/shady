@@ -27,44 +27,15 @@ static const Node* handle_alloc(Context* ctx, const Node* old) {
     Rewriter* r = &ctx->rewriter;
 
     const Node* omem = is_mem(old) ? shd_get_parent_mem(old) : NULL;
-    const AllocaInfo* k = shd_analyze_alloc(ctx->analysis, old);
-    if (!k->leaks && !k->non_logical_use) {
-        if (!k->read_from/* this should include killing dead stores! */) {
-            *ctx->todo |= true;
-            const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
+    const AllocaInfo* k = shd_get_memory_declaration_info(ctx->analysis, old);
+    if (!k->leaks && !k->read_from) {
+        *ctx->todo |= true;
+        const Node* new = undef(a, (Undef) { .type = shd_get_unqualified_type(shd_rewrite_node(r, old->type)) });
 
-            const Node* nmem = shd_rewrite_node(r, omem);
-            if (nmem)
-                new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
-            return new;
-        } else if (shd_get_arena_config(a)->optimisations.weaken_non_leaking_allocas) {
-            Node* new;
-            switch (old->tag) {
-                case LocalAlloc_TAG: {
-                    LocalAlloc old_payload = old->payload.local_alloc;
-                    new = (Node*) local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_payload.type), .mem = shd_rewrite_node(r, omem) });
-                    break;
-                }
-                case StackAlloc_TAG: {
-                    *ctx->todo |= true;
-                    StackAlloc old_payload = old->payload.stack_alloc;
-                    new = (Node*) local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(r, old_payload.type), .mem = shd_rewrite_node(r, omem) });
-                    break;
-                }
-                case GlobalVariable_TAG: {
-                    GlobalVariable payload = shd_rewrite_global_head_payload(r, old->payload.global_variable);
-                    *ctx->todo |= !payload.is_ref;
-                    payload.is_ref = true;
-                    new = shd_global_var(r->dst_module, payload);
-                    shd_register_processed(r, old, new);
-                    shd_recreate_node_body(r, old, new);
-                    break;
-                }
-                default: shd_error("Unreachable");
-            }
-            shd_rewrite_annotations(r, old, new);
-            return new;
-        }
+        const Node* nmem = shd_rewrite_node(r, omem);
+        if (nmem)
+            new = mem_and_value(a, (MemAndValue) { .value = new, .mem = nmem });
+        return new;
     }
     const Node* new = shd_recreate_node(r, old);
     return new;
@@ -90,8 +61,7 @@ static const Node* process(Context* ctx, const Node* old) {
             return shd_recreate_node(&fun_ctx.rewriter, old);
         }
         case GlobalVariable_TAG:
-        case LocalAlloc_TAG:
-        case StackAlloc_TAG: return handle_alloc(ctx, old);
+        case LocalAlloc_TAG: return handle_alloc(ctx, old);
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, old);

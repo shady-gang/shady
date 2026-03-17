@@ -18,14 +18,14 @@ struct JoinPoint {
 // const u32 OpGroupNonUniformBallot = 339;
 // const u32 OpGroupNonUniformIAdd = 349;
 
-@Internal var logical subgroup u32 actual_subgroup_size;
+@Internal var subgroup u32 actual_subgroup_size;
 
-@Internal var logical subgroup u32 scheduler_cursor = 0;
-@Internal var logical subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
-@Exported @Internal var logical subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
+@Internal var subgroup u32 scheduler_cursor = 0;
+@Internal var subgroup [TreeNode; SUBGROUP_SIZE] scheduler_vector;
+@Exported @Internal var subgroup [fn_ptr_t; SUBGROUP_SIZE] resume_at;
 
-@Exported @Internal var logical subgroup fn_ptr_t next_fn;
-@Exported @Internal var logical subgroup TreeNode active_branch;
+@Exported @Internal var subgroup fn_ptr_t next_fn;
+@Exported @Internal var subgroup TreeNode active_branch;
 
 @Internal @Builtin("SubgroupLocalInvocationId")
 var input u32 subgroup_local_id;

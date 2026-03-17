@@ -73,10 +73,6 @@ const Type* _shd_check_type_ptr_type(IrArena* arena, PtrType ptr_type) {
         shd_error_print("Address space %s is not allowed in this arena\n", shd_get_address_space_name(ptr_type.address_space));
         shd_error_die();
     }
-    if (!ptr_type.is_reference && !arena->config.rules.ptr.address_spaces[ptr_type.address_space].physical) {
-        shd_error_print("Address space %s is not physical in this arena\n", shd_get_address_space_name(ptr_type.address_space));
-        shd_error_die();
-    }
     assert(ptr_type.pointed_type && "Shady does not support untyped pointers, but can infer them, see infer.c");
     const Node* maybe_record_type = ptr_type.pointed_type;
 
@@ -242,8 +238,7 @@ const Type* _shd_check_type_fn_addr(IrArena* arena, FnAddr fn_addr) {
         .scope = shd_get_arena_config(arena)->rules.scopes.constants,
         .type = ptr_type(arena, (PtrType) {
             .pointed_type = fn_addr.fn->type,
-            .address_space = as /* the actual AS does not matter because these are opaque anyways */,
-            .is_reference = !shd_get_arena_config(arena)->rules.ptr.address_spaces[as].physical,
+            .address_space = as, /* the actual AS does not matter because these are opaque anyways */
         })
     });
 }
@@ -719,7 +714,7 @@ const Type* _shd_check_type_comment(IrArena* arena, SHADY_UNUSED Comment payload
     return empty_multiple_return_type(arena);
 }
 
-const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
+/*const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
     assert(is_type(alloc.type));
     return qualified_type(a, (QualifiedType) {
         .scope = shd_get_addr_space_scope(AsPrivate),
@@ -729,7 +724,7 @@ const Type* _shd_check_type_stack_alloc(IrArena* a, StackAlloc alloc) {
             .is_reference = false
         })
     });
-}
+}*/
 
 const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
     assert(is_type(alloc.type));
@@ -738,7 +733,6 @@ const Type* _shd_check_type_local_alloc(IrArena* a, LocalAlloc alloc) {
         .type = ptr_type(a, (PtrType) {
             .pointed_type = alloc.type,
             .address_space = AsFunction,
-            .is_reference = true
         })
     });
 }
@@ -802,7 +796,7 @@ const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElement
 
     const IntLiteral* lit = shd_resolve_to_int_literal(lea.offset);
     bool offset_is_zero = lit && lit->value == 0;
-    assert((offset_is_zero || !base_ptr_type->payload.ptr_type.is_reference) && "if an offset is used, the base cannot be a reference");
+    assert((offset_is_zero || shd_is_physical_ptr_type(base_ptr_type)) && "if an offset is used, the base cannot be a reference");
     assert((offset_is_zero || shd_is_data_type(pointee_type)) && "if an offset is used, the base must point to a data type");
 
     return qualified_type(a, (QualifiedType) {
@@ -810,7 +804,6 @@ const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElement
         .type = ptr_type(a, (PtrType) {
             .pointed_type = pointee_type,
             .address_space = base_ptr_type->payload.ptr_type.address_space,
-            .is_reference = base_ptr_type->payload.ptr_type.is_reference
         })
     });
 }
@@ -827,8 +820,7 @@ const Type* _shd_check_type_ptr_composite_element(IrArena* a, PtrCompositeElemen
         .scope = s,
         .type = ptr_type(a, (PtrType) {
             .pointed_type = pointee_type,
-            .address_space = base_ptr_type->payload.ptr_type.address_space,
-            .is_reference = base_ptr_type->payload.ptr_type.is_reference
+            .address_space = base_ptr_type->payload.ptr_type.address_space
         })
     });
 }
@@ -988,7 +980,6 @@ const Type* _shd_check_type_global_variable(IrArena* arena, GlobalVariable globa
     return qualified_type_helper(arena, shd_get_arena_config(arena)->rules.scopes.constants, ptr_type(arena, (PtrType) {
         .pointed_type = global_variable.type,
         .address_space = global_variable.address_space,
-        .is_reference = global_variable.is_ref,
     }));
 }
 
@@ -997,7 +988,6 @@ const Type* _shd_check_type_builtin_ref(IrArena* arena, BuiltinRef ref) {
     return qualified_type_helper(arena, scope, ptr_type(arena, (PtrType) {
         .pointed_type = shd_get_builtin_type(arena, ref.builtin),
         .address_space = shd_get_builtin_address_space(ref.builtin),
-        .is_reference = true,
     }));
 }
 

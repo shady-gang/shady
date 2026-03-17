@@ -78,8 +78,6 @@ static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
 
-    bool physical = shd_get_arena_config(a)->rules.ptr.address_spaces[ctx->pass_config.dst_as].physical;
-
     switch (node->tag) {
         case Function_TAG: {
             Context fn_ctx = *ctx;
@@ -113,7 +111,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 for (size_t i = 0; i < ctx->promoted_to_alloca.old.count; i++) {
                     const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
                     const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
-                    t = ptr_type_helper(a, ctx->pass_config.dst_as, t, !physical);
+                    t = ptr_type_helper(a, ctx->pass_config.dst_as, t);
                     t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                     param = param_helper(a, t);
                     payload.params = shd_nodes_prepend(a, payload.params, param);
@@ -143,7 +141,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 for (size_t i = 0; i < ctx->promoted_to_copy.old.count; i++) {
                     const Node* opromoted = ctx->promoted_to_copy.old.nodes[i];
                     const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
-                    const Node* alloca = physical ? shd_bld_stack_alloc(bb, t) : shd_bld_local_alloc(bb, t);
+                    const Node* alloca = shd_bld_local_alloc(bb, t);
                     if (copy_in.count > 0)
                         shd_bld_store(bb, alloca, copy_in.nodes[i]);
                     shd_register_processed(&fn_ctx.rewriter, opromoted, alloca);
@@ -156,7 +154,7 @@ static const Node* process(Context* ctx, const Node* node) {
                     for (size_t i = 0; i < ctx->promoted_to_alloca.old.count; i++) {
                         const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
                         const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
-                        const Node* alloca = physical ? shd_bld_stack_alloc(bb, t) : shd_bld_local_alloc(bb, t);
+                        const Node* alloca = shd_bld_local_alloc(bb, t);
                         if (copy_in.count > 0)
                             shd_bld_store(bb, alloca, copy_in.nodes[i]);
                         shd_register_processed(&fn_ctx.rewriter, opromoted, alloca);
@@ -235,7 +233,7 @@ static const Node* process(Context* ctx, const Node* node) {
             for (size_t i = 0; i < ctx->promoted_to_alloca.old.count; i++) {
                 const Node* opromoted = ctx->promoted_to_alloca.old.nodes[i];
                 const Type* t = shd_rewrite_node(r, opromoted->payload.global_variable.type);
-                t = ptr_type_helper(a, ctx->pass_config.dst_as, t, !physical);
+                t = ptr_type_helper(a, ctx->pass_config.dst_as, t);
                 t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t);
                 payload.param_types = shd_nodes_prepend(a, payload.param_types, t);
             }

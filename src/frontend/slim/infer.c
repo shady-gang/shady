@@ -496,11 +496,11 @@ static const Node* infer_instruction(Context* ctx, const Node* node, const Type*
             const Node* value = infer(ctx, payload.value, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, element_t));
             return store(a, (Store) { .ptr = ptr, .value = value, .mem = infer(ctx, node->payload.store.mem, NULL) });
         }
-        case Instruction_StackAlloc_TAG: {
-            const Type* element_type = node->payload.stack_alloc.type;
+        case LocalAlloc_TAG: {
+            const Type* element_type = node->payload.local_alloc.type;
             assert(is_type(element_type));
             assert(shd_is_data_type(element_type));
-            return stack_alloc(a, (StackAlloc) { .type = infer_type(ctx, element_type), .mem = infer(ctx, node->payload.stack_alloc.mem, NULL) });
+            return local_alloc(a, (LocalAlloc) { .type = infer_type(ctx, element_type), .mem = infer(ctx, node->payload.local_alloc.mem, NULL) });
         }
         default: break;
         case NotAnInstruction: shd_error("not an instruction");

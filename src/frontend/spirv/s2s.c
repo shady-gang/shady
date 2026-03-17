@@ -838,7 +838,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             assert(shd_is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = shd_bld_add_instruction(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = shd_bld_mem(parser->current_block.builder) }));
+                const Node* ptr = shd_bld_local_alloc(parser->current_block.builder, contents_t);
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;

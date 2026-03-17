@@ -22,7 +22,6 @@ static void search_for_memstuff(Visitor* v, const Node* n) {
         case Store_TAG:
         case CopyBytes_TAG:
         case FillBytes_TAG:
-        case StackAlloc_TAG:
         case LocalAlloc_TAG: {
             found_memstuff = true;
             break;

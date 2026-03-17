@@ -64,7 +64,6 @@ static const Type* get_callee_var_for_signature(Context* ctx, const Node* fnt) {
     const Type* rec = get_type_for_signature(ctx, fnt);
     Node* var = shd_global_var(ctx->rewriter.dst_module, (GlobalVariable) {
         .type = rec,
-        .is_ref = true,
         .address_space = AsIncomingCallableDataKHR,
     });
     shd_set_debug_name(var, shd_fmt_string_irarena(a, "%s_callee_var", shd_get_type_name(a, fnt)));
@@ -79,7 +78,6 @@ static const Type* get_caller_var_for_signature(Context* ctx, const Node* fnt) {
     const Type* rec = get_type_for_signature(ctx, fnt);
     Node* var = shd_global_var(ctx->rewriter.dst_module, (GlobalVariable) {
         .type = rec,
-        .is_ref = true,
         .address_space = AsCallableDataKHR,
     });
     shd_set_debug_name(var, shd_fmt_string_irarena(a, "%s_caller_var", shd_get_type_name(a, fnt)));

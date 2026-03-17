@@ -20,9 +20,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                 if (shd_lookup_annotation(node, "IO") || shd_lookup_annotation(node, "Builtin"))
                     break;
                 GlobalVariable payload = node->payload.global_variable;
-                // we need to re-promote this in case it was demoted, because we will cast the global to a generic pointer still
-                // if this can be optimized away later we win
-                payload.is_ref = false;
+                // foldings ops may remove this from access chains
                 payload = shd_rewrite_global_head_payload(r, payload);
                 payload.address_space = ctx->as;
                 Node* new_global = shd_global_var(r->dst_module, payload);

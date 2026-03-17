@@ -206,7 +206,6 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, M
         Node* stack_ptr_decl = shd_global_var(dst, (GlobalVariable) {
             .type = stack_counter_t,
             .address_space = AsPrivate,
-            .is_ref = true
         });
         shd_set_debug_name(stack_ptr_decl, "stack_ptr");
         shd_add_annotation_named(stack_ptr_decl, "Generated");
@@ -218,7 +217,6 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, M
             Node* max_stack_size_var = shd_global_var(dst, (GlobalVariable) {
                 .type = stack_counter_t,
                 .address_space = AsPrivate,
-                .is_ref = true
             });
             shd_set_debug_name(max_stack_size_var, "max_stack_ptr");
             shd_add_annotation_named(max_stack_size_var, "Generated");

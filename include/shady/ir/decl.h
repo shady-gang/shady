@@ -18,11 +18,9 @@ static inline Node* constant_helper(Module* m, const Type* t) {
 }
 
 static inline Node* global_variable_helper(Module* m, const Type* t, AddressSpace as) {
-    const ArenaConfig* aconfig = shd_ir_arena_get_config(shd_module_get_arena(m));
     Node* g = shd_global_var(m, (GlobalVariable) {
         .type = t,
         .address_space = as,
-        .is_ref = !aconfig->rules.ptr.address_spaces[as].physical,
     });
     return g;
 }
