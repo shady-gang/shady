@@ -1,5 +1,5 @@
 @Exported @EntryPoint("Compute") @WorkgroupSize(32, 1, 1)
-fn main(uniform i32 a0, uniform f32 a1) {
+fn main(scope("Top") i32 a0, scope("Top") f32 a1) {
     debug_printf("hi %d %f", a0, a1);
     return ();
 }

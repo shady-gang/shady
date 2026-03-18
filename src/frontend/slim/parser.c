@@ -246,14 +246,39 @@ static const Node* accept_numerical_literal(ctxparams) {
     }
 }
 
+static String expect_string_literal(ctxparams) {
+    Token tok = shd_curr_token(tokenizer);
+    if (tok.tag != string_lit_tok)
+        syntax_error("expected string literal");
+    size_t size = tok.end - tok.start;
+    shd_next_token(tokenizer);
+    char* unescaped = calloc(size + 1, 1);
+    size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
+    String interned = shd_string_sized(arena, (int) j, unescaped);
+    free(unescaped);
+    return interned;
+}
+
 static bool accept_scope(ctxparams, ShdScope* out) {
-    if (accept_token(ctx, uniform_tok))
+    if (accept_token(ctx, scope_tok)) {
+        expect(ctx, accept_token(ctx, lpar_tok));
+        String scope = expect_string_literal(ctx);
+        expect(ctx, accept_token(ctx, rpar_tok));
+
+        if (strcmp(scope, "Top") == 0) {
+            *out = shd_get_arena_config(arena)->rules.scopes.constants;
+        } else if (strcmp(scope, "Bottom") == 0) {
+            *out = shd_get_arena_config(arena)->rules.scopes.bottom;
+        } else {
+            shd_error("TODO: parse arbitrary scopes");
+        }
+
+        return true;
+    } else if (accept_token(ctx, uniform_tok))
         *out = shd_get_arena_config(arena)->rules.scopes.gang;
     else if (accept_token(ctx, varying_tok))
         *out = shd_get_arena_config(arena)->rules.scopes.bottom;
-    else
-        return false;
-    return true;
+    return false;
 }
 
 static const Type* accept_maybe_qualified_type(ctxparams) {
@@ -399,12 +424,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             });
         }
         case string_lit_tok: {
-            shd_next_token(tokenizer);
-            char* unescaped = calloc(size + 1, 1);
-            size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
-            const Node* lit = string_lit(arena, (StringLiteral) {.string = shd_string_sized(arena, (int) j, unescaped) });
-            free(unescaped);
-            return lit;
+            return string_lit(arena, (StringLiteral) { .string = expect_string_literal(ctx) });
         }
         case true_tok:
             shd_next_token(tokenizer); return true_lit(arena);
