@@ -40,10 +40,10 @@ void shd_pipeline_add_target_specialization(ShdPipeline pipeline, const TargetCo
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target) {
     shd_pipeline_add_target_specialization(pipeline, target);
 
-    if (!lowering_config->exec_model_info) {
-        shd_error("The shader lowering pipeline needs valid execution model info.\n");
-        shd_error("Some of the specializations require .\n");
-    }
+    //if (!lowering_config->exec_model_info) {
+    //    shd_error("The shader lowering pipeline needs valid execution model info.\n");
+    //    shd_error("Some of the specializations require .\n");
+    //}
 
     // if (tgt->execution_model != ShdExecutionModelNone)
     //     shd_pipeline_add_specialize_execution_model(pipeline, tgt->execution_model);

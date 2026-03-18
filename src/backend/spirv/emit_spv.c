@@ -367,7 +367,7 @@ static ShdResult run_spv_backend_transforms(const SPVBackendPipelineOptions* opt
     SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
 
     // TODO: make this a shader lowering pipeline duty
-    if (options->backend->exec_info->execution_model == ShdExecutionModelRayGeneration) {
+    if (options->backend->exec_info && options->backend->exec_info->execution_model == ShdExecutionModelRayGeneration) {
         // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
         SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
         SHADY_APPLY_REWRITE_PASS(shd_pass_mark_leaf_functions)

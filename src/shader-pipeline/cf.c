@@ -28,8 +28,12 @@ static ShdResult remove_indirect_calls(const S* s, const CompilerConfig* config,
         SHADY_APPLY_REWRITE_PASS(shd_pass_inline)
         SHADY_APPLY_REWRITE_PASS(shd_pass_lift_indirect_targets)
 
-        if (true) {
+        if (s->lowering_config->exec_model_info) {
             shd_add_scheduler_source(config, target, s->lowering_config, *pmod);
+        } else {
+            shd_log_fmt(ERROR, "Using the software scheduler requires an entry point to be known.\n");
+            shd_log_fmt(ERROR, "Provided a source file with a single entry point or use --entry-point to name the one you wish to specialize on.\n");
+            shd_error_die();
         }
 
         // run this again so the scheduler source is left alone

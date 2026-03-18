@@ -154,17 +154,11 @@ static String find_entry_point(const Module* mod) {
         if (!first_ep)
             first_ep = fn;
         else {
-            shd_log_fmt(ERROR, "Selected target requires specialization, but no --entry-point provided and more than one exist in input.\n");
-            exit(ShdNeedsSpecialization);
+            return NULL;
         }
     }
 
-    if (!first_ep) {
-        shd_log_fmt(ERROR, "Selected target requires specialization, but there are no entry points to specialize on in this file.\n");
-        exit(ShdNeedsSpecialization);
-    }
-
-    return shd_get_exported_name(first_ep);
+    return NULL;
 }
 
 CodegenTarget shd_driver_guess_target_through_name(const char* filename) {
@@ -238,7 +232,7 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const ShaderLoweringConfi
         lowering_config = &lowering_config_v;
     }
 
-    if (!args->specialization.entry_point && lowering_config) {
+    if (!args->specialization.entry_point) {
         args->specialization.entry_point = find_entry_point(mod);
     }
 
