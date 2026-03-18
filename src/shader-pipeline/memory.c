@@ -32,7 +32,10 @@ static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod
     if (!target->ptr_model.address_spaces[AsGeneric].allowed) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_generic_ptrs)
     }
-    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &target->ptr_model, em)
+
+    PtrModel ptr_model = target->ptr_model;
+    ptr_model.address_spaces[AsCode].physical = true;
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &ptr_model, em)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_vars)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memory_layout)
     if (config->lower.decay_ptrs)

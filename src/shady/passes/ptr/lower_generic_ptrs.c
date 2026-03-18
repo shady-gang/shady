@@ -252,8 +252,11 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* old_src_t = old_src->type;
             shd_deconstruct_qualified_type(&old_src_t);
 
-            if (old_src_t->payload.ptr_type.address_space == AsCode)
-                return bit_cast_helper(a, size_t_type(a), shd_rewrite_node(r, old_src));
+            if (old_src_t->payload.ptr_type.address_space == AsCode) {
+                const Type* ptr_size_uint = int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false);
+                const Node* fn_ptr_as_uint = bit_cast_helper(a, ptr_size_uint, shd_rewrite_node(r, old_src));
+                return shd_convert_int_zero_extend(a, size_t_type(a), fn_ptr_as_uint);
+            }
 
             if (old_src_t->payload.ptr_type.pointed_type->tag == FnType_TAG) {
                 PtrType npayload = old_src_t->payload.ptr_type;
