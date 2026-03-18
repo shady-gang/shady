@@ -1087,6 +1087,10 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         }
         case Instruction_AggregateCast_TAG: shd_error("TODO");
         case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
+        case Instruction_PrivatePtrCast_TAG: {
+            PrivatePtrCast payload = instruction->payload.private_ptr_cast;
+            return emit_conversion(emitter, fn, p, instruction->type, payload.src);
+        }
         case Instruction_GenericPtrCast_TAG: {
             GenericPtrCast payload = instruction->payload.generic_ptr_cast;
             return emit_conversion(emitter, fn, p, instruction->type, payload.src);

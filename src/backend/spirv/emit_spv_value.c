@@ -454,6 +454,9 @@ static SpvId spv_emit_instruction(Emitter* emitter, FnBuilder* fn_builder, BBBui
             SpvId src = spv_emit_value(emitter, fn_builder, payload.src);
             return spvb_op(bb_builder, SpvOpCopyLogical, spv_emit_type(emitter, instruction->type), 1, &src);
         }
+        case Instruction_PrivatePtrCast_TAG: {
+            shd_error("PrivatePtrCast must be lowered away");
+        }
         case Instruction_GenericPtrCast_TAG: {
             GenericPtrCast payload = instruction->payload.generic_ptr_cast;
             IselTableEntry entry = { Plain, Monomorphic, TyOperand, .op = SpvOpGenericCastToPtr };

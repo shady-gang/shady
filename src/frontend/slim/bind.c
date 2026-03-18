@@ -173,10 +173,10 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
-                const Node* alloca = local_alloc(a, (LocalAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bld_mem(bb) });
-                const Node* ptr = shd_bld_add_instruction(bb, alloca);
+                const Node* ptr = shd_bld_local_alloc(bb, shd_rewrite_node(&ctx->rewriter, type_annotation));
+                ptr = private_ptr_cast_helper(a, ptr);
                 shd_set_debug_name(ptr, name);
-                shd_bld_add_instruction(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bld_mem(bb) }));
+                shd_bld_store(bb, ptr, results.nodes[0]);
 
                 add_binding(ctx, true, name, ptr);
                 shd_log_fmt(DEBUGV, "Bound mutable variable '%s'\n", name);
