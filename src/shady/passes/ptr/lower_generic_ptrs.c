@@ -39,6 +39,8 @@ static AddressSpace get_addr_space_from_tag(size_t tag) {
 }
 
 static uint64_t get_tag_for_addr_space(AddressSpace as) {
+    if (as == AsFunction)
+        as = AsPrivate;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     for (size_t i = 0; i < max_tag; i++) {
         if (generic_ptr_tags[i] == as)

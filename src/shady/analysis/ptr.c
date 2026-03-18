@@ -56,7 +56,11 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
             visit_ptr_uses(use->user, slice_type, k, map);
         } else if (use->user->tag == ScopeCast_TAG) {
             visit_ptr_uses(use->user, slice_type, k, map);
+        } else if (use->user->tag == GenericPtrCast_TAG) {
+            visit_ptr_uses(use->user, slice_type, k, map);
+            k->non_logical_use = true;
         } else {
+            k->non_logical_use = true;
             k->leaks = true;
         }
     }

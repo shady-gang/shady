@@ -41,6 +41,8 @@ typedef struct Context_ {
 static void store_init_data(Context* ctx, AddressSpace as, Nodes collected, BodyBuilder* bb);
 
 static bool is_as_emulated(Context* ctx, AddressSpace as) {
+    if (as == AsFunction)
+        as = AsPrivate;
     return !shd_get_arena_config(ctx->rewriter.dst_arena)->rules.ptr.address_spaces[as].physical;
 }
 
