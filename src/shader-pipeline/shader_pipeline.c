@@ -47,28 +47,6 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const ShaderL
             shd_warn_print("Could not determine number of subgroups per workgroup, defaulting to one.\n");
     }
 
-    //if (!lowering_config->exec_model_info) {
-    //    shd_error("The shader lowering pipeline needs valid execution model info.\n");
-    //    shd_error("Some of the specializations require .\n");
-    //}
-
-    // if (tgt->execution_model != ShdExecutionModelNone)
-    //     shd_pipeline_add_specialize_execution_model(pipeline, tgt->execution_model);
-    // if (tgt->entry_point) {
-    //     if (tgt->execution_model == ShdExecutionModelNone)
-    //         shd_log_fmt(WARN, "Specializing on an entry point but no execution model picked!");
-    //     shd_pipeline_add_specialize_entry_point(pipeline, tgt->entry_point);
-    // }
-
-    // if (!config->target->capabilities.linkage) {
-    //     assert(tgt->execution_model != ShdExecutionModelNone);
-    //     assert(tgt->entry_point);
-    // }
-
-    // if (!tgt->ptr_model.address_spaces[AsSubgroup].allowed) {
-    //     assert(config->dynamic_scheduling == false);
-    // }
-
     shd_pipeline_add_fncall_emulation(pipeline, lowering_config, target, subgroups_per_wg);
     shd_pipeline_add_feature_lowering(pipeline, lowering_config, target, subgroups_per_wg);
 }

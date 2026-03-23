@@ -25,7 +25,6 @@
 
 #include <stdlib.h>
 #include <assert.h>
-#include <string.h>
 
 #pragma GCC diagnostic error "-Wswitch"
 
@@ -136,7 +135,7 @@ static void assemble_pipeline(ShdPipeline pipeline, const DriverConfig* driver_c
 static ShdExecutionModel get_execution_model_for_entry_point(String entry_point, const Module* mod) {
     const Node* decl = shd_module_get_exported(mod, entry_point);
     if (!decl)
-    shd_error("Cannot specialize: No function named '%s'\n", entry_point)
+        shd_error("Cannot specialize: No function named '%s'\n", entry_point)
     return shd_execution_model_from_entry_point(decl);
 }
 
@@ -175,18 +174,9 @@ CodegenTarget shd_driver_guess_target_through_name(const char* filename) {
     else if (shd_string_ends_with(filename, "ispc"))
         return TgtISPC;
     return TgtNone;
-    // shd_error_print("No target has been specified, and output filename '%s' did not allow guessing the right one\n");
-    // exit(ShdInvalidTarget);
 }
 
 void shd_driver_configure_from_target(DriverConfig* driver_config, const TargetConfig* target) {
-    // if (target->arch == TgtNone) {
-    //     if (driver_config && driver_config->output_filename) {
-    //         target->arch = guess_target_through_name(driver_config->output_filename);
-    //     } else {
-    //         shd_log_fmt(INFO, "No target specified, defaulting to a generic one.\n");
-    //     }
-    // }
     switch (target->arch) {
         case TgtNone: /* no target */  break;
         case TgtSPV:
@@ -297,7 +287,6 @@ ShadyErrorCodes shd_driver_compile(DriverConfig* args, const ShaderLoweringConfi
         switch (args->backend_type) {
             case BackendNone:
                 shd_error("Output file provided but no codegen selected.\n");
-                shd_error_die();
             case BackendSPV:
                 shd_spv_apply_target_config(&args->backend_config.spirv, &target);
                 shd_emit_spirv(&args->config, &args->backend_config.spirv, mod, &output_size, &output_buffer);

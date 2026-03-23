@@ -3,12 +3,10 @@
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/function.h"
 #include "shady/ir/builtin.h"
-#include "shady/ir/annotation.h"
 #include "shady/ir/debug.h"
 #include "shady/ir/decl.h"
 #include "shady/dict.h"
 
-#include "log.h"
 #include "portability.h"
 
 typedef struct {
