@@ -122,7 +122,7 @@ static void store_word(Context* ctx, BodyBuilder* bb, AddressSpace as, const Nod
 
 static const Node* swizzle_offset(Context* ctx, BodyBuilder* bb, const Node* offset) {
     // can't really swizzle in RT mode
-    if (shd_is_rt_execution_model(ctx->execution_model))
+    if (shd_is_execution_model_rt_stage(ctx->execution_model))
         return offset;
     IrArena* a = ctx->rewriter.dst_arena;
     const Node* subgroup_size = shd_bld_builtin_load(ctx->rewriter.dst_module, bb, ShdBuiltinSubgroupSize);

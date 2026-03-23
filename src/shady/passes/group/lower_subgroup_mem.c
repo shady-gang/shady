@@ -16,6 +16,7 @@ typedef struct {
     const CompilerConfig* config;
     BodyBuilder* bb;
     Node2Node shared_backing;
+    uint32_t subgroups_per_wg;
 } Context;
 
 static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, SHADY_UNUSED String name, const Node* node) {
@@ -59,7 +60,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use_class, 
                     payload.address_space = AsShared;
                     payload.type = arr_type(a, (ArrType) {
                         .element_type = payload.type,
-                        .size = shd_rewrite_op(&ctx->rewriter, NcValue, "size", shd_module_get_exported(ctx->rewriter.src_module, "SUBGROUPS_PER_WG"))
+                        .size = shd_uint32_literal(a, ctx->subgroups_per_wg),
                     });
                     Node* new = shd_global_var(r->dst_module, payload);
                     shd_rewrite_annotations(r, node, new);
@@ -96,7 +97,7 @@ static Rewriter* rewrite_globals_in_local_ctx(Rewriter* r, const Node* n) {
     return shd_default_rewriter_selector(r, n);
 }
 
-Module* shd_pass_lower_subgroup_vars(SHADY_UNUSED const CompilerConfig* config, Module* src) {
+Module* shd_pass_lower_subgroup_vars(SHADY_UNUSED const CompilerConfig* config, Module* src, uint32_t subgroups_per_wg) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.rules.ptr.address_spaces[AsSubgroup].allowed = false;
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -104,6 +105,7 @@ Module* shd_pass_lower_subgroup_vars(SHADY_UNUSED const CompilerConfig* config, 
     Context ctx = {
         .rewriter = shd_create_op_rewriter(src, dst, (RewriteOpFn) process),
         .shared_backing = shd_new_node2node(),
+        .subgroups_per_wg = subgroups_per_wg,
     };
     ctx.rewriter.select_rewriter_fn = rewrite_globals_in_local_ctx;
     shd_rewrite_module(&ctx.rewriter);

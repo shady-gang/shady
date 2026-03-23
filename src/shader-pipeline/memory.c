@@ -9,6 +9,7 @@
 typedef struct {
     const TargetConfig* target_config;
     const ShaderLoweringConfig* lowering_config;
+    uint32_t subgroups_per_wg;
 } S;
 
 static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod) {
@@ -36,16 +37,21 @@ static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod
     PtrModel ptr_model = target->ptr_model;
     ptr_model.address_spaces[AsCode].physical = true;
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &ptr_model, em)
-    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_vars)
+    if (s->lowering_config->exec_model_info && shd_is_execution_model_workgroup_based(s->lowering_config->exec_model_info->execution_model)) {
+        uint32_t subgroups_per_wg = 1;
+        shd_get_num_subgroups_per_workgroups(s->lowering_config->exec_model_info, target->subgroup_size, &subgroups_per_wg);
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_vars, s->subgroups_per_wg)
+    }
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memory_layout)
     if (config->lower.decay_ptrs)
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_decay_ptrs)
 }
 
-void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
+void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config, uint32_t subgroups_per_wg) {
     S s = {
         .lowering_config = lowering_config,
         .target_config = target_config,
+        .subgroups_per_wg = subgroups_per_wg,
     };
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, (void*) &s, sizeof(S));
 }

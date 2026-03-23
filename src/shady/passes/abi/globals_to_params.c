@@ -70,7 +70,7 @@ static OpRewriteResult* process(Context* ctx, SHADY_UNUSED NodeClass use, SHADY_
                     if (scratch) {
                         // we need to map to the correct stack...
                         const Node* global_thread_offset;
-                        if (shd_is_rt_execution_model(exec_info.execution_model)) {
+                        if (shd_is_execution_model_rt_stage(exec_info.execution_model)) {
                             const Node* launch_size = shd_bld_builtin_load(r->dst_module, fn_ctx.bb, ShdBuiltinLaunchSizeKHR);
                             //const Node* launch_width = prim_op_helper(a, extract_op, mk_nodes(a, launch_size, shd_uint32_literal(a, 0)));
                             const Node* launch_height = shd_extract_literal(a, launch_size, 1);

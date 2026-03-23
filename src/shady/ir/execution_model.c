@@ -58,14 +58,30 @@ ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn)
     return exec_info;
 }
 
-bool shd_get_workgroup_size_for_entry_point(const Node* decl, uint32_t* out) {
-    const Node* old_wg_size_annotation = shd_lookup_annotation(decl, "WorkgroupSize");
-    if (old_wg_size_annotation && old_wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(old_wg_size_annotation).count == 3) {
-        Nodes wg_size_nodes = shd_get_annotation_values(old_wg_size_annotation);
-        out[0] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
-        out[1] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
-        out[2] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
+bool shd_get_workgroup_size(const ExecutionModelInfo* info, uint32_t* out) {
+    if (shd_is_execution_model_workgroup_based(info->execution_model)) {
+        out[0] = info->grid_based.workgroup_size[0];
+        out[1] = info->grid_based.workgroup_size[1];
+        out[2] = info->grid_based.workgroup_size[2];
         return true;
     }
     return false;
+}
+
+inline static size_t div_roundup(size_t a, size_t b) {
+    if (a % b == 0)
+        return a / b;
+    else
+        return (a / b) + 1;
+}
+
+bool shd_get_num_subgroups_per_workgroups(const ExecutionModelInfo* info, uint32_t subgroup_size, uint32_t* out) {
+    uint32_t wg_size[3];
+    if (!shd_get_workgroup_size(info, wg_size))
+        return false;
+    assert(wg_size[0] * wg_size[1] * wg_size[2] > 0);
+    uint32_t subgroups_per_wg = div_roundup(wg_size[0] * wg_size[1] * wg_size[2], subgroup_size);
+    assert(subgroups_per_wg != 0);
+    *out = subgroups_per_wg;
+    return true;
 }

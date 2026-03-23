@@ -8,11 +8,12 @@
 #include "portability.h"
 #include "log.h"
 
-void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* target, const ShaderLoweringConfig*, Module* dst);
+void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* target, uint32_t subgroups_per_wg, Module* dst);
 
 typedef struct {
     const TargetConfig* target_config;
     const ShaderLoweringConfig* lowering_config;
+    uint32_t subgroups_per_wg;
 } S;
 
 static ShdResult remove_indirect_calls(const S* s, const CompilerConfig* config, Module** pmod) {
@@ -29,7 +30,7 @@ static ShdResult remove_indirect_calls(const S* s, const CompilerConfig* config,
         SHADY_APPLY_REWRITE_PASS(shd_pass_lift_indirect_targets)
 
         if (s->lowering_config->exec_model_info) {
-            shd_add_scheduler_source(config, target, s->lowering_config, *pmod);
+            shd_add_scheduler_source(config, target, s->subgroups_per_wg, *pmod);
         } else {
             shd_log_fmt(ERROR, "Using the software scheduler requires an entry point to be known.\n");
             shd_log_fmt(ERROR, "Provided a source file with a single entry point or use --entry-point to name the one you wish to specialize on.\n");
@@ -45,10 +46,11 @@ static ShdResult remove_indirect_calls(const S* s, const CompilerConfig* config,
     return SHD_SUCCESS;
 }
 
-void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
+void shd_pipeline_add_fncall_emulation(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config, uint32_t subgroups_per_wg) {
     S s = {
         .lowering_config = lowering_config,
         .target_config = target_config,
+        .subgroups_per_wg = subgroups_per_wg,
     };
     shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) remove_indirect_calls, &s, sizeof(S));
 }

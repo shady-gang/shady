@@ -126,8 +126,12 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        const Node* ep = shd_module_get_exported(module, "main");
+        assert(ep);
+        ExecutionModelInfo info = shd_get_execution_model_info_from_entry_point(ep);
+
         uint32_t workgroup_size[3];
-        if (shd_get_workgroup_size_for_entry_point(shd_module_get_exported(module, "main"), workgroup_size)) {
+        if (shd_get_workgroup_size(&info, workgroup_size)) {
             launch_size[0] = oracle_config->dispatch_size[0] / workgroup_size[0];
             launch_size[1] = oracle_config->dispatch_size[1] / workgroup_size[1];
             launch_size[2] = oracle_config->dispatch_size[2] / workgroup_size[2];

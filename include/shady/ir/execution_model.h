@@ -31,12 +31,22 @@ typedef struct {
 
 ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn);
 
-bool shd_get_workgroup_size_for_entry_point(const Node* decl, uint32_t* out);
+bool shd_get_workgroup_size(const ExecutionModelInfo*, uint32_t* out);
+bool shd_get_num_subgroups_per_workgroups(const ExecutionModelInfo*, uint32_t subgroup_size, uint32_t* out);
 
-static inline bool shd_is_rt_execution_model(ShdExecutionModel em) {
+/// If this execution model a stage that's part of a raytracing pipeline ?
+static inline bool shd_is_execution_model_rt_stage(ShdExecutionModel em) {
     switch (em) {
         case ShdExecutionModelRayGeneration:
         case ShdExecutionModelCallable: return true;
+        default: return false;
+    }
+}
+
+/// Does this execution model feature a grid of workgroups ?
+static inline bool shd_is_execution_model_workgroup_based(ShdExecutionModel em) {
+    switch (em) {
+        case ShdExecutionModelCompute: return true;
         default: return false;
     }
 }

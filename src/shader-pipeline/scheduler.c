@@ -10,7 +10,7 @@
 
 #include <stdlib.h>
 
-void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* target, const ShaderLoweringConfig* lowering_config, Module* dst) {
+void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* target, uint32_t subgroups_per_wg, Module* dst) {
     SlimParserConfig pconfig = {
         .front_end = true,
         .target_config = target,
@@ -21,15 +21,6 @@ void shd_add_scheduler_source(const CompilerConfig* config, const TargetConfig* 
     shd_print(p, "alias mask_t = u%d;\n", int_size_in_bytes(dst_rules.exec_mask_size) * 8);
     // SUBGROUPS_PER_WG = (NUMBER OF INVOCATIONS IN SUBGROUP / SUBGROUP SIZE)
     // Note: this computations assumes only full subgroups are launched, if subgroups can launch partially filled then this relationship does not hold.
-    uint32_t wg_size[3];
-    assert(lowering_config->exec_model_info);
-    wg_size[0] = lowering_config->exec_model_info->grid_based.workgroup_size[0];
-    wg_size[1] = lowering_config->exec_model_info->grid_based.workgroup_size[1];
-    wg_size[2] = lowering_config->exec_model_info->grid_based.workgroup_size[2];
-    assert(wg_size[0] * wg_size[1] * wg_size[2] > 0);
-    uint32_t subgroups_per_wg = (wg_size[0] * wg_size[1] * wg_size[2]) / pconfig.target_config->subgroup_size;
-    if (subgroups_per_wg == 0)
-        subgroups_per_wg = 1; // uh-oh
     shd_print(p, "@Exported @Internal const u32 SUBGROUPS_PER_WG = %d;\n", subgroups_per_wg);
     shd_print(p, "%s", shady_scheduler_src);
     String s = shd_printer_growy_unwrap(p);

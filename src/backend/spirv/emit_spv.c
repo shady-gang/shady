@@ -299,12 +299,12 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            ShdExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
-            assert(execution_model != ShdExecutionModelNone);
+            ExecutionModelInfo info = shd_get_execution_model_info_from_entry_point(decl);
+            assert(info.execution_model != ShdExecutionModelNone);
 
             String exported_name = shd_get_exported_name(decl);
             assert(exported_name);
-            spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
+            spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, info.execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
             if (emitter->spirv_tgt->features.maximal_reconvergence) {
@@ -313,11 +313,11 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
             }
 
             uint32_t workgroup_size[3];
-            if (shd_get_workgroup_size_for_entry_point(decl, workgroup_size)) {
+            if (shd_get_workgroup_size(&info, workgroup_size)) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
             }
 
-            if (execution_model == ShdExecutionModelFragment) {
+            if (info.execution_model == ShdExecutionModelFragment) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOriginUpperLeft, 0, NULL);
             }
         }

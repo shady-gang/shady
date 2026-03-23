@@ -4,8 +4,8 @@
 #include "portability.h"
 #include "log.h"
 
-static void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config) {
-    shd_pipeline_add_memory_lowering(pipeline, lowering_config, target_config);
+static void shd_pipeline_add_feature_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config, uint32_t subgroups_per_wg) {
+    shd_pipeline_add_memory_lowering(pipeline, lowering_config, target_config, subgroups_per_wg);
     shd_pipeline_add_polyfills(pipeline, lowering_config);
     // TODO: move that one to the backends.
     shd_pipeline_add_restructure_cf(pipeline);
@@ -40,6 +40,13 @@ void shd_pipeline_add_target_specialization(ShdPipeline pipeline, const TargetCo
 void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target) {
     shd_pipeline_add_target_specialization(pipeline, target);
 
+    uint32_t subgroups_per_wg = 1;
+    if (lowering_config->exec_model_info && shd_is_execution_model_workgroup_based(lowering_config->exec_model_info->execution_model)) {
+        bool ok = shd_get_num_subgroups_per_workgroups(lowering_config->exec_model_info, target->subgroup_size, &subgroups_per_wg);
+        if (!ok)
+            shd_warn_print("Could not determine number of subgroups per workgroup, defaulting to one.\n");
+    }
+
     //if (!lowering_config->exec_model_info) {
     //    shd_error("The shader lowering pipeline needs valid execution model info.\n");
     //    shd_error("Some of the specializations require .\n");
@@ -62,6 +69,6 @@ void shd_pipeline_add_shader_target_lowering(ShdPipeline pipeline, const ShaderL
     //     assert(config->dynamic_scheduling == false);
     // }
 
-    shd_pipeline_add_fncall_emulation(pipeline, lowering_config, target);
-    shd_pipeline_add_feature_lowering(pipeline, lowering_config, target);
+    shd_pipeline_add_fncall_emulation(pipeline, lowering_config, target, subgroups_per_wg);
+    shd_pipeline_add_feature_lowering(pipeline, lowering_config, target, subgroups_per_wg);
 }
