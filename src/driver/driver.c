@@ -158,6 +158,8 @@ static String find_entry_point(const Module* mod) {
         }
     }
 
+    if (first_ep)
+        return shd_get_exported_name(first_ep);
     return NULL;
 }
 
