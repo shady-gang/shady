@@ -50,7 +50,7 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod);
 static String emit_node(PrinterCtx* ctx, const Node* node);
 static void print_mem(PrinterCtx* ctx, const Node* node);
 
-static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
+static PrinterCtx new_printer_ctx(Printer* printer, NodePrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
@@ -67,7 +67,7 @@ static void destroy_printer_ctx(PrinterCtx ctx) {
 }
 
 void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod) {
-    PrinterCtx ctx = make_printer_ctx(printer, config);
+    PrinterCtx ctx = new_printer_ctx(printer, config);
     print_mod_impl(&ctx, mod);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
     shd_print(ctx.printer, "%s\n", s);
@@ -77,7 +77,7 @@ void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod) {
 }
 
 void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) {
-    PrinterCtx ctx = make_printer_ctx(printer, config);
+    PrinterCtx ctx = new_printer_ctx(printer, config);
     String emitted = emit_node(&ctx, node);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
     if (strlen(s) > 0 && !config.only_immediate)
@@ -430,10 +430,12 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             print_operand_helper(ctx, NcType, node->payload.qualified_type.type);
             return true;
         case StructType_TAG:
+            printf("struct");
             if (node->payload.struct_type.flags & ShdStructFlagBlock) {
-                printf("block");
-            } else {
-                printf("struct");
+                printf(" block");
+            }
+            if (node->payload.struct_type.flags & ShdStructFlagExplicitLayout) {
+                printf(" explicit");
             }
             printf(RESET);
             printf(" {");
@@ -545,15 +547,26 @@ static void print_string_lit(PrinterCtx* ctx, const char* string) {
     printf("\"");
 }
 
+static String get_node_name_reference(PrinterCtx* ctx, const Node* node) {
+    if (!node) {
+        return "null";
+    }
+    IrArena* a = node->arena;
+    // avoid the safe version overhead
+    String exported_name = shd_get_exported_name(node);
+    if (exported_name && strlen(exported_name) > 0)
+        return shd_fmt_string_irarena(a, "%s", exported_name);
+    else {
+        return shd_fmt_string_irarena(a, "%%%d", node->id);
+    }
+}
+
 static bool print_value(PrinterCtx* ctx, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: assert(false); break;
         case Value_Param_TAG:
             printf(VALUE_COLOR);
-            String name = shd_get_node_name_unsafe(node);
-            if (name && strlen(name) > 0)
-                printf("%s_", name);
-            printf("%%%d", node->id);
+            printf("%s", get_node_name_reference(ctx, node));
             printf(RESET);
             return true;
         case UntypedNumber_TAG:
@@ -775,19 +788,6 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
     }
 }
 
-static void print_node_name(PrinterCtx* ctx, const Node* node) {
-    if (!node) {
-        printf("null");
-        return;
-    }
-    // avoid the safe version overhead
-    String name = shd_get_node_name_unsafe(node);
-    if (name && strlen(name) > 0)
-        printf("%s", name);
-    else
-        printf("%%%d", node->id);
-}
-
 static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
     assert(node);
 
@@ -832,15 +832,8 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     String printed_node_name = NULL;
     if (shd_is_node_tag_recursive(node->tag)) {
-        Growy* g2 = shd_new_growy();
-        PrinterCtx ctx2 = *ctx;
-        ctx2.printer = shd_new_printer_from_growy(g2);
-
-        print_node_name(&ctx2, node);
-        String s = shd_printer_growy_unwrap(ctx2.printer);
-        printed_node_name = shd_string(node->arena, s);
+        printed_node_name = get_node_name_reference(ctx, node);
         shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
-        free((void*) s);
     }
 
     bool skip = false;
@@ -978,11 +971,11 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass oc, const Node* op) 
             shd_print(ctx->printer, "%s", emit_node(ctx, op));
         }
     } else {
-        print_node_name(ctx, op);
+        shd_print(ctx->printer, get_node_name_reference(ctx, op));
     }
     shd_print(ctx->printer, RESET);
 
-    if (oc == NcParam) {
+    if (oc == NcParam && op) {
         shd_print(ctx->printer, ": %s", emit_node(ctx, op->payload.param.type));
     }
 }

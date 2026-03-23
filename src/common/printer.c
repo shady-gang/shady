@@ -85,7 +85,7 @@ Printer* shd_print(Printer* p, const char* f, ...) {
 
     // points to either the contents of buf, or alloc, depending on bufsize
     char* tmp;
-    size_t written;
+    int written;
 
     while(true) {
         if (bufsize <= LOCAL_BUFFER_SIZE) {
@@ -103,6 +103,7 @@ Printer* shd_print(Printer* p, const char* f, ...) {
         va_list l;
         va_start(l, f);
         written = vsnprintf(tmp, bufsize, f, l);
+        assert(written >= 0);
         va_end(l);
 
         if (written < bufsize)
