@@ -266,14 +266,28 @@ static const Type* change_pointee(const Type* old, const Type* pointee) {
     return ptr_type(old->arena, payload);
 }
 
+static const Type* change_as(const Type* old, AddressSpace as) {
+    PtrType payload = old->payload.ptr_type;
+    payload.address_space = as;
+    return ptr_type(old->arena, payload);
+}
+
 static void reapply_ptr_casts(const Node* old, PtrCasts casts, const Node** new) {
     IrArena* arena = old->arena;
     const Type* new_t = shd_get_unqualified_type((*new)->type);
-    const Type* old_t = shd_get_unqualified_type(old->type);
-    assert(new_t->tag == PtrType_TAG && old_t->tag == PtrType_TAG);
+    const Type* desired_ptr_t = shd_get_unqualified_type(old->type);
+    assert(new_t->tag == PtrType_TAG && desired_ptr_t->tag == PtrType_TAG);
 
     if (casts & PtrBitCast) {
-        *new = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type((*new)->type), shd_get_pointer_type_element(shd_get_unqualified_type(old->type))), *new);
+        const Type* ptr_t = new_t;
+        ptr_t = change_pointee(shd_get_unqualified_type((*new)->type), shd_get_pointer_type_element(desired_ptr_t));
+        // we reapply address space casts
+        // ... except if the cast was to generic
+        //     ... except if there is no generic promotion later in the same chain
+        //         (since you can't promote to generic an already generic ptr - the bitcast had to be responsible for that in such cases)
+        if (desired_ptr_t->payload.ptr_type.address_space != AsGeneric || !(casts & PtrGenericCast))
+            ptr_t = change_as(ptr_t, desired_ptr_t->payload.ptr_type.address_space);
+        *new = bit_cast_helper(arena, ptr_t, *new);
         casts ^= PtrBitCast;
     }
     if (casts & PtrScopeCast) {
@@ -338,7 +352,14 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             PtrCasts changes = 0;
             payload.src = try_simplify_pointer_casts(payload.src, &changes, /*PtrBitCastUnsafe | */PtrScopeCast | PtrGenericCast);
             if (!changes) break;
-            payload.type = change_pointee(shd_get_unqualified_type(payload.src->type), shd_get_pointer_type_element(payload.type));
+
+            const Type* ptr_t = shd_get_unqualified_type(payload.src->type);
+            const Type* desired_ptr_t = payload.type;
+            ptr_t = change_pointee(ptr_t, shd_get_pointer_type_element(desired_ptr_t));
+            if (desired_ptr_t->payload.ptr_type.address_space != AsGeneric || !(changes & PtrGenericCast))
+                ptr_t = change_as(ptr_t, desired_ptr_t->payload.ptr_type.address_space);
+            payload.type = ptr_t;
+
             r = bit_cast(arena, payload);
             reapply_ptr_casts(node, changes, &r);
             break;
