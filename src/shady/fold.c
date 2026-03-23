@@ -839,18 +839,6 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
                 case BitCast_TAG: return bit_cast_helper(arena, payload.type, payload.src->payload.bit_cast.src);
                 default: break;
             }
-            // Canonize typical LLVM output
-            if (payload.type->tag == PtrType_TAG && shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
-                const Node* ptr = payload.src;
-                const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
-                while (ptr) {
-                    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
-                    if (src_type == dst_type) {
-                        return ptr;
-                    }
-                    ptr = try_enter_composite(ptr);
-                }
-            }
             const FloatLiteral* float_lit = shd_resolve_to_float_literal(payload.src);
             const IntLiteral* int_lit = shd_resolve_to_int_literal(payload.src);
             if (payload.type->tag == Int_TAG) {
