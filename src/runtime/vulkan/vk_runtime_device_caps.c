@@ -145,7 +145,7 @@ static void register_ext_feature_impl(size_t* len, VkBaseInStructure** features,
     (*len)++;
 }
 
-void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens) {
+void shd_rt_vk_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens) {
     assert(len);
     *len = 0;
 
@@ -202,7 +202,7 @@ static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {
 
     LARRAY(VkBaseInStructure*, extended_features, SHADY_SUPPORTED_DEVICE_EXTENSIONS_COUNT);
     size_t len;
-    shd_rt_get_device_caps_ext_features(caps, &len, extended_features, NULL);
+    shd_rt_vk_get_device_caps_ext_features(caps, &len, extended_features, NULL);
     for (size_t i = 0; i < len; i++) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, extended_features[i]);
     }
