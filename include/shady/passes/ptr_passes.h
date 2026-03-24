@@ -12,6 +12,8 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_generic_ptrs)
 /// Lowers ptr arithmetic ops to unsigned int math
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_lea, const PtrModel*)
 
+const Node* shd_lower_lea_helper(Rewriter*, const Node*);
+
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_nullptr)
 
 /// Hail mary attempt to lower physical pointers to logical by turning casts into LEAs
