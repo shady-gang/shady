@@ -274,10 +274,14 @@ static bool accept_scope(ctxparams, ShdScope* out) {
         }
 
         return true;
-    } else if (accept_token(ctx, uniform_tok))
+    } else if (accept_token(ctx, uniform_tok)) {
         *out = shd_get_arena_config(arena)->rules.scopes.gang;
-    else if (accept_token(ctx, varying_tok))
+        return true;
+    }
+    else if (accept_token(ctx, varying_tok)) {
         *out = shd_get_arena_config(arena)->rules.scopes.bottom;
+        return true;
+    }
     return false;
 }
 
