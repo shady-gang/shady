@@ -9,10 +9,12 @@ SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_decay_ptrs)
 /// Lowers generic pointers to tagged unsigned ints
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_generic_ptrs)
 
-/// Lowers ptr arithmetic ops to unsigned int math
+/// Lowers _all_ ptr arithmetic ops to unsigned int math
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_lea, const PtrModel*)
 
-const Node* shd_lower_lea_helper(Rewriter*, const Node*);
+/// Lowers ptr arithmetic ops to unsigned int math
+/// If 'always' is false, only ptr arithmetic whose base ptr was rewritten to unsigned ints are lowered
+const Node* shd_lower_lea_helper(Rewriter*, const Node*, bool always);
 
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_nullptr)
 

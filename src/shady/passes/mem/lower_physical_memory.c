@@ -11,6 +11,7 @@
 #include "shady/ir/function.h"
 #include "shady/analysis/ptr.h"
 #include "shady/analysis/uses.h"
+#include "shady/passes/ptr_passes.h"
 
 #include "log.h"
 #include "portability.h"
@@ -496,6 +497,9 @@ static const Node* process_node(Context* ctx, const Node* old) {
             }
             break;
         }
+        case PtrArrayElementOffset_TAG:
+        case PtrCompositeElement_TAG:
+            return shd_lower_lea_helper(&ctx->rewriter, old, false);
         default: break;
     }
 

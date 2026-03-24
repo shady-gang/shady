@@ -78,7 +78,7 @@ static const Node* lower_ptr_offset(Rewriter* r, const Type* pointed_type, const
     return ptr;
 }
 
-const Node* shd_lower_lea_helper(Rewriter* r, const Node* old) {
+const Node* shd_lower_lea_helper(Rewriter* r, const Node* old, bool always) {
     IrArena* a = r->dst_arena;
 
     switch (old->tag) {
@@ -91,9 +91,9 @@ const Node* shd_lower_lea_helper(Rewriter* r, const Node* old) {
             const Node* old_result_t = old->type;
             shd_deconstruct_qualified_type(&old_result_t);
 
-            // Nodes new_ops = rewrite_nodes(&ctx->rewriter, old_ops);
-
             const Node* base = shd_rewrite_node(r, payload.ptr);
+            if (!always && shd_get_unqualified_type(base->type)->tag == PtrType_TAG)
+                return shd_recreate_node(r, old);
             size_t base_size = shd_get_type_bitwidth(shd_get_unqualified_type(base->type)) / 8;
             const Type* emulated_ptr_t = int_type(a, (Int) { .width = int_size_from_bytes(base_size), .is_signed = false });
 
@@ -114,6 +114,8 @@ const Node* shd_lower_lea_helper(Rewriter* r, const Node* old) {
             shd_deconstruct_qualified_type(&old_result_t);
 
             const Node* base = shd_rewrite_node(r, payload.ptr);
+            if (!always && shd_get_unqualified_type(base->type)->tag == PtrType_TAG)
+                return shd_recreate_node(r, old);
             size_t base_size = shd_get_type_bitwidth(shd_get_unqualified_type(base->type)) / 8;
             const Type* emulated_ptr_t = int_type(a, (Int) { .width = int_size_from_bytes(base_size), .is_signed = false });
 
@@ -144,7 +146,7 @@ static const Node* process(Context* ctx, const Node* old) {
             must_lower |= !shd_is_logical_memory_declaration(ctx->ptr_analysis, old_base) && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
-            return shd_lower_lea_helper(&ctx->rewriter, old);
+            return shd_lower_lea_helper(&ctx->rewriter, old, true);
         }
         case PtrCompositeElement_TAG: {
             PtrCompositeElement lea = old->payload.ptr_composite_element;
@@ -156,7 +158,7 @@ static const Node* process(Context* ctx, const Node* old) {
             must_lower |= !shd_is_logical_memory_declaration(ctx->ptr_analysis, old_base) && is_as_emulated(ctx, old_base_ptr_t->payload.ptr_type.address_space);
             if (!must_lower)
                 break;
-            return shd_lower_lea_helper(&ctx->rewriter, old);
+            return shd_lower_lea_helper(&ctx->rewriter, old, true);
         }
         default: break;
     }

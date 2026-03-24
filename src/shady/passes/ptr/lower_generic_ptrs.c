@@ -283,6 +283,9 @@ static const Node* process(Context* ctx, const Node* old) {
             return shd_bld_to_instr_yield_values(bb, shd_singleton(generic_ptr));
             break;
         }
+        case PtrArrayElementOffset_TAG:
+        case PtrCompositeElement_TAG:
+            return shd_lower_lea_helper(&ctx->rewriter, old, false);
         default: break;
     }
 

@@ -29,7 +29,7 @@ static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_alloca)
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_stack_access, s->lowering_config->per_thread_stack_size)
     }
-    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_lea, &target->ptr_model)
+    //SHADY_APPLY_REWRITE_PASS(shd_pass_lower_lea, &target->ptr_model)
     if (!target->ptr_model.address_spaces[AsGeneric].allowed) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_generic_ptrs)
     }
