@@ -47,7 +47,6 @@ typedef struct {
     size_t i;
     const Node* offset;
     const Type* type;
-    AddressSpace as;
 } StackSlot;
 
 static void search_operand_for_alloca(VContext* vctx, const Node* node) {
@@ -65,7 +64,7 @@ static void search_operand_for_alloca(VContext* vctx, const Node* node) {
             const Node* slot_offset = offset_of_helper(a, vctx->nom_t, shd_int32_literal(a, shd_list_count(vctx->members)));
             shd_list_append(const Type*, vctx->members, element_type);
 
-            StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
+            StackSlot slot = { vctx->num_slots, slot_offset, element_type };
             shd_dict_insert(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
 
             vctx->num_slots++;
@@ -147,7 +146,8 @@ static const Node* process(Context* ctx, const Node* node) {
             //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
             const Node* converted_offset = shd_convert_int_extend_according_to_dst_t(a, ctx->stack_ptr_t, found_slot->offset);
             const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
-            const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
+            slot = addr_space_cast_helper(a, slot, AsFunction);
+            const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = AsFunction });
             slot = shd_bld_bitcast(bb, ptr_t, slot);
             //bool last = found_slot->i == ctx->num_slots - 1;
             //if (last) {

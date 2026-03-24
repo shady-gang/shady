@@ -181,6 +181,7 @@ ShdIntSize shd_float_to_int_width(ShdFloatFormat width) {
 }
 
 size_t shd_get_type_bitwidth(const Type* t) {
+    assert(shd_is_data_type(t));
     const ArenaConfig* aconfig = shd_get_arena_config(t->arena);
     switch (t->tag) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;

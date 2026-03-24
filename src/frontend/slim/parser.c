@@ -378,7 +378,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 0, "no operands");
                 const Node* function_allocated = shd_bld_local_alloc(bb, type);
-                return private_ptr_cast_helper(arena, function_allocated);
+                return addr_space_cast_helper(arena, function_allocated, AsPrivate);
             } else if (strcmp(id, "bitcast") == 0) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);

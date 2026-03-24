@@ -500,6 +500,16 @@ static const Node* process_node(Context* ctx, const Node* old) {
         case PtrArrayElementOffset_TAG:
         case PtrCompositeElement_TAG:
             return shd_lower_lea_helper(&ctx->rewriter, old, false);
+        // Eliminate address space casts rooted in non-existent AS
+        case AddrSpaceCast_TAG: {
+            AddrSpaceCast payload = old->payload.addr_space_cast;
+            const Node* nsrc = shd_rewrite_node(r, payload.src);
+            const Type* nsrc_dt = shd_get_unqualified_type(nsrc->type);
+            if (nsrc_dt->tag != PtrType_TAG) {
+                return nsrc;
+            }
+            break;
+        }
         default: break;
     }
 

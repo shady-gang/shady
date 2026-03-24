@@ -561,16 +561,15 @@ const Type* _shd_check_type_conversion(IrArena* a, Conversion conversion) {
     });
 }
 
-const Type* _shd_check_type_private_ptr_cast(IrArena* a, PrivatePtrCast private_ptr_cast) {
-    const Type* src_type = private_ptr_cast.src->type;
+const Type* _shd_check_type_addr_space_cast(IrArena* a, AddrSpaceCast addr_space_cast) {
+    const Type* src_type = addr_space_cast.src->type;
     ShdScope src_scope = shd_deconstruct_qualified_type(&src_type);
 
     assert(src_type->tag == PtrType_TAG);
     PtrType payload = src_type->payload.ptr_type;
-    if (payload.address_space != AsFunction)
-        shd_error("PrivatePtrCast: source must be a Function pointer");
-
-    payload.address_space = AsPrivate;
+    //if (payload.address_space != AsFunction)
+    //    shd_error("PrivatePtrCast: source must be a Function pointer");
+    payload.address_space = addr_space_cast.dst;
 
     const Type* dst_type = ptr_type(a, payload);
     return qualified_type(a, (QualifiedType) {

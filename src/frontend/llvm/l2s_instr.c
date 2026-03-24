@@ -245,6 +245,7 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
             assert(t->tag == PtrType_TAG);
             const Type* allocated_t = l2s_convert_type(p, LLVMGetAllocatedType(instr));
             const Node* r = shd_bld_local_alloc(b, allocated_t);
+            r = addr_space_cast_helper(a, r, AsPrivate);
             if (UNTYPED_POINTERS) {
                 const Type* untyped_ptr_t = ptr_type(a, (PtrType) { .pointed_type = shd_uword_type(a), .address_space = AsPrivate });
                 r = bit_cast_helper(a, untyped_ptr_t, r);

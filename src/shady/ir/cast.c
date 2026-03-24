@@ -39,6 +39,14 @@ bool shd_is_bitcast_legal(const Type* src_type, const Type* dst_type) {
         return false;
     if (!(is_arithm_or_vector_thereof(dst_type) || shd_is_physical_ptr_type(dst_type)))
         return false;
+    if (src_type->tag == PtrType_TAG && dst_type->tag == PtrType_TAG) {
+    //     bool src_generic = shd_is_generic_ptr_type(src_type);
+    //     bool dst_generic = shd_is_generic_ptr_type(dst_type);
+    //     // TODO: check whether these actually come up...
+    //     if (src_generic || dst_generic)
+    //         return src_generic != dst_generic;
+        assert(src_type->payload.ptr_type.address_space == dst_type->payload.ptr_type.address_space);
+    }
     // either both pointers need to be in the generic address space, and we're only casting the element type, OR neither can be
     if ((shd_is_physical_ptr_type(src_type) && shd_is_physical_ptr_type(dst_type)) && (shd_is_generic_ptr_type(src_type) != shd_is_generic_ptr_type(dst_type)))
         return false;

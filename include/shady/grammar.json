@@ -472,11 +472,12 @@
       ]
     },
     {
-      "name": "PrivatePtrCast",
+      "name": "AddrSpaceCast",
       "class": ["value", "instruction"],
-      "description": "Promotes a Function pointer into the Private address space",
+      "description": "Changes the address space",
       "ops": [
-        { "name": "src", "class": "value" }
+        { "name": "src", "class": "value" },
+        { "name": "dst", "type": "AddressSpace" }
       ]
     },
     {

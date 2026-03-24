@@ -174,7 +174,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
                 const Node* ptr = shd_bld_local_alloc(bb, shd_rewrite_node(&ctx->rewriter, type_annotation));
-                ptr = private_ptr_cast_helper(a, ptr);
+                ptr = addr_space_cast_helper(a, ptr, AsPrivate);
                 shd_set_debug_name(ptr, name);
                 shd_bld_store(bb, ptr, results.nodes[0]);
 
