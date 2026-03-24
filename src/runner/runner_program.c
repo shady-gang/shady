@@ -12,10 +12,11 @@
 #include <assert.h>
 #include <string.h>
 
-Program* shd_rn_new_program_from_module(Runner* runtime, const CompilerConfig* base_config, Module* mod) {
+Program* shd_rn_new_program_from_module(Runner* runtime, const CompilerConfig* base_config, ShaderLoweringConfig lowering_config, Module* mod) {
     Program* program = calloc(1, sizeof(Program));
     program->runtime = runtime;
     program->base_config = base_config;
+    program->lowering_config = lowering_config;
     program->arena = NULL;
     program->module = mod;
 
@@ -24,7 +25,7 @@ Program* shd_rn_new_program_from_module(Runner* runtime, const CompilerConfig* b
     return program;
 }
 
-Program* shd_rt_load_program(Runner* runtime, const CompilerConfig* base_config, const char* program_src) {
+Program* shd_rt_load_program(Runner* runtime, const CompilerConfig* base_config, ShaderLoweringConfig config, const char* program_src) {
     Module* module;
     TargetConfig target_config = shd_default_target_config();
 
@@ -33,12 +34,12 @@ Program* shd_rt_load_program(Runner* runtime, const CompilerConfig* base_config,
         return NULL;
     }
 
-    Program* program = shd_rn_new_program_from_module(runtime, base_config, module);
+    Program* program = shd_rn_new_program_from_module(runtime, base_config, config, module);
     program->arena = shd_module_get_arena(module);
     return program;
 }
 
-Program* shd_rt_load_program_from_disk(Runner* runtime, const CompilerConfig* base_config, const char* path) {
+Program* shd_rt_load_program_from_disk(Runner* runtime, const CompilerConfig* base_config, ShaderLoweringConfig config, const char* path) {
     Module* module;
     TargetConfig target_config = shd_default_target_config();
 
@@ -47,7 +48,7 @@ Program* shd_rt_load_program_from_disk(Runner* runtime, const CompilerConfig* ba
         return NULL;
     }
 
-    Program* program = shd_rn_new_program_from_module(runtime, base_config, module);
+    Program* program = shd_rn_new_program_from_module(runtime, base_config, config, module);
     program->arena = shd_module_get_arena(module);
     return program;
 }

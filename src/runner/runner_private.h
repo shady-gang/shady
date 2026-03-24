@@ -1,5 +1,6 @@
 #ifndef SHADY_RUNTIME_PRIVATE
 #define SHADY_RUNTIME_PRIVATE
+
 #include "shady/runner/runner.h"
 #include "shady/ir/base.h"
 
@@ -34,6 +35,7 @@ struct Device_ {
 struct Program_ {
     Runner* runtime;
     const CompilerConfig* base_config;
+    ShaderLoweringConfig lowering_config;
     /// owns the module, may be NULL if module is owned by someone else
     IrArena* arena;
     Module* module;

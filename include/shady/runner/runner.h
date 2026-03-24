@@ -2,6 +2,7 @@
 #define SHADY_RUNNER_H
 
 #include "shady/config.h"
+#include "shady/pipeline/shader_pipeline.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -41,7 +42,7 @@ TargetConfig shd_rn_get_device_target_config(const CompilerConfig*, Device*);
 typedef struct CompilerConfig_ CompilerConfig;
 typedef struct Module_ Module;
 
-Program* shd_rn_new_program_from_module(Runner* runtime, const CompilerConfig* base_config, Module* mod);
+Program* shd_rn_new_program_from_module(Runner* runtime, const CompilerConfig* base_config, ShaderLoweringConfig, Module* mod);
 
 typedef struct {
     uint64_t* profiled_gpu_time;

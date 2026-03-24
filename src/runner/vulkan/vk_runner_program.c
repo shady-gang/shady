@@ -347,11 +347,8 @@ static bool compile_specialized_program(VkrSpecProgram* spec) {
 
     spec->specialized_module = spec->key.base->module;
 
-    ShaderLoweringConfig lowering_config = {
-        .exec_model_info = &spec->exec_info,
-        .per_thread_stack_size = 4096,
-        .function_call_lowering = FCL_None
-    };
+    ShaderLoweringConfig lowering_config = spec->key.base->lowering_config;
+    lowering_config.exec_model_info = &spec->exec_info;
     if (spec->exec_info.execution_model == ShdExecutionModelRayGeneration) {
         lowering_config.function_call_lowering = FCL_RT_Callables;
     }

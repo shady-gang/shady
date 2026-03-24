@@ -57,6 +57,9 @@ int main(int argc, char* argv[]) {
     // Do NOT parse target configs, unless we also match the changes to the target config in the runner.
     TargetConfig const target_config = shd_rn_get_device_target_config(&args.driver_config.config, device);
 
+    ShaderLoweringConfig lowering_config = shd_default_shader_target_config();
+    shd_parse_shader_target_config_args(&lowering_config, &argc, argv);
+
     shd_parse_compiler_config_args(&args.driver_config.config, &argc, argv);
     shd_parse_driver_args(&args.driver_config, &argc, argv);
     shd_parse_help(&argc, argv, true);
@@ -77,7 +80,7 @@ int main(int argc, char* argv[]) {
         int err = shd_driver_load_source_files(&args.driver_config.config, &target_config, args.driver_config.input_filenames, module);
         if (err)
             return err;
-        program = shd_rn_new_program_from_module(runtime, &args.driver_config.config, module);
+        program = shd_rn_new_program_from_module(runtime, &args.driver_config.config, lowering_config, module);
     }
 
     ShdRunnerOracleConfig oracle_config_var = { 0 };
