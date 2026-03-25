@@ -59,6 +59,9 @@ static void visit_ptr_uses(const Node* ptr_value, const Type* slice_type, Alloca
         } else if (use->user->tag == GenericPtrCast_TAG) {
             visit_ptr_uses(use->user, slice_type, k, map);
             k->non_logical_use = true;
+        } else if (use->user->tag == AddrSpaceCast_TAG) {
+            visit_ptr_uses(use->user, slice_type, k, map);
+            k->non_logical_use = true;
         } else {
             k->non_logical_use = true;
             k->leaks = true;
@@ -118,6 +121,14 @@ const AllocaInfo* shd_find_memory_declaration(PtrAnalysis* ptr_analysis, const N
                 }
                 break;
             }
+            case AddrSpaceCast_TAG: {
+                if (allow_non_logical_ops) {
+                    AddrSpaceCast payload = ptr->payload.addr_space_cast;
+                    ptr = payload.src;
+                    continue;
+                }
+                break;
+            }
            case ScopeCast_TAG: {
                ScopeCast payload = ptr->payload.scope_cast;
                ptr = payload.src;
@@ -144,7 +155,7 @@ static const AllocaInfo* create_memory_declaration(PtrAnalysis* ctx, const Node*
     assert(old_ptr_type->tag == PtrType_TAG);
     const Type* old_type = old_ptr_type->payload.ptr_type.pointed_type;
 
-    *k = (AllocaInfo) { .type = old_type };
+    *k = (AllocaInfo) { .node =  old, .type = old_type };
 
     switch (old->tag) {
         case GlobalVariable_TAG: {

@@ -11,6 +11,7 @@ PtrAnalysis* shd_new_ptr_analysis(Module* module, const UsesMap* uses);
 void shd_destroy_ptr_analysis(PtrAnalysis*);
 
 typedef struct {
+    const Node* node;
     const Type* type;
     /// Set when the alloca is used in a way the analysis cannot follow
     /// Allocation must be left alone in such cases!
