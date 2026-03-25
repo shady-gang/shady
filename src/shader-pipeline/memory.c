@@ -20,6 +20,7 @@ static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod
 
     SHADY_APPLY_REWRITE_PASS(shd_pass_promote_io_variables)
     SHADY_APPLY_REWRITE_PASS(shd_pass_lower_logical_pointers)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_addrspace, AsFunction, AsPrivate)
 
     if (!target->capabilities.native_memcpy) {
         SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memcpy)

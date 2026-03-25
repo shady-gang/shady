@@ -18,6 +18,9 @@ const Node* shd_lower_lea_helper(Rewriter*, const Node*, bool always);
 
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_nullptr)
 
+/// Rewrites pointers to one address space as the other
+SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_addrspace, AddressSpace, AddressSpace)
+
 /// Hail mary attempt to lower physical pointers to logical by turning casts into LEAs
 SHADY_DECLARE_REWRITE_PASS(shd_pass_lower_logical_pointers)
 

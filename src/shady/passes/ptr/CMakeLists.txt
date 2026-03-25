@@ -1,4 +1,5 @@
 target_sources(shady PRIVATE
+        lower_addrspace.c
         lower_decay_ptrs.c
         lower_generic_ptrs.c
         lower_lea.c
