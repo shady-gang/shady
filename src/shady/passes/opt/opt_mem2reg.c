@@ -1,5 +1,7 @@
 #include "shady/pass.h"
 
+#include "shady/analysis/ptr.h"
+
 #include "ir_private.h"
 #include "analysis/cfg.h"
 
@@ -10,6 +12,8 @@ typedef struct {
     Rewriter rewriter;
     CFG* cfg;
     bool* todo;
+
+    PtrAnalysis* ptr_analysis;
 } Context;
 
 typedef struct {
@@ -17,44 +21,7 @@ typedef struct {
     Nodes indices;
 };
 
-static const Node* get_ptr_source(const Node* ptr) {
-    IrArena* a = ptr->arena;
-    while (true) {
-        switch (ptr->tag) {
-            case PtrCompositeElement_TAG: {
-                PtrCompositeElement payload = ptr->payload.ptr_composite_element;
-                ptr = payload.ptr;
-                break;
-            }
-            case PtrArrayElementOffset_TAG: {
-                PtrArrayElementOffset payload = ptr->payload.ptr_array_element_offset;
-                ptr = payload.ptr;
-                break;
-            }
-            case BitCast_TAG: {
-                BitCast payload = ptr->payload.bit_cast;
-                if (shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG) {
-                    ptr = payload.src;
-                    continue;
-                }
-                break;
-            }
-            case Conversion_TAG: {
-                Conversion payload = ptr->payload.conversion;
-                if (shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG) {
-                    ptr = payload.src;
-                    continue;
-                }
-                break;
-            }
-            default: break;
-        }
-        return ptr;
-    }
-}
-
-static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const Node* mem, const Type* expected_type) {
-    const Node* ptr_source = get_ptr_source(ptr);
+static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const Node* mem, const AllocaInfo* ptr_alloca_info) {
     while (mem) {
         switch (mem->tag) {
             case AbsMem_TAG: {
@@ -71,7 +38,7 @@ static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const No
                 Store payload = mem->payload.store;
                 if (payload.ptr == ptr)
                     return payload.value;
-                if (get_ptr_source(payload.ptr) == ptr_source)
+                if (shd_find_memory_declaration(ctx->ptr_analysis, payload.ptr, true) == ptr_alloca_info)
                     return NULL;
                 break;
             }
@@ -96,11 +63,11 @@ static const Node* process(Context* ctx, const Node* node) {
         }
         case Load_TAG: {
             Load payload = node->payload.load;
-            const Node* src = get_ptr_source(payload.ptr);
-            if (src->tag != LocalAlloc_TAG)
-                break;
+            const AllocaInfo* alloca_info = shd_find_memory_declaration(ctx->ptr_analysis, payload.ptr, true);
             // for now, only simplify loads from non-leaking allocas
-            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, shd_get_unqualified_type(node->type));
+            if (!alloca_info || alloca_info->leaks)
+                break;
+            const Node* ovalue = get_last_stored_value(ctx, payload.ptr, payload.mem, alloca_info);
             if (ovalue) {
                 *ctx->todo = true;
                 const Node* value = shd_rewrite_node(r, ovalue);
@@ -118,15 +85,21 @@ bool shd_opt_mem2reg(SHADY_UNUSED void* unused, Module** m) {
     Module* src = *m;
     IrArena* a = shd_module_get_arena(src);
 
+    const UsesMap* uses = shd_new_uses_map_module(src, 0);
+    PtrAnalysis* ptr_analysis = shd_new_ptr_analysis(src, uses);
+
     Module* dst = NULL;
     bool todo = false;
     dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
-        .todo = &todo
+        .todo = &todo,
+        .ptr_analysis = ptr_analysis,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
+    shd_destroy_ptr_analysis(ptr_analysis);
+    shd_destroy_uses_map(uses);
     assert(dst);
     *m = dst;
     return todo;
