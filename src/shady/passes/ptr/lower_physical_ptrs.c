@@ -19,6 +19,13 @@ static const Node* guess_pointer_casts(Context* ctx, BodyBuilder* bb, const Node
         const Type* actual_type = shd_get_unqualified_type(ptr->type);
         assert(actual_type->tag == PtrType_TAG);
         actual_type = shd_get_pointer_type_element(actual_type);
+
+        // hack: allow differently sized arrays to cast to each other
+        if (actual_type->tag == ArrType_TAG && expected_type->tag == ArrType_TAG) {
+            if (actual_type->payload.arr_type.element_type == expected_type->payload.arr_type.element_type)
+                break;
+        }
+
         if (expected_type == actual_type)
             break;
 
