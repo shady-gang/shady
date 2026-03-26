@@ -34,6 +34,14 @@ static const Node* get_last_stored_value(Context* ctx, const Node* ptr, const No
                 }
                 break;
             }
+            case IndirectCall_TAG:
+            case Call_TAG: {
+                // global variables don't quite "leak" but other functions can touch them directly
+                if (ptr_alloca_info->node->tag != LocalAlloc_TAG) {
+                    return NULL;
+                }
+                break;
+            }
             case Store_TAG: {
                 Store payload = mem->payload.store;
                 if (payload.ptr == ptr)
