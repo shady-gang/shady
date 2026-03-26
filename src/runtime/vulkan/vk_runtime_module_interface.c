@@ -74,6 +74,6 @@ void shd_rt_vk_get_module_interface(Module* mod, size_t* count, RuntimeInterface
         const Node* decl = decls.nodes[i];
         if (decl->tag != Function_TAG) continue;
         if (shd_lookup_annotation(decl, "EntryPoint"))
-            return shd_rt_vk_get_entry_point_interface(decl, count, out);
+            shd_rt_vk_get_entry_point_interface(decl, count, out);
     }
 }
