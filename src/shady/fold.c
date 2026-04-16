@@ -540,10 +540,21 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             PtrCasts changes = 0;
             // we can't allow pointee changes or we break the op
             const Node* nptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrScopeCast | PtrGenericCast | PtrAddrSpaceCast);
-            if (!changes) break;
-            payload.ptr = nptr;
-            r = ptr_composite_element(arena, payload);
-            reapply_ptr_casts(node, changes, &r);
+            if (changes) {
+                payload.ptr = nptr;
+                r = ptr_composite_element(arena, payload);
+                reapply_ptr_casts(node, changes, &r);
+            }
+
+            // PtrCompositeElement(PtrArrayElementOffset(x, o), i) => PtrCompositeElement(x, o + i)
+            if (payload.ptr->tag == PtrArrayElementOffset_TAG) {
+                PtrArrayElementOffset other_offset = payload.ptr->payload.ptr_array_element_offset;
+                payload.ptr = other_offset.ptr;
+                payload.index = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.offset), to_ptr_size(payload.index)));
+                r = ptr_composite_element(arena, payload);
+                reapply_ptr_casts(node, changes, &r);
+                break;
+            }
             break;
         }
         case PtrArrayElementOffset_TAG: {
@@ -850,6 +861,21 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             // get rid of identity casts
             if (shd_get_unqualified_type(payload.src->type) == payload.type)
                 return payload.src;
+            const Type* src_type = payload.src->type;
+            shd_deconstruct_qualified_type(&src_type);
+            if (src_type->tag == PtrType_TAG && payload.type->tag == PtrType_TAG) {
+                if (src_type->payload.ptr_type.address_space == payload.type->payload.ptr_type.address_space) {
+                    const Type* src_elem_type = src_type->payload.ptr_type.pointed_type;
+                    const Type* dst_elem_type = payload.type->payload.ptr_type.pointed_type;
+                    if (src_elem_type->tag == ArrType_TAG) {
+                        src_elem_type = src_elem_type->payload.arr_type.element_type;
+                        if (src_elem_type == dst_elem_type) {
+                            return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                        }
+                    }
+                }
+            }
+
             switch (payload.src->tag) {
                 case Undef_TAG: return undef_helper(arena, payload.type);
                 // reinterpret[A](reinterpret[B](x)) => reinterpret[A](x)
