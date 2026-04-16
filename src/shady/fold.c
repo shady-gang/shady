@@ -337,6 +337,9 @@ static const Node* to_ptr_size(const Node* n) {
 static uint64_t get_ptr_array_stride(const Type* ptr_type) {
     IrArena* arena = ptr_type->arena;
     const Type* new_pointee = shd_get_pointer_type_element(ptr_type);
+    if (new_pointee->tag == ArrType_TAG && !new_pointee->payload.arr_type.size) {
+        new_pointee = new_pointee->payload.arr_type.element_type;
+    }
     TypeMemLayout pointee_layout = shd_get_mem_layout(arena, new_pointee);
     return pointee_layout.size_in_bytes;
 }
