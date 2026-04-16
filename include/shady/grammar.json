@@ -710,6 +710,7 @@
       "name": "Annotation",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" }
       ]
@@ -718,6 +719,7 @@
       "name": "AnnotationId",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "id", "class": "none" }
@@ -727,6 +729,7 @@
       "name": "AnnotationValue",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "value", "class": "value" }
@@ -736,6 +739,7 @@
       "name": "AnnotationValues",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "values", "class": "value", "list": true }
