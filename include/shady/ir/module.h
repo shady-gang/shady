@@ -19,6 +19,7 @@ Nodes shd_module_collect_reachable_functions(const Module* m);
 const Node* shd_module_get_single_entry_point(Module* m);
 
 void shd_module_add_export(Module* module, String, const Node*);
+bool shd_module_remove_export(Module* module, const Node*);
 
 Node* shd_module_get_init_fn(Module*);
 Node* shd_module_get_fini_fn(Module*);

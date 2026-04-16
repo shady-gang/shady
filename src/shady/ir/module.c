@@ -126,6 +126,14 @@ void shd_module_add_export(Module* m, String name, const Node* node) {
     assert(def_inserted_ok);
 }
 
+bool shd_module_remove_export(Module* module, const Node* node) {
+    assert(shd_lookup_annotation(node, "Exported"));
+    String extern_name = shd_get_exported_name(node);
+    bool removed = shd_dict_remove(String, module->decls, extern_name);
+    shd_remove_annotation_by_name(node, "Exported");
+    return removed;
+}
+
 const Node* shd_module_get_exported(const Module* m, String name) {
     const Node** found = shd_dict_find_value(String, const Node*, m->decls, name);
     if (found) return *found;
