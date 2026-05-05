@@ -46,6 +46,41 @@ ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn)
             }
             break;
         }
+        case ShdExecutionModelMesh:{
+            const Node* wg_size_annotation = shd_lookup_annotation(fn, "WorkgroupSize");
+            const Node* num_vertices_annotation = shd_lookup_annotation(fn, "NumVertices");
+            const Node* num_primitives_annotation = shd_lookup_annotation(fn, "NumPrimitives");
+
+            if (wg_size_annotation && wg_size_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(wg_size_annotation).count == 3) {
+                Nodes wg_size_nodes = shd_get_annotation_values(wg_size_annotation);
+                exec_info.grid_based.workgroup_size[0] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[0]), false);
+                exec_info.grid_based.workgroup_size[1] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[1]), false);
+                exec_info.grid_based.workgroup_size[2] = shd_get_int_literal_value(*shd_resolve_to_int_literal(wg_size_nodes.nodes[2]), false);
+            } else {
+                shd_warn_print("Missing workgroup size from node ");
+                shd_log_node(WARN, fn);
+                shd_warn_print(".\n");
+            }
+
+            if (num_vertices_annotation && num_vertices_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(num_vertices_annotation).count == 1) {
+                Nodes num_vertices_nodes = shd_get_annotation_values(num_vertices_annotation);
+                exec_info.num_vertices = shd_get_int_literal_value(*shd_resolve_to_int_literal(*num_vertices_nodes.nodes), false);
+            } else {
+                shd_warn_print("Missing workgroup size from node ");
+                shd_log_node(WARN, fn);
+                shd_warn_print(".\n");
+            }
+
+            if (num_primitives_annotation && num_primitives_annotation->tag == AnnotationValues_TAG && shd_get_annotation_values(num_primitives_annotation).count == 1) {
+                Nodes num_primitives_nodes = shd_get_annotation_values(num_primitives_annotation);
+                exec_info.num_primitives = shd_get_int_literal_value(*shd_resolve_to_int_literal(*num_primitives_nodes.nodes), false);
+            } else {
+                shd_warn_print("Missing workgroup size from node ");
+                shd_log_node(WARN, fn);
+                shd_warn_print(".\n");
+            }
+            break;
+        }
         case ShdExecutionModelFragment:
             break;
         case ShdExecutionModelVertex:
@@ -54,6 +89,8 @@ ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn)
             break;
         case ShdExecutionModelCallable:
             break;
+        default:
+            assert(false);
     }
     return exec_info;
 }
@@ -63,6 +100,22 @@ bool shd_get_workgroup_size(const ExecutionModelInfo* info, uint32_t* out) {
         out[0] = info->grid_based.workgroup_size[0];
         out[1] = info->grid_based.workgroup_size[1];
         out[2] = info->grid_based.workgroup_size[2];
+        return true;
+    }
+    return false;
+}
+
+bool shd_get_num_vertices(const ExecutionModelInfo* info, uint32_t* out) {
+    if (shd_is_execution_model_workgroup_based(info->execution_model)) {
+        out[0] = info->num_vertices;
+        return true;
+    }
+    return false;
+}
+
+bool shd_get_num_primitives(const ExecutionModelInfo* info, uint32_t* out) {
+    if (shd_is_execution_model_workgroup_based(info->execution_model)) {
+        out[0] = info->num_primitives;
         return true;
     }
     return false;

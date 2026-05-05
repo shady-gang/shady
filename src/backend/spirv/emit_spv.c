@@ -268,6 +268,10 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel mod
         case ShdExecutionModelCompute:       return SpvExecutionModelGLCompute;
         case ShdExecutionModelVertex:        return SpvExecutionModelVertex;
         case ShdExecutionModelFragment:      return SpvExecutionModelFragment;
+        case ShdExecutionModelMesh:
+            spvb_extension(emitter->file_builder, "SPV_EXT_mesh_shader");
+            spvb_capability(emitter->file_builder, SpvCapabilityMeshShadingEXT);
+            return SpvExecutionModelMeshEXT;
         case ShdExecutionModelNone: shd_error("No execution model but we were asked to emit it anyways");
     }
 }
@@ -312,8 +316,26 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeMaximallyReconvergesKHR, 0, NULL);
             }
 
-            uint32_t workgroup_size[3];
-            if (shd_get_workgroup_size(&info, workgroup_size)) {
+            uint32_t workgroup_size[3] = {0, 0, 0};
+
+            if (info.execution_model == ShdExecutionModelMesh) {
+                shd_get_workgroup_size(&info, workgroup_size);
+                assert(workgroup_size[0]);
+                assert(workgroup_size[1]);
+                assert(workgroup_size[2]);
+
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
+
+                uint32_t num_vertices = 0;
+                uint32_t num_triangles = 0;
+
+                shd_get_num_vertices(&info, &num_vertices);
+                shd_get_num_primitives(&info, &num_triangles);
+
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputVertices, 1, &num_vertices);
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputPrimitivesEXT, 1, &num_triangles);
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputTrianglesEXT, 0, NULL);
+            } else if (shd_get_workgroup_size(&info, workgroup_size)) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
             }
 

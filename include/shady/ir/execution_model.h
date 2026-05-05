@@ -9,6 +9,7 @@ EM(Fragment     ) \
 EM(Vertex       ) \
 EM(RayGeneration) \
 EM(Callable     ) \
+EM(Mesh         ) \
 
 typedef enum {
     ShdExecutionModelNone,
@@ -27,11 +28,15 @@ typedef struct {
             uint32_t workgroup_size[3];
         } grid_based;
     };
+    uint32_t num_vertices;
+    uint32_t num_primitives;
 } ExecutionModelInfo;
 
 ExecutionModelInfo shd_get_execution_model_info_from_entry_point(const Node* fn);
 
 bool shd_get_workgroup_size(const ExecutionModelInfo*, uint32_t* out);
+bool shd_get_num_vertices(const ExecutionModelInfo*, uint32_t* out);
+bool shd_get_num_primitives(const ExecutionModelInfo*, uint32_t* out);
 bool shd_get_num_subgroups_per_workgroups(const ExecutionModelInfo*, uint32_t subgroup_size, uint32_t* out);
 
 /// If this execution model a stage that's part of a raytracing pipeline ?
@@ -46,6 +51,7 @@ static inline bool shd_is_execution_model_rt_stage(ShdExecutionModel em) {
 /// Does this execution model feature a grid of workgroups ?
 static inline bool shd_is_execution_model_workgroup_based(ShdExecutionModel em) {
     switch (em) {
+        case ShdExecutionModelMesh: return true;
         case ShdExecutionModelCompute: return true;
         default: return false;
     }

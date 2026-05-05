@@ -911,6 +911,30 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                                            shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                                            shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
                     }));
+                } else if (strcmp(entry_point_type->payload.str, "Mesh") == 0) {
+                    SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
+                    SpvDeco* wg_num_vertices_dec = find_decoration(parser, result, -2, SpvExecutionModeOutputVertices);
+                    SpvDeco* wg_num_prims_dec = find_decoration(parser, result, -2, SpvExecutionModeOutputPrimitivesEXT);
+
+                    assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
+                    assert(wg_num_vertices_dec && wg_num_vertices_dec->payload.literals.count == 1);
+                    assert(wg_num_prims_dec && wg_num_prims_dec->payload.literals.count == 1);
+
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "WorkgroupSize",
+                        .values = mk_nodes(parser->arena,
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                    }));
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "NumVertices",
+                        .values = mk_nodes(parser->arena, shd_int32_literal(parser->arena, *wg_num_vertices_dec->payload.literals.data))
+                    }));
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "NumPrimitives",
+                        .values = mk_nodes(parser->arena, shd_int32_literal(parser->arena, *wg_num_prims_dec->payload.literals.data))
+                    }));
                 } else if (strcmp(entry_point_type->payload.str, "Fragment") == 0) {
 
                 } else if (strcmp(entry_point_type->payload.str, "Vertex") == 0) {
