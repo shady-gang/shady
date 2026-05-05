@@ -81,6 +81,16 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             for (size_t i = 0; i < member_types.count; i++) {
                 spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
             }
+
+            Strings *member_builtins = &type->payload.struct_type.member_builtins;
+            for (size_t i = 0; i < member_builtins->count; i++) {
+                const String annotation = member_builtins->strings[i];
+                if (strcmp(annotation, "Position") == 0) {
+                    uint32_t zero = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &zero);
+                }
+            }
+
             break;
         }
         case ArrType_TAG: {
@@ -217,6 +227,16 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
                 spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
             if (payload.flags & ShdStructFlagExplicitLayout)
                 spv_emit_type_layout(emitter, type, new);
+
+            Strings *member_builtins = &type->payload.struct_type.member_builtins;
+            for (size_t i = 0; i < member_builtins->count; i++) {
+                const String annotation = member_builtins->strings[i];
+                if (strcmp(annotation, "Position") == 0) {
+                    uint32_t zero = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &zero);
+                }
+            }
+
             return new;
         }
         case TupleType_TAG: {

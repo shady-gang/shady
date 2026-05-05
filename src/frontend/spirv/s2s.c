@@ -143,6 +143,15 @@ static String get_member_name(SpvParser* parser, SpvId id, int member_id) {
     return deco->payload.str;
 }
 
+static ShdBuiltin get_member_builtin(SpvParser* parser, SpvId id, int member_id) {
+    SpvDeco* builtin = find_decoration(parser, id, member_id, SpvDecorationBuiltIn);
+    if (!builtin)
+        return ShdBuiltinsCount;
+    ShdBuiltin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
+    assert(b != ShdBuiltinsCount && "Unsupported builtin");
+    return b;
+}
+
 static const Type* get_def_type(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Typ);
@@ -556,7 +565,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             SpvDeco deco = {
                 .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .next_decoration = NULL },
                 .decoration = decoration,
-                .member = op == SpvOpName ? -1 : (int)instruction[3],
+                .member = op == SpvOpName ? -1 : (int)instruction[2],
             };
             add_decoration(parser, target, deco);
             break;
@@ -637,7 +646,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             if (op == SpvOpExecutionMode)
                 member = -2;
             else if (op == SpvOpMemberDecorate)
-                member = instruction[3];
+                member = instruction[2];
             SpvDeco deco = {
                 .payload = payload,
                 .member = member,
@@ -724,13 +733,24 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             int members_count = size - 2;
             LARRAY(String, member_names, members_count);
             LARRAY(const Type*, member_tys, members_count);
+            LARRAY(String, member_builtins, members_count);
+
+            String struct_name = get_name(parser, result);
             for (size_t i = 0; i < members_count; i++) {
                 member_names[i] = get_member_name(parser, result, i);
                 if (!member_names[i])
-                    member_names[i] = shd_format_string_arena(parser->arena->arena, "member%d", i);
+                    member_names[i] = shd_format_string_arena(parser->arena->arena, "%smember%d", struct_name, i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
+                if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPosition) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "Position");
+                } else {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "DontCare_%s", struct_name);
+                }
             }
             shd_struct_type_set_members_named(struct_t, shd_nodes(parser->arena, members_count, member_tys), shd_strings(parser->arena, members_count, member_names));
+
+            struct_t->payload.struct_type.member_builtins = shd_strings(parser->arena, members_count, member_builtins);
+
             break;
         }
         case SpvOpTypeRuntimeArray:

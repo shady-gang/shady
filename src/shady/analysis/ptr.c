@@ -171,6 +171,22 @@ static const AllocaInfo* create_memory_declaration(PtrAnalysis* ctx, const Node*
     if (shd_lookup_annotation(old, "DoNotDemoteToReference"))
         k->leaks = true;
 
+    Type* inner_type = old_type;
+
+    if (inner_type->tag == ArrType_TAG) {
+        inner_type = inner_type->payload.arr_type.element_type;
+    }
+
+    if (inner_type->tag == StructType_TAG) {
+        StructType* struct_type = &inner_type->payload.struct_type;
+        for (size_t i = 0; i < struct_type->member_builtins.count; i++) {
+            if (strcmp(struct_type->member_builtins.strings[i], "Position") == 0) {
+                String old_name = shd_get_exported_name(old);
+                k->leaks = true;
+            }
+        }
+    }
+
     assert(ctx->uses_map);
     visit_ptr_uses(old, old_type, k, ctx->uses_map);
     shd_dict_insert(const Node*, AllocaInfo*, ctx->alloca_info, old, k);

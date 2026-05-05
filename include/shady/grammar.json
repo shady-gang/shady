@@ -205,7 +205,8 @@
       "recursive": true,
       "ops": [
         { "name": "flags", "type": "ShdStructFlags" },
-        { "name": "members", "class": "type", "list": true, "ignore": true }
+        { "name": "members", "class": "type", "list": true, "ignore": true },
+        { "name": "member_builtins", "class": "string", "list": true, "ignore": true }
       ]
     },
     {
