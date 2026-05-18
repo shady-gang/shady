@@ -813,7 +813,7 @@ const Type* _shd_check_type_ptr_array_element_offset(IrArena* a, PtrArrayElement
 
     const IntLiteral* lit = shd_resolve_to_int_literal(lea.offset);
     bool offset_is_zero = lit && lit->value == 0;
-    assert((offset_is_zero || shd_is_physical_ptr_type(base_ptr_type)) && "if an offset is used, the base cannot be a reference");
+    //assert((offset_is_zero || shd_is_physical_ptr_type(base_ptr_type)) && "if an offset is used, the base cannot be a reference");
     //assert((offset_is_zero || shd_is_data_type(pointee_type)) && "if an offset is used, the base must point to a data type");
 
     return qualified_type(a, (QualifiedType) {

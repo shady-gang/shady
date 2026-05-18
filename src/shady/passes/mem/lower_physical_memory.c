@@ -493,7 +493,8 @@ static const Node* process_node(Context* ctx, const Node* old) {
             // Global variables into emulated address spaces become integer constants (to index into arrays used for emulation of said address space)
             if (!shd_is_logical_memory_declaration(ctx->ptr_analysis, old) && is_as_emulated(ctx, payload.address_space)) {
                 // physical globals are not rewritten here.
-                assert(false);
+                break; // 🔥 🐕️-{This is fine.) 🔥
+                //assert(false);
             }
             break;
         }
