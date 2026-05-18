@@ -741,8 +741,22 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 if (!member_names[i])
                     member_names[i] = shd_format_string_arena(parser->arena->arena, "%smember%d", struct_name, i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
+
                 if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPosition) {
                     member_builtins[i] = shd_format_string_arena(parser->arena->arena, "Position");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPointSize) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PointSize");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPrimitiveId) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PrimitiveId");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinLayer) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "Layer");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinViewportIndex) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "ViewportIndex");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinCullPrimitiveEXT) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "CullPrimitive");
+
+                } else if (find_decoration(parser, result, i, SpvDecorationPerPrimitiveEXT)) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PerPrimitiveEXT");
                 } else {
                     member_builtins[i] = shd_format_string_arena(parser->arena->arena, "DontCare_%s", struct_name);
                 }
@@ -888,6 +902,11 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 SpvDeco* location = find_decoration(parser, result, -1, SpvDecorationLocation);
                 if (location)
                     shd_add_annotation(global, annotation_value_helper(a, "Location", shd_uint32_literal(a, location->payload.literals.data[0])));
+
+                SpvDeco* perprimitive = find_decoration(parser, result, -1, SpvDecorationPerPrimitiveEXT);
+                if (perprimitive)
+                    shd_add_annotation(global, annotation_helper(a, "PerPrimitiveEXT"));
+
                 if (desc_set || binding || location)
                     shd_module_add_export(parser->mod, name, global);
 

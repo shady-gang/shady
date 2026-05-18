@@ -181,7 +181,11 @@ static const AllocaInfo* create_memory_declaration(PtrAnalysis* ctx, const Node*
         StructType* struct_type = &inner_type->payload.struct_type;
         for (size_t i = 0; i < struct_type->member_builtins.count; i++) {
             if (strcmp(struct_type->member_builtins.strings[i], "Position") == 0) {
-                String old_name = shd_get_exported_name(old);
+                //String old_name = shd_get_exported_name(old);
+                k->leaks = true;
+            }
+            if (strcmp(struct_type->member_builtins.strings[i], "PrimitiveId") == 0) {
+                //String old_name = shd_get_exported_name(old);
                 k->leaks = true;
             }
         }

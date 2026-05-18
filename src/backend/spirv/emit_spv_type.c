@@ -86,8 +86,25 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             for (size_t i = 0; i < member_builtins->count; i++) {
                 const String annotation = member_builtins->strings[i];
                 if (strcmp(annotation, "Position") == 0) {
-                    uint32_t zero = 0; //BuiltInPosition
-                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &zero);
+                    uint32_t builtin = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PointSize") == 0) {
+                    uint32_t builtin = 1;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PrimitiveId") == 0) {
+                    uint32_t builtin = 7;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "Layer") == 0) {
+                    uint32_t builtin = 9;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "ViewportIndex") == 0) {
+                    uint32_t builtin = 10;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "CullPrimitive") == 0) {
+                    uint32_t builtin = 5299;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationPerPrimitiveEXT, 0, NULL);
                 }
             }
 
@@ -232,8 +249,25 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             for (size_t i = 0; i < member_builtins->count; i++) {
                 const String annotation = member_builtins->strings[i];
                 if (strcmp(annotation, "Position") == 0) {
-                    uint32_t zero = 0; //BuiltInPosition
-                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &zero);
+                    uint32_t builtin = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PointSize") == 0) {
+                    uint32_t builtin = 1;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PrimitiveId") == 0) {
+                    uint32_t builtin = 7;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "Layer") == 0) {
+                    uint32_t builtin = 9;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "ViewportIndex") == 0) {
+                    uint32_t builtin = 10;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "CullPrimitive") == 0) {
+                    uint32_t builtin = 5299;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationPerPrimitiveEXT, 0, NULL);
                 }
             }
 

@@ -31,8 +31,12 @@ BUILTIN(WorkgroupSize,               AsUInput, Device,     shd_u32vec3_type(aren
 BUILTIN(NumSubgroups,                AsUInput, Invocation, shd_uint32_type(arena)  )\
 BUILTIN(NumWorkgroups,               AsUInput, Device,     shd_u32vec3_type(arena) )\
 BUILTIN(Position,                    AsOutput, Invocation, shd_f32vec4_type(arena) )\
+BUILTIN(PointSize,                   AsOutput, Invocation, shd_fp32_type(arena) )\
 BUILTIN(PrimitiveTriangleIndicesEXT, AsOutput, Invocation, arr_type_helper(arena, 0, shd_u32vec3_type(arena), shd_uint32_literal(arena, 1)) )\
-BUILTIN(PrimitiveId,                 AsInput,  Invocation, shd_uint32_type(arena)  )\
+BUILTIN(PrimitiveId,                 AsOutput, Invocation, shd_uint32_type(arena)  )\
+BUILTIN(Layer,                       AsOutput, Invocation, shd_uint32_type(arena)  )\
+BUILTIN(ViewportIndex,               AsOutput, Invocation, shd_uint32_type(arena)  )\
+BUILTIN(CullPrimitiveEXT,            AsOutput, Invocation, bool_type(arena)  )\
 BUILTIN(SubgroupLocalInvocationId,   AsInput,  Invocation, shd_uint32_type(arena)  )\
 BUILTIN(SubgroupId,                  AsUInput, Subgroup,   shd_uint32_type(arena)  )\
 BUILTIN(SubgroupSize,                AsInput,  Device,     shd_uint32_type(arena)  )\

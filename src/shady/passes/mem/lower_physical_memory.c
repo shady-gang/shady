@@ -423,7 +423,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
             // Leave accesses to remaining pointers alone
             if (nptr_type->tag == PtrType_TAG)
                 break;
-            
+
             BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, payload.mem));
             const Node* pointer_as_offset = shd_rewrite_node(&ctx->rewriter, payload.ptr);
             const Node* fn = get_emulating_function(ctx, old);

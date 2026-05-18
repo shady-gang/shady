@@ -201,6 +201,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                     is_descriptor_binding = true;
+                } else if (strcmp(name, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationPerPrimitiveEXT, 0, NULL);
                 }
             }
 
@@ -267,7 +269,10 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel mod
             return SpvExecutionModelCallableKHR;
         case ShdExecutionModelCompute:       return SpvExecutionModelGLCompute;
         case ShdExecutionModelVertex:        return SpvExecutionModelVertex;
-        case ShdExecutionModelFragment:      return SpvExecutionModelFragment;
+        case ShdExecutionModelFragment:
+            spvb_extension(emitter->file_builder, "SPV_EXT_mesh_shader");
+            spvb_capability(emitter->file_builder, SpvCapabilityMeshShadingEXT);
+            return SpvExecutionModelFragment;
         case ShdExecutionModelMesh:
             spvb_extension(emitter->file_builder, "SPV_EXT_mesh_shader");
             spvb_capability(emitter->file_builder, SpvCapabilityMeshShadingEXT);
