@@ -92,7 +92,8 @@ int main(int argc, char** argv) {
     shd_parse_common_args(&argc, argv);
 
     TargetConfig target_config = shd_default_target_config();
-    ArenaConfig aconfig = shd_default_arena_config(&target_config);
+    MachineRules rules = get_machine_rules_from_target_config(&target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     aconfig.check_types = true;
     aconfig.allow_fold = true;
     IrArena* a = shd_new_ir_arena(&aconfig);

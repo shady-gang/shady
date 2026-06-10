@@ -1,8 +1,7 @@
-#include "shady/pass.h"
+#include "shady/passes/scf_passes.h"
 
 #include "shady/rewrite.h"
 
-#include "ir_private.h"
 #include "analysis/cfg.h"
 #include "analysis/scheduler.h"
 
@@ -51,7 +50,7 @@ static Nodes remake_params(Context* ctx, Nodes old) {
             if (node->payload.param.type->tag == QualifiedType_TAG)
                 t = shd_rewrite_node(r, node->payload.param.type);
             else
-                t = qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
+                t = qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, shd_rewrite_node(r, node->payload.param.type));
         }
         nvars[i] = param_helper(a, t);
         assert(nvars[i]->tag == Param_TAG);
@@ -153,8 +152,8 @@ static const Nodes* find_scope_info(const Node* abs) {
     Nodes* info = NULL;
     while (mem) {
         if (mem->tag == ExtInstr_TAG) {
-            ExtSpvOp op = mem->payload.ext_instr.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.scope") == 0)
+            ExtOpDef def = mem->payload.ext_instr.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.scope") == 0)
                 if (!info || info->count > mem->payload.ext_instr.arguments.count)
                     info = &mem->payload.ext_instr.arguments;
         }
@@ -227,10 +226,10 @@ static void process_edge(Context* ctx, CFG* cfg, Scheduler* scheduler, CFEdge ed
                         .yield_types = yield_types
                     });
                     // TODO: shouldn't this be 'gang'
-                    const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, jp_type));
+                    const Node* join_token = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, jp_type));
 
                     Node* wrapper = basic_block_helper(a, wrapper_params);
-                    shd_set_debug_name(wrapper, shd_format_string_arena(a->arena, "wrapper_to_%s", shd_get_node_name_safe(dst)));
+                    shd_set_debug_name(wrapper, shd_fmt_string_irarena(a, "wrapper_to_%s", shd_get_node_name_safe(dst)));
                     wrapper->payload.basic_block.body = join(a, (Join) {
                         .args = join_args,
                         .join_point = join_token,
@@ -285,8 +284,8 @@ static const Node* process_node(Context* ctx, const Node* node) {
         }
         // Eliminate now-useless scope instructions
         case ExtInstr_TAG: {
-            ExtSpvOp op = node->payload.ext_instr.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.scope") == 0) {
+            ExtOpDef def = node->payload.ext_instr.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.scope") == 0) {
                 return shd_rewrite_node(r, node->payload.ext_instr.mem);
             }
             break;
@@ -304,7 +303,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_scope2control(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_scope2control(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     aconfig.optimisations.inline_single_use_bbs = true;
     IrArena* a = shd_new_ir_arena(&aconfig);

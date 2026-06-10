@@ -8,6 +8,8 @@ typedef struct ShdPipeline_* ShdPipeline;
 typedef struct CompilerConfig_ CompilerConfig;
 
 typedef struct {
+    const ExecutionModelInfo* exec_info;
+
     struct {
         uint8_t major;
         uint8_t minor;
@@ -27,7 +29,7 @@ SPVBackendConfig shd_default_spirv_backend_config(void);
 void shd_spv_apply_target_config(SPVBackendConfig* spv_config, const TargetConfig* target_config);
 
 void shd_pipeline_add_spirv_target_passes(ShdPipeline, const TargetConfig*, const SPVBackendConfig*);
-void shd_emit_spirv(const CompilerConfig*, SPVBackendConfig, Module*, size_t* output_size, char** output);
+void shd_emit_spirv(const CompilerConfig*, const SPVBackendConfig*, Module*, size_t* output_size, char** output);
 
 #endif
 

@@ -1,9 +1,13 @@
-#include "shady/pass.h"
+#include "shady/passes/ptr_passes.h"
+
 #include "shady/dict.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
-
-#include "ir_private.h"
+#include "shady/ir/mem.h"
+#include "shady/ir/function.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/decl.h"
 
 #include "log.h"
 #include "portability.h"
@@ -35,7 +39,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     if (found) return found;
 
     IrArena* a = ctx->rewriter.dst_arena;
-    const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->target.scopes.bottom, .type = element_type });
+    const Type* qualified_t = qualified_type(a, (QualifiedType) { .scope = shd_get_arena_config(a)->rules.scopes.bottom, .type = element_type });
 
     const Node* value_param = NULL;
     if (push) {
@@ -44,7 +48,7 @@ static const Node* gen_fn(Context* ctx, const Type* element_type, bool push) {
     }
     Nodes params = push ? shd_singleton(value_param) : shd_empty(a);
     Nodes return_ts = push ? shd_empty(a) : shd_singleton(qualified_t);
-    String name = shd_format_string_arena(a->arena, "generated_%s_%s", push ? "push" : "pop", shd_get_type_name(a, element_type));
+    String name = shd_fmt_string_irarena(a, "generated_%s_%s", push ? "push" : "pop", shd_get_type_name(a, element_type));
     Node* fun = function_helper(ctx->rewriter.dst_module, params, return_ts);
     shd_add_annotation_named(fun, "Generated");
     shd_add_annotation_named(fun, "Leaf");
@@ -169,7 +173,7 @@ static const Node* process_node(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, Module* src, uint32_t per_thread_stack_size) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
@@ -183,11 +187,11 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, S
         .pop = shd_new_node2node(),
     };
 
-    if (config->per_thread_stack_size > 0) {
+    if (per_thread_stack_size > 0) {
         const Type* stack_base_element = shd_uint8_type(a);
         const Type* stack_arr_type = arr_type(a, (ArrType) {
-                .element_type = stack_base_element,
-                .size = shd_uint32_literal(a, config->per_thread_stack_size),
+            .element_type = stack_base_element,
+            .size = shd_uint32_literal(a, per_thread_stack_size),
         });
         const Type* stack_counter_t = shd_uint32_type(a);
 
@@ -202,7 +206,6 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, S
         Node* stack_ptr_decl = shd_global_var(dst, (GlobalVariable) {
             .type = stack_counter_t,
             .address_space = AsPrivate,
-            .is_ref = true
         });
         shd_set_debug_name(stack_ptr_decl, "stack_ptr");
         shd_add_annotation_named(stack_ptr_decl, "Generated");
@@ -214,7 +217,6 @@ Module* shd_pass_lower_stack_access(SHADY_UNUSED const CompilerConfig* config, S
             Node* max_stack_size_var = shd_global_var(dst, (GlobalVariable) {
                 .type = stack_counter_t,
                 .address_space = AsPrivate,
-                .is_ref = true
             });
             shd_set_debug_name(max_stack_size_var, "max_stack_ptr");
             shd_add_annotation_named(max_stack_size_var, "Generated");

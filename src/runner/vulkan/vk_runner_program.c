@@ -1,6 +1,6 @@
 #include "vk_runner_private.h"
 
-#include "shady/driver.h"
+#include "shady/jit/vulkan.h"
 #include "shady/pipeline/shader_pipeline.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/runtime/runtime.h"
@@ -121,7 +121,7 @@ static bool create_vk_shader_module(VkrSpecProgram* spec, String filter_entry_pt
         mod = tmp_mod;
     }
 
-    shd_emit_spirv(&spec->specialized_config, spec->backend_config, mod, &code_size, (char**) &spirv);
+    shd_emit_spirv(&spec->specialized_config, &spec->backend_config, mod, &code_size, (char**) &spirv);
 
     if (spec->key.base->runtime->config.dump_spv) {
         String file_name = shd_format_string_new("%s.spv", module_name);
@@ -334,54 +334,27 @@ static void destroy_rt_pipeline(VkrSpecProgram* spec) {
     shd_vkr_destroy_buffer(spec->rt.callables_sbt_buffer);
 }
 
-// TODO: delete this once all lowering/target-specific stuff is stripped out of CompilerConfig
-static void get_compiler_config_for_device(VkrDevice* device, CompilerConfig* config, SPVBackendConfig* spv_config) {
-    assert(device->caps.subgroup_size.max > 0);
-    // config.per_thread_stack_size = ...
-
-    spv_config->target_version.major = device->caps.spirv_version.major;
-    spv_config->target_version.minor = device->caps.spirv_version.minor;
-
-    if (!device->caps.features.subgroup_extended_types.shaderSubgroupExtendedTypes)
-        config->lower.emulate_subgroup_ops_extended_types = true;
-
-    config->lower.int64 = !device->caps.features.base.features.shaderInt64;
-
-    if (device->caps.implementation.is_moltenvk) {
-        shd_warn_print("Hack: MoltenVK says they supported subgroup extended types, but it's a lie. 64-bit types are unaccounted for !\n");
-        config->lower.emulate_subgroup_ops_extended_types = true;
-        shd_warn_print("Hack: MoltenVK does not support pointers to unsized arrays properly.\n");
-        config->lower.decay_ptrs = true;
-        spv_config->hacks.avoid_spirv_cross_broken_bda_pointers = true;
-    }
-    if (device->caps.properties.driver_properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
-        shd_warn_print("Hack: NVidia somehow has unreliable broadcast_first. Emulating it with shuffles seemingly fixes the issue.\n");
-        spv_config->hacks.shuffle_instead_of_broadcast_first = true;
-    }
-}
-
-#include "shady/pipeline/pipeline.h"
-#include "shady/pass.h"
-
 static bool compile_specialized_program(VkrSpecProgram* spec) {
     spec->specialized_config = *spec->key.base->base_config;
-    spec->specialized_module = shd_import(&spec->specialized_config, spec->key.base->module);
 
-    spec->specialized_target = shd_vkr_get_device_target_config(&spec->specialized_config, spec->device);
-    spec->specialized_target.entry_point = spec->key.entry_point;
-    spec->specialized_target.execution_model = spec->key.em;
+    spec->specialized_target = shd_rt_vk_get_device_target_config(&spec->specialized_config, &spec->device->caps);
+    spec->exec_info = shd_get_execution_model_info_from_entry_point(shd_module_get_exported(spec->key.base->module, spec->key.entry_point));
+    // spec->specialized_target.entry_point = spec->key.entry_point;
+    // spec->specialized_target.execution_model = spec->key.em;
 
-    spec->backend_config = shd_default_spirv_backend_config();
-    shd_spv_apply_target_config(&spec->backend_config, &spec->specialized_target);
-    get_compiler_config_for_device(spec->device, &spec->specialized_config, &spec->backend_config);
+    shd_jit_vk_get_compiler_config_for_device(&spec->device->caps, &spec->specialized_target, &spec->backend_config, &spec->specialized_config);
+    spec->backend_config.exec_info = &spec->exec_info;
 
-    ShdPipeline pipeline = shd_create_empty_pipeline();
-    shd_pipeline_add_shader_target_lowering(pipeline, spec->specialized_target, &spec->specialized_config);
-    shd_pipeline_add_spirv_target_passes(pipeline, &spec->specialized_target, &spec->backend_config);
-    CompilationResult result = shd_pipeline_run(pipeline, &spec->specialized_config, &spec->specialized_module);
-    shd_destroy_pipeline(pipeline);
+    spec->specialized_module = spec->key.base->module;
 
-    CHECK(result == CompilationNoError, return false);
+    ShaderLoweringConfig lowering_config = spec->key.base->lowering_config;
+    lowering_config.exec_model_info = &spec->exec_info;
+    if (spec->exec_info.execution_model == ShdExecutionModelRayGeneration) {
+        lowering_config.function_call_lowering = FCL_RT_Callables;
+    }
+    ShdResult result = shd_jit_vk_compile_module(&spec->specialized_module, &spec->specialized_target, &lowering_config, &spec->backend_config, &spec->specialized_config);
+
+    CHECK(result >= 0, return false);
 
     shd_vkr_populate_interface(spec);
 

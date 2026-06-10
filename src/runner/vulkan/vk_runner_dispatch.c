@@ -135,20 +135,10 @@ VkrCommand* shd_vkr_launch_kernel(VkrDevice* device, Program* program, String en
     cmd->launch_interface_items = calloc(sizeof(VkrDispatchInterfaceItem), prog->interface_items_count);
 
     vkCmdBindPipeline(cmd->cmd_buf, prog->bind_point, prog->pipeline);
-    //size_t blocks = dimx * dimy * dimz;
 
-    //const Node* ep = shd_module_get_exported(prog->specialized_module, prog->key.entry_point);
-    //assert(ep);
-    //const Node* wgs = shd_lookup_annotation(ep, "WorkgroupSize");
-    //assert(wgs);
-    //Nodes values = shd_get_annotation_values(wgs);
-    //assert(values.count == 3);
-    //uint32_t wg_x_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[0]), false);
-    //uint32_t wg_y_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[1]), false);
-    //uint32_t wg_z_dim = (uint32_t) shd_get_int_literal_value(*shd_resolve_to_int_literal(values.nodes[2]), false);
-    int threadsx = dimx * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[0];
-    int threadsy = dimy * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[1];
-    int threadsz = dimz * shd_get_arena_config(shd_module_get_arena(prog->specialized_module))->specializations.workgroup_size[2];
+    int threadsx = dimx * prog->exec_info.grid_based.workgroup_size[0];
+    int threadsy = dimy * prog->exec_info.grid_based.workgroup_size[1];
+    int threadsz = dimz * prog->exec_info.grid_based.workgroup_size[2];
     prepare_resources_for_launch(cmd, prog, threadsx, threadsy, threadsz, args_count, args);
 
     if (options && options->profiled_gpu_time) {
@@ -232,7 +222,7 @@ err_post_commands_create:
     return NULL;
 }
 
-Command* shd_vkr_launch_rays(Program* p, Device* d, const char* entry_point, int x, int y, int z, int args_count, void** args, ExtraKernelOptions* extra_options) {
+Command* shd_vkr_launch_rays(Device* d, Program* p, const char* entry_point, int x, int y, int z, int args_count, void** args, ExtraKernelOptions* extra_options) {
     assert(d->backend == VulkanRuntimeBackend);
     return (Command*) vkr_launch_rays((VkrDevice*) d, (Program*) p, entry_point, x, y, z, args_count, args, extra_options);
 }

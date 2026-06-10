@@ -28,7 +28,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
             Node* new = (Node*) shd_recreate_node(r, node);
             BodyBuilder* bb = shd_bld_begin_pure(a);
             const Node* value = new->payload.constant.value;
-            value = scope_cast_helper(a, shd_get_arena_config(a)->target.scopes.constants, value);
+            value = scope_cast_helper(a, shd_get_arena_config(a)->rules.scopes.constants, value);
             new->payload.constant.value = shd_bld_to_instr_pure_with_values(bb, shd_singleton(value));
             return new;
         }
@@ -55,7 +55,7 @@ static const Node* process_node(Context* ctx, const Node* node) {
                 } else if (strcmp(get_annotation_name(an->payload), "EntryPoint") == 0) {
                     for (size_t i = 0; i < payload.params.count; i++) {
                         const Node* oparam = opayload.params.nodes[i];
-                        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.constants, shd_rewrite_node(r, shd_get_unqualified_type(oparam->payload.param.type))));
+                        const Node* nparam = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.constants, shd_rewrite_node(r, shd_get_unqualified_type(oparam->payload.param.type))));
                         payload.params = shd_change_node_at_index(a, payload.params, i, nparam);
                         shd_rewrite_annotations(r, oparam, nparam);
                     }

@@ -1,4 +1,4 @@
-#include "shady/pass.h"
+#include "shady/passes/cf_passes.h"
 
 #include "ir_private.h"
 #include "analysis/cfg.h"
@@ -90,7 +90,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lift_everything(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lift_everything(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     bool todo = true;

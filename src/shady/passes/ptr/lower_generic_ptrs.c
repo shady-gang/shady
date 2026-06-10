@@ -1,8 +1,11 @@
-#include "shady/pass.h"
-#include "shady/ir/cast.h"
-#include "shady/ir/memory_layout.h"
+#include "shady/passes/ptr_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/cast.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/annotation.h"
+#include "shady/ir/memory_layout.h"
+#include "shady/ir/function.h"
+#include "shady/ir/mem.h"
 
 #include "log.h"
 #include "portability.h"
@@ -13,6 +16,7 @@
 
 typedef struct {
     Rewriter rewriter;
+    const PtrModel* mem_model;
     const Node* generic_ptr_type;
     struct Dict* fns;
     const CompilerConfig* config;
@@ -35,6 +39,8 @@ static AddressSpace get_addr_space_from_tag(size_t tag) {
 }
 
 static uint64_t get_tag_for_addr_space(AddressSpace as) {
+    if (as == AsFunction)
+        as = AsPrivate;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
     for (size_t i = 0; i < max_tag; i++) {
         if (generic_ptr_tags[i] == as)
@@ -46,7 +52,7 @@ static uint64_t get_tag_for_addr_space(AddressSpace as) {
 static const Node* recover_full_pointer(Context* ctx, BodyBuilder* bb, uint64_t tag, const Node* nptr, const Type* element_type) {
     IrArena* a = ctx->rewriter.dst_arena;
     size_t max_tag = sizeof(generic_ptr_tags) / sizeof(generic_ptr_tags[0]);
-    const Node* generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false});
+    const Node* generic_ptr_type = int_type(a, (Int) {.width = ctx->mem_model->ptr_size, .is_signed = false});
 
     //          first_non_tag_bit = nptr >> (64 - 2 - 1)
     const Node* first_non_tag_bit = prim_op_helper(a, rshift_logical_op, mk_nodes(a, nptr, size_t_literal(a, shd_get_type_bitwidth(generic_ptr_type) - generic_ptr_tag_bitwidth - 1)));
@@ -70,7 +76,7 @@ static bool allowed(Context* ctx, AddressSpace as) {
     if (as == AsGeneric)
         return false;
     // if an address space is logical-only, or isn't allowed at all in the module, we can skip emitting a case for it.
-    if (!ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].physical || !ctx->rewriter.dst_arena->config.target.memory.address_spaces[as].allowed)
+    if (!ctx->mem_model->address_spaces[as].physical || !ctx->mem_model->address_spaces[as].allowed)
         return false;
     return true;
 }
@@ -95,10 +101,10 @@ static const Node* get_or_make_access_fn(Context* ctx, WhichFn which, ShdScope p
     Nodes return_ts = shd_empty(a);
     switch (which) {
         case LoadFn:
-            return_ts = shd_singleton(qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+            return_ts = shd_singleton(qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t));
             break;
         case StoreFn:
-            value_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, t));
+            value_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, t));
             shd_set_debug_name(value_param, "value");
             params = shd_nodes_append(a, params, value_param);
             break;
@@ -246,8 +252,11 @@ static const Node* process(Context* ctx, const Node* old) {
             const Type* old_src_t = old_src->type;
             shd_deconstruct_qualified_type(&old_src_t);
 
-            if (old_src_t->payload.ptr_type.address_space == AsCode)
-                return bit_cast_helper(a, size_t_type(a), shd_rewrite_node(r, old_src));
+            if (old_src_t->payload.ptr_type.address_space == AsCode) {
+                const Type* ptr_size_uint = int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false);
+                const Node* fn_ptr_as_uint = bit_cast_helper(a, ptr_size_uint, shd_rewrite_node(r, old_src));
+                return shd_convert_int_zero_extend(a, size_t_type(a), fn_ptr_as_uint);
+            }
 
             if (old_src_t->payload.ptr_type.pointed_type->tag == FnType_TAG) {
                 PtrType npayload = old_src_t->payload.ptr_type;
@@ -274,6 +283,9 @@ static const Node* process(Context* ctx, const Node* old) {
             return shd_bld_to_instr_yield_values(bb, shd_singleton(generic_ptr));
             break;
         }
+        case PtrArrayElementOffset_TAG:
+        case PtrCompositeElement_TAG:
+            return shd_lower_lea_helper(&ctx->rewriter, old, false);
         default: break;
     }
 
@@ -283,14 +295,15 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_string(const char** string);
 bool shd_compare_string(const char** a, const char** b);
 
-Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_generic_ptrs(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
+        .mem_model = &aconfig.rules.ptr,
         .fns = shd_new_dict(String, const Node*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
-        .generic_ptr_type = int_type(a, (Int) {.width = a->config.target.memory.ptr_size, .is_signed = false}),
+        .generic_ptr_type = int_type(a, (Int) { .width = aconfig.rules.ptr.ptr_size, .is_signed = false}),
         .config = config,
     };
     shd_rewrite_module(&ctx.rewriter);

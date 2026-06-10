@@ -1,6 +1,7 @@
+#include "shady/passes/mem_passes.h"
+
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
-#include "shady/ir/type.h"
 
 #include "log.h"
 #include "portability.h"
@@ -19,13 +20,13 @@ static const Node* process(Context* ctx, const Node* old) {
             SizeOf payload = old->payload.size_of;
             const Type* t = shd_rewrite_node(&ctx->rewriter, payload.type);
             TypeMemLayout layout = shd_get_mem_layout(a, t);
-            return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = layout.size_in_bytes});
+            return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->rules.ptr.ptr_size, .is_signed = false, .value = layout.size_in_bytes});
         }
         case AlignOf_TAG: {
             AlignOf payload = old->payload.align_of;
             const Type* t = shd_rewrite_node(&ctx->rewriter, payload.type);
             TypeMemLayout layout = shd_get_mem_layout(a, t);
-            return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = layout.alignment_in_bytes});
+            return int_literal(a, (IntLiteral) {.width = shd_get_arena_config(a)->rules.ptr.ptr_size, .is_signed = false, .value = layout.alignment_in_bytes});
         }
         case OffsetOf_TAG: {
             OffsetOf payload = old->payload.offset_of;
@@ -34,7 +35,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const IntLiteral* literal = shd_resolve_to_int_literal(n);
             assert(literal);
             uint64_t offset_in_bytes = (uint64_t) shd_get_record_field_offset_in_bytes(a, t, literal->value);
-            const Node* offset_literal = int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->target.memory.ptr_size, .is_signed = false, .value = offset_in_bytes });
+            const Node* offset_literal = int_literal(a, (IntLiteral) { .width = shd_get_arena_config(a)->rules.ptr.ptr_size, .is_signed = false, .value = offset_in_bytes });
             return offset_literal;
         }
         default: break;
@@ -43,7 +44,7 @@ static const Node* process(Context* ctx, const Node* old) {
     return shd_recreate_node(&ctx->rewriter, old);
 }
 
-Module* shd_pass_lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_memory_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

@@ -6,128 +6,74 @@
 #include "shady/ir/grammar.h"
 #include "shady/ir/annotation.h"
 #include "shady/ir/int.h"
-#include "shady/ir/memory_layout.h"
 
 #include "portability.h"
 #include "log.h"
+#include "util.h"
 
-void shd_vkr_get_runtime_dependencies(Module* mod, size_t* count, RuntimeInterfaceItem* out) {
-    Nodes decls = shd_module_get_all_exported(mod);
-    bool found = false;
+void shd_rt_vk_get_entry_point_interface(const Node* decl, size_t* count, RuntimeInterfaceItem* out) {
     *count = 0;
-    for (size_t i = 0; i < decls.count; i++) {
-        const Node* decl = decls.nodes[i];
-        if (decl->tag != GlobalVariable_TAG) continue;
 
-        if (shd_lookup_annotation(decl, "EntryPointPushConstants")) {
-            assert(!found && "Two EntryPointPushConstants found");
-            found = true;
+    for (size_t i = 0; i < decl->annotations.count; i++) {
+        const Node* interface = decl->annotations.nodes[i];
+        if (!shd_string_starts_with(get_annotation_name(interface), "EntryPointInterface"))
+            continue;
 
-            const Type* t = decl->payload.global_variable.type;
-            assert(t->tag == StructType_TAG);
-            StructType payload = t->payload.struct_type;
-            LARRAY(FieldLayout, field_layouts, payload.members.count);
-            shd_get_record_layout(t->arena, t, field_layouts);
+        assert(interface->tag == AnnotationValue_TAG);
+        assert(interface->annotations.count == 2);
+        const Node* src = interface->annotations.nodes[0];
+        const Node* dst = interface->annotations.nodes[1];
 
-            for (size_t j = 0; j < payload.members.count; j++) {
-                Nodes annotations = decl->annotations;
-                for (size_t k = 0; k < annotations.count; k++) {
-                    const Node* an = annotations.nodes[k];
-                    if (strcmp(get_annotation_name(an), "RuntimeProvideTmpAllocationInPushConstant") == 0) {
-                        Nodes arr = an->payload.annotation_values.values;
-                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
-                        if (member_idx != j)
-                            continue;
-                        const Node* size = arr.nodes[1];
-                        if (out) {
-                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
-                            out[*count] = (RuntimeInterfaceItem) {
-                                .dst_kind = SHD_RII_Dst_PushConstant,
-                                .dst_details.push_constant = {
-                                    .offset = field_layouts[j].offset_in_bytes,
-                                    .size = layout.size_in_bytes,
-                                },
-                                .src_kind = SHD_RII_Src_TmpAllocation,
-                                .src_details.tmp_allocation = {
-                                    .size = size
-                                },
-                            };
-                        }
-                        (*count)++;
-                        goto next;
-                    } else if (strcmp(get_annotation_name(an), "RuntimeProvideConstantInPushConstant") == 0) {
-                        Nodes arr = an->payload.annotation_values.values;
-                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
-                        if (member_idx != j)
-                            continue;
-                        const Node* contents = arr.nodes[1];
-                        if (out) {
-                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
-                            out[*count] = (RuntimeInterfaceItem) {
-                                .dst_kind = SHD_RII_Dst_PushConstant,
-                                .dst_details.push_constant = {
-                                    .offset = field_layouts[j].offset_in_bytes,
-                                    .size = layout.size_in_bytes,
-                                },
-                                .src_kind = SHD_RII_Src_LiftedConstant,
-                                .src_details.lifted_constant = {
-                                    .constant = contents
-                                },
-                            };
-                        }
-                        (*count)++;
-                        goto next;
-                    } else if (strcmp(get_annotation_name(an), "RuntimeProvideScratchInPushConstant") == 0) {
-                        Nodes arr = an->payload.annotation_values.values;
-                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
-                        if (member_idx != j)
-                            continue;
-                        const Node* contents = arr.nodes[1];
-                        if (out) {
-                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, size_t_type(t->arena));
-                            out[*count] = (RuntimeInterfaceItem) {
-                                .dst_kind = SHD_RII_Dst_PushConstant,
-                                .dst_details.push_constant = {
-                                    .offset = field_layouts[j].offset_in_bytes,
-                                    .size = layout.size_in_bytes,
-                                },
-                                .src_kind = SHD_RII_Src_ScratchBuffer,
-                                .src_details.scratch_buffer = {
-                                    .per_invocation_size = contents
-                                },
-                            };
-                        }
-                        (*count)++;
-                        goto next;
-                    } else if (strcmp(get_annotation_name(an), "RuntimeParamInPushConstant") == 0) {
-                        Nodes arr = an->payload.annotation_values.values;
-                        size_t member_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[0]), false);
-                        if (member_idx != j)
-                            continue;
-                        size_t param_idx = shd_get_int_literal_value(*shd_resolve_to_int_literal(arr.nodes[1]), false);
-                        if (out) {
-                            TypeMemLayout layout = shd_get_mem_layout(payload.members.nodes[j]->arena, payload.members.nodes[j]);
-                            out[*count] = (RuntimeInterfaceItem) {
-                                .dst_kind = SHD_RII_Dst_PushConstant,
-                                .dst_details.push_constant = {
-                                    .offset = field_layouts[j].offset_in_bytes,
-                                    .size = layout.size_in_bytes,
-                                },
-                                .src_kind = SHD_RII_Src_Param,
-                                .src_details.param = {
-                                    .param_idx = param_idx,
-                                }
-                            };
-                        }
-                        (*count)++;
-                        goto next;
-                    }
-                }
+        if (out) {
+            if (strcmp(get_annotation_name(dst), "DstPushConstant") == 0) {
+                out[*count].dst_kind = SHD_RII_Dst_PushConstant;
+                out[*count].dst_details.push_constant.offset = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
+                out[*count].dst_details.push_constant.size = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+            } else if (strcmp(get_annotation_name(dst), "DstUniformBuffer") == 0) {
+                out[*count].dst_kind = SHD_RII_Dst_ParamUBO;
+                out[*count].dst_details.ubo.offset = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
+                out[*count].dst_details.ubo.size = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+            } else if (strcmp(get_annotation_name(dst), "DstDescriptor") == 0) {
+                out[*count].dst_kind = SHD_RII_Dst_Descriptor;
+                out[*count].dst_details.descriptor.set = shd_get_int_value(shd_get_annotation_values(dst).nodes[0], false);
+                out[*count].dst_details.descriptor.binding = shd_get_int_value(shd_get_annotation_values(dst).nodes[1], false);
+                out[*count].dst_details.descriptor.type = shd_get_int_value(shd_get_annotation_values(dst).nodes[2], false);
+            } else {
+                shd_log_node(ERROR, dst);
+                shd_error("Unknown interface destination");
+            }
 
-                shd_error("Failed to find metadata for push constant field %lu\n", j);
-                shd_error_die();
-                next: continue;
+            if (strcmp(get_annotation_name(src), "SrcParam") == 0) {
+                out[*count].src_kind = SHD_RII_Src_Param;
+                out[*count].src_details.param.param_idx = shd_get_int_value(shd_get_annotation_value(src), false);
+            } else if (strcmp(get_annotation_name(src), "SrcTmp") == 0) {
+                out[*count].src_kind = SHD_RII_Src_TmpAllocation;
+                out[*count].src_details.tmp_allocation.size = shd_get_annotation_value(src);
+            } else if (strcmp(get_annotation_name(src), "SrcConstant") == 0) {
+                out[*count].src_kind = SHD_RII_Src_LiftedConstant;
+                out[*count].src_details.lifted_constant.constant = shd_get_annotation_value(src);
+            } else if (strcmp(get_annotation_name(src), "SrcScratch") == 0) {
+                out[*count].src_kind = SHD_RII_Src_ScratchBuffer;
+                out[*count].src_details.scratch_buffer.per_invocation_size = shd_get_annotation_value(src);
+            } else if (strcmp(get_annotation_name(src), "SrcParamUBO") == 0) {
+                out[*count].src_kind = SHD_RII_Src_ParamUBO;
+                out[*count].src_details.param_ubo.size = shd_get_int_value(shd_get_annotation_value(src), false);
+            } else {
+                shd_log_node(ERROR, src);
+                shd_error("Unknown interface source");
             }
         }
+        (*count)++;
+    }
+}
+
+
+void shd_rt_vk_get_module_interface(Module* mod, size_t* count, RuntimeInterfaceItem* out) {
+    Nodes decls = shd_module_get_all_exported(mod);
+    for (size_t i = 0; i < decls.count; i++) {
+        const Node* decl = decls.nodes[i];
+        if (decl->tag != Function_TAG) continue;
+        if (shd_lookup_annotation(decl, "EntryPoint"))
+            shd_rt_vk_get_entry_point_interface(decl, count, out);
     }
 }

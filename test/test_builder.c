@@ -23,12 +23,12 @@ static void test_body_builder_constants(IrArena* a) {
 
 static void test_body_builder_fun_body(IrArena* a) {
     Module* m = shd_new_module(a, "test_module");
-    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom,
+    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom,
        ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
         })));
-    const Node* p2 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom,
+    const Node* p2 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom,
        ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
@@ -88,7 +88,7 @@ static void test_body_builder_fun_body(IrArena* a) {
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block(IrArena* a) {
     Module* m = shd_new_module(a, "test_module");
-    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom,
+    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom,
        ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
@@ -129,7 +129,7 @@ static void test_body_builder_impure_block(IrArena* a) {
 /// where there is only a mem dependency. This is useful when writing some complex polyfills.
 static void test_body_builder_impure_block_with_control_flow(IrArena* a) {
     Module* m = shd_new_module(a, "test_module");
-    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom,
+    const Node* p1 = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom,
        ptr_type(a, (PtrType) {
             .address_space = AsGeneric,
             .pointed_type = shd_uint32_type(a),
@@ -164,7 +164,8 @@ int main(int argc, char** argv) {
     shd_parse_common_args(&argc, argv);
 
     TargetConfig target_config = shd_default_target_config();
-    ArenaConfig aconfig = shd_default_arena_config(&target_config);
+    MachineRules rules = get_machine_rules_from_target_config(&target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     IrArena* a = shd_new_ir_arena(&aconfig);
     test_body_builder_constants(a);
     test_body_builder_fun_body(a);

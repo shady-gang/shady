@@ -143,6 +143,15 @@ static String get_member_name(SpvParser* parser, SpvId id, int member_id) {
     return deco->payload.str;
 }
 
+static ShdBuiltin get_member_builtin(SpvParser* parser, SpvId id, int member_id) {
+    SpvDeco* builtin = find_decoration(parser, id, member_id, SpvDecorationBuiltIn);
+    if (!builtin)
+        return ShdBuiltinsCount;
+    ShdBuiltin b = shd_get_builtin_by_spv_id(*builtin->payload.literals.data);
+    assert(b != ShdBuiltinsCount && "Unsupported builtin");
+    return b;
+}
+
 static const Type* get_def_type(SpvParser* parser, SpvId id) {
     SpvDef* def = get_definition_by_id(parser, id);
     assert(def->type == Typ);
@@ -556,7 +565,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             SpvDeco deco = {
                 .payload = { Str, .str = decode_spv_string_literal(parser, instruction + name_offset), .next_decoration = NULL },
                 .decoration = decoration,
-                .member = op == SpvOpName ? -1 : (int)instruction[3],
+                .member = op == SpvOpName ? -1 : (int)instruction[2],
             };
             add_decoration(parser, target, deco);
             break;
@@ -637,7 +646,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             if (op == SpvOpExecutionMode)
                 member = -2;
             else if (op == SpvOpMemberDecorate)
-                member = instruction[3];
+                member = instruction[2];
             SpvDeco deco = {
                 .payload = payload,
                 .member = member,
@@ -704,10 +713,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].type = Typ;
             const Type* return_t = get_def_type(parser, instruction[2]);
             if (return_t != unit_type(a))
-                return_t = qualified_type_helper(a, a->config.target.scopes.bottom, return_t);
+                return_t = qualified_type_helper(a, a->config.rules.scopes.bottom, return_t);
             LARRAY(const Type*, param_ts, size - 3);
             for (size_t i = 0; i < size - 3; i++)
-                param_ts[i] = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, instruction[3 + i]));
+                param_ts[i] = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, instruction[3 + i]));
             parser->defs[result].node = fn_type(parser->arena, (FnType) {
                 .return_types = (return_t == unit_type(parser->arena)) ? shd_empty(parser->arena) : shd_singleton(return_t),
                 .param_types = shd_nodes(parser->arena, size - 3, param_ts)
@@ -724,13 +733,38 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             int members_count = size - 2;
             LARRAY(String, member_names, members_count);
             LARRAY(const Type*, member_tys, members_count);
+            LARRAY(String, member_builtins, members_count);
+
+            String struct_name = get_name(parser, result);
             for (size_t i = 0; i < members_count; i++) {
                 member_names[i] = get_member_name(parser, result, i);
                 if (!member_names[i])
-                    member_names[i] = shd_format_string_arena(parser->arena->arena, "member%d", i);
+                    member_names[i] = shd_format_string_arena(parser->arena->arena, "%smember%d", struct_name, i);
                 member_tys[i] = get_def_type(parser, instruction[2 + i]);
+
+                if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPosition) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "Position");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPointSize) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PointSize");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinPrimitiveId) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PrimitiveId");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinLayer) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "Layer");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinViewportIndex) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "ViewportIndex");
+                } else if (ShdBuiltin builtin = get_member_builtin(parser, result, i); builtin == ShdBuiltinCullPrimitiveEXT) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "CullPrimitive");
+
+                } else if (find_decoration(parser, result, i, SpvDecorationPerPrimitiveEXT)) {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "PerPrimitiveEXT");
+                } else {
+                    member_builtins[i] = shd_format_string_arena(parser->arena->arena, "DontCare_%s", struct_name);
+                }
             }
             shd_struct_type_set_members_named(struct_t, shd_nodes(parser->arena, members_count, member_tys), shd_strings(parser->arena, members_count, member_names));
+
+            struct_t->payload.struct_type.member_builtins = shd_strings(parser->arena, members_count, member_builtins);
+
             break;
         }
         case SpvOpTypeRuntimeArray:
@@ -764,30 +798,6 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 .element_type = element_t,
                 .columns = instruction[3],
             });
-            break;
-        }
-        case SpvOpTypeImage: {
-            parser->defs[result].type = Typ;
-            const Type* sampled_type = get_def_type(parser, instruction[2]);
-            parser->defs[result].node = image_type(parser->arena, (ImageType) {
-                .sampled_type = sampled_type,
-                .dim = instruction[3],
-                .depth = instruction[4],
-                .arrayed = instruction[5],
-                .ms = instruction[6],
-                .sampled = instruction[7],
-                .imageformat = instruction[8],
-            });
-            break;
-        }
-        case SpvOpTypeSampler: {
-            parser->defs[result].type = Typ;
-            parser->defs[result].node = sampler_type(a);
-            break;
-        }
-        case SpvOpTypeSampledImage: {
-            parser->defs[result].type = Typ;
-            parser->defs[result].node = sampled_image_type_helper(a, get_def_type(parser, instruction[2]));
             break;
         }
         case SpvOpConstant: {
@@ -862,7 +872,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             assert(shd_is_data_type(contents_t));
 
             if (parser->fun) {
-                const Node* ptr = shd_bld_add_instruction(parser->current_block.builder, stack_alloc(parser->arena, (StackAlloc) { .type = contents_t, .mem = shd_bld_mem(parser->current_block.builder) }));
+                const Node* ptr = shd_bld_local_alloc(parser->current_block.builder, contents_t);
 
                 parser->defs[result].type = Value;
                 parser->defs[result].node = ptr;
@@ -888,10 +898,17 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                     shd_add_annotation(global, annotation_value_helper(a, "DescriptorSet", shd_uint32_literal(a, desc_set->payload.literals.data[0])));
                 SpvDeco* binding = find_decoration(parser, result, -1, SpvDecorationBinding);
                 if (binding)
-                    shd_add_annotation(global, annotation_value_helper(a, "Binding", shd_uint32_literal(a, binding->payload.literals.data[0])));
+                    shd_add_annotation(global, annotation_value_helper(a, "DescriptorBinding", shd_uint32_literal(a, binding->payload.literals.data[0])));
                 SpvDeco* location = find_decoration(parser, result, -1, SpvDecorationLocation);
                 if (location)
                     shd_add_annotation(global, annotation_value_helper(a, "Location", shd_uint32_literal(a, location->payload.literals.data[0])));
+
+                SpvDeco* perprimitive = find_decoration(parser, result, -1, SpvDecorationPerPrimitiveEXT);
+                if (perprimitive)
+                    shd_add_annotation(global, annotation_helper(a, "PerPrimitiveEXT"));
+
+                if (desc_set || binding || location)
+                    shd_module_add_export(parser->mod, name, global);
 
                 if (size == 5)
                     global->payload.global_variable.init = get_def_ssa_value(parser, instruction[4]);
@@ -932,6 +949,30 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                                            shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
                                            shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
                                            shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                    }));
+                } else if (strcmp(entry_point_type->payload.str, "Mesh") == 0) {
+                    SpvDeco* wg_size_dec = find_decoration(parser, result, -2, SpvExecutionModeLocalSize);
+                    SpvDeco* wg_num_vertices_dec = find_decoration(parser, result, -2, SpvExecutionModeOutputVertices);
+                    SpvDeco* wg_num_prims_dec = find_decoration(parser, result, -2, SpvExecutionModeOutputPrimitivesEXT);
+
+                    assert(wg_size_dec && wg_size_dec->payload.literals.count == 3 && "we require kernels decorated with a workgroup size");
+                    assert(wg_num_vertices_dec && wg_num_vertices_dec->payload.literals.count == 1);
+                    assert(wg_num_prims_dec && wg_num_prims_dec->payload.literals.count == 1);
+
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "WorkgroupSize",
+                        .values = mk_nodes(parser->arena,
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[0]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[1]),
+                                           shd_int32_literal(parser->arena, wg_size_dec->payload.literals.data[2]))
+                    }));
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "NumVertices",
+                        .values = mk_nodes(parser->arena, shd_int32_literal(parser->arena, *wg_num_vertices_dec->payload.literals.data))
+                    }));
+                    annotations = shd_nodes_append(parser->arena, annotations, annotation_values(parser->arena, (AnnotationValues) {
+                        .name = "NumPrimitives",
+                        .values = mk_nodes(parser->arena, shd_int32_literal(parser->arena, *wg_num_prims_dec->payload.literals.data))
                     }));
                 } else if (strcmp(entry_point_type->payload.str, "Fragment") == 0) {
 
@@ -989,9 +1030,9 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpFunctionParameter: {
             parser->defs[result].type = Value;
-            ShdScope scope = shd_get_arena_config(a)->target.scopes.bottom;
+            ShdScope scope = shd_get_arena_config(a)->rules.scopes.bottom;
             if (parser->is_entry_pt)
-                scope = shd_get_arena_config(a)->target.scopes.constants;
+                scope = shd_get_arena_config(a)->rules.scopes.constants;
             parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, scope, get_def_type(parser, result_t)));
             break;
         }
@@ -1047,7 +1088,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
         }
         case SpvOpPhi: {
             parser->defs[result].type = Value;
-            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, get_def_type(parser, result_t)));
+            parser->defs[result].node = param_helper(parser->arena, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, get_def_type(parser, result_t)));
             assert(size % 2 == 1);
             int num_callsites = (size - 3) / 2;
             for (size_t i = 0; i < num_callsites; i++) {
@@ -1213,7 +1254,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, atomic_access(a, (AtomicAccess) {
                 .mem = shd_bld_mem(parser->current_block.builder),
                 .ptr = get_def_ssa_value(parser, spv_operands[0]),
-                .result_t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)),
+                .result_t = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t)),
                 .op = op,
                 .scope = get_def_ssa_value(parser, spv_operands[1]),
                 .semantics = get_def_ssa_value(parser, spv_operands[2]),
@@ -1431,12 +1472,12 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             else {
                 const Type* t = NULL;
                 if (has_result) {
-                    t = qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t));
+                    t = qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t));
                 }
                 const Node* ext_op = shd_make_ext_spv_op(a, set, opcode, has_result, t, num_args);
                 parser->defs[result].node = shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(bb),
-                    .op = ext_op,
+                    .def = ext_op,
                     .arguments = shd_nodes(a, num_args, args),
                 }));
             }
@@ -1547,22 +1588,41 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
             const Node* terminator_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
             parser->current_block.finished = shd_bld_finish(bb, ext_terminator(parser->arena, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = terminator_op,
+                .def = terminator_op,
                 .arguments = shd_nodes(a, size - 1, operands),
             }));
             parser->current_block.builder = NULL;
             break;
         }
+        case SpvOpTypeImage: {
+            parser->defs[result].type = Typ;
+            Nodes pattern = mk_nodes(a,
+                NULL /* sampled type */,
+                shd_uint32_literal(a, instruction[3]) /* dim */,
+                shd_uint32_literal(a, instruction[4]) /* depth */,
+                shd_uint32_literal(a, instruction[5]) /* arrayed */,
+                shd_uint32_literal(a, instruction[6]) /* ms */,
+                shd_uint32_literal(a, instruction[7]) /* sampled */,
+                shd_uint32_literal(a, instruction[8]) /* format */,
+                );
+            const Node* image_type_op = ext_op_def_helper(a, "spirv.core", op, true, NULL, pattern);
+            parser->defs[result].node = ext_type(a, (ExtType) {
+                .def = image_type_op,
+                .arguments = mk_nodes(a, get_def_type(parser, instruction[2])),
+            });
+            break;
+        }
         default: {
             //bool has_result, has_type;
             //SpvHasResultAndType(op, &has_result, &has_type);
-            if (has_result && !has_type) {parser->defs[result].type = Typ;
+            if (has_result && !has_type) {
+                parser->defs[result].type = Typ;
                 LARRAY(const Node*, operands, size - 2);
                 for (size_t i = 0; i < size - 2; i++)
                     operands[i] = get_definition_by_id(parser, instruction[2 + i])->node;
                 const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, NULL, size - 2);
                 parser->defs[result].node = ext_type(a, (ExtType) {
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 2, operands),
                 });
                 break;
@@ -1571,10 +1631,10 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 LARRAY(const Node*, operands, size - 3);
                 for (size_t i = 0; i < size - 3; i++)
                     operands[i] = get_def_ssa_value(parser, instruction[3 + i]);
-                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.target.scopes.bottom, get_def_type(parser, result_t)), size - 3);
+                const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, true, qualified_type_helper(a, a->config.rules.scopes.bottom, get_def_type(parser, result_t)), size - 3);
                 parser->defs[result].node = shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 3, operands),
                 }));
                 break;
@@ -1585,7 +1645,7 @@ static size_t parse_spv_instruction_at(SpvParser* parser, size_t instruction_off
                 const Node* unknown_op = shd_make_ext_spv_op(a, "spirv.core", op, false, NULL, size - 1);
                 shd_bld_add_instruction(parser->current_block.builder, ext_instr(a, (ExtInstr) {
                     .mem = shd_bld_mem(parser->current_block.builder),
-                    .op = unknown_op,
+                    .def = unknown_op,
                     .arguments = shd_nodes(a, size - 1, operands),
                 }));
                 break;
@@ -1620,15 +1680,12 @@ static bool compare_spvid(SpvId* pa, SpvId* pb) {
     return *pa == *pb;
 }
 
-RewritePass shd_pass_lower_generic_globals;
-RewritePass l2s_promote_byval_params;
-RewritePass shd_pass_lcssa;
-RewritePass shd_pass_scope2control;
-RewritePass shd_pass_remove_critical_edges;
-RewritePass shd_pass_reconvergence_heuristics;
+#include "shady/passes/cf_passes.h"
+#include "shady/passes/scf_passes.h"
 
 S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* target_config, size_t len, const char* data, String name, Module** pmod) {
-    ArenaConfig aconfig = shd_default_arena_config(target_config);
+    MachineRules rules = get_machine_rules_from_target_config(target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     IrArena* a = shd_new_ir_arena(&aconfig);
     *pmod = shd_new_module(a, name);
 
@@ -1658,9 +1715,9 @@ S2SError shd_parse_spirv(const CompilerConfig* config, const TargetConfig* targe
     shd_destroy_arena(parser.decorations_arena);
     free(parser.defs);
 
-    RUN_PASS(shd_pass_remove_critical_edges, config)
-    RUN_PASS(shd_pass_lcssa, config)
-    RUN_PASS(shd_pass_reconvergence_heuristics, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_remove_critical_edges)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lcssa)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_reconvergence_heuristics)
 
     return S2S_Success;
 }

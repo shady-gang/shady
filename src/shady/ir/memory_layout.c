@@ -20,13 +20,10 @@ static int maxof(int a, int b) {
     return b;
 }
 
-TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
-    assert(record_type->tag == StructType_TAG);
-
+void shd_compute_record_layout_from_fields(IrArena* a, Nodes member_types, FieldLayout* fields, size_t* alignment_out, size_t* offset_out) {
     size_t offset = 0;
     size_t max_align = 0;
 
-    Nodes member_types = record_type->payload.struct_type.members;
     for (size_t i = 0; i < member_types.count; i++) {
         TypeMemLayout member_layout = shd_get_mem_layout(a, member_types.nodes[i]);
         offset = round_up(offset, member_layout.alignment_in_bytes);
@@ -39,11 +36,21 @@ TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLa
             max_align = member_layout.alignment_in_bytes;
     }
 
-    return (TypeMemLayout) {
+    if (offset_out)
+        *offset_out = offset;
+    if (alignment_out)
+        *alignment_out = max_align;
+}
+
+TypeMemLayout shd_get_record_layout(IrArena* a, const Node* record_type, FieldLayout* fields) {
+    assert(record_type->tag == StructType_TAG);
+    TypeMemLayout layout = {
         .type = record_type,
-        .size_in_bytes = round_up(offset, max_align),
-        .alignment_in_bytes = max_align,
     };
+    size_t offset = 0;
+    shd_compute_record_layout_from_fields(a, record_type->payload.struct_type.members, fields, &layout.alignment_in_bytes, &offset);
+    layout.size_in_bytes = round_up(offset, layout.alignment_in_bytes);
+    return layout;
 }
 
 size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i) {
@@ -52,6 +59,13 @@ size_t shd_get_record_field_offset_in_bytes(IrArena* a, const Type* t, size_t i)
     assert(i < member_types.count);
     LARRAY(FieldLayout, fields, member_types.count);
     shd_get_record_layout(a, t, fields);
+    return fields[i].offset_in_bytes;
+}
+
+size_t shd_get_record_field_offset_in_bytes_from_members(IrArena* a, Nodes member_types, size_t i) {
+    assert(i < member_types.count);
+    LARRAY(FieldLayout, fields, member_types.count);
+    shd_compute_record_layout_from_fields(a, member_types, fields, NULL, NULL);
     return fields[i].offset_in_bytes;
 }
 
@@ -73,7 +87,7 @@ size_t shd_get_composite_index_offset_in_bytes(IrArena* a, const Type* t, size_t
 }
 
 TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
-    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
+    size_t base_word_size = int_size_in_bytes(shd_get_arena_config(a)->rules.memory.word_size);
     assert(is_type(type));
     switch (type->tag) {
         case FnType_TAG:  shd_error("Functions have an opaque memory representation");
@@ -84,7 +98,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
             case AsShared:
             case AsGlobal:
             case AsGeneric: {
-                size_t size_in_bytes = int_size_in_bytes(shd_get_arena_config(a)->target.memory.ptr_size);
+                size_t size_in_bytes = int_size_in_bytes(shd_get_arena_config(a)->rules.ptr.ptr_size);
                 return (TypeMemLayout) {
                     .type = type,
                     .alignment_in_bytes = size_in_bytes,
@@ -145,7 +159,7 @@ TypeMemLayout shd_get_mem_layout(IrArena* a, const Type* type) {
 
 const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
     IrArena* a = bytes->arena;
-    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->target.memory.word_size, .is_signed = false });
+    const Type* word_type = int_type(a, (Int) { .width = shd_get_arena_config(a)->rules.memory.word_size, .is_signed = false });
     size_t word_width = shd_get_type_bitwidth(word_type);
     const Type* bytes_t = shd_get_unqualified_type(bytes->type);
     assert(bytes_t->tag == Int_TAG);
@@ -154,7 +168,7 @@ const Node* shd_bytes_to_words(BodyBuilder* bb, const Node* bytes) {
 }
 
 uint64_t shd_bytes_to_words_static(const IrArena* a, uint64_t bytes) {
-    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->target.memory.word_size);
+    uint64_t word_width = int_size_in_bytes(shd_get_arena_config(a)->rules.memory.word_size);
     return bytes / word_width;
 }
 
@@ -167,15 +181,16 @@ ShdIntSize shd_float_to_int_width(ShdFloatFormat width) {
 }
 
 size_t shd_get_type_bitwidth(const Type* t) {
+    assert(shd_is_data_type(t));
     const ArenaConfig* aconfig = shd_get_arena_config(t->arena);
     switch (t->tag) {
         case Int_TAG: return int_size_in_bytes(t->payload.int_type.width) * 8;
         case Float_TAG: return float_size_in_bytes(t->payload.float_type.width) * 8;
         case PtrType_TAG: {
             if (t->payload.ptr_type.address_space == AsCode)
-                return int_size_in_bytes(aconfig->target.memory.fn_ptr_size) * 8;
-            if (aconfig->target.memory.address_spaces[t->payload.ptr_type.address_space].physical)
-                return int_size_in_bytes(aconfig->target.memory.ptr_size) * 8;
+                return int_size_in_bytes(aconfig->rules.memory.fn_ptr_size) * 8;
+            if (aconfig->rules.ptr.address_spaces[t->payload.ptr_type.address_space].physical)
+                return int_size_in_bytes(aconfig->rules.ptr.ptr_size) * 8;
             break;
         }
         case VectorType_TAG: {

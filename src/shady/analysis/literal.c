@@ -28,7 +28,7 @@ const Node* shd_chase_ptr_to_source(const Node* ptr, NodeResolveConfig config) {
             }
             case BitCast_TAG: {
                 // chase ptr casts to their source
-                        // TODO: figure out round-trips through integer casts?
+                // TODO: figure out round-trips through integer casts?
                 if (ptr->payload.bit_cast.type->tag == PtrType_TAG) {
                     ptr = shd_first(ptr->payload.prim_op.operands);
                     continue;

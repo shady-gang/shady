@@ -1,25 +1,18 @@
 #include "parser.h"
+#include "slim_passes.h"
 
-#include "shady/pass.h"
-
-RewritePass shd_pass_lower_cf_instrs;
+#include "shady/passes/scf_passes.h"
 
 #include "log.h"
 #include "printer.h"
 
 #include <stdlib.h>
 
-/// Removes all Unresolved nodes and replaces them with the appropriate decl/value
-RewritePass slim_pass_bind;
-/// Enforces the grammar, notably by let-binding any intermediary result
-RewritePass slim_pass_normalize;
-/// Makes sure every node is well-typed
-RewritePass slim_pass_infer;
-
 void slim_parse_string(const SlimParserConfig* config, const char* contents, Module* mod);
 
 Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConfig* pconfig, const char* contents, String name) {
-    ArenaConfig aconfig = shd_default_arena_config(pconfig->target_config);
+    MachineRules rules = get_machine_rules_from_target_config(pconfig->target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
     aconfig.name_bound = false;
     aconfig.check_op_classes = false;
     aconfig.check_types = false;
@@ -40,11 +33,11 @@ Module* shd_parse_slim_module(const CompilerConfig* config, const SlimParserConf
     shd_debugv_print("Parsed slim module:\n");
     shd_log_module(DEBUGV, *pmod);
 
-    RUN_PASS(slim_pass_bind, NULL)
-    RUN_PASS(slim_pass_normalize, NULL)
+    SHADY_APPLY_REWRITE_PASS(slim_pass_bind)
+    SHADY_APPLY_REWRITE_PASS(slim_pass_normalize)
 
-    RUN_PASS(slim_pass_infer, NULL)
-    RUN_PASS(shd_pass_lower_cf_instrs, NULL)
+    SHADY_APPLY_REWRITE_PASS(slim_pass_infer)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_cf_instrs)
 
     return *pmod;
 }

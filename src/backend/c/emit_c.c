@@ -148,7 +148,7 @@ void shd_c_emit_unpack_code(Printer* p, String src, Strings dst) {
 void shd_c_emit_global_variable_definition(Emitter* emitter, AddressSpace as, String name, const Type* type, bool constant, String init) {
     String prefix = NULL;
 
-    bool is_fs = emitter->target_config->execution_model == ShdExecutionModelFragment;
+    bool is_fs = emitter->exec_info && emitter->exec_info->execution_model == ShdExecutionModelFragment;
     // GLSL wants 'const' to go on the left to start the declaration, but in C const should go on the right (east const convention)
     switch (emitter->backend_config.dialect) {
         case CDialect_C11: {
@@ -330,7 +330,7 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
             if (ass == AsInput || ass == AsOutput)
                 init = NULL;
 
-            if (ass == AsOutput && emitter->target_config->execution_model == ShdExecutionModelFragment) {
+            if (ass == AsOutput && emitter->exec_info && emitter->exec_info->execution_model == ShdExecutionModelFragment) {
                 int location = shd_get_int_literal_value(*shd_resolve_to_int_literal(shd_get_annotation_value(shd_lookup_annotation(decl, "Location"))), false);
                 CTerm t = term_from_cvar(shd_fmt_string_irarena(emitter->arena, "gl_FragData[%d]", location));
                 shd_c_register_emitted(emitter, NULL, decl, t);
@@ -377,45 +377,45 @@ void shd_c_emit_decl(Emitter* emitter, const Node* decl) {
 
 #include "shady/pipeline/pipeline.h"
 
+#include "shady/passes/opt_passes.h"
+#include "shady/passes/abi_passes.h"
+#include "shady/passes/polyfill_passes.h"
+#include "shady/passes/group_passes.h"
+
 typedef struct {
-    AddressSpace src_as;
-    AddressSpace dst_as;
-} Global2LocalsPassConfig;
+    const TargetConfig* target;
+    const CBackendConfig* backend;
+} CBackendPipelineOptions;
 
-/// Moves all Private allocations to Function
-RewritePass shd_pass_globals_to_locals;
-RewritePass shd_pass_eliminate_constants;
-RewritePass shd_pass_lower_workgroups;
-RewritePass shd_pass_lower_inclusive_scan;
-RewritePass shd_pass_lower_vec_arr;
-
-/// Adds calls to init and fini arrounds the entry points
-Module* shd_pass_call_init_fini(void*, Module* src);
-
-static CompilationResult run_c_backend_transforms(const CBackendConfig* econfig, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_call_init_fini, NULL)
+static ShdResult run_c_backend_transforms(const CBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
+    SHADY_APPLY_REWRITE_PASS(shd_pass_call_init_fini)
     // C lacks a nice way to express constants that can be used in type definitions afterwards, so let's just inline them all.
-    RUN_PASS(shd_pass_eliminate_constants, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
+    const CBackendConfig* econfig = options->backend;
     if (econfig->dialect == CDialect_ISPC) {
-        RUN_PASS(shd_pass_lower_workgroups, config)
-        RUN_PASS(shd_pass_lower_inclusive_scan, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_workgroups, options->target)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_inclusive_scan)
     }
     if (econfig->dialect == CDialect_CUDA) {
         Global2LocalsPassConfig globals2locals = {
             .src_as = AsPrivate,
             .dst_as = AsFunction,
         };
-        RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_locals, globals2locals)
     }
     if (econfig->dialect != CDialect_GLSL && econfig->dialect != CDialect_CUDA) {
-        RUN_PASS(shd_pass_lower_vec_arr, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_vec_arr)
     }
 
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
-void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const CBackendConfig* econfig) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, econfig, sizeof(CBackendConfig));
+void shd_pipeline_add_c_target_passes(ShdPipeline pipeline, const TargetConfig* target_config, const CBackendConfig* econfig) {
+    CBackendPipelineOptions options = {
+        .target = target_config,
+        .backend = econfig,
+    };
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) run_c_backend_transforms, &options, sizeof(options));
 }
 
 CBackendConfig shd_default_c_backend_config(void) {
@@ -434,7 +434,7 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
 
     Emitter emitter = {
         .compiler_config = compiler_config,
-        .target_config = &shd_get_arena_config(shd_module_get_arena(mod))->target,
+        .exec_info = backend_config.exec_model_info,
         .backend_config = backend_config,
         .arena = arena,
         .type_decls = shd_new_printer_from_growy(type_decls_g),
@@ -472,9 +472,13 @@ void shd_emit_c(const CompilerConfig* compiler_config, CBackendConfig backend_co
                 shd_print(finalp, "%s", shady_glsl_runtime_120_src);
             break;
         case CDialect_CUDA: {
-            size_t total_workgroup_size = emitter.arena->config.specializations.workgroup_size[0];
-            total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[1];
-            total_workgroup_size *= emitter.arena->config.specializations.workgroup_size[2];
+            if (!backend_config.exec_model_info) {
+                shd_error_print("For the CUDA backend, we need to know the workgroup size.\n");
+                shd_error_die();
+            }
+            size_t total_workgroup_size = backend_config.exec_model_info->grid_based.workgroup_size[0];
+            total_workgroup_size *=       backend_config.exec_model_info->grid_based.workgroup_size[1];
+            total_workgroup_size *=       backend_config.exec_model_info->grid_based.workgroup_size[2];
 
             shd_print(finalp, "#define __shady_workgroup_size %d\n", total_workgroup_size);
             shd_print(finalp, "#define __shady_replicate_thread_local(v) { ");

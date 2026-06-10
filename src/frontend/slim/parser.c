@@ -246,14 +246,43 @@ static const Node* accept_numerical_literal(ctxparams) {
     }
 }
 
+static String expect_string_literal(ctxparams) {
+    Token tok = shd_curr_token(tokenizer);
+    if (tok.tag != string_lit_tok)
+        syntax_error("expected string literal");
+    size_t size = tok.end - tok.start;
+    shd_next_token(tokenizer);
+    char* unescaped = calloc(size + 1, 1);
+    size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
+    String interned = shd_string_sized(arena, (int) j, unescaped);
+    free(unescaped);
+    return interned;
+}
+
 static bool accept_scope(ctxparams, ShdScope* out) {
-    if (accept_token(ctx, uniform_tok))
-        *out = config->target_config->scopes.gang;
-    else if (accept_token(ctx, varying_tok))
-        *out = config->target_config->scopes.bottom;
-    else
-        return false;
-    return true;
+    if (accept_token(ctx, scope_tok)) {
+        expect(ctx, accept_token(ctx, lpar_tok));
+        String scope = expect_string_literal(ctx);
+        expect(ctx, accept_token(ctx, rpar_tok));
+
+        if (strcmp(scope, "Top") == 0) {
+            *out = shd_get_arena_config(arena)->rules.scopes.constants;
+        } else if (strcmp(scope, "Bottom") == 0) {
+            *out = shd_get_arena_config(arena)->rules.scopes.bottom;
+        } else {
+            shd_error("TODO: parse arbitrary scopes");
+        }
+
+        return true;
+    } else if (accept_token(ctx, uniform_tok)) {
+        *out = shd_get_arena_config(arena)->rules.scopes.gang;
+        return true;
+    }
+    else if (accept_token(ctx, varying_tok)) {
+        *out = shd_get_arena_config(arena)->rules.scopes.bottom;
+        return true;
+    }
+    return false;
 }
 
 static const Type* accept_maybe_qualified_type(ctxparams) {
@@ -297,7 +326,7 @@ static const Node* make_unbound(IrArena* a, const Node* mem, String identifier) 
     const Node* unbound_op = shd_make_ext_spv_op(a, "shady.frontend", SlimFrontendOpsSlimUnboundSHADY, true, unit_type(a), 1);
     return ext_instr(a, (ExtInstr) {
         .mem = mem,
-        .op = unbound_op,
+        .def = unbound_op,
         .arguments = shd_singleton(string_lit_helper(a, identifier)),
     });
 }
@@ -345,17 +374,15 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
                 const Node* invoked_op = shd_make_ext_spv_op(arena, set->payload.string_lit.string, strtoll(opcode->payload.untyped_number.plaintext, NULL, 10), true, type, ops.count);
                 return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
                     .mem = shd_bld_mem(bb),
-                    .op = invoked_op,
+                    .def = invoked_op,
                     .arguments = ops,
                 }));
             } else if (strcmp(id, "alloca") == 0) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);
                 expect(ops.count == 0, "no operands");
-                return shd_bld_add_instruction(bb, stack_alloc(arena, (StackAlloc) {
-                    .type = type,
-                    .mem = shd_bld_mem(bb),
-                }));
+                const Node* function_allocated = shd_bld_local_alloc(bb, type);
+                return addr_space_cast_helper(arena, function_allocated, AsPrivate);
             } else if (strcmp(id, "bitcast") == 0) {
                 const Node* type = shd_first(accept_type_arguments(ctx));
                 Nodes ops = expect_operands(ctx, bb);
@@ -399,12 +426,7 @@ static const Node* accept_value(ctxparams, BodyBuilder* bb) {
             });
         }
         case string_lit_tok: {
-            shd_next_token(tokenizer);
-            char* unescaped = calloc(size + 1, 1);
-            size_t j = shd_apply_escape_codes(&contents[tok.start], size, unescaped);
-            const Node* lit = string_lit(arena, (StringLiteral) {.string = shd_string_sized(arena, (int) j, unescaped) });
-            free(unescaped);
-            return lit;
+            return string_lit(arena, (StringLiteral) { .string = expect_string_literal(ctx) });
         }
         case true_tok:
             shd_next_token(tokenizer); return true_lit(arena);
@@ -482,16 +504,6 @@ static const Type* accept_unqualified_type(ctxparams) {
         return ptr_type(arena, (PtrType) {
            .address_space = as,
            .pointed_type = elem_type,
-        });
-    } else if (accept_token(ctx, ref_tok)) {
-        AddressSpace as = accept_address_space(ctx);
-        expect(as != NumAddressSpaces, "address space");
-        const Type* elem_type = accept_unqualified_type(ctx);
-        expect(elem_type, "data type");
-        return ptr_type(arena, (PtrType) {
-           .address_space = as,
-           .pointed_type = elem_type,
-           .is_reference = true,
         });
     } else if (config->front_end && accept_token(ctx, lsbracket_tok)) {
         const Type* elem_type = accept_unqualified_type(ctx);
@@ -630,7 +642,7 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
         expect(expr, "expression");
         const Node* deref_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimDereferenceSHADY, true, unit_type(arena), 1);
         return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-            .op = deref_op,
+            .def = deref_op,
             .arguments = shd_singleton(expr),
             .mem = shd_bld_mem(bb)
         }));
@@ -639,7 +651,7 @@ static const Node* accept_primary_expr(ctxparams, BodyBuilder* bb) {
         expect(expr, "expression");
         const Node* addrof_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimAddrOfSHADY, true, unit_type(arena), 1);
         return shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-            .op = addrof_op,
+            .def = addrof_op,
             .arguments = shd_singleton(expr),
             .mem = shd_bld_mem(bb),
         }));
@@ -670,7 +682,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                 case InfixAss: {
                     const Node* assign_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimAssignSHADY, false, unit_type(arena), 2);
                     expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-                        .op = assign_op,
+                        .def = assign_op,
                         .arguments = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
                         .mem = shd_bld_mem(bb),
                     }));
@@ -679,7 +691,7 @@ static const Node* accept_expr(ctxparams, BodyBuilder* bb, int outer_precedence)
                 case InfixSbs: {
                     const Node* subscript_op = shd_make_ext_spv_op(arena, "shady.frontend", SlimFrontendOpsSlimSubscriptSHADY, true, unit_type(arena), 1);
                     expr = shd_bld_add_instruction(bb, ext_instr(arena, (ExtInstr) {
-                        .op = subscript_op,
+                        .def = subscript_op,
                         .arguments = shd_nodes(arena, 2, (const Node* []) { expr, rhs }),
                         .mem = shd_bld_mem(bb),
                     }));
@@ -1211,10 +1223,6 @@ static const Node* accept_global_var_decl(ctxparams, String* bind_name, Nodes an
     };
     bool uniform = false;
     while (true) {
-        if (accept_token(ctx, logical_tok)) {
-            payload.is_ref = true;
-            continue;
-        }
         if (accept_token(ctx, uniform_tok)) {
             uniform = true;
             continue;

@@ -119,7 +119,7 @@ SpvbFileBuilder* spvb_begin() {
         .capabilities_set = shd_new_set(SpvCapability, (HashFn) hash_u32, (CmpFn) compare_u32s),
         .extensions_set = shd_new_set(const char*, (HashFn) shd_hash_string, (CmpFn) shd_compare_string),
 
-        .memory_model = SpvMemoryModelGLSL450,
+        //.memory_model = SpvMemoryModelVulkan,
     };
     return file_builder;
 }

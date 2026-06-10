@@ -1,9 +1,9 @@
-#include <shady/ir/composite.h>
+#include "spirv_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/decl.h"
-#include "shady/ir/annotation.h"
+#include "shady/ir/composite.h"
 #include "shady/ir/function.h"
 #include "shady/ir/debug.h"
 
@@ -16,7 +16,7 @@ typedef struct {
     const CompilerConfig* config;
 } Context;
 
-static bool has_explicit_layout(const TargetConfig* target, AddressSpace as) {
+static bool has_explicit_layout(const PtrModel* model, AddressSpace as) {
     switch (as) {
         // despite not being physical, they require explicit layout
         case AsShaderStorageBufferObject:
@@ -24,7 +24,7 @@ static bool has_explicit_layout(const TargetConfig* target, AddressSpace as) {
         case AsPushConstant: return true;
         default: break;
     }
-    return target->memory.address_spaces[as].physical;
+    return model->address_spaces[as].physical;
 }
 
 static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
@@ -58,9 +58,6 @@ static const Type* rebuild_aggregate_type(Rewriter* r, const Type* t) {
         case Type_Int_TAG: break;
         case Type_Float_TAG: break;
         case Type_Bool_TAG: break;
-        case Type_ImageType_TAG:break;
-        case Type_SamplerType_TAG:break;
-        case Type_SampledImageType_TAG:break;
         // only deal with values, not memory
         case Type_FnType_TAG:break;
         case Type_BBType_TAG:break;
@@ -82,7 +79,7 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case GlobalVariable_TAG: {
             GlobalVariable payload = shd_rewrite_global_head_payload(r, node->payload.global_variable);
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, payload.address_space)) {
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, payload.address_space)) {
                 payload.type = shd_rewrite_node(&ctx->aggregate_types, payload.type);
             }
             Node* ngv = shd_global_var(r->dst_module, payload);
@@ -94,7 +91,7 @@ static const Node* process(Context* ctx, const Node* node) {
         case PtrType_TAG: {
             PtrType payload = node->payload.ptr_type;
             payload.pointed_type = shd_rewrite_node(&ctx->rewriter, payload.pointed_type);
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, payload.address_space))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, payload.address_space))
                 payload.pointed_type = shd_rewrite_node(&ctx->aggregate_types, payload.pointed_type);
             return ptr_type(a, payload);
         }
@@ -108,7 +105,7 @@ static const Node* process(Context* ctx, const Node* node) {
             payload.ptr = shd_rewrite_node(r, payload.ptr);
             const Node* nld = load(a, payload);
             // get rid of explicit layout at the value level
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
                 nld = mem_and_value_helper(a, nld, aggregate_cast_helper(a, pointee_type, nld));
             return nld;
         }
@@ -122,7 +119,7 @@ static const Node* process(Context* ctx, const Node* node) {
             payload.ptr = shd_rewrite_node(r, payload.ptr);
             payload.value = shd_rewrite_node(r, payload.value);
             // add explicit layout when storing
-            if (has_explicit_layout(&shd_get_arena_config(a)->target, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
+            if (has_explicit_layout(&shd_get_arena_config(a)->rules.ptr, old_ptr_t->payload.ptr_type.address_space) && shd_is_aggregate_t(pointee_type))
                 payload.value = aggregate_cast_helper(a, shd_rewrite_node(&ctx->aggregate_types, pointee_type), payload.value);
             return store(a, payload);
         }
@@ -132,7 +129,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_spvbe_pass_specialize_explicit_layout(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+Module* shd_spvbe_pass_specialize_explicit_layout(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

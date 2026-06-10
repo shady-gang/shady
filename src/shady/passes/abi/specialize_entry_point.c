@@ -1,9 +1,7 @@
 #include "shady/pass.h"
 #include "shady/pipeline/pipeline.h"
-
 #include "shady/ir/builtin.h"
-
-#include "ir_private.h"
+#include "shady/ir/annotation.h"
 
 #include "portability.h"
 #include "log.h"
@@ -15,8 +13,11 @@ typedef struct {
     const Node* old_entry_point_decl;
 } Context;
 
+SHADY_DECLARE_REWRITE_PASS_STATIC(specialize_entry_point, String)
+
 static const Node* process(Context* ctx, const Node* node) {
     IrArena* a = ctx->rewriter.dst_arena;
+    const ArenaConfig* aconfig = shd_get_arena_config(a);
 
     switch (node->tag) {
         case PrimOp_TAG: {
@@ -24,9 +25,9 @@ static const Node* process(Context* ctx, const Node* node) {
             if (shd_is_builtin_load_op(node, &b) && b == ShdBuiltinWorkgroupSize) {
                 const Type* t = vector_type(a, (VectorType) { .element_type = shd_uint32_type(a), .width = 3 });
                 uint32_t wg_size[3];
-                wg_size[0] = a->config.specializations.workgroup_size[0];
-                wg_size[1] = a->config.specializations.workgroup_size[1];
-                wg_size[2] = a->config.specializations.workgroup_size[2];
+                wg_size[0] = aconfig->specializations.workgroup_size[0];
+                wg_size[1] = aconfig->specializations.workgroup_size[1];
+                wg_size[2] = aconfig->specializations.workgroup_size[2];
                 return composite_helper(a, t, mk_nodes(a, shd_uint32_literal(a, wg_size[0]), shd_uint32_literal(a, wg_size[1]), shd_uint32_literal(a, wg_size[2]) ));
             }
             break;
@@ -57,7 +58,7 @@ static void specialize_arena_config(String entry_point, Module* src, ArenaConfig
     }
 }
 
-static Module* specialize_entry_point(SHADY_UNUSED const CompilerConfig* config, String entry_point_name, Module* src) {
+static Module* specialize_entry_point(SHADY_UNUSED const CompilerConfig* config, Module* src, String entry_point_name) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     specialize_arena_config(entry_point_name, src, &aconfig);
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -86,8 +87,8 @@ static Module* specialize_entry_point(SHADY_UNUSED const CompilerConfig* config,
     return dst;
 }
 
-static CompilationResult specialize_entry_point_f(String* entry_point, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(specialize_entry_point, entry_point)
+static CompilationResult specialize_entry_point_f(String entry_point, const CompilerConfig* config, Module** pmod) {
+    SHADY_APPLY_REWRITE_PASS(specialize_entry_point, entry_point)
     return CompilationNoError;
 }
 

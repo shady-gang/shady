@@ -29,8 +29,8 @@ typedef struct Emitter_ {
     Rewriter* normalizer;
     IrArena* arena;
     const CompilerConfig* configuration;
-    const TargetConfig* target;
-    const SPVBackendConfig spirv_tgt;
+    const ExecutionModelInfo* exec_info;
+    const SPVBackendConfig* spirv_tgt;
     FileBuilder file_builder;
     SpvId void_t;
     struct Dict* global_node_ids;
@@ -70,6 +70,6 @@ void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id);
 
 void shd_spv_emit_debuginfo(Emitter*, const Node* n, SpvId id);
 
-size_t shd_emit_ops_with_pattern(Emitter*, ExtSpvOp op, Nodes arguments, uint32_t** out_ops);
+size_t shd_emit_ops_with_pattern(Emitter*, ExtOpDef def, Nodes arguments, uint32_t** out_ops);
 
 #endif

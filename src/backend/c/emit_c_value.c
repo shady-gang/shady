@@ -18,6 +18,8 @@
 #include <ctype.h>
 #include <inttypes.h>
 
+#include "shady/ir/ext.h"
+
 #pragma GCC diagnostic error "-Wswitch"
 
 static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const Node* instruction);
@@ -825,7 +827,7 @@ ExtISelEntry ext_isel_entries[] = {
     {{ "GLSL.std.450", GLSLstd450Pow, empty_prefix() }, { IsMono, OsCall, .op = "powf" }},
 };
 
-static bool check_ext_entry(const ExtISelPattern* entry, ExtSpvOp op, Nodes arguments) {
+static bool check_ext_entry(const ExtISelPattern* entry, ExtOpDef op, Nodes arguments) {
     if (strcmp(entry->set, op.set) != 0 || entry->op != op.opcode)
         return false;
     // check if the prefix matches
@@ -841,7 +843,7 @@ static bool check_ext_entry(const ExtISelPattern* entry, ExtSpvOp op, Nodes argu
     return true;
 }
 
-static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtSpvOp op, Nodes arguments) {
+static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], size_t size, ExtOpDef op, Nodes arguments) {
     for (size_t i = 0; i < size; i++) {
         if (check_ext_entry(&table[i].match, op, arguments))
             return &table[i];
@@ -851,7 +853,7 @@ static const ExtISelEntry* find_ext_entry_in_list(const ExtISelEntry table[], si
 
 #define scan_entries(name) { const ExtISelEntry* f = find_ext_entry_in_list(name, sizeof(name) / sizeof(name[0]), op, arguments); if (f) return f; }
 
-static const ExtISelEntry* find_ext_entry(Emitter* e, ExtSpvOp op, Nodes arguments) {
+static const ExtISelEntry* find_ext_entry(Emitter* e, ExtOpDef op, Nodes arguments) {
     switch (e->backend_config.dialect) {
         case CDialect_ISPC: scan_entries(ext_isel_ispc_entries); break;
         case CDialect_GLSL: scan_entries(ext_isel_glsl_entries); break;
@@ -863,10 +865,29 @@ static const ExtISelEntry* find_ext_entry(Emitter* e, ExtSpvOp op, Nodes argumen
 }
 
 static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, ExtInstr instr) {
-    ExtSpvOp op = instr.op->payload.ext_spv_op;
+    IrArena* a = emitter->arena;
+    ExtOpDef def = instr.def->payload.ext_op_def;
     shd_c_emit_mem(emitter, fn, instr.mem);
-    if (strcmp(op.set, "spirv.core") == 0) {
-        switch (op.opcode) {
+    if (strcmp(def.set, "spirv.core") == 0) {
+        switch (def.opcode) {
+            case SpvOpImageSampleImplicitLod: {
+                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[0]));
+                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[1]));
+
+                String dst = shd_make_unique_name(a, "sampled");
+                String dim = "";
+                if (emitter->backend_config.glsl_version < 130) {
+                    const Type* t = instr.arguments.nodes[0]->type;
+                    assert(t->tag == ExtType_TAG);
+                    assert(shd_is_ext_instruction(t->payload.ext_type.def, "spirv.core", SpvOpTypeSampledImage));
+                    t = shd_first(t->payload.ext_type.arguments);
+                    assert(t->tag == ExtType_TAG);
+                    assert(shd_is_ext_instruction(t->payload.ext_type.def, "spirv.core", SpvOpTypeImage));
+                    dim = shd_c_emit_dim(shd_get_int_value(t->payload.ext_type.def->payload.ext_op_def.ops_pattern.nodes[1], false));
+                }
+                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, def.result_t, dst), dim, sampler, coords);
+                return term_from_cvalue(dst);
+            }
             case SpvOpGroupNonUniformBroadcastFirst: {
                 assert(instr.arguments.count == 2);
                 CValue value = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, instr.arguments.nodes[1]));
@@ -886,49 +907,28 @@ static CTerm emit_ext_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, E
         }
     }
 
-    const ExtISelEntry* entry = find_ext_entry(emitter, op, instr.arguments);
+    const ExtISelEntry* entry = find_ext_entry(emitter, def, instr.arguments);
     if (entry) {
         Nodes operands = instr.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", op.set, op.opcode);
+        shd_error("Unsupported extended instruction: (set = %s, opcode = %d )", def.set, def.opcode);
     }
 }
 
 static CTerm emit_ext_value(Emitter* emitter, FnEmitter* fn, Printer* p, ExtValue value) {
-    ExtSpvOp op = value.op->payload.ext_spv_op;
-    IrArena* a = emitter->arena;
-    if (strcmp(op.set, "spirv.core") == 0) {
-        switch (op.opcode) {
-            case SpvOpImageSampleImplicitLod: {
-                String sampler = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[0]));
-                String coords = shd_c_to_ssa(emitter, shd_c_emit_value(emitter, fn, value.arguments.nodes[1]));
+    ExtOpDef def = value.def->payload.ext_op_def;
 
-                String dst = shd_make_unique_name(a, "sampled");
-                String dim = "";
-                if (emitter->backend_config.glsl_version < 130) {
-                    const Type* t = value.arguments.nodes[0]->type;
-                    assert(t->tag == SampledImageType_TAG);
-                    t = t->payload.sampled_image_type.image_type;
-                    assert(t->tag == ImageType_TAG);
-                    dim = shd_c_emit_dim(t->payload.image_type.dim);
-                }
-                shd_print(p, "\n%s = texture%s(%s, %s);", shd_c_emit_type(emitter, op.result_t, dst), dim, sampler, coords);
-                return term_from_cvalue(dst);
-            }
-        }
-    }
-
-    const ExtISelEntry* entry = find_ext_entry(emitter, op, value.arguments);
+    const ExtISelEntry* entry = find_ext_entry(emitter, def, value.arguments);
     if (entry) {
         Nodes operands = value.arguments;
         if (entry->match.prefix_len > 0)
             operands = shd_nodes(emitter->arena, operands.count - entry->match.prefix_len, &operands.nodes[entry->match.prefix_len]);
         return emit_using_entry(emitter, fn, p, &entry->payload, operands);
     } else {
-        shd_error("Unsupported extended value: (set = %s, opcode = %d )", op.set, op.opcode);
+        shd_error("Unsupported extended value: (set = %s, opcode = %d )", def.set, def.opcode);
     }
 }
 
@@ -999,7 +999,6 @@ static CTerm emit_ptr_array_element_offset(Emitter* emitter, FnEmitter* fn, Prin
 
 static const Type* get_allocated_type(const Node* alloc) {
     switch (alloc->tag) {
-        case Instruction_StackAlloc_TAG: return alloc->payload.stack_alloc.type;
         case Instruction_LocalAlloc_TAG: return alloc->payload.local_alloc.type;
         default: assert(false); return NULL;
     }
@@ -1042,7 +1041,6 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
             shd_c_emit_mem(emitter, fn, payload.mem);
             return emit_call(emitter, fn, p, payload.callee, payload.args, instruction->type);
         } case Instruction_Comment_TAG: shd_print(p, "/* %s */", instruction->payload.comment.string); return empty_term();
-        case Instruction_StackAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_LocalAlloc_TAG: shd_c_emit_mem(emitter, fn, instruction->payload.local_alloc.mem); return emit_alloca(emitter, p, instruction);
         case Instruction_PtrArrayElementOffset_TAG: return emit_ptr_array_element_offset(emitter, fn, p, instruction->payload.ptr_array_element_offset);
         case Instruction_PtrCompositeElement_TAG: return emit_ptr_composite_element(emitter, fn, p, instruction->payload.ptr_composite_element);
@@ -1089,6 +1087,10 @@ static CTerm emit_instruction(Emitter* emitter, FnEmitter* fn, Printer* p, const
         }
         case Instruction_AggregateCast_TAG: shd_error("TODO");
         case Instruction_BitCast_TAG: return emit_bitcast(emitter, fn, p, instruction);
+        case Instruction_AddrSpaceCast_TAG: {
+            AddrSpaceCast payload = instruction->payload.addr_space_cast;
+            return emit_conversion(emitter, fn, p, instruction->type, payload.src);
+        }
         case Instruction_GenericPtrCast_TAG: {
             GenericPtrCast payload = instruction->payload.generic_ptr_cast;
             return emit_conversion(emitter, fn, p, instruction->type, payload.src);

@@ -17,17 +17,20 @@ int main(int argc, char** argv) {
     shd_parse_common_args(&argc, argv);
     shd_parse_compiler_config_args(&args.config, &argc, argv);
 
-    // default to emitting SPIR-V but allow overriding it
-    args.target_type = TgtSPV;
     shd_parse_driver_args(&args, &argc, argv);
 
+    // default to emitting SPIR-V but allow overriding it
     TargetConfig target_config = shd_default_target_config();
-
-    shd_driver_configure_target(&target_config, &args);
+    target_config.arch = TgtSPV;
     shd_parse_target_args(&target_config, &argc, argv);
+
+    shd_driver_configure_from_target(&args, &target_config);
+    ShaderLoweringConfig lowering_config = shd_default_shader_target_config();
+    shd_parse_shader_target_config_args(&lowering_config, &argc, argv);
 
     cli_parse_vcc_args(&vcc_options, &argc, argv);
     shd_driver_parse_unknown_options(vcc_options.clang_options, &argc, argv);
+    shd_parse_help(&argc, argv, true);
     shd_driver_parse_input_files(args.input_filenames, &argc, argv);
 
     if (shd_list_count(args.input_filenames) == 0) {
@@ -35,7 +38,8 @@ int main(int argc, char** argv) {
         exit(ShdMissingInputArg);
     }
 
-    ArenaConfig aconfig = shd_default_arena_config(&target_config);
+    MachineRules rules = get_machine_rules_from_target_config(&target_config);
+    ArenaConfig aconfig = shd_default_arena_config(&rules);
 
     vcc_check_clang();
 
@@ -55,7 +59,7 @@ int main(int argc, char** argv) {
     }
 
     if (!vcc_options.only_run_clang) {
-        shd_driver_compile(&args, target_config, m);
+        shd_driver_compile(&args, &lowering_config, target_config, m);
     }
 
     shd_destroy_ir_arena(shd_module_get_arena(m));

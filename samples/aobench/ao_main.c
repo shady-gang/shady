@@ -19,6 +19,7 @@ typedef struct {
     CompilerConfig compiler_config;
     RunnerConfig runtime_config;
     CommonAppArgs common_app_args;
+    ShaderLoweringConfig lowering_config;
 } Args;
 
 void saveppm(const char *fname, int w, int h, TEXEL_T* img) {
@@ -115,10 +116,10 @@ void render_device(Args* args, TEXEL_T *img, int w, int h, int nsubsamples, Stri
 
     shd_info_print("Device-side address is: %zu\n", buf_addr);
 
-    TargetConfig target_config = shd_default_target_config();
+    TargetConfig const target_config = shd_rn_get_device_target_config(&args->compiler_config, device);
     Module* m;
     CHECK(shd_driver_load_source_file_from_filename(&args->compiler_config, &target_config, path, "aobench", &m) == ShdNoError, return);
-    Program* program = shd_rn_new_program_from_module(runtime, &args->compiler_config, m);
+    Program* program = shd_rn_new_program_from_module(runtime, &args->compiler_config, args->lowering_config, m);
 
     // run it twice to compile everything and benefit from caches
     shd_rn_wait_completion(shd_rn_launch_kernel(program, device, "aobench_kernel", WIDTH / BLOCK_SIZE, HEIGHT / BLOCK_SIZE, 1, 1, (void* []) { &buf_addr }, NULL));
@@ -152,6 +153,9 @@ int main(int argc, char **argv) {
     shd_parse_compiler_config_args(&args.compiler_config, &argc, argv);
     shd_rn_cli_parse_config(&args.runtime_config, &argc, argv);
     cli_parse_common_app_arguments(&args.common_app_args, &argc, argv);
+
+    args.lowering_config = shd_default_shader_target_config();
+    shd_parse_shader_target_config_args(&args.lowering_config, &argc, argv);
 
     bool do_host = false, do_ispc = false, do_device = false, do_all = true;
     for (size_t i = 1; i < argc; i++) {

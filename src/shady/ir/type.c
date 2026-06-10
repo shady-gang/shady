@@ -98,8 +98,6 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
         } case PtrType_TAG: {
             if (supertype->payload.ptr_type.address_space != type->payload.ptr_type.address_space)
                 return false;
-            if (!supertype->payload.ptr_type.is_reference && type->payload.ptr_type.is_reference)
-                return false;
             return shd_is_subtype(supertype->payload.ptr_type.pointed_type, type->payload.ptr_type.pointed_type);
         }
         case Int_TAG: return supertype->payload.int_type.width == type->payload.int_type.width && supertype->payload.int_type.is_signed == type->payload.int_type.is_signed;
@@ -118,25 +116,6 @@ bool shd_is_subtype(const Type* supertype, const Type* type) {
                 return false;
             return supertype->payload.vector_type.width == type->payload.vector_type.width;
         }
-        case Type_ImageType_TAG: {
-            if (!shd_is_subtype(supertype->payload.image_type.sampled_type, type->payload.image_type.sampled_type))
-                return false;
-            if (supertype->payload.image_type.depth != type->payload.image_type.depth)
-                return false;
-            if (supertype->payload.image_type.dim != type->payload.image_type.dim)
-                return false;
-            if (supertype->payload.image_type.arrayed != type->payload.image_type.arrayed)
-                return false;
-            if (supertype->payload.image_type.ms != type->payload.image_type.ms)
-                return false;
-            if (supertype->payload.image_type.sampled != type->payload.image_type.sampled)
-                return false;
-            if (supertype->payload.image_type.imageformat != type->payload.image_type.imageformat)
-                return false;
-            return true;
-        }
-        case Type_SampledImageType_TAG:
-            return shd_is_subtype(supertype->payload.sampled_image_type.image_type, type->payload.sampled_image_type.image_type);
         default: break;
     }
     // Two types are always equal (and therefore subtypes of each other) if their payload matches
@@ -168,10 +147,12 @@ bool shd_is_physical_data_type(const Type* type) {
         case Type_Bool_TAG:
             return true;
         case Type_PtrType_TAG:
-            return !type->payload.ptr_type.is_reference;
+            return shd_is_physical_ptr_type(type);
         case Type_ArrType_TAG:
             // array types _must_ be sized to be real data types
-            return type->payload.arr_type.size != NULL;
+            if (type->payload.arr_type.size == NULL)
+                return false;
+            return shd_is_physical_data_type(type->payload.arr_type.element_type);
         case Type_VectorType_TAG:
             return shd_is_data_type(type->payload.vector_type.element_type);
         case Type_MatrixType_TAG:
@@ -197,30 +178,40 @@ bool shd_is_physical_data_type(const Type* type) {
             return false;
         case NotAType:
             return false;
-        // Image stuff is data (albeit opaque)
-        case Type_SampledImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_ImageType_TAG:
-            return false;
         case Type_ExtType_TAG:
             return false;
     }
 }
 
+bool shd_is_descriptor_type(const Type* type, size_t* count_o) {
+    size_t count = 1;
+    if (type->tag == ArrType_TAG) {
+        ArrType payload = type->payload.arr_type;
+        if (payload.size && shd_resolve_to_int_literal(payload.size)) {
+            count = shd_get_int_value(payload.size, false);
+        }
+        type = payload.element_type;
+    }
+    if (type->tag == ExtType_TAG) {
+        if (count_o)
+            *count_o = count;
+        return true; // TODO...
+    }
+    return false;
+}
+
 /// Is this a valid data type (for usage in other types and as type arguments) ?
 bool shd_is_data_type(const Type* type) {
+    if (shd_is_physical_data_type(type))
+        return true;
+    if (shd_is_descriptor_type(type, NULL))
+        return true;
     switch (is_type(type)) {
         case Type_PtrType_TAG:
             return true;
-        // Image stuff is data (albeit opaque)
-        case Type_SampledImageType_TAG:
-        case Type_SamplerType_TAG:
-        case Type_ImageType_TAG:
-            return true;
-        case Type_ExtType_TAG:
-            return true;
-        default: return shd_is_physical_data_type(type);
+        default: break;
     }
+    return false;
 }
 
 bool shd_is_arithm_type(const Type* t) {
@@ -246,9 +237,8 @@ bool shd_is_ordered_type(const Type* t) {
 bool shd_is_physical_ptr_type(const Type* t) {
     if (t->tag != PtrType_TAG)
         return false;
-    return !t->payload.ptr_type.is_reference;
-    // AddressSpace as = t->payload.ptr_type.address_space;
-    // return t->shd_get_arena_config(arena)->address_spaces[as].physical;
+    AddressSpace as = t->payload.ptr_type.address_space;
+    return shd_get_arena_config(t->arena)->rules.ptr.address_spaces[as].physical;
 }
 
 bool shd_is_generic_ptr_type(const Type* t) {
@@ -278,7 +268,7 @@ bool shd_is_addr_space_uniform(IrArena* arena, AddressSpace as) {
 }
 
 const Type* shd_get_exec_mask_type(IrArena* arena) {
-    return int_type_helper(arena, arena->config.target.memory.exec_mask_size, false);
+    return int_type_helper(arena, arena->config.rules.exec_mask_size, false);
 }
 
 String shd_get_type_name(IrArena* arena, const Type* t) {

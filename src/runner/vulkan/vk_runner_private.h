@@ -165,6 +165,7 @@ struct VkrSpecProgram_ {
     Arena* arena;
 
     CompilerConfig specialized_config;
+    ExecutionModelInfo exec_info;
     TargetConfig specialized_target;
     SPVBackendConfig backend_config;
     Module* specialized_module;
@@ -200,8 +201,6 @@ struct VkrSpecProgram_ {
     VkDescriptorPool descriptor_pool;
     VkDescriptorSet sets[MAX_DESCRIPTOR_SETS];
 };
-
-TargetConfig shd_vkr_get_device_target_config(const CompilerConfig*, VkrDevice* device);
 
 VkrSpecProgram* shd_vkr_get_specialized_program(Program* program, String entry_point, VkrDevice* device);
 void shd_vkr_destroy_specialized_program(VkrSpecProgram* spec);

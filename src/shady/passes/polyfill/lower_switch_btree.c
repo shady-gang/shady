@@ -1,7 +1,8 @@
-#include "shady/pass.h"
+#include "shady/passes/polyfill_passes.h"
 
-#include "ir_private.h"
+#include "shady/ir/mem.h"
 
+#include "arena.h"
 #include "log.h"
 #include "portability.h"
 
@@ -152,7 +153,7 @@ static const Node* process(Context* ctx, const Node* node) {
             }
 
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
-            const Node* run_default_case = shd_bld_stack_alloc(bb, bool_type(a));
+            const Node* run_default_case = shd_bld_local_alloc(bb, bool_type(a));
             shd_bld_store(bb, run_default_case, false_lit(a));
 
             /*Context ctx2 = *ctx;
@@ -178,7 +179,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_switch_btree(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_switch_btree(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

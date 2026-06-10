@@ -1,6 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/opt_passes.h"
 
-#include "ir_private.h"
 #include "analysis/callgraph.h"
 
 #include "dict.h"
@@ -140,8 +139,8 @@ static const Node* process(Context* ctx, const Node* node) {
                     // Prepare a join point to replace the old function return
                     Nodes nyield_types = shd_strip_qualifiers(a, shd_rewrite_nodes(&ctx->rewriter, ocallee->payload.fun.return_types));
                     const Type* jp_type = join_point_type(a, (JoinPointType) { .yield_types = nyield_types });
-                    const Node* join_point = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, jp_type));
-                    shd_set_debug_name(join_point, shd_format_string_arena(a->arena, "inlined_return_%s", shd_get_node_name_safe(ocallee)));
+                    const Node* join_point = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, jp_type));
+                    shd_set_debug_name(join_point, shd_fmt_string_irarena(a, "inlined_return_%s", shd_get_node_name_safe(ocallee)));
 
                     Node* control_case = basic_block_helper(a, shd_singleton(join_point));
                     const Node* nbody = inline_call(ctx, ocallee, shd_get_abstraction_mem(control_case), nargs, join_point);
@@ -208,7 +207,7 @@ static void simplify_cf(const CompilerConfig* config, Module* src, Module* dst) 
     shd_destroy_rewriter(&ctx.rewriter);
 }
 
-Module* shd_pass_inline(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_inline(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

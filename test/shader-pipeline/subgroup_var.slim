@@ -1,6 +1,12 @@
 var subgroup i32 x;
 
-@Exported
 fn foo uniform i32() {
     return (x);
+}
+
+@Exported
+@EntryPoint("Compute")
+@WorkgroupSize(32, 1, 1)
+fn main(ptr global i32 p) {
+    *p = foo();
 }

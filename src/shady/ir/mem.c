@@ -6,6 +6,9 @@
 #pragma GCC diagnostic error "-Wswitch"
 
 const Node* shd_get_parent_mem(const Node* mem) {
+    if (is_terminator(mem)) {
+        return get_terminator_mem(mem);
+    }
     assert(is_mem(mem));
     switch (is_mem(mem)) {
         case NotAMem: return NULL;
@@ -22,9 +25,6 @@ const Node* shd_get_parent_mem(const Node* mem) {
             return mem;
         case Mem_Comment_TAG:
             mem = mem->payload.comment.mem;
-            return mem;
-        case Mem_StackAlloc_TAG:
-            mem = mem->payload.stack_alloc.mem;
             return mem;
         case Mem_LocalAlloc_TAG:
             mem = mem->payload.local_alloc.mem;
@@ -74,10 +74,6 @@ const Node* shd_get_original_mem(const Node* mem) {
         }
         return mem;
     }
-}
-
-const Node* shd_bld_stack_alloc(BodyBuilder* bb, const Type* type) {
-    return shd_bld_add_instruction(bb, stack_alloc(shd_get_bb_arena(bb), (StackAlloc) { .type = type, .mem = shd_bld_mem(bb) }));
 }
 
 const Node* shd_bld_local_alloc(BodyBuilder* bb, const Type* type) {

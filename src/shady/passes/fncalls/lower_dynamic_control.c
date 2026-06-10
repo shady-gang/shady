@@ -1,5 +1,5 @@
 #include "join_point_ops.h"
-#include "ir_private.h"
+#include "shady/passes/fncall_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/stack.h"
@@ -53,12 +53,12 @@ static const Node* lift_entry_point(Context* ctx, const Node* old, const Node* f
 
     // Initialise next_fn/next_mask to the entry function
     const Node* entry_point_addr = fn_addr_helper(a, shd_rewrite_node(r, old));
-    entry_point_addr = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->target.memory.fn_ptr_size, false), entry_point_addr);
+    entry_point_addr = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false), entry_point_addr);
     shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(entry_point_addr));
     const Node* dispatch_enter_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherEnterFn, false, NULL, 0);
     shd_bld_add_instruction(bb, ext_instr(a, (ExtInstr) {
         .mem = shd_bld_mem(bb),
-        .op = dispatch_enter_op,
+        .def = dispatch_enter_op,
         .arguments = shd_empty(a),
     }));
     shd_set_abstraction_body(new_entry_pt, shd_bld_return(bb, shd_empty(a)));
@@ -98,7 +98,7 @@ static const Node* process(Context* ctx, const Node* old) {
             shd_remove_annotation_by_name(old, "Exported");
 
             Node* fun = shd_recreate_node_head(r, old);
-            shd_set_debug_name(fun, shd_format_string_arena(a->arena, "%s_indirect", shd_get_node_name_safe(old)));
+            shd_set_debug_name(fun, shd_fmt_string_irarena(a, "%s_indirect", shd_get_node_name_safe(old)));
             shd_rewrite_annotations(r, old, fun);
 
             shd_register_processed(&ctx->rewriter, old, fun);
@@ -120,17 +120,17 @@ static const Node* process(Context* ctx, const Node* old) {
         case JoinPointType_TAG: return shd_find_or_process_decl(&ctx->rewriter, "JoinPoint");
         case ExtInstr_TAG: {
             ExtInstr payload = old->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
-            if (strcmp(op.set, "shady.internal") == 0) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "shady.internal") == 0) {
                 String callee_name = NULL;
                 Nodes args = shd_rewrite_nodes(r, payload.arguments);
-                switch ((ShadyJoinPointOpcodes ) op.opcode) {
+                switch ((ShadyJoinPointOpcodes ) def.opcode) {
                     case ShadyOpDefaultJoinPoint:
                         callee_name = "builtin_entry_join_point";
                         break;
                     case ShadyOpCreateJoinPoint:
                         callee_name = "builtin_create_control_point";
-                        const Node* dst = bit_cast_helper(a, int_type_helper(a, shd_get_arena_config(a)->target.memory.fn_ptr_size, false), args.nodes[0]);
+                        const Node* dst = bit_cast_helper(a, int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false), args.nodes[0]);
                         args = shd_change_node_at_index(a, args, 0, dst);
                         break;
                     default: goto rebuild;
@@ -145,7 +145,7 @@ static const Node* process(Context* ctx, const Node* old) {
         }
         case IndirectTailCall_TAG: {
             IndirectTailCall payload = old->payload.indirect_tail_call;
-            if (shd_get_qualified_type_scope(payload.callee->type) <= shd_get_arena_config(a)->target.scopes.gang) {
+            if (shd_get_qualified_type_scope(payload.callee->type) <= shd_get_arena_config(a)->rules.scopes.gang) {
                 const Node* mem0 = shd_get_original_mem(payload.mem);
                 assert(mem0->tag == AbsMem_TAG);
                 // checking that the payload is uniform is not sufficient: we could be branching uniformingly in non-uniform control flow
@@ -157,14 +157,14 @@ static const Node* process(Context* ctx, const Node* old) {
             BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
             shd_bld_stack_push_values(bb, shd_rewrite_nodes(&ctx->rewriter, payload.args));
             const Node* target = shd_rewrite_node(&ctx->rewriter, payload.callee);
-            target = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->target.memory.fn_ptr_size, false), target);
+            target = shd_bld_bitcast(bb, int_type_helper(a, shd_get_arena_config(a)->rules.memory.fn_ptr_size, false), target);
 
             shd_bld_call(bb, shd_find_or_process_decl(&ctx->rewriter, "builtin_fork"), shd_singleton(target));
 
             const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = dispatch_continue_op,
+                .def = dispatch_continue_op,
                 .arguments = shd_empty(a),
             }));
         }
@@ -187,7 +187,7 @@ static const Node* process(Context* ctx, const Node* old) {
             const Node* dispatch_continue_op = shd_make_ext_spv_op(a, "shady.internal", ShadyOpDispatcherContinue, false, NULL, 0);
             return shd_bld_finish(bb, ext_terminator(a, (ExtTerminator) {
                 .mem = shd_bld_mem(bb),
-                .op = dispatch_continue_op,
+                .def = dispatch_continue_op,
                 .arguments = shd_empty(a),
             }));
         }
@@ -200,7 +200,7 @@ static const Node* process(Context* ctx, const Node* old) {
                 shd_deconstruct_qualified_type(&old_jp_type);
                 assert(old_jp_type->tag == JoinPointType_TAG);
                 const Node* new_jp_type = shd_recreate_node(r, old_jp_type);
-                const Node* new_jp = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.gang, new_jp_type));
+                const Node* new_jp = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.gang, new_jp_type));
                 shd_rewrite_annotations(r, old_jp, (Node*) new_jp);
                 shd_register_processed(&ctx->rewriter, old_jp, new_jp);
                 Node* new_control_case = basic_block_helper(a, shd_singleton(new_jp));
@@ -226,7 +226,7 @@ static const Node* process(Context* ctx, const Node* old) {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-Module* shd_pass_lower_dynamic_control(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_dynamic_control(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

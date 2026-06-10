@@ -1,9 +1,14 @@
-#include "shady/pass.h"
+#include "shady/passes/stack_passes.h"
+
 #include "shady/visit.h"
+#include "shady/analysis/ptr.h"
 #include "shady/ir/stack.h"
 #include "shady/ir/cast.h"
-
-#include "ir_private.h"
+#include "shady/ir/debug.h"
+#include "shady/ir/type.h"
+#include "shady/ir/function.h"
+#include "shady/ir/composite.h"
+#include "shady/ir/annotation.h"
 
 #include "log.h"
 #include "portability.h"
@@ -15,7 +20,8 @@
 
 typedef struct Context_ {
     Rewriter rewriter;
-    bool disable_lowering;
+
+    PtrAnalysis* ptr_analysis;
 
     const CompilerConfig* config;
     struct Dict* prepared_offsets;
@@ -41,23 +47,24 @@ typedef struct {
     size_t i;
     const Node* offset;
     const Type* type;
-    AddressSpace as;
 } StackSlot;
 
 static void search_operand_for_alloca(VContext* vctx, const Node* node) {
     IrArena* a = vctx->context->rewriter.dst_arena;
     switch (node->tag) {
-        case StackAlloc_TAG: {
+        case LocalAlloc_TAG: {
+            if (shd_is_logical_memory_declaration(vctx->context->ptr_analysis, node)) // leave logical ptrs alone
+                break;
             StackSlot* found = shd_dict_find_value(const Node*, StackSlot, vctx->prepared_offsets, node);
             if (found)
                 break;
 
-            const Type* element_type = shd_rewrite_node(&vctx->context->rewriter, node->payload.stack_alloc.type);
+            const Type* element_type = shd_rewrite_node(&vctx->context->rewriter, node->payload.local_alloc.type);
             assert(shd_is_data_type(element_type));
             const Node* slot_offset = offset_of_helper(a, vctx->nom_t, shd_int32_literal(a, shd_list_count(vctx->members)));
             shd_list_append(const Type*, vctx->members, element_type);
 
-            StackSlot slot = { vctx->num_slots, slot_offset, element_type, AsPrivate };
+            StackSlot slot = { vctx->num_slots, slot_offset, element_type };
             shd_dict_insert(const Node*, StackSlot, vctx->prepared_offsets, node, slot);
 
             vctx->num_slots++;
@@ -83,11 +90,6 @@ static const Node* process(Context* ctx, const Node* node) {
                 return fun;
 
             Context ctx2 = *ctx;
-            ctx2.disable_lowering = shd_lookup_annotation_with_string_payload(node, "DisablePass", "setup_stack_frames") || ctx->config->per_thread_stack_size == 0;
-            if (ctx2.disable_lowering) {
-                shd_set_abstraction_body(fun, shd_rewrite_node(&ctx2.rewriter, node->payload.fun.body));
-                return fun;
-            }
 
             BodyBuilder* bb = shd_bld_begin(a, shd_get_abstraction_mem(fun));
             ctx2.prepared_offsets = shd_new_dict(const Node*, StackSlot, (HashFn) shd_hash_node, (CmpFn) shd_compare_node);
@@ -96,7 +98,7 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_set_debug_name((Node*) ctx2.stack_size_on_entry, "stack_size_before_alloca");
 
             Node* nom_t = struct_type_helper(a, 0);
-            shd_set_debug_name(nom_t, shd_format_string_arena(a->arena, "%s_stack_frame", shd_get_node_name_safe(node)));
+            shd_set_debug_name(nom_t, shd_fmt_string_irarena(a, "%s_stack_frame", shd_get_node_name_safe(node)));
             VContext vctx = {
                 .visitor = {
                     .visit_node_fn = (VisitNodeFn) search_operand_for_alloca,
@@ -123,63 +125,70 @@ static const Node* process(Context* ctx, const Node* node) {
             shd_destroy_dict(ctx2.prepared_offsets);
             return fun;
         }
-        case StackAlloc_TAG: {
-            if (!ctx->disable_lowering) {
-                StackSlot* found_slot = shd_dict_find_value(const Node*, StackSlot, ctx->prepared_offsets, node);
-                if (!found_slot) {
-                    shd_error_print("lower_alloca: failed to find a stack offset for ");
-                    shd_log_node(ERROR, node);
-                    shd_error_print(", most likely this means this alloca was not found in the shd_first block of a function.\n");
-                    shd_log_module(DEBUG, ctx->rewriter.src_module);
-                    shd_error_die();
-                }
+        case LocalAlloc_TAG: {
+            StackSlot* found_slot = shd_dict_find_value(const Node*, StackSlot, ctx->prepared_offsets, node);
+            if (!found_slot) {
+                break; // we now assume this wasn't meant to be lowered!
 
-                BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, node->payload.stack_alloc.mem));
-                if (!ctx->stack_size_on_entry) {
-                    //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
-                    assert(false);
-                }
-
-                //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
-                const Node* converted_offset = shd_convert_int_extend_according_to_dst_t(a, ctx->stack_ptr_t, found_slot->offset);
-                const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
-                const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = found_slot->as });
-                slot = shd_bld_bitcast(bb, ptr_t, slot);
-                //bool last = found_slot->i == ctx->num_slots - 1;
-                //if (last) {
-                const Node* updated_stack_ptr = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
-                if (shd_get_arena_config(a)->target.memory.max_align > 0) {
-                    // inline static size_t _shd_round_up(size_t a, size_t b) {
-                    //    size_t divided = (a + b - 1) / b;
-                    //    return divided * b;
-                    //}
-                    const Node* align_to = shd_uint32_literal(a, shd_get_arena_config(a)->target.memory.max_align);
-                    const Node* align_to_m1 = shd_uint32_literal(a, shd_get_arena_config(a)->target.memory.max_align - 1);
-                    const Node* divided = prim_op_helper(a, div_op, mk_nodes(a, prim_op_helper(a, add_op, mk_nodes(a, updated_stack_ptr, align_to_m1)), align_to));
-                    updated_stack_ptr = prim_op_helper(a, mul_op, mk_nodes(a, divided, align_to));
-                }
-                shd_bld_set_stack_size(bb, updated_stack_ptr);
-                //}
-
-                return shd_bld_to_instr_yield_values(bb, shd_singleton(slot));
+                // shd_error_print("lower_alloca: failed to find a stack offset for ");
+                // shd_log_node(ERROR, node);
+                // shd_error_print(", most likely this means this alloca was not found in the shd_first block of a function.\n");
+                // shd_log_module(DEBUG, ctx->rewriter.src_module);
+                // shd_error_die();
             }
-            break;
+
+            BodyBuilder* bb = shd_bld_begin_pseudo_instr(a, shd_rewrite_node(r, node->payload.local_alloc.mem));
+            if (!ctx->stack_size_on_entry) {
+                //String tmp_name = format_string_arena(a->arena, "stack_ptr_before_alloca_%s", get_abstraction_name(fun));
+                assert(false);
+            }
+
+            //const Node* lea_instr = prim_op_helper(a, lea_op, empty(a), mk_nodes(a, rewrite_node(&ctx->rewriter, first(node->payload.prim_op.operands)), found_slot->offset));
+            const Node* converted_offset = shd_convert_int_extend_according_to_dst_t(a, ctx->stack_ptr_t, found_slot->offset);
+            const Node* slot = ptr_array_element_offset(a, (PtrArrayElementOffset) { .ptr = ctx->base_stack_addr_on_entry, .offset = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, converted_offset)) });
+            slot = addr_space_cast_helper(a, slot, AsFunction);
+            const Node* ptr_t = ptr_type(a, (PtrType) { .pointed_type = found_slot->type, .address_space = AsFunction });
+            slot = shd_bld_bitcast(bb, ptr_t, slot);
+            //bool last = found_slot->i == ctx->num_slots - 1;
+            //if (last) {
+            const Node* updated_stack_ptr = prim_op_helper(a, add_op, mk_nodes(a, ctx->stack_size_on_entry, ctx->frame_size));
+            if (shd_get_arena_config(a)->rules.memory.min_align > 0) {
+                // inline static size_t _shd_round_up(size_t a, size_t b) {
+                //    size_t divided = (a + b - 1) / b;
+                //    return divided * b;
+                //}
+                const Node* align_to = shd_uint32_literal(a, shd_get_arena_config(a)->rules.memory.min_align);
+                const Node* align_to_m1 = shd_uint32_literal(a, shd_get_arena_config(a)->rules.memory.min_align - 1);
+                const Node* divided = prim_op_helper(a, div_op, mk_nodes(a, prim_op_helper(a, add_op, mk_nodes(a, updated_stack_ptr, align_to_m1)), align_to));
+                updated_stack_ptr = prim_op_helper(a, mul_op, mk_nodes(a, divided, align_to));
+            }
+            shd_bld_set_stack_size(bb, updated_stack_ptr);
+            //}
+
+            return shd_bld_to_instr_yield_values(bb, shd_singleton(slot));
         }
         default: break;
     }
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_alloca(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_alloca(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
+
+    const UsesMap* uses = shd_new_uses_map_module(src, 0);
+    PtrAnalysis* ptr_analysis = shd_new_ptr_analysis(src, uses);
+
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) process),
         .config = config,
         .stack_ptr_t = int_type(a, (Int) { .is_signed = false, .width = ShdIntSize32 }),
+        .ptr_analysis = ptr_analysis,
     };
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
+    shd_destroy_ptr_analysis(ptr_analysis);
+    shd_destroy_uses_map(uses);
     return dst;
 }

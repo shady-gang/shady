@@ -43,14 +43,14 @@ struct PrinterCtx_ {
 KeyHash shd_hash_node(Node** pnode);
 bool shd_compare_node(Node** pa, Node** pb);
 
-static bool print_node_impl(PrinterCtx* ctx, const Node* node);
+static void print_node_impl(PrinterCtx* ctx, const Node* node);
 static void print_terminator(PrinterCtx* ctx, const Node* node);
 static void print_mod_impl(PrinterCtx* ctx, Module* mod);
 
 static String emit_node(PrinterCtx* ctx, const Node* node);
 static void print_mem(PrinterCtx* ctx, const Node* node);
 
-static PrinterCtx make_printer_ctx(Printer* printer, NodePrintConfig config) {
+static PrinterCtx new_printer_ctx(Printer* printer, NodePrintConfig config) {
     PrinterCtx ctx = {
         .printer = printer,
         .config = config,
@@ -67,7 +67,7 @@ static void destroy_printer_ctx(PrinterCtx ctx) {
 }
 
 void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod) {
-    PrinterCtx ctx = make_printer_ctx(printer, config);
+    PrinterCtx ctx = new_printer_ctx(printer, config);
     print_mod_impl(&ctx, mod);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
     shd_print(ctx.printer, "%s\n", s);
@@ -77,7 +77,7 @@ void shd_print_module(Printer* printer, NodePrintConfig config, Module* mod) {
 }
 
 void shd_print_node(Printer* printer, NodePrintConfig config, const Node* node) {
-    PrinterCtx ctx = make_printer_ctx(printer, config);
+    PrinterCtx ctx = new_printer_ctx(printer, config);
     String emitted = emit_node(&ctx, node);
     String s = shd_printer_growy_unwrap(ctx.root_printer);
     if (strlen(s) > 0 && !config.only_immediate)
@@ -317,8 +317,8 @@ static void function_frame_visitor(FunctionFrameVisitor* visitor, const Node* n)
         return;
     shd_node_set_insert(visitor->seen, n);
 
-    if (n->tag == StackAlloc_TAG) {
-        StackAlloc payload = n->payload.stack_alloc;
+    if (n->tag == LocalAlloc_TAG) {
+        LocalAlloc payload = n->payload.local_alloc;
         TypeMemLayout layout = shd_get_mem_layout(n->arena, payload.type);
         //char* s;
         //size_t dc;
@@ -396,12 +396,12 @@ static void print_scope(PrinterCtx* ctx, ShdScope scope) {
     printf("%s", shd_get_scope_name(scope));
 }
 
-static bool print_type(PrinterCtx* ctx, const Node* node) {
+static void print_type(PrinterCtx* ctx, const Node* node) {
     printf(TYPE_COLOR);
     switch (is_type(node)) {
         case NotAType: assert(false); break;
-        case NoRet_TAG: printf("!"); return true;
-        case Bool_TAG: printf("bool"); return true;
+        case NoRet_TAG: printf("!"); break;
+        case Bool_TAG: printf("bool"); break;
         case Float_TAG:
             printf("f");
             switch (node->payload.float_type.width) {
@@ -411,7 +411,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case ShdFloatFormat64: printf("64"); break;
                 default: shd_error("Not a known valid float width")
             }
-            return true;
+            break;
         case Int_TAG:
             printf(node->payload.int_type.is_signed ? "i" : "u");
             switch (node->payload.int_type.width) {
@@ -421,19 +421,21 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
                 case ShdIntSize64: printf("64"); break;
                 default: shd_error("Not a known valid int width")
             }
-            return true;
+            break;
         case QualifiedType_TAG:
             printf(SCOPE_COLOR);
             print_scope(ctx, node->payload.qualified_type.scope);
             printf(RESET);
             printf(" ");
             print_operand_helper(ctx, NcType, node->payload.qualified_type.type);
-            return true;
+            break;
         case StructType_TAG:
+            printf("struct");
             if (node->payload.struct_type.flags & ShdStructFlagBlock) {
-                printf("block");
-            } else {
-                printf("struct");
+                printf(" block");
+            }
+            if (node->payload.struct_type.flags & ShdStructFlagExplicitLayout) {
+                printf(" explicit");
             }
             printf(RESET);
             printf(" {");
@@ -470,7 +472,7 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             break;
         }
         case PtrType_TAG: {
-            printf(node->payload.ptr_type.is_reference ? "ref" : "ptr");
+            printf(!shd_is_physical_ptr_type(node) ? "ref" : "ptr");
             printf(RESET);
             printf("(");
             printf(BLUE);
@@ -517,38 +519,10 @@ static bool print_type(PrinterCtx* ctx, const Node* node) {
             printf("]");
             break;
         }
-        case Type_ImageType_TAG: {
-            switch (node->payload.image_type.sampled) {
-                case 0: printf("texture_or_image_type"); break;
-                case 1: printf("texture_type"); break;
-                case 2: printf("image_type"); break;
-                default: SHADY_UNKNOWN_ENUM("ImageType with sampled = %d", node->payload.image_type.sampled); break;
-            }
-            printf(RESET);
-            printf("[");
-            print_node(node->payload.image_type.sampled_type);
-            printf(RESET);
-            printf(", %d, %d, %d, %d]", node->payload.image_type.dim, node->payload.image_type.depth, node->payload.image_type.arrayed, node->payload.image_type.ms);
-            break;
-        }
-        case Type_SamplerType_TAG: {
-            printf("sampler_type");
-            break;
-        }
-        case Type_SampledImageType_TAG: {
-            printf("sampled");
-            printf(RESET);
-            printf("[");
-            print_node(node->payload.sampled_image_type.image_type);
-            printf(RESET);
-            printf("]");
-            break;
-        }
         default:_shd_print_node_generated(ctx, node);
             break;
     }
     printf(RESET);
-    return false;
 }
 
 static void print_string_lit(PrinterCtx* ctx, const char* string) {
@@ -572,17 +546,28 @@ static void print_string_lit(PrinterCtx* ctx, const char* string) {
     printf("\"");
 }
 
-static bool print_value(PrinterCtx* ctx, const Node* node) {
+static String get_node_name_reference(PrinterCtx* ctx, const Node* node) {
+    if (!node) {
+        return "null";
+    }
+    IrArena* a = node->arena;
+    // avoid the safe version overhead
+    String exported_name = shd_get_exported_name(node);
+    if (exported_name && strlen(exported_name) > 0)
+        return shd_fmt_string_irarena(a, "%s", exported_name);
+    else {
+        return shd_fmt_string_irarena(a, "%%%d", node->id);
+    }
+}
+
+static void print_value(PrinterCtx* ctx, const Node* node) {
     switch (is_value(node)) {
         case NotAValue: assert(false); break;
         case Value_Param_TAG:
             printf(VALUE_COLOR);
-            String name = shd_get_node_name_unsafe(node);
-            if (name && strlen(name) > 0)
-                printf("%s_", name);
-            printf("%%%d", node->id);
+            printf("%s", get_node_name_reference(ctx, node));
             printf(RESET);
-            return true;
+            break;
         case UntypedNumber_TAG:
             printf(LITERAL_COLOR);
             printf("%s", node->payload.untyped_number.plaintext);
@@ -599,7 +584,7 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
                 default: shd_error("Not a known valid int width")
             }
             printf(RESET);
-            return true;
+            break;
         case FloatLiteral_TAG:
             printf(LITERAL_COLOR);
             switch (node->payload.float_literal.width) {
@@ -618,84 +603,26 @@ static bool print_value(PrinterCtx* ctx, const Node* node) {
                 default: shd_error("Not a known valid float width")
             }
             printf(RESET);
-            return true;
+            break;
         case True_TAG:
             printf(LITERAL_COLOR);
             printf("true");
             printf(RESET);
-            return true;
+            break;
         case False_TAG:
             printf(LITERAL_COLOR);
             printf("false");
             printf(RESET);
-            return true;
+            break;
         case StringLiteral_TAG:
             printf(LITERAL_COLOR);
             print_string_lit(ctx, node->payload.string_lit.string);
             printf(RESET);
-            return true;
-        case Value_Undef_TAG: {
-            const Type* type = node->payload.undef.type;
-            printf(LITERAL_COLOR);
-            printf("undef");
-            printf(RESET);
-            printf("[");
-            print_node(type);
-            printf(RESET);
-            printf("]");
-            return true;
-        }
-        case Value_NullPtr_TAG: {
-            const Type* type = node->payload.undef.type;
-            printf(LITERAL_COLOR);
-            printf("null");
-            printf(RESET);
-            printf("[");
-            print_node(type);
-            printf(RESET);
-            printf("]");
-            return true;
-        }
-        /*case Value_Composite_TAG: {
-            const Type* type = node->payload.composite.type;
-            printf(LITERAL_COLOR);
-            printf("composite");
-            printf(RESET);
-            printf("[");
-            print_node(type);
-            printf("]");
-            print_args_list(ctx, node->payload.composite.contents);
-            return false;
-        }
-        case Value_Fill_TAG: {
-            const Type* type = node->payload.fill.type;
-            printf(LITERAL_COLOR);
-            printf("fill");
-            printf(RESET);
-            printf("[");
-            print_node(type);
-            printf(RESET);
-            printf("]");
-            printf("(");
-            print_node(node->payload.fill.value);
-            printf(")");
-            return true;
-        }*/
-        case FnAddr_TAG:
-            printf(GREEN);
-            printf("FnAddr");
-            printf(RESET);
-            printf("(");
-            printf(FUNCTION_COLOR);
-            printf("%s", (char*) emit_node(ctx, node->payload.fn_addr.fn));
-            printf(RESET);
-            printf(")");
-            return true;
+            break;
         default:
             _shd_print_node_generated(ctx, node);
             break;
     }
-    return false;
 }
 
 static void print_instruction(PrinterCtx* ctx, const Node* node) {
@@ -802,20 +729,7 @@ static void print_annotation(PrinterCtx* ctx, const Node* node) {
     }
 }
 
-static void print_node_name(PrinterCtx* ctx, const Node* node) {
-    if (!node) {
-        printf("null");
-        return;
-    }
-    // avoid the safe version overhead
-    String name = shd_get_node_name_unsafe(node);
-    if (name && strlen(name) > 0)
-        printf("%s", name);
-    else
-        printf("%%%d", node->id);
-}
-
-static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
+static void print_node_impl(PrinterCtx* ctx, const Node* node) {
     assert(node);
 
     if (ctx->config.print_ptrs) printf("%zu::", (size_t) (void*) node);
@@ -823,21 +737,18 @@ static bool print_node_impl(PrinterCtx* ctx, const Node* node) {
     if (is_declaration(node)) {
         print_decl(ctx, node);
     } else if (is_type(node))
-        return print_type(ctx, node);
+        print_type(ctx, node);
     else if (is_instruction(node))
         print_instruction(ctx, node);
     else if (is_value(node))
-        return print_value(ctx, node);
+        print_value(ctx, node);
     else if (is_terminator(node)) {
         print_terminator(ctx, node);
-        return true;
     } else if (is_annotation(node)) {
         print_annotation(ctx, node);
-        return true;
     } else {
         _shd_print_node_generated(ctx, node);
     }
-    return false;
 }
 
 static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
@@ -846,6 +757,36 @@ static void print_mod_impl(PrinterCtx* ctx, Module* mod) {
         const Node* decl = decls.nodes[i];
         emit_node(ctx, decl);
     }
+}
+
+static bool should_print_inline(PrinterCtx* ctx, const Node* node) {
+    switch (node->tag) {
+        // types
+        case Int_TAG:
+        case Float_TAG:
+        case Bool_TAG:
+        case TupleType_TAG:
+        case NoRet_TAG:
+            // values
+        case Param_TAG:
+        case True_TAG:
+        case False_TAG:
+        case IntLiteral_TAG:
+        case FloatLiteral_TAG:
+        case StringLiteral_TAG:
+        case Undef_TAG:
+        case QualifiedType_TAG:
+        case PtrType_TAG:
+        case VectorType_TAG:
+        case ArrType_TAG:
+            return true;
+        default: break;
+    }
+    if (is_terminator(node))
+        return true;
+    if (is_annotation(node))
+        return true;
+    return false;
 }
 
 static String emit_node(PrinterCtx* ctx, const Node* node) {
@@ -859,15 +800,8 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     String printed_node_name = NULL;
     if (shd_is_node_tag_recursive(node->tag)) {
-        Growy* g2 = shd_new_growy();
-        PrinterCtx ctx2 = *ctx;
-        ctx2.printer = shd_new_printer_from_growy(g2);
-
-        print_node_name(&ctx2, node);
-        String s = shd_printer_growy_unwrap(ctx2.printer);
-        printed_node_name = shd_string(node->arena, s);
+        printed_node_name = get_node_name_reference(ctx, node);
         shd_dict_insert(const Node*, String, ctx->emitted, node, printed_node_name);
-        free((void*) s);
     }
 
     bool skip = false;
@@ -894,9 +828,10 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         shd_print(scratch_printer.printer, "%s ", emit_node(ctx, node->annotations.nodes[i]));
     }
 
-    bool print_inline = print_node_impl(&scratch_printer, node);
+    print_node_impl(&scratch_printer, node);
     String printed_node = shd_printer_growy_unwrap(scratch_printer.printer);
 
+    bool print_inline = should_print_inline(ctx, node);
     if (print_inline) {
         String interned_node = shd_string(node->arena, printed_node);
         shd_dict_insert(const Node*, String, ctx->emitted, node, interned_node);
@@ -915,6 +850,11 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
         }
     }
 
+    String t = NULL;
+    if (node->type && is_value(node)) {
+        t = emit_node(ctx, node->type);
+    }
+
     if (shd_growy_size(destination_growy) > 0)
         shd_print(destination_printer, "\n");
 
@@ -931,10 +871,8 @@ static String emit_node(PrinterCtx* ctx, const Node* node) {
 
     shd_print(destination_printer, "%s", printed_node_name);
     shd_print(destination_printer, RESET);
-    if (node->type && is_value(node)) {
-        String t = emit_node(ctx, node->type);
+    if (t)
         shd_print(destination_printer, ": %s", t);
-    }
     shd_print(destination_printer, " = %s", printed_node);
 
     free((void*) printed_node);
@@ -1002,11 +940,11 @@ static void print_operand_helper(PrinterCtx* ctx, NodeClass oc, const Node* op) 
             shd_print(ctx->printer, "%s", emit_node(ctx, op));
         }
     } else {
-        print_node_name(ctx, op);
+        shd_print(ctx->printer, get_node_name_reference(ctx, op));
     }
     shd_print(ctx->printer, RESET);
 
-    if (oc == NcParam) {
+    if (oc == NcParam && op) {
         shd_print(ctx->printer, ": %s", emit_node(ctx, op->payload.param.type));
     }
 }

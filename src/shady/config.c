@@ -5,13 +5,8 @@
 
 #include <stdlib.h>
 
-#define KiB * 1024
-#define MiB * 1024 KiB
-
 CompilerConfig shd_default_compiler_config(void) {
     CompilerConfig config = {
-        .dynamic_scheduling = true,
-        .per_thread_stack_size = 4 KiB,
 
         .optimisations = {
             .cleanup = {
@@ -40,55 +35,51 @@ CompilerConfig shd_default_compiler_config(void) {
     return config;
 }
 
-TargetConfig shd_default_target_config(void) {
-    TargetConfig config = {
+PtrModel get_full_physical_ptr_model(ShdIntSize ptr_size) {
+    PtrModel model = {
+        .ptr_size = ptr_size
+    };
+    for (size_t i = 0; i < NumAddressSpaces; i++) {
+        model.address_spaces[i].physical = true;
+        model.address_spaces[i].allowed = true;
+    }
+    return model;
+}
+
+ScopesLattice get_default_scopes_lattice(void) {
+    return (ScopesLattice) {
+        .constants = ShdScopeTop,
+        .gang = ShdScopeSubgroup,
+        .bottom = ShdScopeInvocation,
+    };
+}
+
+MachineRules get_machine_rules_from_target_config(const TargetConfig* target) {
+    MachineRules rules = {
+        .ptr = target->ptr_model,
+        .scopes = get_default_scopes_lattice(),
         .memory = {
             .word_size = ShdIntSize32,
-            .ptr_size = ShdIntSize64,
-            .fn_ptr_size = ShdIntSize64,
-            .exec_mask_size = ShdIntSize64
+            .min_align = 0,
+            .fn_ptr_size = target->fn_ptr_size,
         },
-
-        .subgroup_size = 0,
-
-        .scopes = {
-            .constants = ShdScopeTop,
-            .gang = ShdScopeSubgroup,
-            .bottom = ShdScopeInvocation,
-        },
-
-        .capabilities = {
-            .native_fncalls = true,
-            .native_tailcalls = true,
-
-            .linkage = true,
-            .maximal_reconvergence = true,
-        }
+        .exec_mask_size = ShdIntSize64,
     };
 
-    for (size_t i = 0; i < NumAddressSpaces; i++) {
-        // by default, all address spaces are physical !
-        config.memory.address_spaces[i].physical = true;
-        config.memory.address_spaces[i].allowed = true;
+    // If the subgroup size is known, try to make the mask size smaller
+    if (target->subgroup_size > 0) {
+        if (target->subgroup_size <= 8)
+            rules.exec_mask_size = ShdIntSize8;
+        else if (target->subgroup_size <= 16)
+            rules.exec_mask_size = ShdIntSize16;
+        else if (target->subgroup_size <= 32)
+            rules.exec_mask_size = ShdIntSize32;
     }
 
-    return config;
+    return rules;
 }
 
-void shd_target_apply_execution_model_restrictions(TargetConfig* target) {
-    switch (target->execution_model) {
-        case ShdExecutionModelVertex:
-        case ShdExecutionModelFragment: {
-            target->memory.address_spaces[AsShared].allowed = false;
-        }
-        default: break;
-    }
-
-    if (!target->memory.address_spaces[AsShared].allowed)
-        target->memory.address_spaces[AsSubgroup].allowed = false;
-}
-
-ArenaConfig shd_default_arena_config(const TargetConfig* target) {
+ArenaConfig shd_default_arena_config(const MachineRules* machine_rules) {
     ArenaConfig config = {
         .name_bound = true,
         .allow_fold = true,
@@ -104,18 +95,15 @@ ArenaConfig shd_default_arena_config(const TargetConfig* target) {
             .assume_fixed_memory_layout = true,
         },
 
-        .target = *target
+        .rules = *machine_rules
     };
 
-    TargetConfig default_target = shd_default_target_config();
-
     // arenas default to full capabilities
-    memcpy(&config.target.capabilities, &default_target.capabilities, sizeof(target->capabilities));
-    memcpy(&config.target.memory.address_spaces, &default_target.memory.address_spaces, sizeof(target->memory.address_spaces));
+    config.rules.ptr = get_full_physical_ptr_model(config.rules.ptr.ptr_size);
 
-    if (target->capabilities.native_fncalls) {
-        config.optimisations.weaken_non_leaking_allocas = true;
-    }
+    //if (target->capabilities.native_fncalls) {
+    //    config.optimisations.weaken_non_leaking_allocas = true;
+    //}
 
     return config;
 }

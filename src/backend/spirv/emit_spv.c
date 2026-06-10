@@ -201,6 +201,8 @@ SpvId spv_emit_decl(Emitter* emitter, const Node* decl) {
                     assert(loc >= 0);
                     spvb_decorate(emitter->file_builder, given_id, SpvDecorationBinding, 1, (uint32_t[]) { loc });
                     is_descriptor_binding = true;
+                } else if (strcmp(name, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate(emitter->file_builder, given_id, SpvDecorationPerPrimitiveEXT, 0, NULL);
                 }
             }
 
@@ -267,7 +269,14 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel mod
             return SpvExecutionModelCallableKHR;
         case ShdExecutionModelCompute:       return SpvExecutionModelGLCompute;
         case ShdExecutionModelVertex:        return SpvExecutionModelVertex;
-        case ShdExecutionModelFragment:      return SpvExecutionModelFragment;
+        case ShdExecutionModelFragment:
+            spvb_extension(emitter->file_builder, "SPV_EXT_mesh_shader");
+            spvb_capability(emitter->file_builder, SpvCapabilityMeshShadingEXT);
+            return SpvExecutionModelFragment;
+        case ShdExecutionModelMesh:
+            spvb_extension(emitter->file_builder, "SPV_EXT_mesh_shader");
+            spvb_capability(emitter->file_builder, SpvCapabilityMeshShadingEXT);
+            return SpvExecutionModelMeshEXT;
         case ShdExecutionModelNone: shd_error("No execution model but we were asked to emit it anyways");
     }
 }
@@ -277,8 +286,8 @@ static SpvExecutionModel emit_exec_model(Emitter* emitter, ShdExecutionModel mod
 // my gut feeling says it's unlikely any drivers actually care, but validation needs to be happy so here we go...
 void shd_spv_register_interface(Emitter* emitter, const Node* n, SpvId id) {
     // Prior to SPIRV 1.4, _only_ input and output variables should be found here.
-    if (emitter->spirv_tgt.target_version.major == 1 &&
-        emitter->spirv_tgt.target_version.minor < 4) {
+    if (emitter->spirv_tgt->target_version.major == 1 &&
+        emitter->spirv_tgt->target_version.minor < 4) {
         const Type* ptr_t = shd_get_unqualified_type(n->type);
         assert(ptr_t->tag == PtrType_TAG);
         switch (ptr_t->payload.ptr_type.address_space) {
@@ -299,25 +308,43 @@ static void emit_entry_points(Emitter* emitter, Nodes declarations) {
 
         const Node* entry_point = shd_lookup_annotation(decl, "EntryPoint");
         if (entry_point) {
-            ShdExecutionModel execution_model = shd_execution_model_from_string(shd_get_string_literal(emitter->arena, shd_get_annotation_value(entry_point)));
-            assert(execution_model != ShdExecutionModelNone);
+            ExecutionModelInfo info = shd_get_execution_model_info_from_entry_point(decl);
+            assert(info.execution_model != ShdExecutionModelNone);
 
             String exported_name = shd_get_exported_name(decl);
             assert(exported_name);
-            spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
+            spvb_entry_point(emitter->file_builder, emit_exec_model(emitter, info.execution_model), fn_id, exported_name, shd_list_count(emitter->interface_vars),shd_read_list(SpvId, emitter->interface_vars));
             emitter->num_entry_pts++;
 
-            if (emitter->spirv_tgt.features.maximal_reconvergence) {
+            if (emitter->spirv_tgt->features.maximal_reconvergence) {
                 spvb_extension(emitter->file_builder, "SPV_KHR_maximal_reconvergence");
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeMaximallyReconvergesKHR, 0, NULL);
             }
 
-            uint32_t workgroup_size[3];
-            if (shd_get_workgroup_size_for_entry_point(decl, workgroup_size)) {
+            uint32_t workgroup_size[3] = {0, 0, 0};
+
+            if (info.execution_model == ShdExecutionModelMesh) {
+                shd_get_workgroup_size(&info, workgroup_size);
+                assert(workgroup_size[0]);
+                assert(workgroup_size[1]);
+                assert(workgroup_size[2]);
+
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
+
+                uint32_t num_vertices = 0;
+                uint32_t num_triangles = 0;
+
+                shd_get_num_vertices(&info, &num_vertices);
+                shd_get_num_primitives(&info, &num_triangles);
+
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputVertices, 1, &num_vertices);
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputPrimitivesEXT, 1, &num_triangles);
+                spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOutputTrianglesEXT, 0, NULL);
+            } else if (shd_get_workgroup_size(&info, workgroup_size)) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeLocalSize, 3, workgroup_size);
             }
 
-            if (execution_model == ShdExecutionModelFragment) {
+            if (info.execution_model == ShdExecutionModelFragment) {
                 spvb_execution_mode(emitter->file_builder, fn_id, SpvExecutionModeOriginUpperLeft, 0, NULL);
             }
         }
@@ -343,58 +370,41 @@ SpvId spv_get_extended_instruction_set(Emitter* emitter, const char* name) {
 
 #include "shady/pipeline/pipeline.h"
 
-/// Moves all Private allocations to Function
-RewritePass shd_pass_globals_to_locals;
-/// Rewrites globals as kernel parameters
-RewritePass shd_pass_globals_to_params;
-RewritePass shd_spv_lower_entrypoint_args;
-/// Avoids some implementation bugs
-RewritePass shd_spvbe_pass_remove_bda_params;
-/// Makes sure to only use explicit-layout structs where allowed
-RewritePass shd_spvbe_pass_specialize_explicit_layout;
-
-RewritePass shd_pass_mark_leaf_functions;
-RewritePass shd_pass_eliminate_constants;
-RewritePass shd_lower_to_callable_shaders;
-
-/// Adds calls to init and fini arrounds the entry points
-Module* shd_pass_call_init_fini(void*, Module* src);
-
-typedef struct {
-    AddressSpace src_as;
-    AddressSpace dst_as;
-} Global2LocalsPassConfig;
+#include "shady/passes/abi_passes.h"
+#include "shady/passes/opt_passes.h"
+#include "shady/passes/fncall_passes.h"
+#include "spirv_passes.h"
 
 typedef struct {
     const TargetConfig* target;
     const SPVBackendConfig* backend;
 } SPVBackendPipelineOptions;
 
-static CompilationResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_call_init_fini, config)
-    RUN_PASS(shd_pass_globals_to_params, config)
+static ShdResult run_spv_backend_transforms(const SPVBackendPipelineOptions* options, const CompilerConfig* config, Module** pmod) {
+    SHADY_APPLY_REWRITE_PASS(shd_pass_call_init_fini)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_params)
     Global2LocalsPassConfig globals2locals = {
         .src_as = AsPrivate,
         .dst_as = AsFunction,
     };
-    RUN_PASS(shd_pass_globals_to_locals, &globals2locals)
-    RUN_PASS(shd_spv_lower_entrypoint_args, config)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_globals_to_locals, globals2locals)
+    SHADY_APPLY_REWRITE_PASS(shd_spv_lower_entrypoint_args)
     if (options->backend->hacks.avoid_spirv_cross_broken_bda_pointers)
-        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
-    RUN_PASS(shd_pass_eliminate_constants, config)
+        SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_eliminate_constants, true)
 
-    //if (options->target->capabilities.rt_pipelines) {
-    if (options->target->execution_model == ShdExecutionModelRayGeneration) {
+    // TODO: make this a shader lowering pipeline duty
+    if (options->backend->exec_info && options->backend->exec_info->execution_model == ShdExecutionModelRayGeneration) {
         // NVidia drivers are bugged and can't cope with BDA params in ray payloads!
-        RUN_PASS(shd_spvbe_pass_remove_bda_params, config)
-        RUN_PASS(shd_pass_mark_leaf_functions, config)
-        RUN_PASS(shd_lower_to_callable_shaders, config)
+        SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_remove_bda_params)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_mark_leaf_functions)
+        SHADY_APPLY_REWRITE_PASS(shd_lower_to_callable_shaders)
     }
 
-    RUN_PASS(shd_spvbe_pass_specialize_explicit_layout, config)
-    RUN_PASS(shd_pass_import, config)
+    SHADY_APPLY_REWRITE_PASS(shd_spvbe_pass_specialize_explicit_layout)
+    SHADY_APPLY_REWRITE_PASS(shd_import)
 
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
 void shd_pipeline_add_spirv_target_passes(ShdPipeline pipeline, const TargetConfig* target_config, const SPVBackendConfig* backend_config) {
@@ -412,15 +422,15 @@ static const Node* rewrite_normalize(Rewriter* r, const Node* node) {
     }
 }
 
-void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config, Module* mod, size_t* output_size, char** output) {
+void shd_emit_spirv(const CompilerConfig* config, const SPVBackendConfig* target_config, Module* mod, size_t* output_size, char** output) {
     mod = shd_import(config, mod);
     IrArena* arena = shd_module_get_arena(mod);
 
     FileBuilder file_builder = spvb_begin();
-    spvb_set_version(file_builder, target_config.target_version.major, target_config.target_version.minor);
+    spvb_set_version(file_builder, target_config->target_version.major, target_config->target_version.minor);
     spvb_set_addressing_model(file_builder, SpvAddressingModelLogical);
 
-    ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.target);
+    ArenaConfig dummy_arena_config = shd_default_arena_config(&arena->config.rules);
     dummy_arena_config.check_types = false;
     IrArena* dummy_arena = shd_new_ir_arena(&dummy_arena_config);
     Module* dummy_module = shd_new_module(dummy_arena, "dummy");
@@ -432,7 +442,7 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
         .normalizer = &normalizer,
         .arena = arena,
         .configuration = config,
-        .target = &arena->config.target,
+        .exec_info = target_config->exec_info,
         .spirv_tgt = target_config,
         .file_builder = file_builder,
         .global_node_ids = shd_new_dict(Node*, SpvId, (HashFn) shd_hash_node, (CmpFn) shd_compare_node),
@@ -457,6 +467,11 @@ void shd_emit_spirv(const CompilerConfig* config, SPVBackendConfig target_config
         spvb_capability(file_builder, SpvCapabilityLinkage);
 
     spvb_capability(file_builder, SpvCapabilityShader);
+
+    // spvb_extension(file_builder, "SPV_KHR_cooperative_matrix");
+    // spvb_capability(file_builder, SpvCapabilityCooperativeMatrixKHR);
+    // spvb_extension(file_builder, "SPV_KHR_vulkan_memory_model");
+    // spvb_capability(file_builder, SpvCapabilityVulkanMemoryModel);
 
     *output_size = spvb_finish(file_builder, output);
 

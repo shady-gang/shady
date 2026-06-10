@@ -1,4 +1,5 @@
 #include "shady/runtime/vulkan.h"
+#include "shady/driver.h"
 
 #include "portability.h"
 #include "log.h"
@@ -144,7 +145,7 @@ static void register_ext_feature_impl(size_t* len, VkBaseInStructure** features,
     (*len)++;
 }
 
-void shd_rt_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens) {
+void shd_rt_vk_get_device_caps_ext_features(ShadyVkrPhysicalDeviceCaps* caps, size_t* len, VkBaseInStructure** features, size_t* lens) {
     assert(len);
     *len = 0;
 
@@ -201,7 +202,7 @@ static bool fill_device_features(ShadyVkrPhysicalDeviceCaps* caps) {
 
     LARRAY(VkBaseInStructure*, extended_features, SHADY_SUPPORTED_DEVICE_EXTENSIONS_COUNT);
     size_t len;
-    shd_rt_get_device_caps_ext_features(caps, &len, extended_features, NULL);
+    shd_rt_vk_get_device_caps_ext_features(caps, &len, extended_features, NULL);
     for (size_t i = 0; i < len; i++) {
         append_pnext((VkBaseOutStructure*) &caps->features.base, extended_features[i]);
     }
@@ -244,7 +245,7 @@ static bool fill_queue_properties(ShadyVkrPhysicalDeviceCaps* caps) {
 }
 
 /// Considers a given physical device for running on, returns false if it's unusable, otherwise returns a report in out
-bool shd_rt_check_physical_device_suitability(VkPhysicalDevice physical_device, ShadyVkrPhysicalDeviceCaps* out) {
+bool shd_rt_vk_check_physical_device_suitability(VkPhysicalDevice physical_device, ShadyVkrPhysicalDeviceCaps* out) {
     ShadyVkrPhysicalDeviceCaps local_caps;
     ShadyVkrPhysicalDeviceCaps* caps = &local_caps;
     if (out)
@@ -264,4 +265,20 @@ bool shd_rt_check_physical_device_suitability(VkPhysicalDevice physical_device, 
 
     fail:
     return false;
+}
+
+TargetConfig shd_rt_vk_get_device_target_config(const CompilerConfig* compiler_config, const ShadyVkrPhysicalDeviceCaps* caps) {
+    TargetConfig target_config = shd_default_target_config();
+    target_config.arch = TgtSPV;
+    shd_target_configure_defaults_for_arch(&target_config);
+    target_config.subgroup_size = caps->subgroup_size.max;
+#ifdef VK_KHR_shader_maximal_reconvergence
+    target_config.capabilities.maximal_reconvergence = caps->features.maximal_reconvergence_features.shaderMaximalReconvergence;
+    if (!target_config.capabilities.maximal_reconvergence)
+        shd_log_fmt(WARN, "Maximal reconvergence is not supported on this device.\n");
+#else
+    target_config.capabilities.maximal_reconvergence = false;
+    shd_log_fmt(WARN, "Maximal reconvergence is not supported in this build.\n");
+#endif
+    return target_config;
 }

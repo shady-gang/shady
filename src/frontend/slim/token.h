@@ -15,6 +15,7 @@ TOKEN(hex_lit, NULL) \
 TOKEN(string_lit, NULL) \
 TEXT_TOKEN(uniform) \
 TEXT_TOKEN(varying) \
+TEXT_TOKEN(scope) \
 TOKEN(struct, "struct") \
 TEXT_TOKEN(alias) \
 TOKEN(union, "union") \

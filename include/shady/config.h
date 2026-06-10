@@ -15,47 +15,80 @@ typedef enum {
 
 typedef struct {
     ShdIntSize ptr_size;
-    /// The base type for emulated memory
-    ShdIntSize word_size;
-
-    ShdIntSize fn_ptr_size;
-    ShdIntSize exec_mask_size;
-
-    uint64_t max_align;
 
     struct {
         bool physical;
         bool allowed;
     } address_spaces[NumAddressSpaces];
-} MemoryModel;
+} PtrModel;
+
+PtrModel get_full_physical_ptr_model(ShdIntSize ptr_size);
 
 typedef struct {
-    MemoryModel memory;
+    /// The base type for emulated memory
+    ShdIntSize word_size;
+    ShdIntSize fn_ptr_size;
+    /// Minimum alignment
+    uint64_t min_align;
+} MemoryLayoutRules;
 
-    struct {
-        ShdScope constants;
-        ShdScope gang;
-        ShdScope bottom;
-    } scopes;
+typedef struct {
+    ShdScope constants;
+    ShdScope gang;
+    ShdScope bottom;
+} ScopesLattice;
+
+ScopesLattice get_default_scopes_lattice(void);
+
+typedef enum {
+    TgtNone,
+    TgtSPV,
+    TgtC,
+    TgtGLSL,
+    TgtISPC,
+    TgtCUDA,
+} CodegenTarget;
+
+typedef struct {
+    CodegenTarget arch;
+    PtrModel ptr_model;
+
+    ShdIntSize fn_ptr_size;
+    uint32_t subgroup_size;
 
     struct {
         bool native_stack;
         bool native_memcpy;
         bool native_fncalls;
         bool native_tailcalls;
-        bool rt_pipelines;
+        //bool rt_pipelines;
         bool linkage;
         bool maximal_reconvergence;
     } capabilities;
 
-    ShdExecutionModel execution_model;
-    String entry_point;
-    uint32_t subgroup_size;
+    //const ExecutionModelInfo* exec_info;
+    //ShdExecutionModel execution_model;
+    //String entry_point;
 } TargetConfig;
 
 TargetConfig shd_default_target_config(void);
 
-void shd_target_apply_execution_model_restrictions(TargetConfig*);
+/// Changes various fields in the target to be accurate defaults for the target arch
+void shd_target_configure_defaults_for_arch(TargetConfig*);
+
+/// Removes some capabilities in the target according to the chosen execution model
+void shd_target_apply_execution_model_restrictions(TargetConfig*, ShdExecutionModel);
+
+/// Some useful properties of the target machine are enforced at the IR level
+/// But they can also be altered over time, so we decouple these from the actual TargetConfig
+typedef struct {
+    PtrModel ptr;
+    MemoryLayoutRules memory;
+    ScopesLattice scopes;
+    ShdIntSize exec_mask_size;
+} MachineRules;
+
+MachineRules get_machine_rules_from_target_config(const TargetConfig* target);
 
 typedef struct ArenaConfig_ ArenaConfig;
 struct ArenaConfig_ {
@@ -65,11 +98,7 @@ struct ArenaConfig_ {
     bool allow_fold;
     bool validate_builtin_types; // do @Builtins variables need to match their type in builtins.h ?
 
-    struct {
-        uint32_t workgroup_size[3];
-    } specializations;
-
-    TargetConfig target;
+    MachineRules rules;
 
     /// 'folding' optimisations - happen in the constructors directly
     struct {
@@ -82,24 +111,19 @@ struct ArenaConfig_ {
     } optimisations;
 };
 
-ArenaConfig shd_default_arena_config(const TargetConfig* target);
+ArenaConfig shd_default_arena_config(const MachineRules* target);
 const ArenaConfig* shd_get_arena_config(const IrArena* a);
 
 static inline const Type* shd_uword_type(IrArena* a) {
-    return int_type_helper(a, shd_get_arena_config(a)->target.memory.word_size, 0);
+    return int_type_helper(a, shd_get_arena_config(a)->rules.memory.word_size, 0);
 }
 
 static inline const Type* shd_usize_type(IrArena* a) {
-    return int_type_helper(a, shd_get_arena_config(a)->target.memory.ptr_size, 0);
+    return int_type_helper(a, shd_get_arena_config(a)->rules.ptr.ptr_size, 0);
 }
 
 typedef struct CompilerConfig_ CompilerConfig;
 struct CompilerConfig_ {
-    bool dynamic_scheduling;
-    bool use_rt_pipelines_for_calls;
-
-    uint32_t per_thread_stack_size;
-
     struct {
         bool emulate_subgroup_ops;
         bool emulate_subgroup_ops_extended_types;

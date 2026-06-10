@@ -26,6 +26,7 @@ target_sources(shady PRIVATE
     dict.c
     pipeline.c
     cli.c
+    target.c
 )
 
 add_subdirectory(analysis)

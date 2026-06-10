@@ -25,4 +25,8 @@ void shd_visit_ops(Visitor* visitor, NodeClass op_class, String op_name, Nodes o
 void shd_visit_function_rpo(Visitor* visitor, const Node* function);
 void shd_visit_function_bodies_rpo(Visitor* visitor, const Node* function);
 
+void shd_visit_function_cfg_mem_rpo(Visitor* visitor, const Node* function);
+
+void shd_visit_mem_chain_reverse(Visitor* visitor, const Node* abs);
+
 #endif

@@ -7,8 +7,12 @@
 #include "portability.h"
 #include "log.h"
 
+#include "spirv/unified1/spirv.h"
+
 #include <assert.h>
 #include <math.h>
+
+#include "shady/ir/cast.h"
 
 static bool is_zero(const Node* node) {
     const IntLiteral* lit = shd_resolve_to_int_literal(node);
@@ -149,17 +153,24 @@ static inline const Node* fold_simplify_math(const Node* node) {
 }
 
 typedef enum {
-    PtrBitCast = 0x1,
+    PtrPointeeCast = 0x1,
     PtrGenericCast = 0x2,
     PtrScopeCast = 0x4,
     // Cannot generally be re-applied safely (turns into a BitCast), use with caution
     PtrAccessChain = 0x8,
     // Allow seeing past bitcasts that don't start with a pointer value
     //PtrBitCastUnsafe = 0x10,
+    // Allow only "safe" ptr bitcasts: between pointers with elements that are themselves bitcastable
+    PtrSafePointeeCast = 0x20,
+    PtrAddrSpaceCast = 0x40,
 } PtrCasts;
 
-static bool is_ptr(const Node* value) {
-    return shd_get_unqualified_type(value->type)->tag == PtrType_TAG;
+static const Type* is_ptr(const Node* value) {
+    const Type* dt = shd_get_unqualified_type(value->type);
+    if (dt->tag == PtrType_TAG) {
+        return dt;
+    }
+    return NULL;
 }
 
 /**
@@ -178,11 +189,29 @@ static const Node* try_simplify_pointer_casts(const Node* ptr, PtrCasts* casts, 
                 BitCast payload = ptr->payload.bit_cast;
                 //if (!is_ptr(payload.src) & !(allowed_casts & PtrBitCastUnsafe))
                 //    break;
-                if (!(allowed_casts & PtrBitCast))
-                    break;
-                *casts |= PtrBitCast;
-                ptr = payload.src;
-                continue;
+                if (is_ptr(payload.src) && payload.type->tag == PtrType_TAG) {
+                    // disallow address space casts because this logic doesn't account for them properly
+                    if (is_ptr(payload.src)->payload.ptr_type.address_space != payload.type->payload.ptr_type.address_space)
+                        break;
+                    const Type* src_pointee = shd_get_pointer_type_element(shd_get_unqualified_type(payload.src->type));
+                    const Type* dst_pointee = shd_get_pointer_type_element(payload.type);
+                    if (allowed_casts & PtrSafePointeeCast && shd_is_bitcast_legal(src_pointee, dst_pointee)) {
+                        *casts |= PtrPointeeCast;
+                        ptr = payload.src;
+                        continue;
+                    } else if (allowed_casts & PtrPointeeCast) {
+                        *casts |= PtrPointeeCast;
+                        ptr = payload.src;
+                        continue;
+                    }
+                }
+                // no-op round-trip bitcasts are taken care of by regular bitcast rules !
+                break;
+                //if (!(allowed_casts & PtrBitCast))
+                //    break;
+                //*casts |= PtrBitCast;
+                //ptr = payload.src;
+                //continue;
             }
             case ScopeCast_TAG: {
                 ScopeCast payload = ptr->payload.scope_cast;
@@ -194,14 +223,24 @@ static const Node* try_simplify_pointer_casts(const Node* ptr, PtrCasts* casts, 
             }
             case GenericPtrCast_TAG: {
                 GenericPtrCast payload = ptr->payload.generic_ptr_cast;
+                if (!(allowed_casts & PtrGenericCast))
+                    break;
                 *casts |= PtrGenericCast;
+                ptr = payload.src;
+                continue;
+            }
+            case AddrSpaceCast_TAG: {
+                AddrSpaceCast payload = ptr->payload.addr_space_cast;
+                if (!(allowed_casts & PtrAddrSpaceCast))
+                    break;
+                *casts |= PtrAddrSpaceCast;
                 ptr = payload.src;
                 continue;
             }
             case PtrCompositeElement_TAG: {
                 PtrCompositeElement payload = ptr->payload.ptr_composite_element;
                 if (is_zero(payload.index) && allowed_casts & PtrAccessChain) {
-                    *casts |= PtrBitCast;
+                    *casts |= PtrPointeeCast;
                     ptr = payload.ptr;
                     continue;
                 }
@@ -210,7 +249,7 @@ static const Node* try_simplify_pointer_casts(const Node* ptr, PtrCasts* casts, 
             case PtrArrayElementOffset_TAG: {
                 PtrArrayElementOffset payload = ptr->payload.ptr_array_element_offset;
                 if (is_zero(payload.offset) && allowed_casts & PtrAccessChain) {
-                    *casts |= PtrBitCast;
+                    *casts |= PtrPointeeCast;
                     ptr = payload.ptr;
                     continue;
                 }
@@ -240,20 +279,49 @@ static const Type* change_pointee(const Type* old, const Type* pointee) {
     return ptr_type(old->arena, payload);
 }
 
+static const Type* change_as(const Type* old, AddressSpace as) {
+    PtrType payload = old->payload.ptr_type;
+    payload.address_space = as;
+    return ptr_type(old->arena, payload);
+}
+
 static void reapply_ptr_casts(const Node* old, PtrCasts casts, const Node** new) {
     IrArena* arena = old->arena;
     const Type* new_t = shd_get_unqualified_type((*new)->type);
-    const Type* old_t = shd_get_unqualified_type(old->type);
-    assert(new_t->tag == PtrType_TAG && old_t->tag == PtrType_TAG);
+    const Type* desired_ptr_t = shd_get_unqualified_type(old->type);
+    assert(new_t->tag == PtrType_TAG && desired_ptr_t->tag == PtrType_TAG);
 
-    assert(!(casts & PtrAccessChain));
-
-    if (casts & PtrBitCast)
-        *new = bit_cast_helper(arena, change_pointee(shd_get_unqualified_type((*new)->type), shd_get_pointer_type_element(shd_get_unqualified_type(old->type))), *new);
-    if (casts & PtrScopeCast)
+    if (casts & PtrPointeeCast) {
+        const Type* ptr_t = new_t;
+        ptr_t = change_pointee(shd_get_unqualified_type((*new)->type), shd_get_pointer_type_element(desired_ptr_t));
+        // we reapply address space casts
+        // ... except if the cast was to generic
+        //     ... except if there is no generic promotion later in the same chain
+        //         (since you can't promote to generic an already generic ptr - the bitcast had to be responsible for that in such cases)
+        // bool chain_has_private_cast = desired_ptr_t->payload.ptr_type.address_space == AsPrivate && casts & PtrPrivateCast;
+        // bool chain_has_generic_cast = desired_ptr_t->payload.ptr_type.address_space == AsGeneric && casts & PtrGenericCast;
+        // if (!chain_has_private_cast && !chain_has_generic_cast)
+        //     ptr_t = change_as(ptr_t, desired_ptr_t->payload.ptr_type.address_space);
+        *new = bit_cast_helper(arena, ptr_t, *new);
+        casts &= ~PtrPointeeCast;
+    }
+    if (casts & PtrScopeCast) {
         *new = scope_cast_helper(arena, shd_get_qualified_type_scope(old->type), *new);
-    if (casts & PtrGenericCast)
+        casts ^= PtrScopeCast;
+    }
+    if (casts & PtrAddrSpaceCast) {
+        // If the chain includes a generic cast, don't actually rebuild this one
+        if (!(casts & PtrGenericCast)) {
+            *new = addr_space_cast_helper(arena, *new, desired_ptr_t->payload.ptr_type.address_space);
+        }
+        casts ^= PtrAddrSpaceCast;
+    }
+    if (casts & PtrGenericCast) {
         *new = generic_ptr_cast_helper(arena, *new);
+        casts ^= PtrGenericCast;
+    }
+
+    assert(!casts && "some casts could not be reapplied");
 }
 
 static const Node* to_ptr_size(const Node* n) {
@@ -269,6 +337,9 @@ static const Node* to_ptr_size(const Node* n) {
 static uint64_t get_ptr_array_stride(const Type* ptr_type) {
     IrArena* arena = ptr_type->arena;
     const Type* new_pointee = shd_get_pointer_type_element(ptr_type);
+    if (new_pointee->tag == ArrType_TAG && !new_pointee->payload.arr_type.size) {
+        new_pointee = new_pointee->payload.arr_type.element_type;
+    }
     TypeMemLayout pointee_layout = shd_get_mem_layout(arena, new_pointee);
     return pointee_layout.size_in_bytes;
 }
@@ -287,7 +358,7 @@ static const Node* try_enter_composite(const Node* composite_ptr) {
     return NULL;
 }
 
-// canonical pointer chain: x ... [ element cast ] [ scope cast ] [ generic cast ]
+// canonical pointer chain: x ... [ BitCast ] [ ScopeCast ] [ PrivatePtrCast | GenericCast ]
 // generally, we want to push pointer arithmetic left and put the casts on the right
 // the canonical order of the casts allow avoiding infinite folding loops
 static inline const Node* fold_simplify_memory_ops(const Node* node) {
@@ -298,9 +369,14 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             BitCast payload = node->payload.bit_cast;
             if (!is_ptr(payload.src) || !is_ptr(node)) break;
             PtrCasts changes = 0;
-            payload.src = try_simplify_pointer_casts(payload.src, &changes, /*PtrBitCastUnsafe | */PtrScopeCast | PtrGenericCast);
+            payload.src = try_simplify_pointer_casts(payload.src, &changes, /*PtrBitCastUnsafe | */PtrScopeCast | PtrGenericCast | PtrAddrSpaceCast);
             if (!changes) break;
-            payload.type = change_pointee(shd_get_unqualified_type(payload.src->type), shd_get_pointer_type_element(payload.type));
+
+            const Type* ptr_t = shd_get_unqualified_type(payload.src->type);
+            const Type* desired_ptr_t = payload.type;
+            ptr_t = change_pointee(ptr_t, shd_get_pointer_type_element(desired_ptr_t));
+            payload.type = ptr_t;
+
             r = bit_cast(arena, payload);
             reapply_ptr_casts(node, changes, &r);
             break;
@@ -315,23 +391,66 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             reapply_ptr_casts(node, changes, &r);
             break;
         }
-        // GenericPtrCast: since it gets normalized at the end of the chain, we never touch it.
+        // GenericPtrCast: since it gets normalized at the end of the chain, we never touch it, except for PrivatePtrCast because they're subsumed by it
+        case GenericPtrCast_TAG: {
+            GenericPtrCast payload = node->payload.generic_ptr_cast;
+            if (!is_ptr(payload.src)) break;
+            PtrCasts changes = 0;
+            payload.src = try_simplify_pointer_casts(payload.src, &changes, PtrAddrSpaceCast);
+            if (!changes) break;
+            r = generic_ptr_cast(arena, payload);
+            break;
+        }
+        // PrivatePtrCast: also gets normalized at the end of chains so nothing to do
         case Load_TAG: {
             Load payload = node->payload.load;
             PtrCasts changes = 0;
             // allow demoting accesses to generic (result will be the same)
-            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast);
-            if (!changes) break;
-            r = load(arena, payload);
+            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrScopeCast | PtrSafePointeeCast | PtrAddrSpaceCast);
+            if (changes) {
+                r = load(arena, payload);
+                const Node* mem = r;
+                const Type* expected_type = node->type;
+                ShdScope expected_scope = shd_deconstruct_qualified_type(&expected_type);
+                if (changes & PtrPointeeCast)
+                    r = bit_cast_helper(arena, expected_type, r);
+                if (changes & PtrScopeCast)
+                    r = scope_cast_helper(arena, expected_scope, r);
+                if (!is_mem(r))
+                    r = mem_and_value_helper(arena, mem, r);
+            }
             break;
         }
         case Store_TAG: {
             Store payload = node->payload.store;
             PtrCasts changes = 0;
             // allow demoting stores to generic and to demote pseudo-uniform writes into varying
-            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrScopeCast);
-            if (!changes) break;
-            r = store(arena, payload);
+            payload.ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrGenericCast | PtrSafePointeeCast | PtrScopeCast | PtrAddrSpaceCast);
+            if (changes) {
+                if (changes & PtrPointeeCast) {
+                    payload.value = bit_cast_helper(arena, shd_get_pointer_type_element(shd_get_unqualified_type(payload.ptr->type)), payload.value);
+                }
+                r = store(arena, payload);
+            }
+            break;
+        }
+        case ExtInstr_TAG: {
+            ExtInstr payload = node->payload.ext_instr;
+            const Node* def = payload.def;
+            if (strcmp(def->payload.ext_op_def.set, "spirv.core") == 0) {
+                if (def->payload.ext_op_def.opcode == SpvOpGenericCastToPtr) {
+                    PtrCasts changes = 0;
+                    const Node* src = try_simplify_pointer_casts(shd_first(payload.arguments), &changes, PtrGenericCast);
+                    if (!changes) break;
+                    r = mem_and_value_helper(arena, payload.mem, src);
+                } else if (def->payload.ext_op_def.opcode == SpvOpCooperativeMatrixLoadKHR || def->payload.ext_op_def.opcode == SpvOpCooperativeMatrixStoreKHR) {
+                    PtrCasts changes = 0;
+                    const Node* src = try_simplify_pointer_casts(shd_first(payload.arguments), &changes, PtrPointeeCast);
+                    if (!changes) break;
+                    payload.arguments = shd_change_node_at_index(arena, payload.arguments, 0, src);
+                    r = ext_instr(arena, payload);
+                }
+            }
             break;
         }
         case CopyBytes_TAG: {
@@ -356,9 +475,10 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             if (known_count) {
                 uint64_t count = shd_get_int_literal_value(*known_count, false);
 
-                // since byte-level copies are inherently unphysical, we chase the pointers as far as we possibly can
-                const Node* src = try_simplify_pointer(payload.src, PtrBitCast | PtrScopeCast | PtrGenericCast | PtrAccessChain);
-                const Node* dst = try_simplify_pointer(payload.dst, PtrBitCast | PtrScopeCast | PtrGenericCast | PtrAccessChain);
+                // The idea with this is to trace back all pointer casts to (hopefully) a logical pointer, and then explore the first member
+                // of composites in the hope of finding one that matches the copied size exactly
+                const Node* src = try_simplify_pointer(payload.src, PtrPointeeCast | PtrScopeCast | PtrGenericCast | PtrAccessChain | PtrAddrSpaceCast);
+                const Node* dst = try_simplify_pointer(payload.dst, PtrPointeeCast | PtrScopeCast | PtrGenericCast | PtrAccessChain | PtrAddrSpaceCast);
 
                 const Node* valid_src = NULL;
                 const Type* src_type = NULL;
@@ -405,8 +525,8 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
 
 
             PtrCasts src_changes = 0, dst_changes = 0;
-            payload.src = try_simplify_pointer_casts(payload.src, &src_changes, PtrBitCast | PtrScopeCast | PtrGenericCast);
-            payload.dst = try_simplify_pointer_casts(payload.dst, &dst_changes, PtrBitCast | PtrScopeCast | PtrGenericCast);
+            payload.src = try_simplify_pointer_casts(payload.src, &src_changes, PtrPointeeCast | PtrScopeCast | PtrGenericCast);
+            payload.dst = try_simplify_pointer_casts(payload.dst, &dst_changes, PtrPointeeCast | PtrScopeCast | PtrGenericCast);
             if (src_changes || dst_changes) {
                 return copy_bytes(arena, payload);
             }
@@ -419,11 +539,22 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             PtrCompositeElement payload = node->payload.ptr_composite_element;
             PtrCasts changes = 0;
             // we can't allow pointee changes or we break the op
-            const Node* nptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrScopeCast | PtrGenericCast);
-            if (!changes) break;
-            payload.ptr = nptr;
-            r = ptr_composite_element(arena, payload);
-            reapply_ptr_casts(node, changes, &r);
+            const Node* nptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrScopeCast | PtrGenericCast | PtrAddrSpaceCast);
+            if (changes) {
+                payload.ptr = nptr;
+                r = ptr_composite_element(arena, payload);
+                reapply_ptr_casts(node, changes, &r);
+            }
+
+            // PtrCompositeElement(PtrArrayElementOffset(x, o), i) => PtrCompositeElement(x, o + i)
+            if (payload.ptr->tag == PtrArrayElementOffset_TAG) {
+                PtrArrayElementOffset other_offset = payload.ptr->payload.ptr_array_element_offset;
+                payload.ptr = other_offset.ptr;
+                payload.index = prim_op_helper(arena, add_op, mk_nodes(arena, to_ptr_size(other_offset.offset), to_ptr_size(payload.index)));
+                r = ptr_composite_element(arena, payload);
+                reapply_ptr_casts(node, changes, &r);
+                break;
+            }
             break;
         }
         case PtrArrayElementOffset_TAG: {
@@ -432,7 +563,7 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
                 return payload.ptr;
             PtrCasts changes = 0;
             // we can't allow pointee changes or we break the op
-            const Node* nptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrScopeCast | PtrGenericCast);
+            const Node* nptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrScopeCast | PtrGenericCast | PtrAddrSpaceCast);
             if (changes) {
                 payload.ptr = nptr;
                 r = ptr_array_element_offset(arena, payload);
@@ -441,7 +572,7 @@ static inline const Node* fold_simplify_memory_ops(const Node* node) {
             }
 
             changes = 0;
-            const Node* raw_ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrBitCast | PtrScopeCast | PtrGenericCast | PtrAccessChain);
+            const Node* raw_ptr = try_simplify_pointer_casts(payload.ptr, &changes, PtrPointeeCast | PtrScopeCast | PtrGenericCast | PtrAccessChain | PtrAddrSpaceCast);
 
             const IntLiteral* known_offset = shd_resolve_to_int_literal(payload.offset);
             uint64_t old_stride = get_ptr_array_stride(shd_get_unqualified_type(payload.ptr->type));
@@ -665,10 +796,41 @@ static bool is_unreachable_destination(const Node* j) {
     return b->tag == Unreachable_TAG;
 }
 
+static const Node* fold_constant_composite_ops(IrArena* arena, const Node* node) {
+    switch (node->tag) {
+        case Extract_TAG: {
+            Extract payload = node->payload.extract;
+            if (payload.selector->tag == IntLiteral_TAG) {
+                size_t idx = shd_get_int_literal_value(payload.selector->payload.int_literal, false);
+                if (payload.composite->tag == Composite_TAG) {
+                    Composite composite = payload.composite->payload.composite;
+                    return composite.contents.nodes[idx];
+                }
+            }
+            break;
+        }
+        case Insert_TAG: {
+            Insert payload = node->payload.insert;
+            if (payload.selector->tag == IntLiteral_TAG) {
+                size_t idx = shd_get_int_literal_value(payload.selector->payload.int_literal, false);
+                if (payload.composite->tag == Composite_TAG) {
+                    Composite composite = payload.composite->payload.composite;
+                    Nodes new_contents = shd_change_node_at_index(arena, composite.contents, idx, payload.replacement);
+                    return composite_helper(arena, composite.type, new_contents);
+                }
+            }
+            break;
+        }
+        default: break;
+    }
+    return node;
+}
+
 const Node* _shd_fold_node(IrArena* arena, const Node* node) {
     const Node* const original_node = node;
     node = fold_memory_poison(arena, node);
     node = fold_simplify_memory_ops(node);
+    node = fold_constant_composite_ops(arena, node);
     switch (node->tag) {
         case PrimOp_TAG: node = fold_prim_op(arena, node); break;
         case PtrArrayElementOffset_TAG: {
@@ -699,23 +861,26 @@ const Node* _shd_fold_node(IrArena* arena, const Node* node) {
             // get rid of identity casts
             if (shd_get_unqualified_type(payload.src->type) == payload.type)
                 return payload.src;
+            const Type* src_type = payload.src->type;
+            shd_deconstruct_qualified_type(&src_type);
+            if (src_type->tag == PtrType_TAG && payload.type->tag == PtrType_TAG) {
+                if (src_type->payload.ptr_type.address_space == payload.type->payload.ptr_type.address_space) {
+                    const Type* src_elem_type = src_type->payload.ptr_type.pointed_type;
+                    const Type* dst_elem_type = payload.type->payload.ptr_type.pointed_type;
+                    if (src_elem_type->tag == ArrType_TAG) {
+                        src_elem_type = src_elem_type->payload.arr_type.element_type;
+                        if (src_elem_type == dst_elem_type) {
+                            return ptr_composite_element_helper(arena, payload.src, shd_uint32_literal(arena, 0));
+                        }
+                    }
+                }
+            }
+
             switch (payload.src->tag) {
                 case Undef_TAG: return undef_helper(arena, payload.type);
                 // reinterpret[A](reinterpret[B](x)) => reinterpret[A](x)
                 case BitCast_TAG: return bit_cast_helper(arena, payload.type, payload.src->payload.bit_cast.src);
                 default: break;
-            }
-            // Canonize typical LLVM output
-            if (payload.type->tag == PtrType_TAG && shd_get_unqualified_type(payload.src->type)->tag == PtrType_TAG && arena->config.optimisations.weaken_bitcast_to_lea) {
-                const Node* ptr = payload.src;
-                const Type* dst_type = shd_get_pointer_type_element(shd_get_unqualified_type(node->type));
-                while (ptr) {
-                    const Type* src_type = shd_get_pointer_type_element(shd_get_unqualified_type(ptr->type));
-                    if (src_type == dst_type) {
-                        return ptr;
-                    }
-                    ptr = try_enter_composite(ptr);
-                }
             }
             const FloatLiteral* float_lit = shd_resolve_to_float_literal(payload.src);
             const IntLiteral* int_lit = shd_resolve_to_int_literal(payload.src);

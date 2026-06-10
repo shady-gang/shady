@@ -1,4 +1,5 @@
-#include "shady/pass.h"
+#include "shady/passes/group_passes.h"
+
 #include "shady/ir/annotation.h"
 #include "shady/ir/cast.h"
 #include "shady/ir/memory_layout.h"
@@ -80,7 +81,7 @@ static bool is_supported_natively(Context* ctx, SHADY_UNUSED SubgroupOp op, cons
     }
 
     // these wind up as no-ops
-    if (element_type->tag == PtrType_TAG && element_type->payload.ptr_type.is_reference)
+    if (element_type->tag == PtrType_TAG && !shd_is_physical_ptr_type(element_type))
         return true;
 
     return false;
@@ -119,7 +120,7 @@ static const Node* rebuild_op_deconstruct(Context* ctx, BodyBuilder* bb, const T
             break;
         }
         case Type_PtrType_TAG: {
-            if (t->payload.ptr_type.is_reference)
+            if (!shd_is_physical_ptr_type(t))
                 break;
             param = shd_bld_bitcast(bb, shd_uint64_type(a), param);
             return shd_bld_bitcast(bb, t, rebuild_op_deconstruct(ctx, bb, shd_uint64_type(a), op, param));
@@ -163,7 +164,7 @@ static const Node* rebuild_op(Context* ctx, BodyBuilder* bb, SubgroupOp op, cons
     if (found)
         fn = *found;
     else {
-        const Node* src_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->target.scopes.bottom, src_t));
+        const Node* src_param = param_helper(a, qualified_type_helper(a, shd_get_arena_config(a)->rules.scopes.bottom, src_t));
         shd_set_debug_name(src_param, "src");
         fn = function_helper(m, shd_singleton(src_param), shd_singleton(qualified_type_helper(a, ShdScopeSubgroup, src_t)));
         shd_set_debug_name(fn, shd_fmt_string_irarena(a, "%s_%d_%s", op.iset, op.opcode, shd_get_type_name(a, src_t)));
@@ -188,12 +189,12 @@ static const Node* process(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp opcode = payload.op->payload.ext_spv_op;
-            if (strcmp(opcode.set, "spirv.core") == 0 && opcode.opcode == SpvOpGroupNonUniformBroadcastFirst) {
+            ExtOpDef def = payload.def->payload.ext_op_def;
+            if (strcmp(def.set, "spirv.core") == 0 && def.opcode == SpvOpGroupNonUniformBroadcastFirst) {
                 BodyBuilder* bb = shd_bld_begin(a, shd_rewrite_node(r, payload.mem));
                 SubgroupOp op = {
-                    .iset = opcode.set,
-                    .opcode = opcode.opcode,
+                    .iset = def.set,
+                    .opcode = def.opcode,
                     .params = shd_singleton(shd_rewrite_node(r, payload.arguments.nodes[0])),
                 };
                 return shd_bld_to_instr_yield_values(bb, shd_singleton(
@@ -216,7 +217,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* shd_pass_lower_subgroup_ops(const CompilerConfig* config, SHADY_UNUSED const void* unused, Module* src) {
+Module* shd_pass_lower_subgroup_ops(const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));

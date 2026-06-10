@@ -139,7 +139,14 @@
       "name": "mem"
     },
     {
-      "name": "ext_op"
+      "name": "ext_op_def"
+    },
+    {
+      "name": "ext_op",
+      "ops": [
+        { "name": "def", "class": "ext_op_def" },
+        { "name": "arguments", "class": "none", "list": true }
+      ]
     },
     {
       "name": "access",
@@ -198,7 +205,8 @@
       "recursive": true,
       "ops": [
         { "name": "flags", "type": "ShdStructFlags" },
-        { "name": "members", "class": "type", "list": true, "ignore": true }
+        { "name": "members", "class": "type", "list": true, "ignore": true },
+        { "name": "member_builtins", "class": "string", "list": true, "ignore": true }
       ]
     },
     {
@@ -241,8 +249,7 @@
       "class": "type",
       "ops": [
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "pointed_type", "class": "type" },
-        { "name": "is_reference", "type": "bool" }
+        { "name": "pointed_type", "class": "type" }
       ]
     },
     {
@@ -463,6 +470,15 @@
       "description": "Promotes a pointer into the generic address space",
       "ops": [
         { "name": "src", "class": "value" }
+      ]
+    },
+    {
+      "name": "AddrSpaceCast",
+      "class": ["value", "instruction"],
+      "description": "Changes the address space",
+      "ops": [
+        { "name": "src", "class": "value" },
+        { "name": "dst", "type": "AddressSpace" }
       ]
     },
     {
@@ -688,7 +704,6 @@
       "ops": [
         { "name": "type", "class": "type" },
         { "name": "address_space", "type": "AddressSpace" },
-        { "name": "is_ref", "type": "bool" },
         { "name": "init", "class": "value", "nullable": true, "tail": true }
       ]
     },
@@ -696,6 +711,7 @@
       "name": "Annotation",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" }
       ]
@@ -704,6 +720,7 @@
       "name": "AnnotationId",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "id", "class": "none" }
@@ -713,6 +730,7 @@
       "name": "AnnotationValue",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "value", "class": "value" }
@@ -722,6 +740,7 @@
       "name": "AnnotationValues",
       "class": "annotation",
       "type": false,
+      "nominal": true,
       "ops": [
         { "name": "name", "class": "string" },
         { "name": "values", "class": "value", "list": true }
@@ -750,45 +769,45 @@
     {
       "name": "ExtValue",
       "description": "Unknown value-producing operation without side effects",
-      "class": "value",
+      "class": ["value", "ext_op"],
       "ops": [
-        { "name": "op", "class": "ext_op" },
+        { "name": "def", "class": "ext_op_def" },
         { "name": "arguments", "class": "value", "list": true }
       ]
     },
     {
       "name": "ExtInstr",
       "description": "Unknown instruction with side effects",
-      "class": ["mem", "value", "instruction"],
+      "class": ["mem", "value", "instruction", "ext_op"],
       "ops": [
         { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "op", "class": "ext_op" },
+        { "name": "def", "class": "ext_op_def" },
         { "name": "arguments", "class": "value", "list": true }
       ]
     },
     {
       "name": "ExtTerminator",
       "description": "Unknown instruction with side effects",
-      "class": "terminator",
+      "class": ["terminator", "ext_op"],
       "ops": [
         { "name": "mem", "class": "mem", "nullable": true },
-        { "name": "op", "class": "ext_op" },
+        { "name": "def", "class": "ext_op_def" },
         { "name": "arguments", "class": "none", "list": true }
       ]
     },
     {
       "name": "ExtType",
       "type": false,
-      "class": "type",
+      "class": ["type", "ext_op"],
       "ops": [
-        { "name": "op", "class": "ext_op" },
+        { "name": "def", "class": "ext_op_def" },
         { "name": "arguments", "class": "none", "list": true }
       ]
     },
     {
-      "name": "ExtSpvOp",
+      "name": "ExtOpDef",
       "type": false,
-      "class": "ext_op",
+      "class": "ext_op_def",
       "ops": [
         { "name": "set", "class": "string" },
         { "name": "opcode", "type": "uint32_t" },

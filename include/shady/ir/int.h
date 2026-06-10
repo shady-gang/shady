@@ -13,6 +13,15 @@ static inline int int_size_in_bytes(ShdIntSize s) {
     }
 }
 
+static inline int int_size_from_bytes(int s) {
+    switch (s) {
+        case 1: return ShdIntSize8;
+        case 2: return ShdIntSize16;
+        case 4: return ShdIntSize32;
+        case 8: return ShdIntSize64;
+    }
+}
+
 const Type* shd_int_type_helper(IrArena* a, bool s, ShdIntSize w);
 
 const Type* shd_int8_type(IrArena* arena);

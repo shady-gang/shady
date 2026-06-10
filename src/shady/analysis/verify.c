@@ -86,7 +86,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             if (n->payload.constant.value) {
                 const Type* t = n->payload.constant.value->type;
                 ShdScope s = shd_deconstruct_qualified_type(&t);
-                assert(s == shd_get_arena_config(n->arena)->target.scopes.constants);
+                assert(s == shd_get_arena_config(n->arena)->rules.scopes.constants);
                 assert(shd_is_subtype(n->payload.constant.type_hint, t));
             }
             break;
@@ -95,7 +95,7 @@ static void verify_nominal_node(const Node* fn, const Node* n) {
             if (n->payload.global_variable.init) {
                 const Type* t = n->payload.global_variable.init->type;
                 ShdScope s = shd_deconstruct_qualified_type(&t);
-                assert(s == shd_get_arena_config(n->arena)->target.scopes.constants);
+                assert(s == shd_get_arena_config(n->arena)->rules.scopes.constants);
                 assert(shd_is_subtype(n->payload.global_variable.type, t));
             }
             break;

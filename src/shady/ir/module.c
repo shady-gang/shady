@@ -126,10 +126,33 @@ void shd_module_add_export(Module* m, String name, const Node* node) {
     assert(def_inserted_ok);
 }
 
+bool shd_module_remove_export(Module* module, const Node* node) {
+    assert(shd_lookup_annotation(node, "Exported"));
+    String extern_name = shd_get_exported_name(node);
+    bool removed = shd_dict_remove(String, module->decls, extern_name);
+    shd_remove_annotation_by_name(node, "Exported");
+    return removed;
+}
+
 const Node* shd_module_get_exported(const Module* m, String name) {
     const Node** found = shd_dict_find_value(String, const Node*, m->decls, name);
     if (found) return *found;
     return NULL;
+}
+
+const Node* shd_module_get_single_entry_point(Module* m) {
+    Nodes funs = shd_module_collect_reachable_functions(m);
+    const Node* the = NULL;
+    for (size_t i = 0; i < funs.count; i++) {
+        const Node* fun = funs.nodes[i];
+        const Node* epa = shd_lookup_annotation(fun, "EntryPoint");
+        if (!epa)
+            continue;
+        assert(!the);
+        the = fun;
+    }
+    assert(the);
+    return the;
 }
 
 static Node* make_init_fini_fn(Module* m, String name) {

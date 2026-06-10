@@ -193,14 +193,6 @@
       ]
     },
     {
-      "name": "StackAlloc",
-      "class": ["instruction", "value", "mem"],
-      "ops": [
-        { "name": "mem", "class": "mem" },
-        { "name": "type", "class": "type" }
-      ]
-    },
-    {
       "name": "LocalAlloc",
       "class": ["instruction", "value", "mem"],
       "ops": [

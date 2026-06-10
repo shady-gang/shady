@@ -1,12 +1,11 @@
+#include "slim_passes.h"
 #include "SlimFrontendOps.h"
 
-#include "shady/pass.h"
 #include "shady/fe/slim.h"
 #include "shady/ir/debug.h"
 #include "shady/analysis/uses.h"
 
-#include "../shady/ir_private.h"
-
+#include "arena.h"
 #include "list.h"
 #include "log.h"
 #include "portability.h"
@@ -26,6 +25,7 @@ typedef struct {
     Rewriter rewriter;
     const UsesMap* uses;
 
+    Arena* arena;
     NamedBindEntry* local_variables;
 } Context;
 
@@ -84,7 +84,7 @@ static Resolved resolve_using_name(Context* ctx, const char* name) {
 
 static void add_binding(Context* ctx, bool is_var, String name, const Node* node) {
     assert(name);
-    NamedBindEntry* entry = shd_arena_alloc(ctx->rewriter.dst_arena->arena, sizeof(NamedBindEntry));
+    NamedBindEntry* entry = shd_arena_alloc(ctx->arena, sizeof(NamedBindEntry));
     *entry = (NamedBindEntry) {
         .name = shd_string(ctx->rewriter.dst_arena, name),
         .is_var = is_var,
@@ -103,7 +103,7 @@ static const Node* get_node_address_maybe(Context* ctx, const Node* node) {
     switch (node->tag) {
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             if (strcmp(op.set, "shady.frontend") == 0) {
                 if (op.opcode == SlimFrontendOpsSlimSubscriptSHADY) {
                     assert(payload.arguments.count == 2);
@@ -149,7 +149,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
     IrArena* a = r->dst_arena;
     BodyBuilder* bb = instr.mem ? shd_bld_begin(a, shd_rewrite_node(r, instr.mem)) : shd_bld_begin_pure(a);
 
-    ExtSpvOp op = instr.op->payload.ext_spv_op;
+    ExtOpDef op = instr.def->payload.ext_op_def;
     switch (op.opcode) {
         case SlimFrontendOpsSlimBindValSHADY: {
             size_t names_count = instr.arguments.count - 1;
@@ -173,10 +173,10 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 String name = shd_get_string_literal(a, names[i]);
                 const Type* type_annotation = types[i];
                 assert(type_annotation);
-                const Node* alloca = stack_alloc(a, (StackAlloc) { .type = shd_rewrite_node(&ctx->rewriter, type_annotation), .mem = shd_bld_mem(bb) });
-                const Node* ptr = shd_bld_add_instruction(bb, alloca);
+                const Node* ptr = shd_bld_local_alloc(bb, shd_rewrite_node(&ctx->rewriter, type_annotation));
+                ptr = addr_space_cast_helper(a, ptr, AsPrivate);
                 shd_set_debug_name(ptr, name);
-                shd_bld_add_instruction(bb, store(a, (Store) { .ptr = ptr, .value = results.nodes[0], .mem = shd_bld_mem(bb) }));
+                shd_bld_store(bb, ptr, results.nodes[0]);
 
                 add_binding(ctx, true, name, ptr);
                 shd_log_fmt(DEBUGV, "Bound mutable variable '%s'\n", name);
@@ -209,6 +209,7 @@ static const Node* desugar_bind_identifiers(Context* ctx, ExtInstr instr) {
                 }
                 shd_set_abstraction_body(bbs[i], shd_rewrite_node(&cont_ctx.rewriter, get_abstraction_body(conts[i])));
             }
+            break;
         }
     }
 
@@ -221,7 +222,7 @@ static bool is_used_as_value(Context* ctx, const Node* node) {
         if (use->operand_class != NcMem) {
             if (use->user->tag == ExtInstr_TAG) {
                 ExtInstr instr = use->user->payload.ext_instr;
-                ExtSpvOp op = instr.op->payload.ext_spv_op;
+                ExtOpDef op = instr.def->payload.ext_op_def;
                 if (use->user->tag == ExtInstr_TAG && strcmp(op.set, "shady.frontend") == 0) {
                     if (op.opcode == SlimFrontendOpsSlimAssignSHADY && use->operand_index == 0)
                         continue;
@@ -294,7 +295,7 @@ static const Node* bind_node(Context* ctx, const Node* node) {
         }
         case ExtInstr_TAG: {
             ExtInstr payload = node->payload.ext_instr;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             if (strcmp("shady.frontend", op.set) == 0) {
                 switch ((enum SlimFrontendOpsInstructions) op.opcode) {
                     case SlimFrontendOpsSlimDereferenceSHADY:
@@ -351,15 +352,17 @@ static const Node* bind_node(Context* ctx, const Node* node) {
     return shd_recreate_node(&ctx->rewriter, node);
 }
 
-Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    assert(!src->arena->config.name_bound);
+    assert(!shd_get_arena_config(shd_module_get_arena(src))->name_bound);
     aconfig.name_bound = true;
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
 
     Context ctx = {
         .rewriter = shd_create_node_rewriter(src, dst, (RewriteNodeFn) bind_node),
+        .arena = shd_new_arena(),
+
         .local_variables = NULL,
         .uses = shd_new_uses_map_module(src, 0),
     };
@@ -367,5 +370,6 @@ Module* slim_pass_bind(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED v
     shd_rewrite_module(&ctx.rewriter);
     shd_destroy_rewriter(&ctx.rewriter);
     shd_destroy_uses_map(ctx.uses);
+    shd_destroy_arena(ctx.arena);
     return dst;
 }

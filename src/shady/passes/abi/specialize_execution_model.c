@@ -10,9 +10,11 @@ typedef struct {
     Rewriter rewriter;
 } Context;
 
-static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* config, ShdExecutionModel* em, Module* src) {
+SHADY_DECLARE_REWRITE_PASS_STATIC(specialize_execution_model, ShdExecutionModel)
+
+static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* config, Module* src, ShdExecutionModel em) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
-    aconfig.target.execution_model = *em;
+    aconfig.target.execution_model = em;
     shd_target_apply_execution_model_restrictions(&aconfig.target);
 
     IrArena* a = shd_new_ir_arena(&aconfig);
@@ -28,7 +30,7 @@ static Module* specialize_execution_model(SHADY_UNUSED const CompilerConfig* con
 }
 
 static CompilationResult specialize_execution_model_f(ShdExecutionModel* em, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(specialize_execution_model, em);
+    SHADY_APPLY_REWRITE_PASS(specialize_execution_model, *em);
     return CompilationNoError;
 }
 

@@ -30,13 +30,13 @@ void shd_destroy_pipeline(ShdPipeline pipeline) {
 }
 
 /// Runs a given pipeline on a module
-CompilationResult shd_pipeline_run(ShdPipeline pipeline, CompilerConfig* config, Module** pmod) {
+ShdResult shd_pipeline_run(ShdPipeline pipeline, const CompilerConfig* config, Module** pmod) {
     struct Step* s = pipeline->step;
     while (s) {
         s->fn(s->payload, config, pmod);
         s = s->next;
     }
-    return CompilationNoError;
+    return SHD_SUCCESS;
 }
 
 void shd_pipeline_add_step(ShdPipeline pipeline, ShdPipelineStepFn fn, void* payload, size_t payload_size) {

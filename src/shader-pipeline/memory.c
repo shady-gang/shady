@@ -1,49 +1,58 @@
 #include "shader_pipeline.h"
 
-/// Implements stack frames: collects allocas into a struct placed on the stack upon function entry
-RewritePass shd_pass_lower_alloca;
-/// Turns stack pushes and pops into accesses into pointer load and stores
-RewritePass shd_pass_lower_stack_access;
-/// Eliminates lea_op on all physical address spaces
-RewritePass shd_pass_lower_lea;
-/// Emulates generic pointers by replacing them with tagged integers and special load/store routines that look at those tags
-RewritePass shd_pass_lower_generic_ptrs;
-/// Emulates physical pointers to certain address spaces by using integer indices into global arrays
-RewritePass shd_pass_lower_physical_memory;
-/// Replaces size_of, offset_of etc with their exact values
-RewritePass shd_pass_lower_memory_layout;
-RewritePass shd_pass_lower_memcpy;
-/// Eliminates pointers to unsized arrays from the IR. Needs lower_lea to have ran shd_first!
-RewritePass shd_pass_lower_decay_ptrs;
-RewritePass shd_pass_lower_logical_pointers;
-RewritePass shd_pass_promote_io_variables;
+#include "shady/passes/mem_passes.h"
+#include "shady/passes/ptr_passes.h"
+#include "shady/passes/stack_passes.h"
+#include "shady/passes/io_passes.h"
+#include "shady/passes/group_passes.h"
 
-/// Lowers subgroup logical variables into something that actually exists (likely a carved out portion of shared memory)
-RewritePass shd_pass_lower_subgroup_vars;
+typedef struct {
+    const TargetConfig* target_config;
+    const ShaderLoweringConfig* lowering_config;
+    uint32_t subgroups_per_wg;
+} S;
 
-static void lower_memory(TargetConfig* target, const CompilerConfig* config, Module** pmod) {
-    RUN_PASS(shd_pass_promote_io_variables, config)
-    RUN_PASS(shd_pass_lower_logical_pointers, config)
+static void lower_memory(const S* s, const CompilerConfig* config, Module** pmod) {
+    const TargetConfig* target = s->target_config;
+    ShdExecutionModel em = ShdExecutionModelNone;
+    if (s->lowering_config->exec_model_info)
+        em = s->lowering_config->exec_model_info->execution_model;
+
+    SHADY_APPLY_REWRITE_PASS(shd_pass_promote_io_variables)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_logical_pointers)
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_addrspace, AsFunction, AsPrivate)
 
     if (!target->capabilities.native_memcpy) {
-        RUN_PASS(shd_pass_lower_memcpy, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memcpy)
     }
 
     if (!target->capabilities.native_stack) {
-        RUN_PASS(shd_pass_lower_alloca, config)
-        RUN_PASS(shd_pass_lower_stack_access, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_alloca)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_stack_access, s->lowering_config->per_thread_stack_size)
     }
-    RUN_PASS(shd_pass_lower_lea, target)
-    if (!target->memory.address_spaces[AsGeneric].allowed) {
-        RUN_PASS(shd_pass_lower_generic_ptrs, config)
+    //SHADY_APPLY_REWRITE_PASS(shd_pass_lower_lea, &target->ptr_model)
+    if (!target->ptr_model.address_spaces[AsGeneric].allowed) {
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_generic_ptrs)
     }
-    RUN_PASS(shd_pass_lower_physical_memory, target)
-    RUN_PASS(shd_pass_lower_subgroup_vars, config)
-    RUN_PASS(shd_pass_lower_memory_layout, config)
+
+    PtrModel ptr_model = target->ptr_model;
+    ptr_model.address_spaces[AsCode].physical = true;
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_physical_memory, &ptr_model, em)
+    if (s->lowering_config->exec_model_info && shd_is_execution_model_workgroup_based(s->lowering_config->exec_model_info->execution_model)) {
+        uint32_t subgroups_per_wg = 1;
+        shd_get_num_subgroups_per_workgroups(s->lowering_config->exec_model_info, target->subgroup_size, &subgroups_per_wg);
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_subgroup_vars, s->subgroups_per_wg)
+    }
+    SHADY_APPLY_REWRITE_PASS(shd_pass_lower_memory_layout)
     if (config->lower.decay_ptrs)
-        RUN_PASS(shd_pass_lower_decay_ptrs, config)
+        SHADY_APPLY_REWRITE_PASS(shd_pass_lower_decay_ptrs)
 }
 
-void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, TargetConfig tgt) {
-    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, &tgt, sizeof(tgt));
+void shd_pipeline_add_memory_lowering(ShdPipeline pipeline, const ShaderLoweringConfig* lowering_config, const TargetConfig* target_config, uint32_t subgroups_per_wg) {
+    S s = {
+        .lowering_config = lowering_config,
+        .target_config = target_config,
+        .subgroups_per_wg = subgroups_per_wg,
+    };
+    shd_pipeline_add_step(pipeline, (ShdPipelineStepFn) lower_memory, (void*) &s, sizeof(S));
 }

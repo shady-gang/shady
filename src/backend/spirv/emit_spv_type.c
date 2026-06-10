@@ -71,6 +71,7 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
     if (shd_node_set_find(emitter->types_with_layouts, type))
         return;
     shd_node_set_insert(emitter->types_with_layouts, type);
+    const ArenaConfig* aconfig = shd_get_arena_config(emitter->arena);
     switch (type->tag) {
         case StructType_TAG: {
             StructType payload = type->payload.struct_type;
@@ -80,6 +81,33 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
             for (size_t i = 0; i < member_types.count; i++) {
                 spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationOffset, 1, (uint32_t[]) { fields[i].offset_in_bytes });
             }
+
+            Strings *member_builtins = &type->payload.struct_type.member_builtins;
+            for (size_t i = 0; i < member_builtins->count; i++) {
+                const String annotation = member_builtins->strings[i];
+                if (strcmp(annotation, "Position") == 0) {
+                    uint32_t builtin = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PointSize") == 0) {
+                    uint32_t builtin = 1;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PrimitiveId") == 0) {
+                    uint32_t builtin = 7;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "Layer") == 0) {
+                    uint32_t builtin = 9;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "ViewportIndex") == 0) {
+                    uint32_t builtin = 10;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "CullPrimitive") == 0) {
+                    uint32_t builtin = 5299;
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate_member(emitter->file_builder, id, i, SpvDecorationPerPrimitiveEXT, 0, NULL);
+                }
+            }
+
             break;
         }
         case ArrType_TAG: {
@@ -89,7 +117,7 @@ static void spv_emit_type_layout(Emitter* emitter, const Type* type, SpvId id) {
         }
         case PtrType_TAG: {
             PtrType payload = type->payload.ptr_type;
-            if (emitter->target->memory.address_spaces[payload.address_space].physical) {
+            if (aconfig->rules.ptr.address_spaces[payload.address_space].physical) {
                 TypeMemLayout elem_mem_layout = shd_get_mem_layout(emitter->arena, shd_get_pointer_type_element(type));
                 if (elem_mem_layout.size_in_bytes > 0)
                     spvb_decorate(emitter->file_builder, id, SpvDecorationArrayStride, 1, (uint32_t[]) { elem_mem_layout.size_in_bytes });
@@ -216,6 +244,33 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
                 spvb_decorate(emitter->file_builder, new, SpvDecorationBlock, 0, NULL);
             if (payload.flags & ShdStructFlagExplicitLayout)
                 spv_emit_type_layout(emitter, type, new);
+
+            Strings *member_builtins = &type->payload.struct_type.member_builtins;
+            for (size_t i = 0; i < member_builtins->count; i++) {
+                const String annotation = member_builtins->strings[i];
+                if (strcmp(annotation, "Position") == 0) {
+                    uint32_t builtin = 0; //BuiltInPosition
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PointSize") == 0) {
+                    uint32_t builtin = 1;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PrimitiveId") == 0) {
+                    uint32_t builtin = 7;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "Layer") == 0) {
+                    uint32_t builtin = 9;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "ViewportIndex") == 0) {
+                    uint32_t builtin = 10;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "CullPrimitive") == 0) {
+                    uint32_t builtin = 5299;
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationBuiltIn, 1, &builtin);
+                } else if (strcmp(annotation, "PerPrimitiveEXT") == 0) {
+                    spvb_decorate_member(emitter->file_builder, new, i, SpvDecorationPerPrimitiveEXT, 0, NULL);
+                }
+            }
+
             return new;
         }
         case TupleType_TAG: {
@@ -231,17 +286,10 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
             spvb_struct_type(emitter->file_builder, new, payload.members.count, members);
             break;
         }
-        case Type_SampledImageType_TAG: new = spvb_sampled_image_type(emitter->file_builder, spv_emit_type(emitter, type->payload.sampled_image_type.image_type)); break;
-        case Type_SamplerType_TAG: new = spvb_sampler_type(emitter->file_builder); break;
-        case Type_ImageType_TAG: {
-            ImageType p = type->payload.image_type;
-            new = spvb_image_type(emitter->file_builder, spv_emit_type(emitter, p.sampled_type), p.dim, p.depth, p.arrayed, p.ms, p.sampled, p.imageformat);
-            break;
-        }
         case Type_JoinPointType_TAG: shd_error("These must be lowered beforehand")
         case Type_ExtType_TAG: {
             ExtType payload = type->payload.ext_type;
-            ExtSpvOp op = payload.op->payload.ext_spv_op;
+            ExtOpDef op = payload.def->payload.ext_op_def;
             assert(op.has_result && !op.result_t);
             if (strcmp(op.set, "spirv.core") == 0) {
                 uint32_t* emitted_ops;
@@ -268,12 +316,12 @@ SpvId spv_emit_type(Emitter* emitter, const Type* type) {
     return new;
 }
 
-size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtSpvOp op, Nodes arguments, uint32_t** out_ops) {
-    size_t pattern_size = op.ops_pattern.count;
+size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtOpDef def, Nodes arguments, uint32_t** out_ops) {
+    size_t pattern_size = def.ops_pattern.count;
     uint32_t* alloc = calloc(sizeof(uint32_t), pattern_size);
     size_t j = 0;
     for (size_t i = 0; i < pattern_size; i++) {
-        const Node* pattern_item = op.ops_pattern.nodes[i];
+        const Node* pattern_item = def.ops_pattern.nodes[i];
         if (pattern_item) {
             switch (pattern_item->tag) {
                 case IntLiteral_TAG: {
@@ -284,7 +332,11 @@ size_t shd_emit_ops_with_pattern(Emitter* emitter, ExtSpvOp op, Nodes arguments,
             }
         } else {
             assert(j < arguments.count);
-            alloc[i] = spv_emit_type(emitter, arguments.nodes[j++]);
+            const Node* op = arguments.nodes[j++];
+            if (is_type(op))
+                alloc[i] = spv_emit_type(emitter, op);
+            else
+                alloc[i] = spv_emit_value(emitter, NULL, op);
             continue;
         }
     }

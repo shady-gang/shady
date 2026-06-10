@@ -1,9 +1,9 @@
-#include <shady/ir/composite.h>
+#include "spirv_passes.h"
 
 #include "shady/pass.h"
 #include "shady/ir/memory_layout.h"
 #include "shady/ir/decl.h"
-#include "shady/ir/annotation.h"
+#include "shady/ir/composite.h"
 #include "shady/ir/function.h"
 
 #include "portability.h"
@@ -17,14 +17,14 @@ typedef struct {
 static Nodes rewrite_args(Context* ctx, const Nodes old) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    const TargetConfig* target = &shd_get_arena_config(a)->target;
+    const PtrModel* ptr_model = &shd_get_arena_config(a)->rules.ptr;
     LARRAY(const Node*, arr, old.count);
     for (size_t i = 0; i < old.count; i++) {
         const Node* new = shd_rewrite_node(r, old.nodes[i]);
         const Type* t = old.nodes[i]->type;
         shd_deconstruct_qualified_type(&t);
         if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-            new = bit_cast_helper(a, int_type_helper(a, target->memory.ptr_size, false), new);
+            new = bit_cast_helper(a, int_type_helper(a, ptr_model->ptr_size, false), new);
         }
         arr[i] = new;
     }
@@ -58,7 +58,7 @@ static const Node* rewrite_result(Context* ctx, const Node* oldcall, const Node*
 static const Node* process(Context* ctx, const Node* node) {
     Rewriter* r = &ctx->rewriter;
     IrArena* a = r->dst_arena;
-    const TargetConfig* target = &shd_get_arena_config(a)->target;
+    const PtrModel* ptr_model = &shd_get_arena_config(a)->rules.ptr;
 
     switch (node->tag) {
         case Function_TAG: {
@@ -68,7 +68,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 const Type* t = payload.params.nodes[i]->type;
                 ShdScope s = shd_deconstruct_qualified_type(&t);
                 if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-                    const Node* param = param_helper(a, qualified_type_helper(a, s, int_type_helper(a, target->memory.ptr_size, false)));
+                    const Node* param = param_helper(a, qualified_type_helper(a, s, int_type_helper(a, ptr_model->ptr_size, false)));
                     const Node* reinterpreted = bit_cast_helper(a, t, param);
                     payload.params = shd_change_node_at_index(a, payload.params, i, param);
                     shd_register_processed(r, get_abstraction_params(node).nodes[i], reinterpreted);
@@ -81,7 +81,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ShdScope s = shd_deconstruct_qualified_type(&t);
                 const Type* npt = NULL;
                 if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-                    npt = qualified_type_helper(a, s, int_type_helper(a, target->memory.ptr_size, false));
+                    npt = qualified_type_helper(a, s, int_type_helper(a, ptr_model->ptr_size, false));
                     payload.return_types = shd_change_node_at_index(a, payload.return_types, i, npt);
                 }
             }
@@ -105,7 +105,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ShdScope s = shd_deconstruct_qualified_type(&t);
                 const Type* npt = NULL;
                 if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-                    npt = qualified_type_helper(a, s, int_type_helper(a, target->memory.ptr_size, false));
+                    npt = qualified_type_helper(a, s, int_type_helper(a, ptr_model->ptr_size, false));
                 } else {
                     npt = shd_rewrite_node(r, payload.param_types.nodes[i]);
                 }
@@ -116,7 +116,7 @@ static const Node* process(Context* ctx, const Node* node) {
                 ShdScope s = shd_deconstruct_qualified_type(&t);
                 const Type* npt = NULL;
                 if (t->tag == PtrType_TAG && t->payload.ptr_type.address_space == AsGlobal) {
-                    npt = qualified_type_helper(a, s, int_type_helper(a, target->memory.ptr_size, false));
+                    npt = qualified_type_helper(a, s, int_type_helper(a, ptr_model->ptr_size, false));
                 } else {
                     npt = shd_rewrite_node(r, payload.return_types.nodes[i]);
                 }
@@ -154,7 +154,7 @@ static const Node* process(Context* ctx, const Node* node) {
     return shd_recreate_node(r, node);
 }
 
-Module* shd_spvbe_pass_remove_bda_params(SHADY_UNUSED const CompilerConfig* config, SHADY_UNUSED void* unused, Module* src) {
+Module* shd_spvbe_pass_remove_bda_params(SHADY_UNUSED const CompilerConfig* config, Module* src) {
     ArenaConfig aconfig = *shd_get_arena_config(shd_module_get_arena(src));
     IrArena* a = shd_new_ir_arena(&aconfig);
     Module* dst = shd_new_module(a, shd_module_get_name(src));
