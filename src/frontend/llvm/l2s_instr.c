@@ -156,7 +156,14 @@ const Node* l2s_convert_instruction(Parser* p, FnParseCtx* fn_ctx, Node* fn_or_b
                     .args = num_ops == 0 ? shd_empty(a) : convert_operands(p, num_ops, instr),
                     .mem = shd_bld_mem(b),
                 });
-        case LLVMBr: {
+#if LLVM_VERSION_MAJOR >= 23
+        // LLVM 23 split LLVMBr into LLVMUncondBr (70) and LLVMCondBr (71).
+        case LLVMCondBr:
+        case LLVMUncondBr:
+#else
+        case LLVMBr:
+#endif
+        {
             unsigned n_targets = LLVMGetNumSuccessors(instr);
             LARRAY(LLVMBasicBlockRef, targets, n_targets);
             for (size_t i = 0; i < n_targets; i++)
